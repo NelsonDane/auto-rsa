@@ -1,0 +1,9 @@
+selenium
+python-dotenv
+webdriver-manager
+apprise
+pyally
+robin_stocks
+schwab-api
+webull
+requests
