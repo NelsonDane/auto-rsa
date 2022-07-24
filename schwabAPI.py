@@ -38,6 +38,12 @@ def schwab_transaction(schwab, action, stock, amount, price, time, DRY):
     print("Schwab")
     print("==============================")
     print()
+    # Get correct capitalization for action
+    if action.lower() == "buy":
+        action = "Buy"
+    elif action.lower() == "sell":
+        action = "Sell"
+    stock = stock.upper()
     # Buy on each account
     for account in list(schwab.get_account_info().keys()):
         print(f"Schwab Account: {account}")

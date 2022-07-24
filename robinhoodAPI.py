@@ -27,14 +27,16 @@ def robinhood_transaction(rh, action, stock, amount, price, time, DRY):
     print("Robinhood")
     print("==============================")
     print()
+    action = action.lower()
+    stock = stock.upper()
     if not DRY:
         try:
             # Buy Market order
-            if action.lower == "buy":
+            if action == "buy":
                 rh.order_buy_market(stock, amount)
                 print(f"Bought {amount} of {stock} on Robinhood")
             # Sell Market order
-            elif action.lower == "sell":
+            elif action == "sell":
                 rh.order_sell_market(stock, amount)
                 print(f"Sold {amount} of {stock} on Robinhood")
             else:

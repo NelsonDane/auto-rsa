@@ -2,6 +2,7 @@ selenium
 python-dotenv
 webdriver-manager
 apprise
+discord.py
 pyally
 robin_stocks
 schwab-api

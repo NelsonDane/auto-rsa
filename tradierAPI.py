@@ -44,11 +44,13 @@ def tradier_transaction(tradier, action, stock, amount, price, time, DRY):
     print("Tradier")
     print("==============================")
     print()
+    action = action.lower()
+    stock = stock.upper()
     BEARER = os.environ["TRADIER_ACCESS_TOKEN"]
     for account_number in tradier:
         if not DRY:
             response = requests.post(f'https://api.tradier.com/v1/accounts/{account_number}/orders',
-            data={'class': 'equity', 'symbol': stock, 'side': action.lower(), 'quantity': amount, 'type': 'market', 'duration': 'day'},
+            data={'class': 'equity', 'symbol': stock, 'side': action, 'quantity': amount, 'type': 'market', 'duration': 'day'},
             headers={'Authorization': f'Bearer {BEARER}', 'Accept': 'application/json'}
             )
             json_response = response.json()

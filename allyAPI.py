@@ -40,6 +40,8 @@ def ally_transaction(a, action, stock, amount, price, time, DRY):
     print("Ally")
     print("==============================")
     print()
+    action = action.lower()
+    stock = stock.upper()
     try:
         # # Initialize Ally account
         # a = ally.Ally()
