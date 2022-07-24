@@ -13,7 +13,8 @@ def webull_init():
     # Import Webull account
     if not os.environ["WEBULL_USERNAME"] or not os.environ["WEBULL_PASSWORD"]:
         print("Error: Missing Webull credentials")
-        sys.exit(1)
+        #sys.exit(1)
+        return None
     WEBULL_USERNAME = os.environ["WEBULL_USERNAME"]
     WEBULL_PASSWORD = os.environ["WEBULL_PASSWORD"]
     # Log in to Webull account
@@ -23,7 +24,8 @@ def webull_init():
         wb.login(WEBULL_USERNAME, WEBULL_PASSWORD)
     except Exception as e:
         print(f'Error logging in to Webull: {e}')
-        sys.exit(1)
+        #sys.exit(1)
+        return None
     print("Logged in to Webull!")
     return wb
 
@@ -38,7 +40,8 @@ def webull_transaction(webull, action, stock, amount, price, time, DRY):
     # Get the trade PIN
     if not os.environ["WEBULL_TRADE_PIN"]:
         print("Error: Missing Webull trade PIN")
-        sys.exit(1)
+        #sys.exit(1)
+        return None
     WEBULL_TRADE_PIN = os.environ["WEBULL_TRADE_PIN"]
     webull.get_trade_token(WEBULL_TRADE_PIN)
     if amount == 1 and action == "BUY":
@@ -54,7 +57,8 @@ def webull_transaction(webull, action, stock, amount, price, time, DRY):
                 print(f"Bought {amount} of {stock} on Webull")
             except Exception as e:
                 print(f'Error buying 100 shares of {stock} order on Webull: {e}')
-                sys.exit(1)
+                #sys.exit(1)
+                return None
             # Sell 99 shares
             sleep(5)
             try:
@@ -62,7 +66,8 @@ def webull_transaction(webull, action, stock, amount, price, time, DRY):
                 print(f"Sold 99 shares of {stock} on Webull")
             except Exception as e:
                 print(f'Error selling 99 shares of {stock} order on Webull: {e}')
-                sys.exit(1)
+                #sys.exit(1)
+                return None
         try:
             # Buy Market order
             if action == "BUY":
@@ -74,10 +79,12 @@ def webull_transaction(webull, action, stock, amount, price, time, DRY):
                 print(f"Sold {amount} of {stock} on Webull")
             else:
                 print("Error: Invalid action")
-                sys.exit(1)
+                #sys.exit(1)
+                return None
         except Exception as e:
             print(f'Error submitting order on Webull: {e}')
             #sys.exit(1)
+            return None
     else:
         if buy100:
             print(f"Running in DRY mode. Trasaction would've been: Buy 100 of {stock} on Webull, then Sell 99 of {stock} on Webull")

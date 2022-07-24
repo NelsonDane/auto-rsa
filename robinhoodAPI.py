@@ -12,7 +12,8 @@ def robinhood_init():
     # Import Robinhood account
     if not os.environ["ROBINHOOD_USERNAME"] or not os.environ["ROBINHOOD_PASSWORD"]:
         print("Error: Missing Robinhood credentials")
-        sys.exit(1)
+        #sys.exit(1)
+        return None
     RH_USERNAME = os.environ["ROBINHOOD_USERNAME"]
     RH_PASSWORD = os.environ["ROBINHOOD_PASSWORD"]
     # Log in to Robinhood account
@@ -29,6 +30,10 @@ def robinhood_transaction(rh, action, stock, amount, price, time, DRY):
     print()
     action = action.lower()
     stock = stock.upper()
+    # Make sure init didn't return None
+    if rh is None:
+        print("Error: No Robinhood account")
+        return None
     if not DRY:
         try:
             # Buy Market order
@@ -41,7 +46,8 @@ def robinhood_transaction(rh, action, stock, amount, price, time, DRY):
                 print(f"Sold {amount} of {stock} on Robinhood")
             else:
                 print("Error: Invalid action")
-                sys.exit(1)
+                #sys.exit(1)
+                return None
         except Exception as e:
             print(f'Error submitting order on Robinhood: {e}')
             #sys.exit(1)

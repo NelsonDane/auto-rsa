@@ -26,7 +26,13 @@ if len(sys.argv) > 1:
     wanted_time = "day" # Only supports day for now
     wanted_price = "market" # Only supports market for now
     # Check if DRY mode is enabled
-    if sys.argv[4].lower() == "dry" and sys.argv[4].lower() not in brokerages:
+    print(sys.argv[4])
+    #sleep(100)
+    # if sys.argv[4].lower() == "dry" and not (sys.argv[4].lower() in brokerages):
+    #     print("here")
+    # sleep(100)
+    if (sys.argv[4].lower()) == "dry" and not (sys.argv[4].lower() in brokerages):
+        print("here")
         DRY = True
         single_broker = "all"
     elif sys.argv[4].lower() in brokerages:
@@ -34,8 +40,8 @@ if len(sys.argv) > 1:
     if len(sys.argv) > 5:
         if sys.argv[5].lower() == "dry":
             DRY = True
-    else:
-        DRY = False
+        else:
+            DRY = False
     print(f"Action: {wanted_action}")
     print(f"Amount: {wanted_amount}")
     print(f"Stock: {wanted_stock}")
@@ -44,6 +50,7 @@ if len(sys.argv) > 1:
     print(f"DRY: {DRY}")
     print(f"Broker: {single_broker}")
 
+sleep(100)
 # Initialize .env file
 load_dotenv()
 
@@ -62,7 +69,9 @@ if len(sys.argv) == 1 and not DISCORD:
 if DISCORD:
     # Discord bot command prefix
     bot = commands.Bot(command_prefix='!')
+    print()
     print('Discord bot is started...')
+    print()
 
 # Bot ping-pong
 if DISCORD:
