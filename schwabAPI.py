@@ -14,22 +14,19 @@ def schwab_init():
     # Import Schwab account
     if not os.environ["SCHWAB_USERNAME"] or not os.environ["SCHWAB_PASSWORD"] or not os.environ["SCHWAB_TOTP_SECRET"]:
         print("Error: Missing Schwab credentials")
-        #sys.exit(1)
         return None
     SCHWAB_USERNAME = os.environ["SCHWAB_USERNAME"]
     SCHWAB_PASSWORD = os.environ["SCHWAB_PASSWORD"]
     SCHWAB_TOTP_SECRET = os.environ["SCHWAB_TOTP_SECRET"]
     # Log in to Schwab account
     print("Logging in to Schwab...")
-    schwab = Schwab()
     try:
+        schwab = Schwab()
         schwab.login(username=SCHWAB_USERNAME, password=SCHWAB_PASSWORD, totp_secret=SCHWAB_TOTP_SECRET)
+        account_info = schwab.get_account_info()
     except Exception as e:
         print(f'Error logging in to Schwab: {e}')
-        #sys.exit(1)
         return None
-    account_info = schwab.get_account_info()
-    #pprint.pprint(account_info)
     print(f"The following Schwab accounts were found: {list(account_info.keys())}")
     print("Logged in to Schwab!")
     return schwab
@@ -69,7 +66,6 @@ def schwab_transaction(schwab, action, stock, amount, price, time, DRY):
                 pprint.pprint(messages)
             except Exception as e:
                 print(f'Error submitting order on Schwab: {e}')
-                #sys.exit(1)
                 return None
         # If DRY is False, make the transaction
         else:
@@ -86,7 +82,6 @@ def schwab_transaction(schwab, action, stock, amount, price, time, DRY):
                 pprint.pprint(messages)
             except Exception as e:
                 print(f'Error submitting order on Schwab account {account}: {e}')
-                #sys.exit(1)
                 return None
         sleep(1)
         print()
