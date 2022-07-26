@@ -1,13 +1,14 @@
 # Nelson Dane
-# NOT CURRENTLY WORKING
 
 # Build from alpine to keep the image small
-FROM alpine:latest
+FROM ubuntu:22.04
 # Set default timezone
 ENV TZ=America/New_York
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Install python, pip, and tzdata
-RUN apk add --no-cache py3-pip tzdata
+RUN apt-get update && apt-get install python3-pip tzdata -y
+#RUN python3 -m playwright install -y
 
 # Grab needed files
 WORKDIR /app

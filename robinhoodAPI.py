@@ -4,6 +4,7 @@
 import os
 import sys
 import robin_stocks.robinhood as rh
+import pyotp
 from dotenv import load_dotenv
 
 def robinhood_init():
@@ -12,13 +13,25 @@ def robinhood_init():
     # Import Robinhood account
     if not os.environ["ROBINHOOD_USERNAME"] or not os.environ["ROBINHOOD_PASSWORD"]:
         print("Error: Missing Robinhood credentials")
-        #sys.exit(1)
         return None
     RH_USERNAME = os.environ["ROBINHOOD_USERNAME"]
     RH_PASSWORD = os.environ["ROBINHOOD_PASSWORD"]
+    if os.environ["ROBINHOOD_TOTP"]:
+        RH_TOTP = os.environ["ROBINHOOD_TOTP"]
+        totp = pyotp.TOTP(RH_TOTP).now()
+    else:
+        totp = None
     # Log in to Robinhood account
     print("Logging in to Robinhood...")
-    rh.login(RH_USERNAME, RH_PASSWORD)
+    try:
+        if not totp:
+            rh.login(RH_USERNAME, RH_PASSWORD)
+        else:
+            print("Using Robinhood TOTP")
+            rh.login(RH_USERNAME, RH_PASSWORD, mfa_code=totp)
+    except Exception as e:
+        print(f"Error: Unable to log in to Robinhood: {e}")
+        return None
     print("Logged in to Robinhood!")
     return rh
 
