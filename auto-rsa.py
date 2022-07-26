@@ -92,7 +92,7 @@ if single_broker == "all":
     #print()
     robinhood = robinhood_init()
     print()
-    #schwab = schwab_init()
+    schwab = schwab_init()
     print()
     webull_account = webull_init()
     print()
@@ -108,7 +108,7 @@ elif single_broker == "robinhood" or single_broker == "rh":
     robinhood = robinhood_init()
     print()
 elif single_broker == "schwab":
-    #schwab = schwab_init()
+    schwab = schwab_init()
     print()
 elif single_broker == "webull" or single_broker == "wb":
     webull_account = webull_init()
@@ -145,7 +145,7 @@ def place_order(wanted_action, wanted_amount, wanted_stock, single_broker, DRY):
             # Robinhood
             robinhood_transaction(robinhood, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY)
             # Schwab
-            #schwab_transaction(schwab, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY)
+            schwab_transaction(schwab, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY)
             # Webull
             webull_transaction(webull_account, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY)
             # Tradier
@@ -162,8 +162,8 @@ def place_order(wanted_action, wanted_amount, wanted_stock, single_broker, DRY):
             robinhood_transaction(robinhood, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY)
         elif single_broker == "schwab":
             # Schwab
-            print("bruh")
-            #schwab_transaction(schwab, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY)
+            #print("bruh")
+            schwab_transaction(schwab, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY)
         elif single_broker == "webull" or single_broker == "wb":
             # Webull
             webull_transaction(webull_account, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY)

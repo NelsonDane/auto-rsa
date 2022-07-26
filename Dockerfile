@@ -8,15 +8,18 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Install python, pip, and tzdata
 RUN apt-get update && apt-get install python3-pip tzdata -y
-#RUN python3 -m playwright install -y
 
-# Grab needed files
+# CD into app and grab requirements
 WORKDIR /app
 COPY ./requirements.txt .
 
 # Install dependencies (Fails here: requires playwright for Schwab)
 RUN pip install -r requirements.txt
+# Install playwright for Schwab
+RUN playwright install
+RUN playwright install-deps
 
+# Grab needed files
 COPY ./auto-rsa.py .
 COPY ./allyAPI.py .
 COPY ./fidelityAPI.py .
@@ -26,4 +29,3 @@ COPY ./tradierAPI.py .
 COPY ./webullAPI.py .
 
 CMD ["python3","auto-rsa.py"]
-
