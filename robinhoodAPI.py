@@ -59,10 +59,8 @@ def robinhood_transaction(rh, action, stock, amount, price, time, DRY):
                 print(f"Sold {amount} of {stock} on Robinhood")
             else:
                 print("Error: Invalid action")
-                #sys.exit(1)
                 return None
         except Exception as e:
             print(f'Error submitting order on Robinhood: {e}')
-            #sys.exit(1)
     else:
         print(f"Running in DRY mode. Trasaction would've been: {action} {amount} of {stock} on Robinhood")

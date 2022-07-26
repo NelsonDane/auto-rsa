@@ -13,7 +13,6 @@ def tradier_init():
     # Import Tradier account
     if not os.environ["TRADIER_ACCESS_TOKEN"]:
         print("Error: Missing Tradier Access Token")
-        #sys.exit(1)
         return None
     # Get access token
     BEARER = os.environ["TRADIER_ACCESS_TOKEN"]
@@ -29,7 +28,6 @@ def tradier_init():
             raise Exception("Error: Tradier API returned None")
     except Exception as e:
         print(f'Error logging in to Tradier: {e}')
-        #sys.exit(1)
         return None
     # Print number of accounts found
     print(f"Tradier accounts found: {len(json_response['profile']['account'])}")
@@ -68,7 +66,6 @@ def tradier_transaction(tradier, action, stock, amount, price, time, DRY):
                 print(f"{action} {amount} of {stock} on Tradier account {account_number}")
             else:
                 print(f"Error: {json_response['order']['status']}")
-                #sys.exit(1)
                 return None
         else:
             print(f"Running in DRY mode. Trasaction would've been: {action} {amount} of {stock} on Tradier account {account_number}")

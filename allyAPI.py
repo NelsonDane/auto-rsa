@@ -13,7 +13,6 @@ def ally_init():
     # Import Ally account
     if not os.environ["ALLY_CONSUMER_KEY"] or not os.environ["ALLY_CONSUMER_SECRET"] or not os.environ["ALLY_OAUTH_TOKEN"] or not os.environ["ALLY_OAUTH_SECRET"] or not os.environ["ALLY_ACCOUNT_NBR"]:
         print("Error: Missing Ally credentials")
-        #sys.exit(1)
         return None
     ALLY_CONSUMER_KEY = os.environ["ALLY_CONSUMER_KEY"]
     ALLY_CONSUMER_SECRET = os.environ["ALLY_CONSUMER_SECRET"]
@@ -31,7 +30,6 @@ def ally_init():
     except Exception as e:
         print(f'Error logging in to Ally: {e}')
         return None
-        #sys.exit(1)
     print("Logged in to Ally!")
     return a
 
@@ -49,8 +47,6 @@ def ally_transaction(a, action, stock, amount, price, time, DRY):
         print("Error: No Ally account")
         return None
     try:
-        # # Initialize Ally account
-        # a = ally.Ally()
         # Create order
         o = ally.Order.Order(
             buysell = action,
@@ -73,4 +69,3 @@ def ally_transaction(a, action, stock, amount, price, time, DRY):
             print(f"Order {o.orderid} not submitted on Ally")
     except Exception as e:
         print(f'Error submitting order on Ally: {e}')
-        #sys.exit(1)
