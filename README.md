@@ -5,7 +5,7 @@ A CLI tool and discord bot to buy the same amount of stocks in multiple accounts
 ### Docker
 View on [Docker Hub](#) (Coming soon...)
 1. Clone the repo and cd into it
-2. Create a `.env` file for your settings
+2. Create a `.env` file for your brokerage variables, and add your bot token using `DISCORD_TOKEN`
 3. Build the image with `docker build -t rsa .`
 4. Just run `docker run --env-file ./.env -it --restart unless-stopped --name rsa rsa`
 5. The bot should appear online (You can also do `!ping`. Once bot is working, just enter CTRL-p then CTRL-q to exit gracefully, letting the bot run in the background. See below for command explanation
@@ -14,7 +14,7 @@ View on [Docker Hub](#) (Coming soon...)
 Make sure python3-pip is installed
 1. Clone this repository and cd into it
 2. Run `pip install -r requirements.txt`
-3. Add the desired settings to your `.env` file
+3. Add your bot token to your `.env` file using `DISCORD_TOKEN`
 4. Run 'python auto-rsa.py` (See below for command explanation)
 
 ## CLI Tool Installation
