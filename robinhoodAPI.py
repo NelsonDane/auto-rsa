@@ -2,7 +2,6 @@
 # Robinhood API
 
 import os
-import sys
 import robin_stocks.robinhood as rh
 import pyotp
 from dotenv import load_dotenv
@@ -35,7 +34,7 @@ def robinhood_init():
     print("Logged in to Robinhood!")
     return rh
 
-def robinhood_transaction(rh, action, stock, amount, price, time, DRY=True):
+async def robinhood_transaction(rh, action, stock, amount, price, time, DRY=True, ctx=None):
     print()
     print("==============================")
     print("Robinhood")
@@ -43,6 +42,7 @@ def robinhood_transaction(rh, action, stock, amount, price, time, DRY=True):
     print()
     action = action.lower()
     stock = stock.upper()
+    amount = int(amount)
     # Make sure init didn't return None
     if rh is None:
         print("Error: No Robinhood account")
@@ -53,14 +53,22 @@ def robinhood_transaction(rh, action, stock, amount, price, time, DRY=True):
             if action == "buy":
                 rh.order_buy_market(stock, amount)
                 print(f"Bought {amount} of {stock} on Robinhood")
+                if ctx:
+                    await ctx.send(f"Bought {amount} of {stock} on Robinhood")
             # Sell Market order
             elif action == "sell":
                 rh.order_sell_market(stock, amount)
                 print(f"Sold {amount} of {stock} on Robinhood")
+                if ctx:
+                    await ctx.send(f"Sold {amount} of {stock} on Robinhood")
             else:
                 print("Error: Invalid action")
                 return None
         except Exception as e:
             print(f'Error submitting order on Robinhood: {e}')
+            if ctx:
+                await ctx.send(f'Error submitting order on Robinhood: {e}')
     else:
         print(f"Running in DRY mode. Trasaction would've been: {action} {amount} of {stock} on Robinhood")
+        if ctx:
+            await ctx.send(f"Running in DRY mode. Trasaction would've been: {action} {amount} of {stock} on Robinhood")

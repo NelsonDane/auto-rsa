@@ -27,7 +27,7 @@ def webull_init():
     print("Logged in to Webull!")
     return wb
 
-def webull_transaction(webull, action, stock, amount, price, time, DRY=True):
+async def webull_transaction(webull, action, stock, amount, price, time, DRY=True, ctx=None):
     print()
     print("==============================")
     print("Webull")
@@ -35,6 +35,7 @@ def webull_transaction(webull, action, stock, amount, price, time, DRY=True):
     print()
     action = action.upper()
     stock = stock.upper()
+    amount = int(amount)
     # Get the trade PIN
     if not os.environ["WEBULL_TRADE_PIN"]:
         print("Error: Missing Webull trade PIN")
@@ -52,34 +53,52 @@ def webull_transaction(webull, action, stock, amount, price, time, DRY=True):
             try:
                 webull.place_order(stock=stock, action="BUY", quant=100)
                 print(f"Bought {amount} of {stock} on Webull")
+                if ctx:
+                    await ctx.send(f"Bought {amount} of {stock} on Webull")
             except Exception as e:
                 print(f'Error buying 100 shares of {stock} order on Webull: {e}')
+                if ctx:
+                    await ctx.send(f'Error buying 100 shares of {stock} order on Webull: {e}')
                 return None
             # Sell 99 shares
             sleep(5)
             try:
                 webull.place_order(stock=stock, action="SELL", quant=99)
                 print(f"Sold 99 shares of {stock} on Webull")
+                if ctx:
+                    await ctx.send(f"Sold 99 shares of {stock} on Webull")
             except Exception as e:
                 print(f'Error selling 99 shares of {stock} order on Webull: {e}')
+                if ctx:
+                    await ctx.send(f'Error selling 99 shares of {stock} order on Webull: {e}')
                 return None
         try:
             # Buy Market order
             if action == "BUY":
                 webull.place_order(stock=stock, action=action.upper(), quant=amount)
                 print(f"Bought {amount} of {stock} on Webull")
+                if ctx:
+                    await ctx.send(f"Bought {amount} of {stock} on Webull")
             # Sell Market order
             elif action == "SELL":
                 webull.place_order(stock=stock, action=action.upper(), quant=amount)
                 print(f"Sold {amount} of {stock} on Webull")
+                if ctx:
+                    await ctx.send(f"Sold {amount} of {stock} on Webull")
             else:
                 print("Error: Invalid action")
                 return None
         except Exception as e:
             print(f'Error submitting order on Webull: {e}')
+            if ctx:
+                await ctx.send(f'Error submitting order on Webull: {e}')
             return None
     else:
         if buy100:
             print(f"Running in DRY mode. Trasaction would've been: Buy 100 of {stock} on Webull, then Sell 99 of {stock} on Webull")
+            if ctx:
+                await ctx.send(f"Running in DRY mode. Trasaction would've been: Buy 100 of {stock} on Webull, then Sell 99 of {stock} on Webull")
         else:
             print(f"Running in DRY mode. Trasaction would've been: {action} {amount} of {stock} on Webull")
+            if ctx:
+                await ctx.send(f"Running in DRY mode. Trasaction would've been: {action} {amount} of {stock} on Webull")

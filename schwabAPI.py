@@ -2,7 +2,6 @@
 # Schwab API
 
 import os
-import sys
 import pprint
 from time import sleep
 from schwab_api import Schwab 
@@ -31,7 +30,7 @@ def schwab_init():
     print("Logged in to Schwab!")
     return schwab
 
-def schwab_transaction(schwab, action, stock, amount, price, time, DRY=True):
+async def schwab_transaction(schwab, action, stock, amount, price, time, DRY=True, ctx=None):
     print()
     print("==============================")
     print("Schwab")
@@ -43,6 +42,7 @@ def schwab_transaction(schwab, action, stock, amount, price, time, DRY=True):
     elif action.lower() == "sell":
         action = "Sell"
     stock = stock.upper()
+    amount = int(amount)
     # Make sure init didn't return None
     if schwab is None:
         print("Error: No Schwab account")
@@ -66,6 +66,8 @@ def schwab_transaction(schwab, action, stock, amount, price, time, DRY=True):
                 pprint.pprint(messages)
             except Exception as e:
                 print(f'Error submitting order on Schwab: {e}')
+                if ctx:
+                    await ctx.send(f'Error submitting order on Schwab: {e}')
                 return None
         # If DRY is False, make the transaction
         else:
@@ -82,6 +84,8 @@ def schwab_transaction(schwab, action, stock, amount, price, time, DRY=True):
                 pprint.pprint(messages)
             except Exception as e:
                 print(f'Error submitting order on Schwab account {account}: {e}')
+                if ctx:
+                    await ctx.send(f'Error submitting order on Schwab account {account}: {e}')
                 return None
         sleep(1)
         print()

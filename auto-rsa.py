@@ -7,6 +7,7 @@ import sys
 from time import sleep
 import discord
 from discord.ext import commands
+import asyncio
 from dotenv import load_dotenv
 # Custom API libraries
 from allyAPI import *
@@ -22,7 +23,7 @@ brokerages = ["all", "ally", "fidelity", "robinhood", "rh", "schwab", "webull", 
 if len(sys.argv) > 1:
     wanted_action = sys.argv[1]
     wanted_amount = int(sys.argv[2])
-    wanted_stock = sys.argv[3]
+    wanted_stock = sys.argv[3].upper()
     wanted_time = "day" # Only supports day for now
     wanted_price = "market" # Only supports market for now
     # Check if DRY mode is enabled   
@@ -56,6 +57,7 @@ if DISCORD_TOKEN and not cli_mode:
     DISCORD = True
 else:
     DISCORD = False
+    ctx = None
 
 # Raise error if no command line arguments and no discord token
 if not cli_mode and not DISCORD:
@@ -124,11 +126,12 @@ if DISCORD:
     print("Waiting for Discord commands...")
     print()
 
-def place_order(wanted_action, wanted_amount, wanted_stock, single_broker, DRY):
+async def place_order(wanted_action, wanted_amount, wanted_stock, single_broker, DRY=True, ctx=None):
     try:
         # Input validation
         wanted_amount = int(wanted_amount)
         wanted_stock = wanted_stock.upper()
+        single_broker = single_broker.lower()
         # Shut up, grammar is important smh
         if wanted_amount > 1:
             grammar = "shares"
@@ -141,52 +144,54 @@ def place_order(wanted_action, wanted_amount, wanted_stock, single_broker, DRY):
         # Buy/Sell stock on each account if "all"
         if single_broker == "all":
             # Ally
-            ally_transaction(ally_account, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY)
+            await ally_transaction(ally_account, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
             # Robinhood
-            robinhood_transaction(robinhood, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY)
+            await robinhood_transaction(robinhood, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
             # Schwab
-            schwab_transaction(schwab, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY)
+            await schwab_transaction(schwab, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
             # Webull
-            webull_transaction(webull_account, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY)
+            await webull_transaction(webull_account, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
             # Tradier
-            tradier_transaction(tradier, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY)
+            await tradier_transaction(tradier, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
         elif single_broker == "ally":
             # Ally
-            ally_transaction(ally_account, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY)
+            await ally_transaction(ally_account, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
         elif single_broker == "fidelity":
             # Fidelity
             #fidelity_transaction(fidelity_user, fidelity_password, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY)
             print("bruh")
         elif single_broker == "robinhood" or single_broker == "rh":
             # Robinhood
-            robinhood_transaction(robinhood, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY)
+            await robinhood_transaction(robinhood, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
         elif single_broker == "schwab":
             # Schwab
             #print("bruh")
-            schwab_transaction(schwab, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY)
+            await schwab_transaction(schwab, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
         elif single_broker == "webull" or single_broker == "wb":
             # Webull
-            webull_transaction(webull_account, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY)
+            await webull_transaction(webull_account, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
         elif single_broker == "tradier":
             # Tradier
-            tradier_transaction(tradier, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY)
+            await tradier_transaction(tradier, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
         else:
+            # Invalid broker
             print("Error: Invalid broker")
-            sys.exit(1)
+            await ctx.send("Error: Invalid broker")
     except Exception as e:
-        print(f"Error placing order: {e}")            
+        print(f"Error placing order: {e}")  
+        await ctx.send(f"Error placing order: {e}")
 
 if cli_mode and not DISCORD:
-    place_order(wanted_action, wanted_amount, wanted_stock, single_broker, DRY)
+    asyncio.run(place_order(wanted_action, wanted_amount, wanted_stock, single_broker, DRY))
     sys.exit(0)
 elif not cli_mode and DISCORD:
     @bot.command(name='rsa')
     async def rsa(ctx, wanted_action, wanted_amount, wanted_stock, wanted_account, DRY):
-        if DRY.lower() == "dry":
+        if DRY.lower() == "dry" or DRY.lower() == "true":
             DRY = True
         else:
             DRY = False
-        place_order(wanted_action, wanted_amount, wanted_stock, wanted_account, DRY)
+        await place_order(wanted_action, wanted_amount, wanted_stock, wanted_account, DRY, ctx)
         print()
         print("Waiting for Discord commands...")
         print()

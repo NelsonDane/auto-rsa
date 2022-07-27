@@ -39,7 +39,7 @@ def tradier_init():
     print("Logged in to Tradier!")
     return tradier_accounts
 
-def tradier_transaction(tradier, action, stock, amount, price, time, DRY=True):
+async def tradier_transaction(tradier, action, stock, amount, price, time, DRY=True, ctx=None):
     print()
     print("==============================")
     print("Tradier")
@@ -47,6 +47,7 @@ def tradier_transaction(tradier, action, stock, amount, price, time, DRY=True):
     print()
     action = action.lower()
     stock = stock.upper()
+    amount = int(amount)
     BEARER = os.environ["TRADIER_ACCESS_TOKEN"]
     # Make sure init didn't return None
     if tradier is None:
@@ -64,8 +65,14 @@ def tradier_transaction(tradier, action, stock, amount, price, time, DRY=True):
             #print(json_response)
             if json_response['order']['status'] == "ok":
                 print(f"{action} {amount} of {stock} on Tradier account {account_number}")
+                if ctx:
+                    await ctx.send(f"{action} {amount} of {stock} on Tradier account {account_number}")
             else:
                 print(f"Error: {json_response['order']['status']}")
+                if ctx:
+                    await ctx.send(f"Error: {json_response['order']['status']}")
                 return None
         else:
             print(f"Running in DRY mode. Trasaction would've been: {action} {amount} of {stock} on Tradier account {account_number}")
+            if ctx:
+                await ctx.send(f"Running in DRY mode. Trasaction would've been: {action} {amount} of {stock} on Tradier account {account_number}")

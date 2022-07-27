@@ -34,7 +34,7 @@ def ally_init():
     return a
 
 # Function to buy/sell stock on Ally
-def ally_transaction(a, action, stock, amount, price, time, DRY=True):
+async def ally_transaction(a, action, stock, amount, price, time, DRY=True, ctx=None):
     print()
     print("==============================")
     print("Ally")
@@ -42,6 +42,7 @@ def ally_transaction(a, action, stock, amount, price, time, DRY=True):
     print()
     action = action.lower()
     stock = stock.upper()
+    amount = int(amount)
     # Make sure init didn't return None
     if a is None:
         print("Error: No Ally account")
@@ -63,9 +64,17 @@ def ally_transaction(a, action, stock, amount, price, time, DRY=True):
             a.submit(o, preview=False)
         else:
             print(f"Running in DRY mode. Trasaction would've been: {action} {amount} of {stock} on Ally")
+            if ctx:
+                await ctx.send(f"Running in DRY mode. Trasaction would've been: {action} {amount} of {stock} on Ally")
         if o.orderid:
             print(f"Order {o.orderid} submitted on Ally")
+            if ctx:
+                await ctx.send(f"Order {o.orderid} submitted on Ally")
         else:
             print(f"Order not submitted on Ally")
+            if ctx:
+                await ctx.send(f"Order not submitted on Ally")
     except Exception as e:
         print(f'Error submitting order on Ally: {e}')
+        if ctx:
+            await ctx.send(f'Error submitting order on Ally: {e}')
