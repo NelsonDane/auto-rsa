@@ -39,7 +39,7 @@ def tradier_init():
     print("Logged in to Tradier!")
     return tradier_accounts
 
-def tradier_transaction(tradier, action, stock, amount, price, time, DRY):
+def tradier_transaction(tradier, action, stock, amount, price, time, DRY=True):
     print()
     print("==============================")
     print("Tradier")

@@ -31,7 +31,7 @@ def schwab_init():
     print("Logged in to Schwab!")
     return schwab
 
-def schwab_transaction(schwab, action, stock, amount, price, time, DRY):
+def schwab_transaction(schwab, action, stock, amount, price, time, DRY=True):
     print()
     print("==============================")
     print("Schwab")

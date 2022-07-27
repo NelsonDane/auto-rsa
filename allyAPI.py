@@ -34,7 +34,7 @@ def ally_init():
     return a
 
 # Function to buy/sell stock on Ally
-def ally_transaction(a, action, stock, amount, price, time, DRY):
+def ally_transaction(a, action, stock, amount, price, time, DRY=True):
     print()
     print("==============================")
     print("Ally")

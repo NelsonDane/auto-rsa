@@ -35,7 +35,7 @@ def robinhood_init():
     print("Logged in to Robinhood!")
     return rh
 
-def robinhood_transaction(rh, action, stock, amount, price, time, DRY):
+def robinhood_transaction(rh, action, stock, amount, price, time, DRY=True):
     print()
     print("==============================")
     print("Robinhood")

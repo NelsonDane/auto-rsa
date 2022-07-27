@@ -27,7 +27,7 @@ def webull_init():
     print("Logged in to Webull!")
     return wb
 
-def webull_transaction(webull, action, stock, amount, price, time, DRY):
+def webull_transaction(webull, action, stock, amount, price, time, DRY=True):
     print()
     print("==============================")
     print("Webull")
