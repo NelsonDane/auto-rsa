@@ -14,7 +14,7 @@ View on [Docker Hub](#) (Coming soon...)
 Make sure python3-pip is installed
 1. Clone this repository and cd into it
 2. Run `pip install -r requirements.txt`
-3. Add your bot token to your `.env` file using `DISCORD_TOKEN`
+3. Create a `.env` file for your brokerage variables, and add your bot token using `DISCORD_TOKEN`
 4. Run 'python auto-rsa.py` (See below for command explanation)
 
 ## CLI Tool Installation
