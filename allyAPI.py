@@ -60,12 +60,12 @@ def ally_transaction(a, action, stock, amount, price, time, DRY=True):
         # Submit order
         o.orderid
         if not DRY:
-            a.submit(o)
+            a.submit(o, preview=False)
         else:
             print(f"Running in DRY mode. Trasaction would've been: {action} {amount} of {stock} on Ally")
         if o.orderid:
             print(f"Order {o.orderid} submitted on Ally")
         else:
-            print(f"Order {o.orderid} not submitted on Ally")
+            print(f"Order not submitted on Ally")
     except Exception as e:
         print(f'Error submitting order on Ally: {e}')
