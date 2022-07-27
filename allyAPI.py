@@ -21,8 +21,8 @@ def ally_init():
     ALLY_ACCOUNT_NBR = os.environ["ALLY_ACCOUNT_NBR"]
 
     # Initialize Ally account
-    a = ally.Ally()
     try:
+        a = ally.Ally()
         print("Logging in to Ally...")
         an = a.balances()
         account_numbers = an['account'].values

@@ -18,8 +18,8 @@ def webull_init():
     WEBULL_PASSWORD = os.environ["WEBULL_PASSWORD"]
     # Log in to Webull account
     print("Logging in to Webull...")
-    wb = webull()
     try:
+        wb = webull()
         wb.login(WEBULL_USERNAME, WEBULL_PASSWORD)
     except Exception as e:
         print(f'Error logging in to Webull: {e}')
