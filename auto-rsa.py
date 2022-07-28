@@ -181,13 +181,17 @@ async def place_order(wanted_action, wanted_amount, wanted_stock, single_broker,
         print(f"Error placing order: {e}")  
         await ctx.send(f"Error placing order: {e}")
 
+# If run from the command line, run once and exit
 if cli_mode and not DISCORD:
+    # Run place order function then exit
     try:
         asyncio.run(place_order(wanted_action, wanted_amount, wanted_stock, single_broker, DRY))
         sys.exit(0)
+    # If error, exit with error code
     except Exception as e:
         print(f"Error: {e}")
         sys.exit(1)
+# If run from Discord, run forever
 elif not cli_mode and DISCORD:
     @bot.command(name='rsa')
     async def rsa(ctx, wanted_action, wanted_amount, wanted_stock, wanted_account, DRY):
@@ -197,14 +201,19 @@ elif not cli_mode and DISCORD:
             DRY = False
         try:
             await place_order(wanted_action, wanted_amount, wanted_stock, wanted_account, DRY, ctx)
+        except discord.ext.commands.errors.MissingRequiredArgument:
+            # Missing required argument
+            print("Error: Missing required argument")
+            await ctx.send("Error: Missing required argument")
         except Exception as e:
+            # All other errors
             print(f"Error placing order: {e}")
             await ctx.send(f"Error placing order: {e}")
         print()
         print("Waiting for Discord commands...")
         print()
 
+# Run Discord bot
 if DISCORD:
-    # Run bot
     bot.run(DISCORD_TOKEN)
     print('Discord bot is running...')
