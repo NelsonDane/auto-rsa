@@ -53,40 +53,28 @@ async def schwab_transaction(schwab, action, stock, amount, price, time, DRY=Tru
         # If DRY is True, don't actually make the transaction
         if DRY:
             print("Running in DRY mode. No transactions will be made.")
-            try:
-                messages, success = schwab.trade(
-                    ticker=stock, 
-                    side=action,
-                    qty=amount,
-                    account_id=account, # Replace with your account number
-                    dry_run=True # If dry_run=True, we won't place the order, we'll just verify it.
-                )
-                print("The order verification was " + "successful" if success else "unsuccessful")
-                print("The order verification produced the following messages: ")
-                pprint.pprint(messages)
-            except Exception as e:
-                print(f'Error submitting order on Schwab: {e}')
-                if ctx:
-                    await ctx.send(f'Error submitting order on Schwab: {e}')
-                return None
-        # If DRY is False, make the transaction
-        else:
-            try:
-                messages, success = schwab.trade(
-                    ticker=stock, 
-                    side=action,
-                    qty=amount,
-                    account_id=account, # Replace with your account number
-                    dry_run=False # If dry_run=True, we won't place the order, we'll just verify it.
-                )
-                print("The order was " + "successful" if success else "unsuccessful")
-                print("The order produced the following messages: ")
-                pprint.pprint(messages)
-            except Exception as e:
-                print(f'Error submitting order on Schwab account {account}: {e}')
-                if ctx:
-                    await ctx.send(f'Error submitting order on Schwab account {account}: {e}')
-                return None
+            if ctx:
+                await ctx.send(f"Running in DRY mode. No transactions will be made.")
+        try:
+            messages, success = schwab.trade(
+                ticker=stock, 
+                side=action,
+                qty=amount,
+                account_id=account, # Replace with your account number
+                dry_run=DRY # If dry_run=True, we won't place the order, we'll just verify it.
+            )
+            print("The order verification was " + "successful" if success else "unsuccessful")
+            print("The order verification produced the following messages: ")
+            pprint.pprint(messages)
+            if ctx:
+                await ctx.send(f"The order verification was " + "successful" if success else "unsuccessful")
+                await ctx.send(f"The order verification produced the following messages: ")
+                await ctx.send(f"{messages}")
+        except Exception as e:
+            print(f'Error submitting order on Schwab: {e}')
+            if ctx:
+                await ctx.send(f'Error submitting order on Schwab: {e}')
+            return None
         sleep(1)
         print()
 

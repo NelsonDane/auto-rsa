@@ -182,8 +182,12 @@ async def place_order(wanted_action, wanted_amount, wanted_stock, single_broker,
         await ctx.send(f"Error placing order: {e}")
 
 if cli_mode and not DISCORD:
-    asyncio.run(place_order(wanted_action, wanted_amount, wanted_stock, single_broker, DRY))
-    sys.exit(0)
+    try:
+        asyncio.run(place_order(wanted_action, wanted_amount, wanted_stock, single_broker, DRY))
+        sys.exit(0)
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(1)
 elif not cli_mode and DISCORD:
     @bot.command(name='rsa')
     async def rsa(ctx, wanted_action, wanted_amount, wanted_stock, wanted_account, DRY):
@@ -191,7 +195,11 @@ elif not cli_mode and DISCORD:
             DRY = True
         else:
             DRY = False
-        await place_order(wanted_action, wanted_amount, wanted_stock, wanted_account, DRY, ctx)
+        try:
+            await place_order(wanted_action, wanted_amount, wanted_stock, wanted_account, DRY, ctx)
+        except Exception as e:
+            print(f"Error placing order: {e}")
+            await ctx.send(f"Error placing order: {e}")
         print()
         print("Waiting for Discord commands...")
         print()
