@@ -22,7 +22,13 @@ brokerages = ["all", "ally", "fidelity", "robinhood", "rh", "schwab", "webull", 
 # Get stock info from command line arguments
 if len(sys.argv) > 1:
     wanted_action = sys.argv[1]
-    wanted_amount = int(sys.argv[2])
+    if sys.argv[2] is type (int):
+        wanted_amount = sys.argv[2]
+    elif sys.argv[2] is type (str) and sys.argv[2] == "all":
+        wanted_amount = "all"
+    else:
+        print("Error: Invalid amount")
+        sys.exit(1)
     wanted_stock = sys.argv[3].upper()
     wanted_time = "day" # Only supports day for now
     wanted_price = "market" # Only supports market for now
