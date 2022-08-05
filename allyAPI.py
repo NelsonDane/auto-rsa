@@ -75,6 +75,12 @@ async def ally_transaction(a, action, stock, amount, price, time, DRY=True, ctx=
             if ctx:
                 await ctx.send(f"Order not submitted on Ally")
     except Exception as e:
-        print(f'Error submitting order on Ally: {e}')
-        if ctx:
-            await ctx.send(f'Error submitting order on Ally: {e}')
+        ally_call_error = "Error: For your security, certain symbols may only be traded by speaking to an Ally Invest registered representative. Please call 1-855-880-2559 if you need further assistance with this order."
+        if "500 server error: internal server error for url:" in str(e).lower():
+            print(ally_call_error)
+            if ctx:
+                await ctx.send(ally_call_error)
+        else:
+            print(f'Error submitting order on Ally: {e}')
+            if ctx:
+                await ctx.send(f'Error submitting order on Ally: {e}')
