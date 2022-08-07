@@ -66,17 +66,17 @@ load_dotenv()
 
 # Get discord token and prefix from .env file, setting to None if not found
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-if DISCORD_TOKEN and not cli_mode:
+if DISCORD_TOKEN and not cli_mode and not get_holdings:
     DISCORD = True
 else:
     DISCORD = False
     ctx = None
 
 # Raise error if no command line arguments and no discord token
-if not cli_mode and not DISCORD:
+if not cli_mode and not get_holdings and not DISCORD:
     print("Error: No command line arguments and no discord token")
     sys.exit(1)
-elif not cli_mode and DISCORD:
+elif not cli_mode and not get_holdings and DISCORD:
     single_broker = "all"
     wanted_time = "day"
     wanted_price = "market"
@@ -214,9 +214,9 @@ async def place_order(wanted_action, wanted_amount, wanted_stock, single_broker,
         await ctx.send(f"Error placing order: {e}")
 
 # If getting holdings, get them
-if get_holdings:
+if cli_mode and get_holdings:
     try:
-        asyncio.run(get_holdings(single_broker, ctx))
+        asyncio.run(get_holdings(single_broker))
         sys.exit(0)
     except Exception as e:
         print(f"Error getting holdings: {e}")
@@ -256,7 +256,7 @@ elif not cli_mode and DISCORD:
     @bot.command(name='holdings')
     async def holdings(ctx, broker):
         try:
-            get_holdings(broker, ctx)
+            await get_holdings(broker, ctx)
         except Exception as e:
             print(f"Error getting holdings: {e}")
             await ctx.send(f"Error getting holdings: {e}")
