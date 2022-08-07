@@ -33,6 +33,41 @@ def ally_init():
     print("Logged in to Ally!")
     return a
 
+# Function to get the current account holdings
+async def ally_holdings(a, ctx=None):
+    print()
+    print("==============================")
+    print("Ally Holdings")
+    print("==============================")
+    print()
+    # Make sure init didn't return None
+    if a is None:
+        print("Error: No Ally account")
+        return None
+    try:
+        # Get account holdings
+        ab = a.balances()
+        a_value = ab['accountvalue'].values
+        for value in a_value:
+            print(f"Ally account value: {value}")
+            if ctx:
+                await ctx.send(f"Ally account value: ${value}")
+        # Print account stock holdings
+        ah = a.holdings()
+        account_symbols = ah['sym'].values
+        amounts = ah['accounttype'].values
+        print("Ally account symbols:")
+        if ctx:
+            await ctx.send("Ally account symbols:")
+        for symbol in account_symbols:
+            print(f"{symbol}")
+            if ctx:
+                await ctx.send(f"{symbol}")
+    except Exception as e:
+        print(f'Error getting account holdings on Ally: {e}')
+        if ctx:
+            await ctx.send(f'Error getting account holdings on Ally: {e}')
+
 # Function to buy/sell stock on Ally
 async def ally_transaction(a, action, stock, amount, price, time, DRY=True, ctx=None):
     print()

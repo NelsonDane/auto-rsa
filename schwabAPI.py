@@ -23,13 +23,43 @@ def schwab_init():
         schwab = Schwab()
         schwab.login(username=SCHWAB_USERNAME, password=SCHWAB_PASSWORD, totp_secret=SCHWAB_TOTP_SECRET)
         account_info = schwab.get_account_info()
+        print(f"The following Schwab accounts were found: {list(account_info.keys())}")
+        print("Logged in to Schwab!")
+        return schwab
     except Exception as e:
         print(f'Error logging in to Schwab: {e}')
         return None
-    print(f"The following Schwab accounts were found: {list(account_info.keys())}")
-    print("Logged in to Schwab!")
-    return schwab
 
+async def schwab_holdings(schwab, ctx=None):
+    print()
+    print("==============================")
+    print("Schwab Holdings")
+    print("==============================")
+    print()
+    # Make sure init didn't return None
+    if schwab is None:
+        print("Error: No Schwab account")
+        return None
+    # Get holdings on each account
+    try:
+        for account in list(schwab.get_account_info().keys()):
+            print(f"Holdings in Schwab: {account}")
+            if ctx:
+                await ctx.send(f"Holdings in Schwab: {account}")
+            holdings = schwab.get_account_info()[account]['positions']
+            for item in holdings:
+                sym = item['symbol']
+                if sym == "":
+                    sym = "Unknown"
+                qty = item['quantity']
+                print(f"{sym}: {qty}")
+                if ctx:
+                    await ctx.send(f"{sym}: {qty}")
+    except Exception as e:
+        print(f'Error getting holdings on Schwab {account}: {e}')
+        if ctx:
+            await ctx.send(f'Error getting holdings on Schwab {account}: {e}')
+    
 async def schwab_transaction(schwab, action, stock, amount, price, time, DRY=True, ctx=None):
     print()
     print("==============================")

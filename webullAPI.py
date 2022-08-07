@@ -11,21 +11,41 @@ def webull_init():
     # Initialize .env file
     load_dotenv()
     # Import Webull account
-    if not os.environ["WEBULL_USERNAME"] or not os.environ["WEBULL_PASSWORD"]:
+    if not os.environ["WEBULL_USERNAME"] or not os.environ["WEBULL_PASSWORD"] or not os.environ["WEBULL_TRADE_PIN"]:
         print("Error: Missing Webull credentials")
         return None
     WEBULL_USERNAME = os.environ["WEBULL_USERNAME"]
     WEBULL_PASSWORD = os.environ["WEBULL_PASSWORD"]
+    WEBULL_TRADE_PIN = os.environ["WEBULL_TRADE_PIN"]    
     # Log in to Webull account
     print("Logging in to Webull...")
     try:
         wb = webull()
         wb.login(WEBULL_USERNAME, WEBULL_PASSWORD)
+        wb.get_trade_token(WEBULL_TRADE_PIN)
+        print("Logged in to Webull!")
+        return wb
     except Exception as e:
         print(f'Error logging in to Webull: {e}')
         return None
-    print("Logged in to Webull!")
-    return wb
+
+async def webull_holdings(wb, ctx=None):
+    print()
+    print("==============================")
+    print("Webull")
+    print("==============================")
+    print()
+    # Get the holdings
+    try:
+        orders = wb.get_current_orders()
+        if orders is not None:
+            for order in orders:
+                print(order)
+                if ctx:
+                    await ctx.send(order)
+    except Exception as e:
+        print(f'Error getting holdings on Webull: {e}')
+        return None
 
 async def webull_transaction(webull, action, stock, amount, price, time, DRY=True, ctx=None):
     print()
@@ -36,12 +56,6 @@ async def webull_transaction(webull, action, stock, amount, price, time, DRY=Tru
     action = action.upper()
     stock = stock.upper()
     amount = int(amount)
-    # Get the trade PIN
-    if not os.environ["WEBULL_TRADE_PIN"]:
-        print("Error: Missing Webull trade PIN")
-        return None
-    WEBULL_TRADE_PIN = os.environ["WEBULL_TRADE_PIN"]
-    webull.get_trade_token(WEBULL_TRADE_PIN)
     if amount == 1 and action == "BUY":
         buy100 = True
     else:

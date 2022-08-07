@@ -34,6 +34,29 @@ def robinhood_init():
     print("Logged in to Robinhood!")
     return rh
 
+async def robinhood_holdings(rh, ctx=None):
+    print()
+    print("==============================")
+    print("Robinhood Holdings")
+    print("==============================")
+    print()
+    # Make sure init didn't return None
+    if rh is None:
+        print("Error: No Robinhood account")
+        return None
+    try:
+        # Get account holdings
+        positions = rh.get_open_stock_positions()
+        for item in positions:
+            sym = item['symbol'] = rh.get_symbol_by_url(item['instrument'])
+            print(f"{sym}: {item['quantity']}")
+            if ctx:
+                await ctx.send(f"{sym}: {item['quantity']}")
+    except Exception as e:
+        print(f'Error getting account holdings on Robinhood: {e}')
+        if ctx:
+            await ctx.send(f'Error getting account holdings on Robinhood: {e}')
+
 async def robinhood_transaction(rh, action, stock, amount, price, time, DRY=True, ctx=None):
     print()
     print("==============================")

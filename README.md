@@ -39,6 +39,8 @@ For example, to buy 1 STAF in all accounts:
 `!rsa buy 1 STAF all false`
 For a dry run of the above command in Robinhood only:
 `!rsa buy 1 STAF robinhood true`
+To check individual account holdings:
+`!rsa holdings broker-name`
 
 After a few seconds, the bot will let you know if anything happened! (Hopefully)
 

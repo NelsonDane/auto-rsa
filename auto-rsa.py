@@ -221,6 +221,26 @@ elif not cli_mode and DISCORD:
         print("Waiting for Discord commands...")
         print()
 
+    @bot.command(name='holdings')
+    async def holdings(ctx, broker):
+        if broker.lower() == "ally":
+            await ally_holdings(ally_account, ctx)
+        elif broker.lower() == "fidelity":
+            #fidelity_holdings(fidelity_user, fidelity_password, ctx)
+            print("bruh")
+        elif broker.lower() == "robinhood" or broker.lower() == "rh":
+            await robinhood_holdings(robinhood, ctx)
+        elif broker.lower() == "schwab":
+            await schwab_holdings(schwab, ctx)
+        elif broker.lower() == "webull" or broker.lower() == "wb":
+            await webull_holdings(webull_account, ctx)
+        elif broker.lower() == "tradier":
+            await tradier_holdings(tradier, ctx)
+        else:
+            # Invalid broker
+            print("Error: Invalid broker")
+            await ctx.send("Error: Invalid broker")
+
 # Run Discord bot
 if DISCORD:
     bot.run(DISCORD_TOKEN)

@@ -39,6 +39,38 @@ def tradier_init():
     print("Logged in to Tradier!")
     return tradier_accounts
 
+async def tradier_holdings(tradier, ctx=None):
+    print()
+    print("==============================")
+    print("Tradier")
+    print("==============================")
+    print()
+    BEARER = os.environ["TRADIER_ACCESS_TOKEN"]
+    # Make sure init didn't return None
+    if tradier is None:
+        print("Error: No Tradier account")
+        return None
+    # Loop through accounts
+    for account_number in tradier:
+        try:
+            response = requests.get(f'https://api.tradier.com/v1/accounts/{account_number}/positions',
+                params={},
+                headers={'Authorization': f'Bearer {BEARER}', 'Accept': 'application/json'}
+            )
+            json_response = response.json()
+            symbols = json_response['positions']['position']['symbol']
+            amount = json_response['positions']['position']['quantity']
+            print(f"Holdings on Tradier account {account_number}")
+            if ctx:
+                await ctx.send(f"Holdings on Tradier account {account_number}")
+            print(f"{symbols}: {amount}")
+            if ctx:
+                await ctx.send(f"{symbols}: {amount}")
+        except Exception as e:
+            print(f"Error getting Tradier holdings in account {account_number}: {e}")
+            if ctx:
+                await ctx.send(f"Error getting Trader holdings in account {account_number}: {e}")
+
 async def tradier_transaction(tradier, action, stock, amount, price, time, DRY=True, ctx=None):
     print()
     print("==============================")
