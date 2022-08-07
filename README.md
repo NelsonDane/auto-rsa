@@ -49,6 +49,8 @@ For example, to buy 1 STAF in all accounts:
 `python3 auto-rsa.py buy 1 STAF all false`
 For a dry run of the above command in Robinhood only:
 `python3 auto-rsa.py buy 1 STAF robinhood true`
+To check individual account holdings:
+`python3 auto-rsa.py holdings broker-name`
 
 After a few seconds you should see some output in the terminal (Hopefully)
 
