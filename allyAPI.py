@@ -49,7 +49,7 @@ async def ally_holdings(a, ctx=None):
         ab = a.balances()
         a_value = ab['accountvalue'].values
         for value in a_value:
-            print(f"Ally account value: {value}")
+            print(f"Ally account value: ${value}")
             if ctx:
                 await ctx.send(f"Ally account value: ${value}")
         # Print account stock holdings

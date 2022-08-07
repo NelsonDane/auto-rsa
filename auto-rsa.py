@@ -20,7 +20,7 @@ from tradierAPI import *
 brokerages = ["all", "ally", "fidelity", "robinhood", "rh", "schwab", "webull", "wb", "tradier"]
 
 # Get stock info from command line arguments
-if len(sys.argv) > 1:
+if len(sys.argv) > 1 and sys.argv[1] != "holdings":
     wanted_action = sys.argv[1].lower()
     try:
         wanted_amount = int(sys.argv[2])
@@ -52,8 +52,14 @@ if len(sys.argv) > 1:
     print(f"Broker: {single_broker}")
     print(f"DRY: {DRY}")
     cli_mode = True
+    get_holdings = False
+elif len(sys.argv) == 3 and sys.argv[1] == "holdings":
+    single_broker = sys.argv[2].lower()
+    get_holdings = True
+    cli_mode = True
 else:
     cli_mode = False
+    get_holdings = False
 
 # Initialize .env file
 load_dotenv()
@@ -133,6 +139,24 @@ if DISCORD:
     print("Waiting for Discord commands...")
     print()
 
+async def get_holdings(account, ctx=None):
+    if account == "ally":
+        await ally_holdings(ally_account, ctx)
+    elif account == "fidelity":
+        #await fidelity_get_holdings()
+        print("bruh")
+    elif account == "robinhood" or account == "rh":
+        await robinhood_holdings(robinhood, ctx)
+    elif account == "schwab":
+        await schwab_holdings(schwab, ctx)
+    elif account == "webull" or account == "wb":
+        await webull_holdings(webull_account, ctx)
+    elif account == "tradier":
+        await tradier_holdings(tradier, ctx)
+    else:
+        print("Error: Invalid broker")
+        sys.exit(1)
+
 async def place_order(wanted_action, wanted_amount, wanted_stock, single_broker, DRY=True, ctx=None):
     try:
         # Input validation
@@ -189,6 +213,14 @@ async def place_order(wanted_action, wanted_amount, wanted_stock, single_broker,
         print(f"Error placing order: {e}")  
         await ctx.send(f"Error placing order: {e}")
 
+# If getting holdings, get them
+if get_holdings:
+    try:
+        asyncio.run(get_holdings(single_broker, ctx))
+        sys.exit(0)
+    except Exception as e:
+        print(f"Error getting holdings: {e}")
+        sys.exit(1)
 # If run from the command line, run once and exit
 if cli_mode and not DISCORD:
     # Run place order function then exit
@@ -223,23 +255,11 @@ elif not cli_mode and DISCORD:
 
     @bot.command(name='holdings')
     async def holdings(ctx, broker):
-        if broker.lower() == "ally":
-            await ally_holdings(ally_account, ctx)
-        elif broker.lower() == "fidelity":
-            #fidelity_holdings(fidelity_user, fidelity_password, ctx)
-            print("bruh")
-        elif broker.lower() == "robinhood" or broker.lower() == "rh":
-            await robinhood_holdings(robinhood, ctx)
-        elif broker.lower() == "schwab":
-            await schwab_holdings(schwab, ctx)
-        elif broker.lower() == "webull" or broker.lower() == "wb":
-            await webull_holdings(webull_account, ctx)
-        elif broker.lower() == "tradier":
-            await tradier_holdings(tradier, ctx)
-        else:
-            # Invalid broker
-            print("Error: Invalid broker")
-            await ctx.send("Error: Invalid broker")
+        try:
+            get_holdings(broker, ctx)
+        except Exception as e:
+            print(f"Error getting holdings: {e}")
+            await ctx.send(f"Error getting holdings: {e}")
 
 # Run Discord bot
 if DISCORD:
