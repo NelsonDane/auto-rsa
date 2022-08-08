@@ -45,6 +45,8 @@ async def webull_holdings(wb, ctx=None):
                     await ctx.send(order)
     except Exception as e:
         print(f'Error getting holdings on Webull: {e}')
+        if ctx:
+            await ctx.send(f'Error getting holdings on Webull: {e}')
         return None
 
 async def webull_transaction(webull, action, stock, amount, price, time, DRY=True, ctx=None):
