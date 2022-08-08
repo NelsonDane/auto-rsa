@@ -140,6 +140,7 @@ if DISCORD:
     print()
 
 async def get_holdings(account, ctx=None):
+    account = account.lower()
     if account == "ally":
         await ally_holdings(ally_account, ctx)
     elif account == "fidelity":
