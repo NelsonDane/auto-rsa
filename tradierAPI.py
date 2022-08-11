@@ -53,19 +53,31 @@ async def tradier_holdings(tradier, ctx=None):
     # Loop through accounts
     for account_number in tradier:
         try:
+            # Get holdings from API
             response = requests.get(f'https://api.tradier.com/v1/accounts/{account_number}/positions',
                 params={},
                 headers={'Authorization': f'Bearer {BEARER}', 'Accept': 'application/json'}
             )
+            # Convert to JSON
             json_response = response.json()
-            symbols = json_response['positions']['position']['symbol']
-            amount = json_response['positions']['position']['quantity']
+            # Create list of holdings
+            stocks = []
+            for stock in json_response['positions']['position']:
+                stocks.append(stock['symbol'])
+            # Create list of amounts
+            amounts = []
+            for amount in json_response['positions']['position']:
+                amounts.append(amount['quantity'])
+            # Print and send them
             print(f"Holdings on Tradier account {account_number}")
             if ctx:
                 await ctx.send(f"Holdings on Tradier account {account_number}")
-            print(f"{symbols}: {amount}")
-            if ctx:
-                await ctx.send(f"{symbols}: {amount}")
+            for position in stocks:
+                # Set index for easy use
+                i = stocks.index(position)
+                print(f"{position}: {amounts[i]}")
+                if ctx:
+                    await ctx.send(f"{position}: {amounts[i]}")
         except Exception as e:
             print(f"Error getting Tradier holdings in account {account_number}: {e}")
             if ctx:
