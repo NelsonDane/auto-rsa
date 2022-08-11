@@ -255,6 +255,7 @@ elif not cli_mode and DISCORD:
         print('ponged')
         await ctx.send('pong')
     
+    # Main RSA command
     @bot.command(name='rsa')
     async def rsa(ctx, wanted_action, wanted_amount, wanted_stock, wanted_account, DRY):
         if DRY.lower() == "dry" or DRY.lower() == "true":
@@ -274,7 +275,8 @@ elif not cli_mode and DISCORD:
         print()
         print("Waiting for Discord commands...")
         print()
-
+    
+    # Holdings command
     @bot.command(name='holdings')
     async def holdings(ctx, broker):
         try:
@@ -285,6 +287,15 @@ elif not cli_mode and DISCORD:
         print()
         print("Waiting for Discord commands...")
         print()
+
+    # Restart command
+    @bot.command(name='restart')
+    async def restart(ctx):
+        print("Restarting...")
+        print()
+        await ctx.send("Restarting...")
+        await bot.close()
+        os._exit(0)
 
     # Run Discord bot
     bot.run(DISCORD_TOKEN)
