@@ -41,6 +41,8 @@ For a dry run of the above command in Robinhood only:
 `!rsa buy 1 STAF robinhood true`
 To check individual account holdings:
 `!holdings broker-name`
+To see when the market opens/closes:
+`!market`
 To restart the bot:
 `!restart`
 
