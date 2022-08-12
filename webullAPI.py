@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 
 def webull_init():
     # Disable until login is figured out
+    print("Webull disabled, skipping...")
     return None
     # Initialize .env file
     load_dotenv()

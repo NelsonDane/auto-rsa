@@ -19,7 +19,10 @@ from selenium.webdriver.support import expected_conditions
 from webdriver_manager.microsoft import EdgeChromiumDriverManager
 from selenium.webdriver.edge.service import Service
 
-def fidelity_login(username, password):
+def fidelity_init():
+    # Do nothing since it's disabled
+    print("Fidelity disabled, skipping...")
+    return None
     try:
         driver.get("https://www.fidelity.com/")
         username_field = driver.find_element(by=By.CSS_SELECTOR, value="#userId-input")
@@ -37,31 +40,31 @@ def fidelity_login(username, password):
     except Exception as e:
         print(f'Error logging in: {e}')
     
-def fidelity_main(username, password):
-    print("Logging in...")
-    fidelity_login(username, password)
+# def fidelity_main(username, password):
+#     print("Logging in...")
+    #fidelity_init(username, password)
 
-# Webdriver initialization
-options = webdriver.EdgeOptions()
-options.add_argument("--disable-blink-features=AutomationControlled")
+# # Webdriver initialization
+# options = webdriver.EdgeOptions()
+# options.add_argument("--disable-blink-features=AutomationControlled")
 
-driver = webdriver.Edge(
-    service=Service(EdgeChromiumDriverManager(cache_valid_range=30).install()),
-    options=options,
-)
+# driver = webdriver.Edge(
+#     service=Service(EdgeChromiumDriverManager(cache_valid_range=30).install()),
+#     options=options,
+# )
 
-driver.maximize_window()
+# driver.maximize_window()
 
-#sleep(100)
-# Run main program
-try:
-    print()
-    fidelity_main(None, None)
-# Catch any errors
-except KeyboardInterrupt:
-    print("Quitting...")
-    driver.quit()
-    sys.exit(1)
-except Exception as e:
-    print(e)
-    driver.close()
+# #sleep(100)
+# # Run main program
+# try:
+#     print()
+#     fidelity_main(None, None)
+# # Catch any errors
+# except KeyboardInterrupt:
+#     print("Quitting...")
+#     driver.quit()
+#     sys.exit(1)
+# except Exception as e:
+#     print(e)
+#     driver.close()

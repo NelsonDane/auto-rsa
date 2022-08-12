@@ -4,7 +4,6 @@
 # Import libraries
 import os
 import sys
-from time import sleep
 from datetime import datetime
 import discord
 from discord.ext import commands
@@ -12,13 +11,15 @@ import asyncio
 from dotenv import load_dotenv
 # Custom API libraries
 from allyAPI import *
-#from fidelityAPI import *
+from fidelityAPI import *
 from robinhoodAPI import *
 from schwabAPI import *
 from webullAPI import *
 from tradierAPI import *
 
-brokerages = ["all", "ally", "fidelity", "robinhood", "rh", "schwab", "webull", "wb", "tradier"]
+# List of supported and enabled brokerages
+supported_brokerages = ["all", "ally", "fidelity", "robinhood", "rh", "schwab", "webull", "wb", "tradier"]
+enabled_brokerages = []
 
 # Initialize .env file
 load_dotenv()
@@ -38,11 +39,13 @@ if len(sys.argv) > 1 and sys.argv[1] != "holdings":
     wanted_time = "day" # Only supports day for now
     wanted_price = "market" # Only supports market for now
     # Check if DRY mode is enabled   
-    if (sys.argv[4].lower()) == "dry" and not (sys.argv[4].lower() in brokerages):
+    if (sys.argv[4].lower()) == "dry" and not (sys.argv[4].lower() in supported_brokerages):
         DRY = True
         single_broker = "all"
-    elif sys.argv[4].lower() in brokerages:
+        enabled_brokerages.append(single_broker)
+    elif sys.argv[4].lower() in supported_brokerages:
         single_broker = sys.argv[4].lower()
+        enabled_brokerages.append(single_broker)
     if len(sys.argv) > 5:
         if sys.argv[5].lower() == "dry":
             DRY = True
@@ -60,6 +63,7 @@ if len(sys.argv) > 1 and sys.argv[1] != "holdings":
     should_get_holdings = False
 elif len(sys.argv) == 3 and sys.argv[1] == "holdings":
     single_broker = sys.argv[2].lower()
+    enabled_brokerages.append(single_broker)
     should_get_holdings = True
     cli_mode = True
 else:
@@ -68,10 +72,14 @@ else:
 
 # Get discord token and prefix from .env file, setting to None if not found
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+DISCORD_CHANNEL = os.getenv("DISCORD_CHANNEL", None)
 if DISCORD_TOKEN and not cli_mode:
     DISCORD = True
+    if DISCORD_CHANNEL:
+        DISCORD_CHANNEL = int(DISCORD_CHANNEL)
 else:
     DISCORD = False
+    DISCORD_CHANNEL = None
     ctx = None
 
 # Raise error if no command line arguments and no discord token
@@ -80,6 +88,7 @@ if (not cli_mode) and (not should_get_holdings) and (not DISCORD):
     sys.exit(1)
 elif (not cli_mode) and (not should_get_holdings) and DISCORD:
     single_broker = "all"
+    enabled_brokerages.append(single_broker)
     wanted_time = "day"
     wanted_price = "market"
 
@@ -90,34 +99,57 @@ if single_broker == "all":
     print("==========================================================")
     print()
     ally_account = ally_init()
+    if ally_account is not None:
+        enabled_brokerages.append("ally")
     print()
-    #fidelity_init(fidelity_user, fidelity_password)
-    #print()
+    fidelity_account = fidelity_init()
+    if fidelity_account is not None:
+        enabled_brokerages.append("fidelity")
+    print()
     robinhood = robinhood_init()
+    if robinhood is not None:
+        enabled_brokerages.append("robinhood")
     print()
     schwab = schwab_init()
+    if schwab is not None:
+        enabled_brokerages.append("schwab")
     print()
     webull_account = webull_init()
+    if webull_account is not None:
+        enabled_brokerages.append("webull")
     print()
     tradier = tradier_init()
+    if tradier is not None:
+        enabled_brokerages.append("tradier")
     print()
 elif single_broker == "ally":
     ally_account = ally_init()
+    if ally_account is not None:
+        enabled_brokerages.append("ally")
     print()
 elif single_broker == "fidelity":
-    #fidelity_init(fidelity_user, fidelity_password)
-    print("bruh")
+    fidelity_account = fidelity_init()
+    if fidelity_account is not None:
+        enabled_brokerages.append("fidelity")
 elif single_broker == "robinhood" or single_broker == "rh":
     robinhood = robinhood_init()
+    if robinhood is not None:
+        enabled_brokerages.append("robinhood")
     print()
 elif single_broker == "schwab":
     schwab = schwab_init()
+    if schwab is not None:
+        enabled_brokerages.append("schwab")
     print()
 elif single_broker == "webull" or single_broker == "wb":
     webull_account = webull_init()
+    if webull_account is not None:
+        enabled_brokerages.append("webull")
     print()
 elif single_broker == "tradier":
     tradier = tradier_init()
+    if tradier is not None:
+        enabled_brokerages.append("tradier")
     print()
 else:
     print("Error: Invalid broker")
@@ -158,7 +190,7 @@ async def isMarketHours(timeUntil=False,ctx=None):
 
 async def get_holdings(account, ctx=None):
     account = account.lower()
-    if account in brokerages:
+    if account in enabled_brokerages:
         if account == "ally" or account == "all":
             await ally_holdings(ally_account, ctx)
         if account == "fidelity" or account == "all":
@@ -262,6 +294,13 @@ elif not cli_mode and DISCORD:
     print()
     print('Discord bot is started...')
     print()
+
+    # Bot event when bot is ready
+    if DISCORD_CHANNEL is not None:
+        @bot.event
+        async def on_ready():
+            channel = bot.get_channel(DISCORD_CHANNEL)
+            await channel.send('Discord bot is started...')
 
     # Bot ping-pong
     @bot.command(name='ping')

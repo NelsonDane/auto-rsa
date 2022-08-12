@@ -31,15 +31,15 @@ def schwab_init():
         return None
 
 async def schwab_holdings(schwab, ctx=None):
+    # Make sure init didn't return None
+    if schwab is None:
+        print("Error: No Schwab account")
+        return None
     print()
     print("==============================")
     print("Schwab Holdings")
     print("==============================")
     print()
-    # Make sure init didn't return None
-    if schwab is None:
-        print("Error: No Schwab account")
-        return None
     # Get holdings on each account
     try:
         for account in list(schwab.get_account_info().keys()):

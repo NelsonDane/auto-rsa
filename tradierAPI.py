@@ -62,6 +62,11 @@ async def tradier_holdings(tradier, ctx=None):
             )
             # Convert to JSON
             json_response = response.json()
+            if json_response['positions'] == 'null':
+                print(f"No holdings on Tradier account {account_number}")
+                if ctx:
+                    await ctx.send(f"No holdings on Tradier account {account_number}")
+                continue
             # Create list of holdings
             stocks = []
             for stock in json_response['positions']['position']:

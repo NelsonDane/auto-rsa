@@ -48,6 +48,10 @@ async def robinhood_holdings(rh, ctx=None):
     try:
         # Get account holdings
         positions = rh.get_open_stock_positions()
+        if positions == []:
+            print("No holdings in Robinhood")
+            if ctx:
+                await ctx.send("No holdings in Robinhood")
         for item in positions:
             # Get symbol, quantity, price, and total value
             sym = item['symbol'] = rh.get_symbol_by_url(item['instrument'])
