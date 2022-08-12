@@ -3,6 +3,7 @@
 
 import os
 import robin_stocks.robinhood as rh
+from time import sleep
 import pyotp
 from dotenv import load_dotenv
 
@@ -48,10 +49,14 @@ async def robinhood_holdings(rh, ctx=None):
         # Get account holdings
         positions = rh.get_open_stock_positions()
         for item in positions:
+            # Get symbol, quantity, price, and total value
             sym = item['symbol'] = rh.get_symbol_by_url(item['instrument'])
-            print(f"{sym}: {item['quantity']}")
+            qty = float(item['quantity'])
+            current_price = round(float(rh.stocks.get_latest_price(sym)[0]), 2)
+            total_value = round(qty * current_price, 2)
+            print(f"{sym}: {qty} ${(current_price)} (${total_value})")
             if ctx:
-                await ctx.send(f"{sym}: {item['quantity']}")
+                await ctx.send(f"{sym}: {qty} ${(current_price)} (${total_value})")
     except Exception as e:
         print(f'Error getting account holdings on Robinhood: {e}')
         if ctx:
