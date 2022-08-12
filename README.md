@@ -89,16 +89,8 @@ Required `.env` variables:
 - SCHWAB_TOTP_SECRET= If 2fa is enabled
 
 To get your TOTP secret, use [this website by the api author](https://itsjafer.com/#/schwab)
-#### Webull
-Made using [webull](https://github.com/tedchou12/webull). Go give them a ⭐
-
-Required `.env` variables:
-- WEBULL_USERNAME
-- WEBULL_PASSWORD
-- WEBULL_TRADE_PIN
-
 #### Tradier
-Made by me using the official [Tradier API](https://documentation.tradier.com/brokerage-api/trading/getting-started)
+Made by yours truly using the official [Tradier API](https://documentation.tradier.com/brokerage-api/trading/getting-started)
 
 Required `.env` variables:
 - TRADIER_ACCESS_TOKEN
@@ -107,13 +99,14 @@ To get your access token, go to your [Tradier API settings](https://dash.tradier
 ### Maybe future brokerages
 #### Fidelity
 No official or 3rd party APIs were found, so would have to create one from scratch using web scraping. (Kind of like these [one](https://www.youtube.com/watch?v=PrSgKllqquA) [two](https://www.youtube.com/watch?v=CF5ItVde4lc&t=315s))
-### Vanguard
+#### Vanguard
 Same as Fidelity. I found this [vanguard-api](https://github.com/rikonor/vanguard-api), but it failed when I ran it.
-
+#### SoFi
+No official or 3rd party APIs, but have a website. So same as Fidelity and Vanguard.
+#### Webull
+Not currently working since login is broken in [webull](https://github.com/tedchou12/webull). Go give them a ⭐ anyways
 ### Never working brokerages
 #### Public
-No official or 3rd party APIs, no website to scrape (app only)
-#### SoFi
-No official or 3rd party APIs, no website to scrape (app only)
+No official or 3rd party APIs and no website to scrape (app only)
 #### Stash
 Why
