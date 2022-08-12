@@ -98,8 +98,9 @@ async def schwab_transaction(schwab, action, stock, amount, price, time, DRY=Tru
             pprint.pprint(messages)
             if ctx:
                 await ctx.send(f"The order verification was " + "successful" if success else "unsuccessful")
-                await ctx.send(f"The order verification produced the following messages: ")
-                await ctx.send(f"{messages}")
+                if not success:
+                    await ctx.send(f"The order verification produced the following messages: ")
+                    await ctx.send(f"{messages}")
         except Exception as e:
             print(f'Error submitting order on Schwab: {e}')
             if ctx:
