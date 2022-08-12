@@ -78,14 +78,15 @@ async def ally_transaction(a, action, stock, amount, price, time, DRY=True, ctx=
     action = action.lower()
     stock = stock.upper()
     amount = int(amount)
-    if type(price) is str and price.lower() == "market":
-        price = ally.Order.Market()
-    elif type(price) is float or type(price) is int:
-        price = ally.Order.Limit(limpx=float(price))
     # Make sure init didn't return None
     if a is None:
         print("Error: No Ally account")
         return None
+    # Set the action
+    if type(price) is str and price.lower() == "market":
+        price = ally.Order.Market()
+    elif type(price) is float or type(price) is int:
+        price = ally.Order.Limit(limpx=float(price))
     try:
         # Create order
         o = ally.Order.Order(
