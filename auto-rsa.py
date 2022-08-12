@@ -5,7 +5,7 @@
 import os
 import sys
 from time import sleep
-import datetime
+from datetime import datetime
 import discord
 from discord.ext import commands
 import asyncio
@@ -127,17 +127,34 @@ if DISCORD:
     print("Waiting for Discord commands...")
     print()
 
-async def isMarketHours():
+async def isMarketHours(timeUntil=False,ctx=None):
+    # Get current time and open/close times
+    now = datetime.now()
+    MARKET_OPEN = now.replace(hour=9, minute=30)
+    MARKET_CLOSE = now.replace(hour=16, minute=0)
     # Check if market is open
-    MARKET_OPEN = 9
-    MARKET_CLOSE = 16.5
-    # Get current time
-    now = datetime.datetime.now()
-    # Check if market is open
-    if (now.hour + (now.minute/60)) >= MARKET_OPEN and (now.hour + (now.minute/60)) < MARKET_CLOSE:
-        return True
+    if not timeUntil:
+        # Check if market is open
+        if MARKET_OPEN < now < MARKET_CLOSE:
+            return True
+        else:
+            return False
     else:
-        return False
+        # Get time until market open, or until market close
+        if MARKET_OPEN < now < MARKET_CLOSE:
+            close_seconds = (MARKET_CLOSE - now).total_seconds()
+            close_hours = int(divmod(close_seconds, 3600)[0])
+            close_minutes = int(divmod(close_seconds, 60)[0]) - close_hours * 60
+            print(f"Market is open, closing in {close_hours} hours and {close_minutes} minutes")
+            if ctx:
+                await ctx.send(f"Market is open, closing in {close_hours} hours and {close_minutes} minutes")
+        else:
+            open_seconds = (MARKET_OPEN - now).total_seconds()
+            open_hours = int(divmod(open_seconds, 3600)[0])
+            open_minutes = int(divmod(open_seconds, 60)[0]) - open_hours * 60
+            print(f"Market is closed, opening in {open_hours} hours and {open_minutes} minutes")
+            if ctx:
+                await ctx.send(f"Market is closed, opening in {open_hours} hours and {open_minutes} minutes")
 
 async def get_holdings(account, ctx=None):
     account = account.lower()
@@ -254,6 +271,14 @@ elif not cli_mode and DISCORD:
     async def ping(ctx):
         print('ponged')
         await ctx.send('pong')
+
+    # Print time until market open or close
+    @bot.command(aliases=['market_hours'])
+    async def market(ctx):
+        await isMarketHours(True, ctx)
+        print()
+        print("Waiting for Discord commands...")
+        print()
     
     # Main RSA command
     @bot.command(name='rsa')
