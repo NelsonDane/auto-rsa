@@ -8,6 +8,8 @@ from webull import webull
 from dotenv import load_dotenv
 
 def webull_init():
+    # Disable until login is figured out
+    return None
     # Initialize .env file
     load_dotenv()
     # Import Webull account
@@ -99,13 +101,13 @@ async def webull_transaction(webull, action, stock, amount, price, time, DRY=Tru
         try:
             # Buy Market order
             if action == "BUY":
-                webull.place_order(stock=stock, action=action.upper(), quant=amount)
+                webull.place_order(stock=stock, action=action, quant=amount)
                 print(f"Bought {amount} of {stock} on Webull")
                 if ctx:
                     await ctx.send(f"Bought {amount} of {stock} on Webull")
             # Sell Market order
             elif action == "SELL":
-                webull.place_order(stock=stock, action=action.upper(), quant=amount)
+                webull.place_order(stock=stock, action=action, quant=amount)
                 print(f"Sold {amount} of {stock} on Webull")
                 if ctx:
                     await ctx.send(f"Sold {amount} of {stock} on Webull")
