@@ -45,9 +45,11 @@ async def tradier_holdings(tradier, ctx=None):
     print("Tradier")
     print("==============================")
     print()
+    # Initialize .env file
+    load_dotenv()
     BEARER = os.getenv("TRADIER_ACCESS_TOKEN", None)
     # Make sure init didn't return None
-    if tradier is None:
+    if tradier is None or BEARER is None:
         print("Error: No Tradier account")
         return None
     # Loop through accounts
