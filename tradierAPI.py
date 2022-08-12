@@ -11,8 +11,8 @@ def tradier_init():
     # Initialize .env file
     load_dotenv()
     # Import Tradier account
-    if not os.environ["TRADIER_ACCESS_TOKEN"]:
-        print("Error: Missing Tradier Access Token")
+    if not os.getenv("TRADIER_ACCESS_TOKEN"):
+        print("Tradier not found, skipping...")
         return None
     # Get access token
     BEARER = os.environ["TRADIER_ACCESS_TOKEN"]
@@ -45,7 +45,7 @@ async def tradier_holdings(tradier, ctx=None):
     print("Tradier")
     print("==============================")
     print()
-    BEARER = os.environ["TRADIER_ACCESS_TOKEN"]
+    BEARER = os.getenv("TRADIER_ACCESS_TOKEN", None)
     # Make sure init didn't return None
     if tradier is None:
         print("Error: No Tradier account")
@@ -68,6 +68,21 @@ async def tradier_holdings(tradier, ctx=None):
             amounts = []
             for amount in json_response['positions']['position']:
                 amounts.append(amount['quantity'])
+            # Get current price of each stock
+            current_price = []
+            for sym in stocks:
+                response = requests.get('https://api.tradier.com/v1/markets/quotes',
+                    params={'symbols': sym, 'greeks': 'false'},
+                    headers={'Authorization': f'Bearer {BEARER}', 'Accept': 'application/json'}
+                )
+                json_response = response.json()
+                current_price.append(json_response['quotes']['quote']['last'])
+            # Current value for position
+            current_value = []
+            for value in stocks:
+                # Set index for easy use
+                i = stocks.index(value)
+                current_value.append(amounts[i] * current_price[i])
             # Print and send them
             print(f"Holdings on Tradier account {account_number}")
             if ctx:
@@ -75,9 +90,9 @@ async def tradier_holdings(tradier, ctx=None):
             for position in stocks:
                 # Set index for easy use
                 i = stocks.index(position)
-                print(f"{position}: {amounts[i]}")
+                print(f"{position}: {amounts[i]} @ ${current_price[i]} = ${current_value[i]}")
                 if ctx:
-                    await ctx.send(f"{position}: {amounts[i]}")
+                    await ctx.send(f"{position}: ${amounts[i]} @ {current_price[i]} = ${current_value[i]}")
         except Exception as e:
             print(f"Error getting Tradier holdings in account {account_number}: {e}")
             if ctx:

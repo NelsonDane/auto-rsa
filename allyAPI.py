@@ -11,8 +11,8 @@ def ally_init():
     # Initialize .env file
     load_dotenv()
     # Import Ally account
-    if not os.environ["ALLY_CONSUMER_KEY"] or not os.environ["ALLY_CONSUMER_SECRET"] or not os.environ["ALLY_OAUTH_TOKEN"] or not os.environ["ALLY_OAUTH_SECRET"] or not os.environ["ALLY_ACCOUNT_NBR"]:
-        print("Error: Missing Ally credentials")
+    if not os.getenv("ALLY_CONSUMER_KEY") or not os.getenv("ALLY_CONSUMER_SECRET") or not os.getenv("ALLY_OAUTH_TOKEN") or not os.getenv("ALLY_OAUTH_SECRET") or not os.getenv("ALLY_ACCOUNT_NBR"):
+        print("Ally not found, skipping...")
         return None
     ALLY_CONSUMER_KEY = os.environ["ALLY_CONSUMER_KEY"]
     ALLY_CONSUMER_SECRET = os.environ["ALLY_CONSUMER_SECRET"]

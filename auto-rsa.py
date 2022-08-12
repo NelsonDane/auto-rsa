@@ -158,22 +158,22 @@ async def isMarketHours(timeUntil=False,ctx=None):
 
 async def get_holdings(account, ctx=None):
     account = account.lower()
-    if account == "ally":
-        await ally_holdings(ally_account, ctx)
-    elif account == "fidelity":
-        #await fidelity_get_holdings()
-        print("bruh")
-    elif account == "robinhood" or account == "rh":
-        await robinhood_holdings(robinhood, ctx)
-    elif account == "schwab":
-        await schwab_holdings(schwab, ctx)
-    elif account == "webull" or account == "wb":
-        await webull_holdings(webull_account, ctx)
-    elif account == "tradier":
-        await tradier_holdings(tradier, ctx)
+    if account in brokerages:
+        if account == "ally" or account == "all":
+            await ally_holdings(ally_account, ctx)
+        if account == "fidelity" or account == "all":
+            #await fidelity_get_holdings()
+            print("bruh")
+        if account == "robinhood" or account == "rh" or account == "all":
+            await robinhood_holdings(robinhood, ctx)
+        if account == "schwab" or account == "all":
+            await schwab_holdings(schwab, ctx)
+        if account == "webull" or account == "wb" or account == "all":
+            await webull_holdings(webull_account, ctx)
+        if account == "tradier" or account == "all":
+            await tradier_holdings(tradier, ctx)
     else:
         print("Error: Invalid broker")
-        sys.exit(1)
 
 async def place_order(wanted_action, wanted_amount, wanted_stock, single_broker, DRY=True, ctx=None):
     if await isMarketHours():
@@ -238,9 +238,6 @@ async def place_order(wanted_action, wanted_amount, wanted_stock, single_broker,
 
 # If getting holdings, get them
 if cli_mode and should_get_holdings and (not DISCORD):
-    print(cli_mode)
-    print(should_get_holdings)
-    print(DISCORD)
     try:
         asyncio.run(get_holdings(single_broker))
         sys.exit(0)

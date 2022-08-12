@@ -11,8 +11,8 @@ def schwab_init():
     # Initialize .env file
     load_dotenv()
     # Import Schwab account
-    if not os.environ["SCHWAB_USERNAME"] or not os.environ["SCHWAB_PASSWORD"] or not os.environ["SCHWAB_TOTP_SECRET"]:
-        print("Error: Missing Schwab credentials")
+    if not os.getenv("SCHWAB_USERNAME") or not os.getenv("SCHWAB_PASSWORD") or not os.getenv("SCHWAB_TOTP_SECRET"):
+        print("Schwab not found, skipping...")
         return None
     SCHWAB_USERNAME = os.environ["SCHWAB_USERNAME"]
     SCHWAB_PASSWORD = os.environ["SCHWAB_PASSWORD"]

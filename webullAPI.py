@@ -11,8 +11,8 @@ def webull_init():
     # Initialize .env file
     load_dotenv()
     # Import Webull account
-    if not os.environ["WEBULL_USERNAME"] or not os.environ["WEBULL_PASSWORD"] or not os.environ["WEBULL_TRADE_PIN"]:
-        print("Error: Missing Webull credentials")
+    if not os.getenv("WEBULL_USERNAME") or not os.getenv("WEBULL_PASSWORD") or not os.getenv("WEBULL_TRADE_PIN"):
+        print("Webull not found, skipping...")
         return None
     WEBULL_USERNAME = os.environ["WEBULL_USERNAME"]
     WEBULL_PASSWORD = os.environ["WEBULL_PASSWORD"]
@@ -35,6 +35,10 @@ async def webull_holdings(wb, ctx=None):
     print("Webull")
     print("==============================")
     print()
+    # Make sure init didn't return None
+    if wb is None:
+        print("Error: No Webull account")
+        return None
     # Get the holdings
     try:
         orders = wb.get_current_orders()
@@ -55,6 +59,10 @@ async def webull_transaction(webull, action, stock, amount, price, time, DRY=Tru
     print("Webull")
     print("==============================")
     print()
+    # Make sure init didn't return None
+    if webull is None:
+        print("Error: No Webull account")
+        return None
     action = action.upper()
     stock = stock.upper()
     amount = int(amount)

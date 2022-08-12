@@ -11,8 +11,8 @@ def robinhood_init():
     # Initialize .env file
     load_dotenv()
     # Import Robinhood account
-    if not os.environ["ROBINHOOD_USERNAME"] or not os.environ["ROBINHOOD_PASSWORD"]:
-        print("Error: Missing Robinhood credentials")
+    if not os.getenv("ROBINHOOD_USERNAME") or not os.getenv("ROBINHOOD_PASSWORD"):
+        print("Robinhood not found, skipping...")
         return None
     RH_USERNAME = os.environ["ROBINHOOD_USERNAME"]
     RH_PASSWORD = os.environ["ROBINHOOD_PASSWORD"]
@@ -54,9 +54,9 @@ async def robinhood_holdings(rh, ctx=None):
             qty = float(item['quantity'])
             current_price = round(float(rh.stocks.get_latest_price(sym)[0]), 2)
             total_value = round(qty * current_price, 2)
-            print(f"{sym}: {qty} ${(current_price)} (${total_value})")
+            print(f"{sym}: {qty} @ ${(current_price)} = ${total_value}")
             if ctx:
-                await ctx.send(f"{sym}: {qty} ${(current_price)} (${total_value})")
+                await ctx.send(f"{sym}: {qty} @ ${(current_price)} = ${total_value}")
     except Exception as e:
         print(f'Error getting account holdings on Robinhood: {e}')
         if ctx:
