@@ -62,19 +62,24 @@ async def tradier_holdings(tradier, ctx=None):
             )
             # Convert to JSON
             json_response = response.json()
+            # Check if holdings is empty
             if json_response['positions'] == 'null':
                 print(f"No holdings on Tradier account {account_number}")
                 if ctx:
                     await ctx.send(f"No holdings on Tradier account {account_number}")
                 continue
-            # Create list of holdings
+            # Create list of holdings and amounts
             stocks = []
-            for stock in json_response['positions']['position']:
-                stocks.append(stock['symbol'])
-            # Create list of amounts
             amounts = []
-            for amount in json_response['positions']['position']:
-                amounts.append(amount['quantity'])
+            # Check if there's only one holding
+            if 'symbol' in json_response['positions']['position']:
+                stocks.append(json_response['positions']['position']['symbol'])
+                amounts.append(json_response['positions']['position']['quantity'])
+            else:
+                # Loop through holdings
+                for stock in json_response['positions']['position']:
+                    stocks.append(stock['symbol'])
+                    amounts.append(amount['quantity'])
             # Get current price of each stock
             current_price = []
             for sym in stocks:
