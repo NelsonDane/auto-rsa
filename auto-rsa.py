@@ -109,6 +109,7 @@ if single_broker == "all":
     robinhood = robinhood_init()
     if robinhood is not None:
         enabled_brokerages.append("robinhood")
+        enabled_brokerages.append("rh")
     print()
     schwab = schwab_init()
     if schwab is not None:
@@ -117,6 +118,7 @@ if single_broker == "all":
     webull_account = webull_init()
     if webull_account is not None:
         enabled_brokerages.append("webull")
+        enabled_brokerages.append("wb")
     print()
     tradier = tradier_init()
     if tradier is not None:
@@ -135,6 +137,7 @@ elif single_broker == "robinhood" or single_broker == "rh":
     robinhood = robinhood_init()
     if robinhood is not None:
         enabled_brokerages.append("robinhood")
+        enabled_brokerages.append("rh")
     print()
 elif single_broker == "schwab":
     schwab = schwab_init()
@@ -145,6 +148,7 @@ elif single_broker == "webull" or single_broker == "wb":
     webull_account = webull_init()
     if webull_account is not None:
         enabled_brokerages.append("webull")
+        enabled_brokerages.append("wb")
     print()
 elif single_broker == "tradier":
     tradier = tradier_init()
@@ -259,7 +263,8 @@ async def place_order(wanted_action, wanted_amount, wanted_stock, single_broker,
             else:
                 # Invalid broker
                 print("Error: Invalid broker")
-                await ctx.send("Error: Invalid broker")
+                if ctx:
+                    await ctx.send("Error: Invalid broker")
         except Exception as e:
             print(f"Error placing order: {e}")  
             await ctx.send(f"Error placing order: {e}")
