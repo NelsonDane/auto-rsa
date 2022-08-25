@@ -18,7 +18,7 @@ from webullAPI import *
 from tradierAPI import *
 
 # List of supported and enabled brokerages
-supported_brokerages = ["all", "ally", "fidelity", "robinhood", "rh", "schwab", "webull", "wb", "tradier"]
+supported_brokerages = ["all", "ally", "robinhood", "rh", "schwab", "tradier"]
 enabled_brokerages = []
 
 # Initialize .env file
@@ -199,7 +199,7 @@ async def get_holdings(account, ctx=None):
             await ally_holdings(ally_account, ctx)
         if account == "fidelity" or account == "all":
             #await fidelity_get_holdings()
-            print("bruh")
+            print()
         if account == "robinhood" or account == "rh" or account == "all":
             await robinhood_holdings(robinhood, ctx)
         if account == "schwab" or account == "all":
@@ -246,7 +246,7 @@ async def place_order(wanted_action, wanted_amount, wanted_stock, single_broker,
             elif single_broker == "fidelity":
                 # Fidelity
                 #fidelity_transaction(fidelity_user, fidelity_password, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY)
-                print("bruh")
+                print()
             elif single_broker == "robinhood" or single_broker == "rh":
                 # Robinhood
                 await robinhood_transaction(robinhood, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)

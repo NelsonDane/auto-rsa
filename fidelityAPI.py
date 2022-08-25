@@ -21,7 +21,7 @@ from selenium.webdriver.edge.service import Service
 
 def fidelity_init():
     # Do nothing since it's disabled
-    print("Fidelity disabled, skipping...")
+    #print("Fidelity disabled, skipping...")
     return None
     try:
         driver.get("https://www.fidelity.com/")

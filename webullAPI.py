@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 def webull_init():
     # Disable until login is figured out
-    print("Webull disabled, skipping...")
+    #print("Webull disabled, skipping...")
     return None
     # Initialize .env file
     load_dotenv()
@@ -33,15 +33,15 @@ def webull_init():
         return None
 
 async def webull_holdings(wb, ctx=None):
+    # Make sure init didn't return None
+    if wb is None:
+        #print("Error: No Webull account")
+        return None
     print()
     print("==============================")
     print("Webull")
     print("==============================")
     print()
-    # Make sure init didn't return None
-    if wb is None:
-        print("Error: No Webull account")
-        return None
     # Get the holdings
     try:
         orders = wb.get_current_orders()

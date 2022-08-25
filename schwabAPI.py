@@ -33,6 +33,7 @@ def schwab_init():
 async def schwab_holdings(schwab, ctx=None):
     # Make sure init didn't return None
     if schwab is None:
+        print()
         print("Error: No Schwab account")
         return None
     print()
