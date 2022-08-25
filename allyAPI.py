@@ -54,15 +54,18 @@ async def ally_holdings(a, ctx=None):
                 await ctx.send(f"Ally account value: ${value}")
         # Print account stock holdings
         ah = a.holdings()
-        account_symbols = ah['sym'].values
-        amounts = ah['accounttype'].values
+        account_symbols = (ah['sym'].values).tolist()
+        qty = (ah['qty'].values).tolist()
+        current_price = (ah['marketvalue'].values).tolist()
         print("Ally account symbols:")
         if ctx:
             await ctx.send("Ally account symbols:")
         for symbol in account_symbols:
-            print(f"{symbol}")
+            # Set index for easy use
+            i = account_symbols.index(symbol)
+            print(f"{symbol}: {float(qty[i])} @ ${round(float(current_price[i]), 2)} = ${round(float(qty[i]) * float(current_price[i]), 2)}")
             if ctx:
-                await ctx.send(f"{symbol}")
+                await ctx.send(f"{symbol}: {float(qty[i])} @ ${round(float(current_price[i]), 2)} = ${round(float(qty[i]) * float(current_price[i]), 2)}")
     except Exception as e:
         print(f'Error getting account holdings on Ally: {e}')
         if ctx:
