@@ -35,7 +35,6 @@ def ally_init():
 
 # Function to get the current account holdings
 async def ally_holdings(a, ctx=None):
-    print()
     print("==============================")
     print("Ally Holdings")
     print("==============================")

@@ -102,10 +102,10 @@ if single_broker == "all":
     if ally_account is not None:
         enabled_brokerages.append("ally")
     print()
-    fidelity_account = fidelity_init()
-    if fidelity_account is not None:
-        enabled_brokerages.append("fidelity")
-    print()
+    # fidelity_account = fidelity_init()
+    # if fidelity_account is not None:
+    #     enabled_brokerages.append("fidelity")
+    #print()
     robinhood = robinhood_init()
     if robinhood is not None:
         enabled_brokerages.append("robinhood")
@@ -115,11 +115,11 @@ if single_broker == "all":
     if schwab is not None:
         enabled_brokerages.append("schwab")
     print()
-    webull_account = webull_init()
-    if webull_account is not None:
-        enabled_brokerages.append("webull")
-        enabled_brokerages.append("wb")
-    print()
+    # webull_account = webull_init()
+    # if webull_account is not None:
+    #     enabled_brokerages.append("webull")
+    #     enabled_brokerages.append("wb")
+    # print()
     tradier = tradier_init()
     if tradier is not None:
         enabled_brokerages.append("tradier")
@@ -197,15 +197,15 @@ async def get_holdings(account, ctx=None):
     if account in enabled_brokerages:
         if account == "ally" or account == "all":
             await ally_holdings(ally_account, ctx)
-        if account == "fidelity" or account == "all":
-            #await fidelity_get_holdings()
-            print()
+        # if account == "fidelity" or account == "all":
+        #     #await fidelity_get_holdings()
+        #     pass
         if account == "robinhood" or account == "rh" or account == "all":
             await robinhood_holdings(robinhood, ctx)
         if account == "schwab" or account == "all":
             await schwab_holdings(schwab, ctx)
-        if account == "webull" or account == "wb" or account == "all":
-            await webull_holdings(webull_account, ctx)
+        # if account == "webull" or account == "wb" or account == "all":
+        #     await webull_holdings(webull_account, ctx)
         if account == "tradier" or account == "all":
             await tradier_holdings(tradier, ctx)
     else:
@@ -237,16 +237,16 @@ async def place_order(wanted_action, wanted_amount, wanted_stock, single_broker,
                 # Schwab
                 await schwab_transaction(schwab, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
                 # Webull
-                await webull_transaction(webull_account, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
+                # await webull_transaction(webull_account, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
                 # Tradier
                 await tradier_transaction(tradier, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
             elif single_broker == "ally":
                 # Ally
                 await ally_transaction(ally_account, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
-            elif single_broker == "fidelity":
-                # Fidelity
-                #fidelity_transaction(fidelity_user, fidelity_password, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY)
-                print()
+            # elif single_broker == "fidelity":
+            #     # Fidelity
+            #     #fidelity_transaction(fidelity_user, fidelity_password, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY)
+            #     print()
             elif single_broker == "robinhood" or single_broker == "rh":
                 # Robinhood
                 await robinhood_transaction(robinhood, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
@@ -254,9 +254,9 @@ async def place_order(wanted_action, wanted_amount, wanted_stock, single_broker,
                 # Schwab
                 #print("bruh")
                 await schwab_transaction(schwab, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
-            elif single_broker == "webull" or single_broker == "wb":
-                # Webull
-                await webull_transaction(webull_account, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
+            # elif single_broker == "webull" or single_broker == "wb":
+            #     # Webull
+            #     await webull_transaction(webull_account, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
             elif single_broker == "tradier":
                 # Tradier
                 await tradier_transaction(tradier, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
