@@ -79,7 +79,7 @@ async def tradier_holdings(tradier, ctx=None):
                 # Loop through holdings
                 for stock in json_response['positions']['position']:
                     stocks.append(stock['symbol'])
-                    amounts.append(amount['quantity'])
+                    amounts.append(stock['quantity'])
             # Get current price of each stock
             current_price = []
             for sym in stocks:
