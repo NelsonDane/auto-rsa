@@ -313,8 +313,19 @@ elif not cli_mode and DISCORD:
         print('ponged')
         await ctx.send('pong')
 
+    # Help command
+    @bot.command(name='help')
+    async def help(ctx):
+        await ctx.send('Available commands:')
+        await ctx.send('!ping')
+        await ctx.send('!help')
+        await ctx.send('!market_hours, !market')
+        await ctx.send('!holdings [all|ally|robinhood/rh|schwab|tradier]')
+        await ctx.send('!rsa [buy|sell] [amount] [stock] [all|ally|robinhood/rh|schwab|tradier] [DRY/true/false]')
+        await ctx.send('!restart')
+
     # Print time until market open or close
-    @bot.command(aliases=['market_hours'])
+    @bot.command(aliases=['market_hours', 'market'])
     async def market(ctx):
         await isMarketHours(True, ctx)
         print()
