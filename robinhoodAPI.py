@@ -52,15 +52,19 @@ async def robinhood_holdings(rh, ctx=None):
             print("No holdings in Robinhood")
             if ctx:
                 await ctx.send("No holdings in Robinhood")
-        for item in positions:
-            # Get symbol, quantity, price, and total value
-            sym = item['symbol'] = rh.get_symbol_by_url(item['instrument'])
-            qty = float(item['quantity'])
-            current_price = round(float(rh.stocks.get_latest_price(sym)[0]), 2)
-            total_value = round(qty * current_price, 2)
-            print(f"{sym}: {qty} @ ${(current_price)} = ${total_value}")
+        else:
+            print("Holdings in Robinhood:")
             if ctx:
-                await ctx.send(f"{sym}: {qty} @ ${(current_price)} = ${total_value}")
+                await ctx.send("Holdings in Robinhood:")
+            for item in positions:
+                # Get symbol, quantity, price, and total value
+                sym = item['symbol'] = rh.get_symbol_by_url(item['instrument'])
+                qty = float(item['quantity'])
+                current_price = round(float(rh.stocks.get_latest_price(sym)[0]), 2)
+                total_value = round(qty * current_price, 2)
+                print(f"{sym}: {qty} @ ${(current_price)} = ${total_value}")
+                if ctx:
+                    await ctx.send(f"{sym}: {qty} @ ${(current_price)} = ${total_value}")
     except Exception as e:
         print(f'Error getting account holdings on Robinhood: {e}')
         if ctx:
