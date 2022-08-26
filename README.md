@@ -24,7 +24,7 @@ Make sure python3-pip is installed
 Ping-Pong: Once the bot is invited to your server, you can check that it's running by sending `!ping`, to which the bot should respond with `pong`
 
 To buy and sell stocks, just send a message of this format in discord:
-`!rsa <action> <amount> <ticker> <account> <dry>
+`!rsa <action> <amount> <ticker> <account> <dry>`
 
 ### CLI Tool/Discord Bot Parameters explained:
 - `!rsa`: command name (not in CLI)
