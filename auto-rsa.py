@@ -294,8 +294,11 @@ if cli_mode and not DISCORD:
 
 # If run from Discord, run forever
 elif not cli_mode and DISCORD:
+    # Bot intents
+    intents = discord.Intents.all()
     # Discord bot command prefix
-    bot = commands.Bot(command_prefix='!')
+    bot = commands.Bot(command_prefix='!', intents=intents)
+    bot.remove_command('help')
     print()
     print('Discord bot is started...')
     print()
@@ -314,7 +317,7 @@ elif not cli_mode and DISCORD:
         await ctx.send('pong')
 
     # Help command
-    @bot.command(name='help')
+    @bot.command()
     async def help(ctx):
         await ctx.send('Available commands:')
         await ctx.send('!ping')
@@ -325,7 +328,7 @@ elif not cli_mode and DISCORD:
         await ctx.send('!restart')
 
     # Print time until market open or close
-    @bot.command(aliases=['market_hours', 'market'])
+    @bot.command(aliases=['market_hours'])
     async def market(ctx):
         await isMarketHours(True, ctx)
         print()
