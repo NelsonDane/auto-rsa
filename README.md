@@ -35,25 +35,25 @@ To buy and sell stocks, just send a message of this format in discord:
 - `<dry>`: Whether to run in "dry" mode (in which no transactions are made, useful for testing). Set to True, False, or just write "dry" for True
 #### Discord bot:
 For example, to buy 1 STAF in all accounts:
-`!rsa buy 1 STAF all false`
+`!rsa buy 1 STAF all false`.
 For a dry run of the above command in Robinhood only:
-`!rsa buy 1 STAF robinhood true`
+`!rsa buy 1 STAF robinhood true`.
 To check individual account holdings:
-`!holdings broker-name`
+`!holdings broker-name`.
 To see when the market opens/closes:
-`!market`
+`!market`.
 To restart the bot:
-`!restart`
+`!restart`.
 
 After a few seconds, the bot will let you know if anything happened! (Hopefully)
 
 #### CLI Tool:
 For example, to buy 1 STAF in all accounts:
-`python3 auto-rsa.py buy 1 STAF all false`
+`python3 auto-rsa.py buy 1 STAF all false`.
 For a dry run of the above command in Robinhood only:
-`python3 auto-rsa.py buy 1 STAF robinhood true`
+`python3 auto-rsa.py buy 1 STAF robinhood true`.
 To check individual account holdings:
-`python3 auto-rsa.py holdings broker-name`
+`python3 auto-rsa.py holdings broker-name`.
 
 After a few seconds you should see some output in the terminal (Hopefully)
 
