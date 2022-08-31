@@ -7,14 +7,14 @@ View on [Docker Hub](https://hub.docker.com/repository/docker/nelsondane/auto-rs
 1. Clone the repo and cd into it
 2. Create a `.env` file for your brokerage variables, and add your bot using `DISCORD_TOKEN` and `DISCORD_CHANNEL`
 3. Just run `docker run --env-file ./.env -it --restart unless-stopped --name rsa nelsondane/auto-rsa`
-4. The bot should appear online (You can also do `!ping`. Once bot is working, just enter CTRL-p then CTRL-q to exit gracefully, letting the bot run in the background. See below for command explanation
+4. The bot should appear online (You can also do `!ping`). Once bot is working, just enter CTRL-p then CTRL-q to exit gracefully, letting the bot run in the background. See below for command explanation.
 
 ### Always Running Python Script
 Make sure python3-pip is installed
 1. Clone this repository and cd into it
 2. Run `pip install -r requirements.txt`
 3. Create a `.env` file for your brokerage variables, and add your bot using `DISCORD_TOKEN` and `DISCORD_CHANNEL`
-4. Run 'python auto-rsa.py` (See below for command explanation)
+4. Run `python auto-rsa.py` (See below for command explanation)
 
 ## CLI Tool Installation
 1. Follow the Always Running Python Script steps until Step 4
@@ -85,7 +85,7 @@ Made using [schwab-api](https://github.com/itsjafer/schwab-api). Go give them a 
 Required `.env` variables:
 - SCHWAB_USERNAME=
 - SCHWAB_PASSWORD=
-- SCHWAB_TOTP_SECRET= If 2fa is enabled
+- SCHWAB_TOTP_SECRET= (If 2fa is enabled)
 
 To get your TOTP secret, use [this website by the api author](https://itsjafer.com/#/schwab)
 #### Tradier
@@ -97,15 +97,15 @@ Required `.env` variables:
 To get your access token, go to your [Tradier API settings](https://dash.tradier.com/settings/api)
 ### Maybe future brokerages
 #### Fidelity
-No official or 3rd party APIs were found, so would have to create one from scratch using web scraping. (Kind of like these [one](https://www.youtube.com/watch?v=PrSgKllqquA) [two](https://www.youtube.com/watch?v=CF5ItVde4lc&t=315s))
+No official or 3rd party APIs were found, so would have to create one from scratch using web scraping. (Kind of like these [one](https://www.youtube.com/watch?v=PrSgKllqquA) [two](https://www.youtube.com/watch?v=CF5ItVde4lc&t=315s)).
 #### Vanguard
 Same as Fidelity. I found this [vanguard-api](https://github.com/rikonor/vanguard-api), but it failed when I ran it.
 #### SoFi
 No official or 3rd party APIs, but have a website. So same as Fidelity and Vanguard.
 #### Webull
-Not currently working since login is broken in [webull](https://github.com/tedchou12/webull). Go give them a ⭐ anyways
+Not currently working since login is broken in [webull](https://github.com/tedchou12/webull). Go give them a ⭐ anyways.
 ### Never working brokerages
 #### Public
-No official or 3rd party APIs and no website to scrape (app only)
+No official or 3rd party APIs and no website to scrape (app only).
 #### Stash
-Why
+Why.
