@@ -7,7 +7,7 @@ View on [Docker Hub](https://hub.docker.com/repository/docker/nelsondane/auto-rs
 1. Clone the repo and cd into it
 2. Create a `.env` file for your brokerage variables, and add your bot using `DISCORD_TOKEN` and `DISCORD_CHANNEL`
 3. Just run `docker run --env-file ./.env -it --restart unless-stopped --name rsa nelsondane/auto-rsa`
-4. The bot should appear online (You can also do `!ping`. Once bot is working, just enter CTRL-p then CTRL-q to exit gracefully, letting the bot run in the background. See below for command explanation).
+4. The bot should appear online (You can also do `!ping`). Once bot is working, just enter CTRL-p then CTRL-q to exit gracefully, letting the bot run in the background. See below for command explanation.
 
 ### Always Running Python Script
 Make sure python3-pip is installed
@@ -45,7 +45,7 @@ To see when the market opens/closes:
 To restart the bot:
 `!restart`.
 
-After a few seconds, the bot will let you know if anything happened! (Hopefully).
+After a few seconds, the bot will let you know if anything happened! (Hopefully)
 
 #### CLI Tool:
 For example, to buy 1 STAF in all accounts:
@@ -55,7 +55,7 @@ For a dry run of the above command in Robinhood only:
 To check individual account holdings:
 `python3 auto-rsa.py holdings broker-name`.
 
-After a few seconds you should see some output in the terminal (Hopefully).
+After a few seconds you should see some output in the terminal (Hopefully)
 
 
 ### Supported brokerages:
@@ -80,12 +80,12 @@ Required `.env` variables:
 
 Configuring 2fa can be tricky, read the TOTP section [here](https://github.com/jmfernandes/robin_stocks/blob/master/Robinhood.rst)
 #### Schwab
-Made using [schwab-api](https://github.com/itsjafer/schwab-api). Go give them a ⭐.
+Made using [schwab-api](https://github.com/itsjafer/schwab-api). Go give them a ⭐
 
 Required `.env` variables:
 - SCHWAB_USERNAME=
 - SCHWAB_PASSWORD=
-- SCHWAB_TOTP_SECRET= If 2fa is enabled
+- SCHWAB_TOTP_SECRET= (If 2fa is enabled)
 
 To get your TOTP secret, use [this website by the api author](https://itsjafer.com/#/schwab)
 #### Tradier
