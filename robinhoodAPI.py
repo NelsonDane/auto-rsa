@@ -66,9 +66,9 @@ async def robinhood_holdings(rh, ctx=None):
                 if ctx:
                     await ctx.send(f"{sym}: {qty} @ ${(current_price)} = ${total_value}")
     except Exception as e:
-        print(f'Error getting account holdings on Robinhood: {e}')
+        print(f'Robinhood: Error getting account holdings: {e}')
         if ctx:
-            await ctx.send(f'Error getting account holdings on Robinhood: {e}')
+            await ctx.send(f'Robinhood: Error getting account holdings: {e}')
 
 async def robinhood_transaction(rh, action, stock, amount, price, time, DRY=True, ctx=None):
     print()
@@ -88,23 +88,23 @@ async def robinhood_transaction(rh, action, stock, amount, price, time, DRY=True
             # Buy Market order
             if action == "buy":
                 rh.order_buy_market(stock, amount)
-                print(f"Bought {amount} of {stock} on Robinhood")
+                print(f"Robinhood: Bought {amount} of {stock}")
                 if ctx:
-                    await ctx.send(f"Bought {amount} of {stock} on Robinhood")
+                    await ctx.send(f"Robinhood: Bought {amount} of {stock}")
             # Sell Market order
             elif action == "sell":
                 rh.order_sell_market(stock, amount)
-                print(f"Sold {amount} of {stock} on Robinhood")
+                print(f"Robinhood: Sold {amount} of {stock}")
                 if ctx:
-                    await ctx.send(f"Sold {amount} of {stock} on Robinhood")
+                    await ctx.send(f"Robinhood: Sold {amount} of {stock}")
             else:
                 print("Error: Invalid action")
                 return None
         except Exception as e:
-            print(f'Error submitting order on Robinhood: {e}')
+            print(f'Robinhood: Error submitting order: {e}')
             if ctx:
-                await ctx.send(f'Error submitting order on Robinhood: {e}')
+                await ctx.send(f'Robinhood: Error submitting order: {e}')
     else:
-        print(f"Running in DRY mode. Trasaction would've been: {action} {amount} of {stock} on Robinhood")
+        print(f"Robinhood: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}")
         if ctx:
-            await ctx.send(f"Running in DRY mode. Trasaction would've been: {action} {amount} of {stock} on Robinhood")
+            await ctx.send(f"Robinhood: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}")

@@ -64,9 +64,9 @@ async def tradier_holdings(tradier, ctx=None):
             json_response = response.json()
             # Check if holdings is empty
             if json_response['positions'] == 'null':
-                print(f"No holdings on Tradier account {account_number}")
+                print(f"Tradier {account_number}: No holdings")
                 if ctx:
-                    await ctx.send(f"No holdings on Tradier account {account_number}")
+                    await ctx.send(f"Tradier {account_number}: No holdings")
                 continue
             # Create list of holdings and amounts
             stocks = []
@@ -106,9 +106,9 @@ async def tradier_holdings(tradier, ctx=None):
                 if ctx:
                     await ctx.send(f"{position}: ${amounts[i]} @ {current_price[i]} = ${current_value[i]}")
         except Exception as e:
-            print(f"Error getting Tradier holdings in account {account_number}: {e}")
+            print(f"Tradier {account_number}: Error getting holdings: {e}")
             if ctx:
-                await ctx.send(f"Error getting Trader holdings in account {account_number}: {e}")
+                await ctx.send(f"Tradier {account_number}: Error getting holdings: {e}")
 
 async def tradier_transaction(tradier, action, stock, amount, price, time, DRY=True, ctx=None):
     print()
@@ -135,15 +135,15 @@ async def tradier_transaction(tradier, action, stock, amount, price, time, DRY=T
             #print(response.status_code)
             #print(json_response)
             if json_response['order']['status'] == "ok":
-                print(f"{action} {amount} of {stock} on Tradier account {account_number}")
+                print(f"Tradier account {account_number}: {action} {amount} of {stock}")
                 if ctx:
-                    await ctx.send(f"{action} {amount} of {stock} on Tradier account {account_number}")
+                    await ctx.send(f"Tradier account {account_number}: {action} {amount} of {stock}")
             else:
-                print(f"Error: {json_response['order']['status']}")
+                print(f"Tradier account {account_number} Error: {json_response['order']['status']}")
                 if ctx:
-                    await ctx.send(f"Error: {json_response['order']['status']}")
+                    await ctx.send(f"Tradier account {account_number} Error: {json_response['order']['status']}")
                 return None
         else:
-            print(f"Running in DRY mode. Trasaction would've been: {action} {amount} of {stock} on Tradier account {account_number}")
+            print(f"Tradier account {account_number}: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}")
             if ctx:
-                await ctx.send(f"Running in DRY mode. Trasaction would've been: {action} {amount} of {stock} on Tradier account {account_number}")
+                await ctx.send(f"Tradier account {account_number}: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}")

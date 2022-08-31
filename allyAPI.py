@@ -28,7 +28,7 @@ def ally_init():
         account_numbers = an['account'].values
         print(f"Ally account numbers: {account_numbers}")
     except Exception as e:
-        print(f'Error logging in to Ally: {e}')
+        print(f'Ally: Error logging in: {e}')
         return None
     print("Logged in to Ally!")
     return a
@@ -66,9 +66,9 @@ async def ally_holdings(a, ctx=None):
             if ctx:
                 await ctx.send(f"{symbol}: {float(qty[i])} @ ${round(float(current_price[i]), 2)} = ${round(float(qty[i]) * float(current_price[i]), 2)}")
     except Exception as e:
-        print(f'Error getting account holdings on Ally: {e}')
+        print(f'Ally: Error getting account holdings: {e}')
         if ctx:
-            await ctx.send(f'Error getting account holdings on Ally: {e}')
+            await ctx.send(f'Ally: Error getting account holdings: {e}')
 
 # Function to buy/sell stock on Ally
 async def ally_transaction(a, action, stock, amount, price, time, DRY=True, ctx=None):
@@ -105,17 +105,17 @@ async def ally_transaction(a, action, stock, amount, price, time, DRY=True, ctx=
         if not DRY:
             a.submit(o, preview=False)
         else:
-            print(f"Running in DRY mode. Trasaction would've been: {action} {amount} of {stock} on Ally")
+            print(f"Ally: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}")
             if ctx:
-                await ctx.send(f"Running in DRY mode. Trasaction would've been: {action} {amount} of {stock} on Ally")
+                await ctx.send(f"Ally: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}")
         if o.orderid:
-            print(f"Order {o.orderid} submitted on Ally")
+            print(f"Ally: Order {o.orderid} submitted")
             if ctx:
-                await ctx.send(f"Order {o.orderid} submitted on Ally")
+                await ctx.send(f"Ally: Order {o.orderid} submitted")
         else:
-            print(f"Order not submitted on Ally")
+            print(f"Ally: Order not submitted")
             if ctx:
-                await ctx.send(f"Order not submitted on Ally")
+                await ctx.send(f"Ally: Order not submitted")
     except Exception as e:
         ally_call_error = "Error: For your security, certain symbols may only be traded by speaking to an Ally Invest registered representative. Please call 1-855-880-2559 if you need further assistance with this order."
         if "500 server error: internal server error for url:" in str(e).lower():
@@ -126,9 +126,9 @@ async def ally_transaction(a, action, stock, amount, price, time, DRY=True, ctx=
                     await ctx.send(ally_call_error)
             # If the message comes up while buying, then try again with a limmit order
             elif action == "buy":
-                print(f"Error placing market buy on Ally, trying again with limit order...")
+                print(f"Ally: Error placing market buy, trying again with limit order...")
                 if ctx:
-                    await ctx.send(f"Error placing market buy on Ally, trying again with limit order...")
+                    await ctx.send(f"Ally: Error placing market buy, trying again with limit order...")
                 # Need to get stock price (compare bid, ask, and last)
                 try:
                     # Get stock values
@@ -141,14 +141,14 @@ async def ally_transaction(a, action, stock, amount, price, time, DRY=True, ctx=
                     # Run function again with limit order
                     await ally_transaction(a, action, stock, amount, new_price, time, DRY, ctx)
                 except Exception as e:
-                    print(f"Failed to place limit order on Ally: {e}")
+                    print(f"Ally: Failed to place limit order: {e}")
                     if ctx:
-                        await ctx.send(f"Failed to place limit order on Ally: {e}")
+                        await ctx.send(f"Ally: Failed to place limit order: {e}")
         elif type(price) is not str:
-            print(f"Error placing limit order on Ally: {e}")
+            print(f"Ally: Error placing limit order: {e}")
             if ctx:
-                await ctx.send(f"Error placing limit order on Ally: {e}")
+                await ctx.send(f"Ally: Error placing limit order: {e}")
         else:
-            print(f'Error submitting order on Ally: {e}')
+            print(f'Ally: Error submitting order: {e}')
             if ctx:
-                await ctx.send(f'Error submitting order on Ally: {e}')
+                await ctx.send(f'Ally: Error submitting order: {e}')

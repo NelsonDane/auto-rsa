@@ -57,9 +57,9 @@ async def schwab_holdings(schwab, ctx=None):
                 if ctx:
                     await ctx.send(f"{sym}: {qty}")
     except Exception as e:
-        print(f'Error getting holdings on Schwab {account}: {e}')
+        print(f'Schwab {account}: Error getting holdings: {e}')
         if ctx:
-            await ctx.send(f'Error getting holdings on Schwab {account}: {e}')
+            await ctx.send(f'Schwab {account}: Error getting holdings: {e}')
     
 async def schwab_transaction(schwab, action, stock, amount, price, time, DRY=True, ctx=None):
     print()
@@ -98,15 +98,14 @@ async def schwab_transaction(schwab, action, stock, amount, price, time, DRY=Tru
             print("The order verification produced the following messages: ")
             pprint.pprint(messages)
             if ctx:
-                await ctx.send(f"The order verification was " + "successful" if success else "unsuccessful")
+                await ctx.send(f"Schwab account {account}: The order verification was " + "successful" if success else "unsuccessful")
                 if not success:
-                    await ctx.send(f"The order verification produced the following messages: ")
+                    await ctx.send(f"Schwab account {account}: The order verification produced the following messages: ")
                     await ctx.send(f"{messages}")
         except Exception as e:
-            print(f'Error submitting order on Schwab: {e}')
+            print(f'Schwab {account}: Error submitting order: {e}')
             if ctx:
-                await ctx.send(f'Error submitting order on Schwab: {e}')
+                await ctx.send(f'Schwab {account}: Error submitting order: {e}')
             return None
         sleep(1)
         print()
-
