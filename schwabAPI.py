@@ -57,9 +57,22 @@ async def schwab_holdings(schwab, ctx=None):
                 if ctx:
                     await ctx.send(f"{sym}: {qty}")
     except Exception as e:
-        print(f'Schwab {account}: Error getting holdings: {e}')
-        if ctx:
-            await ctx.send(f'Schwab {account}: Error getting holdings: {e}')
+        # Test if schwab cookies timed out
+        if "local variable 'account' referenced before assignment" in str(e):
+            # Reinitialize Schwab
+            try:
+                schwab2 = schwab_init()
+                # Call function again
+                if schwab2 is not None:
+                    await schwab_holdings(schwab2, ctx)
+            except Exception as e:
+                print(f'Schwab {account}: Error reinitializing: {e}')
+                if ctx:
+                    await ctx.send(f'Schwab {account}: Error reinitializing: {e}')
+        else:
+            print(f'Schwab {account}: Error getting holdings: {e}')
+            if ctx:
+                await ctx.send(f'Schwab {account}: Error getting holdings: {e}')
     
 async def schwab_transaction(schwab, action, stock, amount, price, time, DRY=True, ctx=None):
     print()
