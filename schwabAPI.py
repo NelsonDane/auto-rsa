@@ -30,7 +30,7 @@ def schwab_init():
         print(f'Error logging in to Schwab: {e}')
         return None
 
-async def schwab_holdings(schwab, ctx=None, secondRun=False):
+async def schwab_holdings(schwab, ctx=None):
     # Make sure init didn't return None
     if schwab is None:
         print()
@@ -41,6 +41,8 @@ async def schwab_holdings(schwab, ctx=None, secondRun=False):
     print("Schwab Holdings")
     print("==============================")
     print()
+    # Relogin to Schwab to combat session timeout
+    schwab = schwab_init()
     # Get holdings on each account
     try:
         for account in list(schwab.get_account_info().keys()):
@@ -56,30 +58,23 @@ async def schwab_holdings(schwab, ctx=None, secondRun=False):
                 print(f"{sym}: {qty}")
                 if ctx:
                     await ctx.send(f"{sym}: {qty}")
-    except Exception as e:
-        # Test if schwab cookies timed out and reinitialize Schwab
-        if not secondRun:
-            print("Second Run")
-            try:
-                schwab2 = schwab_init()
-                # Call function again
-                if schwab2 is not None:
-                    await schwab_holdings(schwab2, ctx, True)
-            except Exception as e:
-                print(f'Schwab {account}: Error reinitializing: {e}')
-                if ctx:
-                    await ctx.send(f'Schwab {account}: Error reinitializing: {e}')
-        else:
-            print(f'Schwab {account}: Error getting holdings: {e}')
-            if ctx:
-                await ctx.send(f'Schwab {account}: Error getting holdings: {e}')
+    except Exception as e:        
+        print(f'Schwab {account}: Error getting holdings: {e}')
+        if ctx:
+            await ctx.send(f'Schwab {account}: Error getting holdings: {e}')
     
 async def schwab_transaction(schwab, action, stock, amount, price, time, DRY=True, ctx=None):
+    # Make sure init didn't return None
+    if schwab is None:
+        print("Error: No Schwab account")
+        return None
     print()
     print("==============================")
     print("Schwab")
     print("==============================")
     print()
+    # Relogin to Schwab to combat session timeout
+    schwab = schwab_init()
     # Get correct capitalization for action
     if action.lower() == "buy":
         action = "Buy"
@@ -87,10 +82,6 @@ async def schwab_transaction(schwab, action, stock, amount, price, time, DRY=Tru
         action = "Sell"
     stock = stock.upper()
     amount = int(amount)
-    # Make sure init didn't return None
-    if schwab is None:
-        print("Error: No Schwab account")
-        return None
     # Buy on each account
     for account in list(schwab.get_account_info().keys()):
         print(f"Schwab Account: {account}")
