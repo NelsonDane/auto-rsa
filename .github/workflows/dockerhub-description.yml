@@ -20,5 +20,5 @@ jobs:
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_PASSWORD }}
-        repository: peterevans/dockerhub-description
+        repository: ${{ secrets.DOCKERHUB_USERNAME }}/auto-rsa
         short-description: ${{ github.event.repository.description }}
