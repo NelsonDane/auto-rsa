@@ -3,6 +3,7 @@
 
 import os
 import pprint
+import asyncio
 from time import sleep
 from schwab_api import Schwab 
 from dotenv import load_dotenv
@@ -41,8 +42,6 @@ async def schwab_holdings(schwab, ctx=None):
     print("Schwab Holdings")
     print("==============================")
     print()
-    # Relogin to Schwab to combat session timeout
-    schwab = schwab_init()
     # Get holdings on each account
     try:
         for account in list(schwab.get_account_info().keys()):
@@ -73,8 +72,6 @@ async def schwab_transaction(schwab, action, stock, amount, price, time, DRY=Tru
     print("Schwab")
     print("==============================")
     print()
-    # Relogin to Schwab to combat session timeout
-    schwab = schwab_init()
     # Get correct capitalization for action
     if action.lower() == "buy":
         action = "Buy"
