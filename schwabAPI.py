@@ -30,7 +30,7 @@ def schwab_init():
         print(f'Error logging in to Schwab: {e}')
         return None
 
-async def schwab_holdings(schwab, ctx=None):
+async def schwab_holdings(schwab, ctx=None, secondRun=False):
     # Make sure init didn't return None
     if schwab is None:
         print()
@@ -57,14 +57,14 @@ async def schwab_holdings(schwab, ctx=None):
                 if ctx:
                     await ctx.send(f"{sym}: {qty}")
     except Exception as e:
-        # Test if schwab cookies timed out
-        if "local variable 'account' referenced before assignment" in str(e):
-            # Reinitialize Schwab
+        # Test if schwab cookies timed out and reinitialize Schwab
+        if not secondRun:
+            print("Second Run")
             try:
                 schwab2 = schwab_init()
                 # Call function again
                 if schwab2 is not None:
-                    await schwab_holdings(schwab2, ctx)
+                    await schwab_holdings(schwab2, ctx, True)
             except Exception as e:
                 print(f'Schwab {account}: Error reinitializing: {e}')
                 if ctx:
