@@ -195,19 +195,31 @@ async def isMarketHours(timeUntil=False,ctx=None):
 async def get_holdings(account, ctx=None):
     account = account.lower()
     if account in enabled_brokerages:
-        if account == "ally" or account == "all":
-            await ally_holdings(ally_account, ctx)
+        try:
+            if account == "ally" or account == "all":
+                await ally_holdings(ally_account, ctx)
+        except:
+            pass
         # if account == "fidelity" or account == "all":
         #     #await fidelity_get_holdings()
         #     pass
-        if account == "robinhood" or account == "rh" or account == "all":
-            await robinhood_holdings(robinhood, ctx)
-        if account == "schwab" or account == "all":
-            await schwab_holdings(schwab, ctx)
+        try:
+            if account == "robinhood" or account == "rh" or account == "all":
+                await robinhood_holdings(robinhood, ctx)
+        except:
+            pass
+        try:
+            if account == "schwab" or account == "all":
+                await schwab_holdings(schwab, ctx)
+        except:
+            pass
         # if account == "webull" or account == "wb" or account == "all":
         #     await webull_holdings(webull_account, ctx)
-        if account == "tradier" or account == "all":
-            await tradier_holdings(tradier, ctx)
+        try:
+            if account == "tradier" or account == "all":
+                await tradier_holdings(tradier, ctx)
+        except:
+            pass
     else:
         print("Error: Invalid broker")
 
