@@ -3,6 +3,7 @@
 
 import os
 import sys
+import traceback
 import ally
 from dotenv import load_dotenv
 
@@ -53,18 +54,24 @@ async def ally_holdings(a, ctx=None):
                 await ctx.send(f"Ally account value: ${value}")
         # Print account stock holdings
         ah = a.holdings()
-        account_symbols = (ah['sym'].values).tolist()
-        qty = (ah['qty'].values).tolist()
-        current_price = (ah['marketvalue'].values).tolist()
-        print("Ally account symbols:")
-        if ctx:
-            await ctx.send("Ally account symbols:")
-        for symbol in account_symbols:
-            # Set index for easy use
-            i = account_symbols.index(symbol)
-            print(f"{symbol}: {float(qty[i])} @ ${round(float(current_price[i]), 2)} = ${round(float(qty[i]) * float(current_price[i]), 2)}")
+        # Test if holdings is empty. Supposedly len and index are faster than .empty
+        if len(ah.index) == 0:
+            print("Ally: No holdings found")
             if ctx:
-                await ctx.send(f"{symbol}: {float(qty[i])} @ ${round(float(current_price[i]), 2)} = ${round(float(qty[i]) * float(current_price[i]), 2)}")
+                await ctx.send("Ally: No holdings found")
+        else:
+            account_symbols = (ah['sym'].values).tolist()
+            qty = (ah['qty'].values).tolist()
+            current_price = (ah['marketvalue'].values).tolist()
+            print("Ally account symbols:")
+            if ctx:
+                await ctx.send("Ally account symbols:")
+            for symbol in account_symbols:
+                # Set index for easy use
+                i = account_symbols.index(symbol)
+                print(f"{symbol}: {float(qty[i])} @ ${round(float(current_price[i]), 2)} = ${round(float(qty[i]) * float(current_price[i]), 2)}")
+                if ctx:
+                    await ctx.send(f"{symbol}: {float(qty[i])} @ ${round(float(current_price[i]), 2)} = ${round(float(qty[i]) * float(current_price[i]), 2)}")
     except Exception as e:
         print(f'Ally: Error getting account holdings: {e}')
         if ctx:
