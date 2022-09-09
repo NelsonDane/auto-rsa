@@ -106,7 +106,11 @@ if single_broker == "all":
     # if fidelity_account is not None:
     #     enabled_brokerages.append("fidelity")
     #print()
-    robinhood = robinhood_init()
+    try:
+        robinhood = robinhood_init()
+    except:
+        sleep(5)
+        robinhood = robinhood_init()
     if robinhood is not None:
         enabled_brokerages.append("robinhood")
         enabled_brokerages.append("rh")
@@ -134,7 +138,11 @@ elif single_broker == "fidelity":
     if fidelity_account is not None:
         enabled_brokerages.append("fidelity")
 elif single_broker == "robinhood" or single_broker == "rh":
-    robinhood = robinhood_init()
+    try:
+        robinhood = robinhood_init()
+    except:
+        sleep(5)
+        robinhood = robinhood_init()
     if robinhood is not None:
         enabled_brokerages.append("robinhood")
         enabled_brokerages.append("rh")
