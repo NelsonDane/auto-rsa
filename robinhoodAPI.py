@@ -4,6 +4,7 @@
 import os
 import robin_stocks.robinhood as rh
 from time import sleep
+import pprint
 import pyotp
 from dotenv import load_dotenv
 
@@ -78,7 +79,11 @@ async def robinhood_transaction(rh, action, stock, amount, price, time, DRY=True
     print()
     action = action.lower()
     stock = stock.upper()
-    amount = int(amount)
+    if amount == "all" and action == "sell":
+        all_amount = True
+    else:
+        amount = int(amount)
+        all_amount = False
     # Make sure init didn't return None
     if rh is None:
         print("Error: No Robinhood account")
@@ -93,6 +98,14 @@ async def robinhood_transaction(rh, action, stock, amount, price, time, DRY=True
                     await ctx.send(f"Robinhood: Bought {amount} of {stock}")
             # Sell Market order
             elif action == "sell":
+                if all_amount:
+                    # Get account holdings
+                    positions = rh.get_open_stock_positions()
+                    for item in positions:
+                        sym = item['symbol'] = rh.get_symbol_by_url(item['instrument'])
+                        if sym.upper() == stock:
+                            amount = float(item['quantity'])
+                            break
                 rh.order_sell_market(stock, amount)
                 print(f"Robinhood: Sold {amount} of {stock}")
                 if ctx:

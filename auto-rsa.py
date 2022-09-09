@@ -30,7 +30,7 @@ if len(sys.argv) > 1 and sys.argv[1] != "holdings":
     try:
         wanted_amount = int(sys.argv[2])
     except:
-        if sys.argv[2] is type (str) and sys.argv[2] == "all":
+        if sys.argv[2] == "all":
             wanted_amount = "all"
         else:
             print("Error: Invalid amount")
