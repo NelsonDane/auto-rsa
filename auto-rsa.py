@@ -236,12 +236,14 @@ async def place_order(wanted_action, wanted_amount, wanted_stock, single_broker,
         try:
             # Input validation
             wanted_action = wanted_action.lower()
-            wanted_amount = int(wanted_amount)
+            if wanted_amount != "all":
+                wanted_amount = int(wanted_amount)
             wanted_stock = wanted_stock.upper()
             single_broker = single_broker.lower()
             # Shut up, grammar is important smh
-            if wanted_amount > 1:
-                grammar = "shares"
+            if wanted_amount != "all":
+                if wanted_amount > 1:
+                    grammar = "shares"
             else:
                 grammar = "share"
             print("==========================================================")
@@ -286,6 +288,7 @@ async def place_order(wanted_action, wanted_amount, wanted_stock, single_broker,
                 if ctx:
                     await ctx.send("Error: Invalid broker")
         except Exception as e:
+            print(traceback.format_exc())
             print(f"Error placing order: {e}")  
             await ctx.send(f"Error placing order: {e}")
     else:
