@@ -104,7 +104,7 @@ async def tradier_holdings(tradier, ctx=None):
                 i = stocks.index(position)
                 print(f"{position}: {amounts[i]} @ ${current_price[i]} = ${current_value[i]}")
                 if ctx:
-                    await ctx.send(f"{position}: ${amounts[i]} @ {current_price[i]} = ${current_value[i]}")
+                    await ctx.send(f"{position}: {amounts[i]} @ ${current_price[i]} = ${current_value[i]}")
         except Exception as e:
             print(f"Tradier {account_number}: Error getting holdings: {e}")
             if ctx:
