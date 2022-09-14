@@ -81,6 +81,8 @@ async def robinhood_transaction(rh, action, stock, amount, price, time, DRY=True
     stock = stock.upper()
     if amount == "all" and action == "sell":
         all_amount = True
+    elif amount < 1:
+        amount = float(amount)
     else:
         amount = int(amount)
         all_amount = False
