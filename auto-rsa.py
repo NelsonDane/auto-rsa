@@ -244,6 +244,8 @@ async def place_order(wanted_action, wanted_amount, wanted_stock, single_broker,
             if wanted_amount != "all":
                 if wanted_amount > 1:
                     grammar = "shares"
+                else:
+                    grammar = "share"
             else:
                 grammar = "share"
             print("==========================================================")
