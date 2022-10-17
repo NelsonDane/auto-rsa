@@ -1,62 +1,80 @@
-# auto-rsa CLI tool/Discord bot
-A CLI tool and discord bot to buy the same amount of stocks in multiple accounts!
+# autoRSA Discord Bot and CLI Tool
+A CLI tool and Discord bot to buy and sell the same amount of stocks across multiple accounts!
 
 ## Discord Bot Installation
 ### Docker
 View on [Docker Hub](https://hub.docker.com/repository/docker/nelsondane/auto-rsa)
 1. Clone the repo and cd into it
 2. Create a `.env` file for your brokerage variables, and add your bot using `DISCORD_TOKEN` and `DISCORD_CHANNEL`
-3. Just run `docker run --env-file ./.env -it --restart unless-stopped --name rsa nelsondane/auto-rsa`
-4. The bot should appear online (You can also do `!ping`). Once bot is working, just enter CTRL-p then CTRL-q to exit gracefully, letting the bot run in the background. See below for command explanation.
+3. Just run `docker run --env-file ./.env -itd --restart unless-stopped --name rsa nelsondane/auto-rsa:latest`
+4. The bot should appear online (You can also do `!ping` to check). See below for more command explanations.
 
 ### Always Running Python Script
 Make sure python3-pip is installed
 1. Clone this repository and cd into it
 2. Run `pip install -r requirements.txt`
 3. Create a `.env` file for your brokerage variables, and add your bot using `DISCORD_TOKEN` and `DISCORD_CHANNEL`
-4. Run `python auto-rsa.py` (See below for command explanation)
+4. Run `python autoRSA.py` (See below for more command explanations)
 
 ## CLI Tool Installation
-1. Follow the Always Running Python Script steps until Step 4
-2. Run the script using `python3 auto-rsa.py <action> <amount> <ticker> <account> <dry>` (See below for parameter explanation)
+1. Clone this repository and cd into it
+2. Run `pip install -r requirements.txt`
+3. Create a `.env` file for your brokerage variables
+2. Run the script using `python pythonRSA.py <action> <amount> <ticker> <account> <dry>` (See below for more parameter explanations)
 
 ## Usage
-Ping-Pong: Once the bot is invited to your server, you can check that it's running by sending `!ping`, to which the bot should respond with `pong`
+### Discord Bot
+`Ping-Pong`: Once the bot is invited to your server, you can check that it's running by sending `!ping`, to which the bot should respond with `pong`
 
 To buy and sell stocks, just send a message of this format in discord:
 `!rsa <action> <amount> <ticker> <account> <dry>`
 
-### CLI Tool/Discord Bot Parameters explained:
-- `!rsa`: command name (not in CLI)
+For example, to buy 1 STAF in all accounts:
+
+`!rsa buy 1 STAF all false`
+
+For a dry run of the above command in Robinhood only:
+`!rsa buy 1 STAF robinhood true`
+
+To check your account holdings:
+
+`!holdings <account>`
+
+To see when the market opens/closes:
+
+`!market` or `!market_hours`
+
+To restart the bot:
+
+`!restart`
+
+For help:
+
+`!help`
+
+### CLI Tool:
+To buy and sell stocks, just this command when in the repo directory:
+
+`python pythonRSA.py <action> <amount> <ticker> <account> <dry>`
+
+For example, to buy 1 STAF in all accounts:
+
+`python pythonRSA.py buy 1 STAF all false`
+
+For a dry run of the above command in Robinhood only:
+
+`python pythonRSA.py buy 1 STAF robinhood true`
+
+To check individual account holdings:
+
+`python pythonRSA.py holdings <account>`
+
+### Parameters
 - `<action>`: `buy` or `sell`
 - `<amount>`: Amount to buy or sell. Must be an integer
 - `<ticker>`: The stock ticker to buy or sell
-- `<account>`: What brokerage to run it in (robinhood, schwab, or all)
-- `<dry>`: Whether to run in "dry" mode (in which no transactions are made, useful for testing). Set to True, False, or just write "dry" for True
-#### Discord bot:
-For example, to buy 1 STAF in all accounts:
-`!rsa buy 1 STAF all false`.
-For a dry run of the above command in Robinhood only:
-`!rsa buy 1 STAF robinhood true`.
-To check individual account holdings:
-`!holdings broker-name`.
-To see when the market opens/closes:
-`!market`.
-To restart the bot:
-`!restart`.
-
-After a few seconds, the bot will let you know if anything happened! (Hopefully)
-
-#### CLI Tool:
-For example, to buy 1 STAF in all accounts:
-`python3 auto-rsa.py buy 1 STAF all false`.
-For a dry run of the above command in Robinhood only:
-`python3 auto-rsa.py buy 1 STAF robinhood true`.
-To check individual account holdings:
-`python3 auto-rsa.py holdings broker-name`.
-
-After a few seconds you should see some output in the terminal (Hopefully)
-
+- `<account>`: What brokerage to run command in (robinhood, schwab, etc, or all)
+- `<dry>`: Whether to run in "dry" mode (in which no transactions are made, useful for testing). Set to True, False, or just write "dry" for True. Defaults to True, so if you want to run a real transaction, you must set this to False/dry.
 
 ### Supported brokerages:
 #### Ally
@@ -97,11 +115,11 @@ Required `.env` variables:
 To get your access token, go to your [Tradier API settings](https://dash.tradier.com/settings/api)
 ### Maybe future brokerages
 #### Fidelity
-No official or 3rd party APIs were found, so would have to create one from scratch using web scraping. (Kind of like these [one](https://www.youtube.com/watch?v=PrSgKllqquA) [two](https://www.youtube.com/watch?v=CF5ItVde4lc&t=315s)).
+No official or 3rd party APIs were found, so would have to create one from scratch using web scraping. (Kind of like these: [one](https://www.youtube.com/watch?v=PrSgKllqquA) [two](https://www.youtube.com/watch?v=CF5ItVde4lc&t=315s)).
 #### Vanguard
 Same as Fidelity. I found this [vanguard-api](https://github.com/rikonor/vanguard-api), but it failed when I ran it.
 #### SoFi
-No official or 3rd party APIs, but have a website. So same as Fidelity and Vanguard.
+No official or 3rd party APIs, but they do have a website. So same as Fidelity and Vanguard.
 #### Webull
 Not currently working since login is broken in [webull](https://github.com/tedchou12/webull). Go give them a ⭐ anyways.
 ### Never working brokerages
