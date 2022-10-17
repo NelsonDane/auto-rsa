@@ -3,11 +3,9 @@
 
 # Import libraries
 import os
-import sys
 from datetime import datetime
 import discord
 from discord.ext import commands
-import asyncio
 from dotenv import load_dotenv
 # Custom API libraries
 from allyAPI import *
@@ -19,158 +17,27 @@ from tradierAPI import *
 
 # List of supported and enabled brokerages
 supported_brokerages = ["all", "ally", "robinhood", "rh", "schwab", "tradier"]
-enabled_brokerages = []
 
 # Initialize .env file
 load_dotenv()
 
-# Get stock info from command line arguments
-if len(sys.argv) > 1 and sys.argv[1] != "holdings":
-    wanted_action = sys.argv[1].lower()
-    try:
-        wanted_amount = int(sys.argv[2])
-    except:
-        if sys.argv[2] == "all":
-            wanted_amount = "all"
-        else:
-            print("Error: Invalid amount")
-            sys.exit(1)
-    wanted_stock = sys.argv[3].upper()
-    wanted_time = "day" # Only supports day for now
-    wanted_price = "market" # Only supports market for now
-    # Check if DRY mode is enabled   
-    if (sys.argv[4].lower()) == "dry" and not (sys.argv[4].lower() in supported_brokerages):
-        DRY = True
-        single_broker = "all"
-        enabled_brokerages.append(single_broker)
-    elif sys.argv[4].lower() in supported_brokerages:
-        single_broker = sys.argv[4].lower()
-        enabled_brokerages.append(single_broker)
-    if len(sys.argv) > 5:
-        if sys.argv[5].lower() == "dry":
-            DRY = True
-        else:
-            DRY = False
-    print(f"Action: {wanted_action}")
-    print(f"Amount: {wanted_amount}")
-    print(f"Stock: {wanted_stock}")
-    print(f"Time: {wanted_time}")
-    print(f"Price: {wanted_price}")
-    print(f"Broker: {single_broker}")
-    print(f"DRY: {DRY}")
-    print()
-    cli_mode = True
-    should_get_holdings = False
-elif len(sys.argv) == 3 and sys.argv[1] == "holdings":
-    single_broker = sys.argv[2].lower()
-    enabled_brokerages.append(single_broker)
-    should_get_holdings = True
-    cli_mode = True
-else:
-    cli_mode = False
-    should_get_holdings = False
-
-# Get discord token and prefix from .env file, setting to None if not found
+# Get discord token and channel from .env file, setting channel to None if not found
+if not os.environ["DISCORD_TOKEN"]:
+    raise Exception("DISCORD_TOKEN not found in .env file, please add it")
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 DISCORD_CHANNEL = os.getenv("DISCORD_CHANNEL", None)
-if DISCORD_TOKEN and not cli_mode:
-    DISCORD = True
-    if DISCORD_CHANNEL:
-        DISCORD_CHANNEL = int(DISCORD_CHANNEL)
-else:
-    DISCORD = False
-    DISCORD_CHANNEL = None
-    ctx = None
+if DISCORD_CHANNEL:
+    DISCORD_CHANNEL = int(DISCORD_CHANNEL)
 
-# Raise error if no command line arguments and no discord token
-if (not cli_mode) and (not should_get_holdings) and (not DISCORD):
-    print("Error: No command line arguments and no discord token")
-    sys.exit(1)
-elif (not cli_mode) and (not should_get_holdings) and DISCORD:
-    single_broker = "all"
-    enabled_brokerages.append(single_broker)
-    wanted_time = "day"
-    wanted_price = "market"
+# Function to convert string to boolean
+async def stringToBool(string):
+    true = ["true", "t", "yes", "y", "1"]
+    if string.lower() in true:
+        return True
+    else:
+        return False
 
-# Initialize Accounts
-if single_broker == "all":
-    print("==========================================================")
-    print("Initializing Accounts...")
-    print("==========================================================")
-    print()
-    ally_account = ally_init()
-    if ally_account is not None:
-        enabled_brokerages.append("ally")
-    print()
-    # fidelity_account = fidelity_init()
-    # if fidelity_account is not None:
-    #     enabled_brokerages.append("fidelity")
-    #print()
-    try:
-        robinhood = robinhood_init()
-    except:
-        sleep(5)
-        robinhood = robinhood_init()
-    if robinhood is not None:
-        enabled_brokerages.append("robinhood")
-        enabled_brokerages.append("rh")
-    print()
-    schwab = schwab_init()
-    if schwab is not None:
-        enabled_brokerages.append("schwab")
-    print()
-    # webull_account = webull_init()
-    # if webull_account is not None:
-    #     enabled_brokerages.append("webull")
-    #     enabled_brokerages.append("wb")
-    # print()
-    tradier = tradier_init()
-    if tradier is not None:
-        enabled_brokerages.append("tradier")
-    print()
-elif single_broker == "ally":
-    ally_account = ally_init()
-    if ally_account is not None:
-        enabled_brokerages.append("ally")
-    print()
-elif single_broker == "fidelity":
-    fidelity_account = fidelity_init()
-    if fidelity_account is not None:
-        enabled_brokerages.append("fidelity")
-elif single_broker == "robinhood" or single_broker == "rh":
-    try:
-        robinhood = robinhood_init()
-    except:
-        sleep(5)
-        robinhood = robinhood_init()
-    if robinhood is not None:
-        enabled_brokerages.append("robinhood")
-        enabled_brokerages.append("rh")
-    print()
-elif single_broker == "schwab":
-    schwab = schwab_init()
-    if schwab is not None:
-        enabled_brokerages.append("schwab")
-    print()
-elif single_broker == "webull" or single_broker == "wb":
-    webull_account = webull_init()
-    if webull_account is not None:
-        enabled_brokerages.append("webull")
-        enabled_brokerages.append("wb")
-    print()
-elif single_broker == "tradier":
-    tradier = tradier_init()
-    if tradier is not None:
-        enabled_brokerages.append("tradier")
-    print()
-else:
-    print("Error: Invalid broker")
-    sys.exit(1)
-
-if DISCORD:
-    print("Waiting for Discord commands...")
-    print()
-
+# Function to check market hours
 async def isMarketHours(timeUntil=False,ctx=None):
     # Get current time and open/close times
     now = datetime.now()
@@ -200,39 +67,45 @@ async def isMarketHours(timeUntil=False,ctx=None):
             if ctx:
                 await ctx.send(f"Market is closed, opening in {open_hours} hours and {open_minutes} minutes")
 
-async def get_holdings(account, ctx=None):
-    account = account.lower()
-    if account in enabled_brokerages:
+# Function to get account holdings
+async def get_holdings(accountName, AO=None, ctx=None):
+    accountName = accountName.lower()
+    if accountName in supported_brokerages:
         try:
-            if account == "ally" or account == "all":
-                await ally_holdings(ally_account, ctx)
+            if accountName == "ally" or accountName == "all":
+                await ally_holdings(ally_account if AO is None else AO, ctx)
         except:
             pass
         # if account == "fidelity" or account == "all":
         #     #await fidelity_get_holdings()
         #     pass
         try:
-            if account == "robinhood" or account == "rh" or account == "all":
-                await robinhood_holdings(robinhood, ctx)
+            if accountName == "robinhood" or accountName == "rh" or accountName == "all":
+                await robinhood_holdings(robinhood if AO is None else AO, ctx)
         except:
             pass
         try:
-            if account == "schwab" or account == "all":
-                await schwab_holdings(schwab, ctx)
+            if accountName == "schwab" or accountName == "all":
+                await schwab_holdings(schwab if AO is None else AO, ctx)
         except:
             pass
         # if account == "webull" or account == "wb" or account == "all":
         #     await webull_holdings(webull_account, ctx)
         try:
-            if account == "tradier" or account == "all":
-                await tradier_holdings(tradier, ctx)
+            if accountName == "tradier" or accountName == "all":
+                await tradier_holdings(tradier if AO is None else AO, ctx)
         except:
             pass
     else:
         print("Error: Invalid broker")
 
-async def place_order(wanted_action, wanted_amount, wanted_stock, single_broker, DRY=True, ctx=None):
-    if await isMarketHours():
+# Function to place orders
+async def place_order(wanted_action, wanted_amount, wanted_stock, single_broker, AO=None, DRY=True, ctx=None):
+    # Unused currently
+    wanted_price = None
+    wanted_time = None
+    # Only run during market hours
+    if await isMarketHours() or DRY:
         try:
             # Input validation
             wanted_action = wanted_action.lower()
@@ -255,7 +128,7 @@ async def place_order(wanted_action, wanted_amount, wanted_stock, single_broker,
             # Buy/Sell stock on each account if "all"
             if single_broker == "all":
                 # Ally
-                await ally_transaction(ally_account, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
+                await ally_transaction(ally_account if AO is None else AO, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
                 # Robinhood
                 await robinhood_transaction(robinhood, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
                 # Schwab
@@ -266,7 +139,7 @@ async def place_order(wanted_action, wanted_amount, wanted_stock, single_broker,
                 await tradier_transaction(tradier, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
             elif single_broker == "ally":
                 # Ally
-                await ally_transaction(ally_account, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
+                await ally_transaction(ally_account if AO is None else AO, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
             # elif single_broker == "fidelity":
             #     # Fidelity
             #     #fidelity_transaction(fidelity_user, fidelity_password, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY)
@@ -292,33 +165,41 @@ async def place_order(wanted_action, wanted_amount, wanted_stock, single_broker,
         except Exception as e:
             print(traceback.format_exc())
             print(f"Error placing order: {e}")  
-            await ctx.send(f"Error placing order: {e}")
+            if ctx:
+                await ctx.send(f"Error placing order: {e}")
     else:
         print("Unable to place order: Market is closed")
         if ctx:
             await ctx.send("Unable to place order: Market is closed")
 
-# If getting holdings, get them
-if cli_mode and should_get_holdings and (not DISCORD):
+if __name__ == "__main__":
+    # Initialize Accounts
+    print("==========================================================")
+    print("Initializing Accounts...")
+    print("==========================================================")
+    print()
+    ally_account = ally_init()
+    print()
+    # fidelity_account = fidelity_init()
+    #print()
     try:
-        asyncio.run(get_holdings(single_broker))
-        sys.exit(0)
-    except Exception as e:
-        print(f"Error getting holdings: {e}")
-        sys.exit(1)
-# If run from the command line, run once and exit
-if cli_mode and not DISCORD:
-    # Run place order function then exit
-    try:
-        asyncio.run(place_order(wanted_action, wanted_amount, wanted_stock, single_broker, DRY))
-        sys.exit(0)
-    # If error, exit with error code
-    except Exception as e:
-        print(f"Error: {e}")
-        sys.exit(1)
+        robinhood = robinhood_init()
+    except:
+        print("Robinhood failed, retrying...")
+        sleep(5)
+        robinhood = robinhood_init()
+    print()
+    schwab = schwab_init()
+    print()
+    # webull_account = webull_init()
+    # print()
+    tradier = tradier_init()
+    print()
 
-# If run from Discord, run forever
-elif not cli_mode and DISCORD:
+    print("Waiting for Discord commands...")
+    print()
+
+    # Initialize discord bot
     # Bot intents
     intents = discord.Intents.all()
     # Discord bot command prefix
@@ -329,7 +210,7 @@ elif not cli_mode and DISCORD:
     print()
 
     # Bot event when bot is ready
-    if DISCORD_CHANNEL is not None:
+    if DISCORD_CHANNEL:
         @bot.event
         async def on_ready():
             channel = bot.get_channel(DISCORD_CHANNEL)
@@ -359,14 +240,12 @@ elif not cli_mode and DISCORD:
         print()
         print("Waiting for Discord commands...")
         print()
-    
+        
     # Main RSA command
     @bot.command(name='rsa')
     async def rsa(ctx, wanted_action, wanted_amount, wanted_stock, wanted_account, DRY):
-        if DRY.lower() == "dry" or DRY.lower() == "true":
-            DRY = True
-        else:
-            DRY = False
+        # Convert string to boolean
+        DRY = stringToBool(DRY)
         try:
             await place_order(wanted_action, wanted_amount, wanted_stock, wanted_account, DRY, ctx)
         except discord.ext.commands.errors.MissingRequiredArgument:
@@ -380,7 +259,7 @@ elif not cli_mode and DISCORD:
         print()
         print("Waiting for Discord commands...")
         print()
-    
+        
     # Holdings command
     @bot.command(name='holdings')
     async def holdings(ctx, broker):

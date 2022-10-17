@@ -24,7 +24,7 @@ RUN playwright install
 RUN playwright install-deps
 
 # Grab needed files
-COPY ./auto-rsa.py .
+COPY ./autoRSA.py .
 COPY ./allyAPI.py .
 COPY ./fidelityAPI.py .
 COPY ./robinhoodAPI.py .
@@ -32,4 +32,4 @@ COPY ./schwabAPI.py .
 COPY ./tradierAPI.py .
 COPY ./webullAPI.py .
 
-CMD ["python3","auto-rsa.py"]
+CMD ["python3","autoRSA.py"]
