@@ -1,0 +1,11 @@
+# Project files
+__pycache__/
+.github/
+.gitignore
+# Irrelevant to Docker
+.env.example
+.env
+did.bin
+README.md
+testLogin.py
+pythonRSA.py

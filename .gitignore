@@ -1,6 +1,5 @@
 .env
 .DS_Store
-.dockerignore
-**/__pycache__
+__pycache__/
 did.bin
 test.py
