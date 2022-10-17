@@ -27,6 +27,7 @@ Make sure python3-pip is installed
 `Ping-Pong`: Once the bot is invited to your server, you can check that it's running by sending `!ping`, to which the bot should respond with `pong`
 
 To buy and sell stocks, just send a message of this format in discord:
+
 `!rsa <action> <amount> <ticker> <account> <dry>`
 
 For example, to buy 1 STAF in all accounts:
@@ -34,6 +35,7 @@ For example, to buy 1 STAF in all accounts:
 `!rsa buy 1 STAF all false`
 
 For a dry run of the above command in Robinhood only:
+
 `!rsa buy 1 STAF robinhood true`
 
 To check your account holdings:
@@ -70,7 +72,7 @@ To check individual account holdings:
 `python pythonRSA.py holdings <account>`
 
 ### Parameters
-- `<action>`: `buy` or `sell`
+- `<action>`: "buy" or "sell"
 - `<amount>`: Amount to buy or sell. Must be an integer
 - `<ticker>`: The stock ticker to buy or sell
 - `<account>`: What brokerage to run command in (robinhood, schwab, etc, or all)
