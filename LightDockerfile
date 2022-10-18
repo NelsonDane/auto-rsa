@@ -22,10 +22,10 @@ RUN pip install -r requirements-light.txt
 # Grab needed files
 COPY ./autoRSA.py .
 COPY ./allyAPI.py .
-COPY ./fidelityAPI.py .
+# COPY ./fidelityAPI.py .
 COPY ./robinhoodAPI.py .
-COPY ./schwabAPI.py .
+# COPY ./schwabAPI.py .
 COPY ./tradierAPI.py .
-COPY ./webullAPI.py .
+# COPY ./webullAPI.py .
 
 CMD ["python3","autoRSA.py"]
