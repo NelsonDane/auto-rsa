@@ -9,14 +9,24 @@ from discord.ext import commands
 from dotenv import load_dotenv
 # Custom API libraries
 from allyAPI import *
-from fidelityAPI import *
 from robinhoodAPI import *
-from schwabAPI import *
 from webullAPI import *
 from tradierAPI import *
 
-# List of supported and enabled brokerages
-supported_brokerages = ["all", "ally", "robinhood", "rh", "schwab", "tradier"]
+# Whether to run in light mode
+if (sys.argv[1] == "light"):
+    lightMode = True
+else:
+    lightMode = False
+
+# Light mode settings
+if lightMode:
+    from fidelityAPI import *
+    from schwabAPI import *
+    supported_brokerages = ["all", "ally", "robinhood", "rh", "tradier"]
+else:
+    # List of supported brokerages
+    supported_brokerages = ["all", "ally", "robinhood", "rh", "schwab", "tradier"]
 
 # Initialize .env file
 load_dotenv()
@@ -85,7 +95,7 @@ async def get_holdings(accountName, AO=None, ctx=None):
         except:
             pass
         try:
-            if accountName == "schwab" or accountName == "all":
+            if accountName == "schwab" or accountName == "all" and not lightMode:
                 await schwab_holdings(schwab if AO is None else AO, ctx)
         except:
             pass
@@ -132,7 +142,8 @@ async def place_order(wanted_action, wanted_amount, wanted_stock, single_broker,
                 # Robinhood
                 await robinhood_transaction(robinhood, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
                 # Schwab
-                await schwab_transaction(schwab, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
+                if not lightMode:
+                    await schwab_transaction(schwab, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
                 # Webull
                 # await webull_transaction(webull_account, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
                 # Tradier
@@ -150,7 +161,8 @@ async def place_order(wanted_action, wanted_amount, wanted_stock, single_broker,
             elif single_broker == "schwab":
                 # Schwab
                 #print("bruh")
-                await schwab_transaction(schwab, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
+                if not lightMode:
+                    await schwab_transaction(schwab, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
             # elif single_broker == "webull" or single_broker == "wb":
             #     # Webull
             #     await webull_transaction(webull_account, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
@@ -189,7 +201,8 @@ if __name__ == "__main__":
         sleep(5)
         robinhood = robinhood_init()
     print()
-    schwab = schwab_init()
+    if not lightMode:
+        schwab = schwab_init()
     print()
     # webull_account = webull_init()
     # print()
