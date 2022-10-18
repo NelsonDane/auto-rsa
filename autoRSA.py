@@ -15,9 +15,14 @@ from robinhoodAPI import *
 from tradierAPI import *
 
 # Whether to run in light mode
-if (sys.argv[1] == "light"):
-    lightMode = True
+if len(sys.argv) > 1:
+    if (sys.argv[1] == "light"):
+        lightMode = True
 else:
+    lightMode = False
+
+# Set light mode false if called from outside
+if __name__ != "__main__":
     lightMode = False
 
 # Light mode settings
@@ -261,7 +266,7 @@ if __name__ == "__main__":
         # Convert string to boolean
         DRY = stringToBool(DRY)
         try:
-            await place_order(wanted_action, wanted_amount, wanted_stock, wanted_account, DRY, ctx)
+            await place_order(wanted_action=wanted_action, wanted_amount=wanted_amount, wanted_stock=wanted_stock, wanted_account=wanted_account, DRY=DRY, ctx=ctx)
         except discord.ext.commands.errors.MissingRequiredArgument:
             # Missing required argument
             print("Error: Missing required argument")
@@ -278,7 +283,7 @@ if __name__ == "__main__":
     @bot.command(name='holdings')
     async def holdings(ctx, broker):
         try:
-            await get_holdings(broker, ctx)
+            await get_holdings(accountName=broker, ctx=ctx)
         except Exception as e:
             print(f"Error getting holdings: {e}")
             await ctx.send(f"Error getting holdings: {e}")
