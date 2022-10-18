@@ -1,0 +1,7 @@
+python-dotenv
+apprise
+discord.py
+pyally
+pyotp
+robin_stocks
+requests

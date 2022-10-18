@@ -14,10 +14,10 @@ RUN apk add --no-cache \
     py3-pip \
     tzdata
 
-COPY ./requirements.txt .
+COPY ./requirements-light.txt .
 
 # Install dependencies
-RUN pip install -r requirements.txt
+RUN pip install -r requirements-light.txt
 
 # Grab needed files
 COPY ./autoRSA.py .
