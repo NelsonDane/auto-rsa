@@ -28,4 +28,4 @@ COPY ./robinhoodAPI.py .
 COPY ./tradierAPI.py .
 # COPY ./webullAPI.py .
 
-CMD ["python3","autoRSA.py", "light"]
+CMD ["python3","autoRSA.py","light"]
