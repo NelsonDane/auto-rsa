@@ -16,6 +16,8 @@ from tradierAPI import *
 
 # List of supported and enabled brokerages
 supported_brokerages = ["all", "ally", "robinhood", "rh", "schwab", "tradier"]
+enabled_brokerages = []
+AO = []
 
 # Initialize .env file
 load_dotenv()
@@ -67,44 +69,77 @@ if single_broker == "all":
     print("==========================================================")
     print()
     ally_account = ally_init()
+    if ally_account is not None:
+        AO.append(ally_account)
+        enabled_brokerages.append("ally")
     print()
     # fidelity_account = fidelity_init()
     # if fidelity_account is not None:
     #print()
     try:
         robinhood = robinhood_init()
+        if robinhood is not None:
+            AO.append(robinhood)
+            enabled_brokerages.append("robinhood")
     except:
         print("Robinhood failed, retrying...")
         sleep(5)
         robinhood = robinhood_init()
+        if robinhood is not None:
+            AO.append(robinhood)
+            enabled_brokerages.append("robinhood")
     print()
     schwab = schwab_init()
+    if schwab is not None:
+        AO.append(schwab)
+        enabled_brokerages.append("schwab")
     print()
     # webull_account = webull_init()
     # if webull_account is not None:
     # print()
     tradier = tradier_init()
+    if tradier is not None:
+        AO.append(tradier)
+        enabled_brokerages.append("tradier")
     print()
 elif single_broker == "ally":
     ally_account = ally_init()
+    if ally_account is not None:
+        AO.append(ally_account)
+        enabled_brokerages.append("ally")
     print()
-elif single_broker == "fidelity":
-    fidelity_account = fidelity_init()
+# elif single_broker == "fidelity":
+#     fidelity_account = fidelity_init()
 elif single_broker == "robinhood" or single_broker == "rh":
     try:
         robinhood = robinhood_init()
+        if robinhood is not None:
+            AO.append(robinhood)
+            enabled_brokerages.append("robinhood")
     except:
         sleep(5)
         robinhood = robinhood_init()
+        if robinhood is not None:
+            AO.append(robinhood)
+            enabled_brokerages.append("robinhood")
     print()
 elif single_broker == "schwab":
     schwab = schwab_init()
+    if schwab is not None:
+        AO = [schwab]
+        enabled_brokerages = ["schwab"]
     print()
 elif single_broker == "webull" or single_broker == "wb":
     webull_account = webull_init()
+    if webull_account is not None:
+        AO = [webull_account]
+        enabled_brokerages = ["webull"]
     print()
 elif single_broker == "tradier":
     tradier = tradier_init()
+    if tradier is not None:
+        AO = [tradier]
+        enabled_brokerages = ["tradier"]
     print()
 else:
     print("Error: Invalid broker")
@@ -113,7 +148,11 @@ else:
 # If get holdings, get them
 if should_get_holdings:
     try:
-        asyncio.run(get_holdings(accountName=single_broker, AO=ally_account))
+        if single_broker == "all":
+            for i, a in enumerate(AO):
+                asyncio.run(get_holdings(accountName=enabled_brokerages[i], AO=a))
+        else:
+            asyncio.run(get_holdings(accountName=single_broker, AO=AO[0]))
         sys.exit(0)
     except Exception as e:
         print(f"Error getting holdings: {e}")
