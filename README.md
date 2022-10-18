@@ -6,8 +6,14 @@ A CLI tool and Discord bot to buy and sell the same amount of stocks across mult
 View on [Docker Hub](https://hub.docker.com/repository/docker/nelsondane/auto-rsa)
 1. Clone the repo and cd into it
 2. Create a `.env` file for your brokerage variables, and add your bot using `DISCORD_TOKEN` and `DISCORD_CHANNEL`
-3. Just run `docker run --env-file ./.env -itd --restart unless-stopped --name rsa nelsondane/auto-rsa:latest`
+3. Just run `docker run --env-file ./.env -itd --restart unless-stopped --name rsa nelsondane/auto-rsa:<tag>`
 4. The bot should appear online (You can also do `!ping` to check). See below for more command explanations.
+
+Docker Tags
+- `latest` - The latest version of the bot
+- `light` - The latest version of the bot, but running on Alpine Linux (smaller image size)
+
+Note: The `light` tag does not support `Schwab` or any future Selenium-based brokers. The only brokers currently supported in light mode are `Ally, Robinhood, and Tradier`.
 
 ### Always Running Python Script
 Make sure python3-pip is installed
@@ -24,7 +30,9 @@ Make sure python3-pip is installed
 
 ## Usage
 ### Discord Bot
-`Ping-Pong`: Once the bot is invited to your server, you can check that it's running by sending `!ping`, to which the bot should respond with `pong`
+Once the bot is invited to your server, you can check that it's running by sending:
+
+`!ping`
 
 To buy and sell stocks, just send a message of this format in discord:
 
