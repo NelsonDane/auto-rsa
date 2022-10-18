@@ -10,9 +10,10 @@ WORKDIR /app
 
 # Install python, pip, and tzdata
 RUN apk add --no-cache \
-    python3 \
     py3-pip \
-    tzdata
+    tzdata \
+    bash \
+&& rm -rf /var/lib/apt/lists/*
 
 COPY ./requirements-light.txt .
 
