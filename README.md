@@ -78,8 +78,8 @@ To check individual account holdings:
 - `<account>`: What brokerage to run command in (robinhood, schwab, etc, or all)
 - `<dry>`: Whether to run in "dry" mode (in which no transactions are made, useful for testing). Set to True, False, or just write "dry" for True. Defaults to True, so if you want to run a real transaction, you must set this to False/dry.
 
-### Supported brokerages:
-#### Ally
+## Supported brokerages:
+### Ally
 Made using [PyAlly](https://github.com/alienbrett/PyAlly). Go give them a ⭐
 
 Required `.env` variables:
@@ -90,7 +90,7 @@ Required `.env` variables:
 - ALLY_ACCOUNT_NBR
 
 To get these, follow [these instructions](https://alienbrett.github.io/PyAlly/installing.html#get-the-library)
-#### Robinhood
+### Robinhood
 Made using [robin_stocks](https://github.com/jmfernandes/robin_stocks). Go give them a ⭐
 
 Required `.env` variables:
@@ -99,7 +99,7 @@ Required `.env` variables:
 - ROBINHOOD_TOTP: If 2fa enabled
 
 Configuring 2fa can be tricky, read the TOTP section [here](https://github.com/jmfernandes/robin_stocks/blob/master/Robinhood.rst)
-#### Schwab
+### Schwab
 Made using [schwab-api](https://github.com/itsjafer/schwab-api). Go give them a ⭐
 
 Required `.env` variables:
@@ -108,7 +108,7 @@ Required `.env` variables:
 - SCHWAB_TOTP_SECRET= (If 2fa is enabled)
 
 To get your TOTP secret, use [this website by the api author](https://itsjafer.com/#/schwab)
-#### Tradier
+### Tradier
 Made by yours truly using the official [Tradier API](https://documentation.tradier.com/brokerage-api/trading/getting-started)
 
 Required `.env` variables:
