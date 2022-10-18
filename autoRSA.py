@@ -3,6 +3,7 @@
 
 # Import libraries
 import os
+import sys
 from datetime import datetime
 import discord
 from discord.ext import commands
@@ -20,7 +21,7 @@ else:
     lightMode = False
 
 # Light mode settings
-if lightMode:
+if not lightMode:
     from fidelityAPI import *
     from schwabAPI import *
     supported_brokerages = ["all", "ally", "robinhood", "rh", "tradier"]
