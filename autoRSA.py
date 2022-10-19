@@ -117,9 +117,9 @@ async def get_holdings(accountName, AO=None, ctx=None):
 
 # Function to place orders
 async def place_order(wanted_action, wanted_amount, wanted_stock, single_broker, AO=None, DRY=True, ctx=None):
-    # Unused currently
-    wanted_price = None
-    wanted_time = None
+    # Only market day orders are supported, with limits as backups on selected brokerages
+    wanted_time = "day"
+    wanted_price = "market"
     # Only run during market hours
     if await isMarketHours() or DRY:
         try:
@@ -266,7 +266,7 @@ if __name__ == "__main__":
         # Convert string to boolean
         DRY = stringToBool(DRY)
         try:
-            await place_order(wanted_action=wanted_action, wanted_amount=wanted_amount, wanted_stock=wanted_stock, wanted_account=wanted_account, DRY=DRY, ctx=ctx)
+            await place_order(wanted_action=wanted_action, wanted_amount=wanted_amount, wanted_stock=wanted_stock, single_broker=wanted_account, DRY=DRY, ctx=ctx)
         except discord.ext.commands.errors.MissingRequiredArgument:
             # Missing required argument
             print("Error: Missing required argument")
