@@ -166,7 +166,7 @@ try:
         for i, a in enumerate(AO):
             asyncio.run(place_order(wanted_action, wanted_amount, wanted_stock, single_broker=enabled_brokerages[i], AO=a, DRY=DRY))
     else:
-        asyncio.run(place_order(wanted_action, wanted_amount, wanted_stock, single_broker, AO=ally_account, DRY=DRY))
+        asyncio.run(place_order(wanted_action, wanted_amount, wanted_stock, single_broker, AO=AO[0], DRY=DRY))
     sys.exit(0)
 # If error, exit with error code
 except Exception as e:
