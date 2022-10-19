@@ -131,7 +131,7 @@ async def ally_transaction(a, action, stock, amount, price, time, DRY=True, ctx=
                 print(ally_call_error)
                 if ctx:
                     await ctx.send(ally_call_error)
-            # If the message comes up while buying, then try again with a limmit order
+            # If the message comes up while buying, then try again with a limit order
             elif action == "buy":
                 print(f"Ally: Error placing market buy, trying again with limit order...")
                 if ctx:
