@@ -55,6 +55,8 @@ if len(sys.argv) > 1 and sys.argv[1] != "holdings":
     print(f"Broker: {single_broker}")
     print(f"DRY: {DRY}")
     print()
+    input("Press enter to continue...")
+    print()
     should_get_holdings = False
 elif len(sys.argv) == 3 and sys.argv[1] == "holdings":
     single_broker = sys.argv[2].lower()
@@ -160,7 +162,11 @@ if should_get_holdings:
 # If run from the command line, run once and exit
 # Run place order function then exit
 try:
-    asyncio.run(place_order(wanted_action, wanted_amount, wanted_stock, single_broker, AO=ally_account, DRY=DRY))
+    if single_broker == "all":
+        for i, a in enumerate(AO):
+            asyncio.run(place_order(wanted_action, wanted_amount, wanted_stock, single_broker=enabled_brokerages[i], AO=a, DRY=DRY))
+    else:
+        asyncio.run(place_order(wanted_action, wanted_amount, wanted_stock, single_broker, AO=ally_account, DRY=DRY))
     sys.exit(0)
 # If error, exit with error code
 except Exception as e:
