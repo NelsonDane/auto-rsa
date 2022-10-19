@@ -6,7 +6,10 @@ A CLI tool and Discord bot to buy and sell the same amount of stocks across mult
 View on [Docker Hub](https://hub.docker.com/repository/docker/nelsondane/auto-rsa)
 1. Clone the repo and cd into it
 2. Create a `.env` file for your brokerage variables, and add your bot using `DISCORD_TOKEN` and `DISCORD_CHANNEL`
-3. Just run `docker run --env-file ./.env -itd --restart unless-stopped --name rsa nelsondane/auto-rsa:<tag>`
+3. Then run:
+```bash
+ docker run --env-file ./.env -itd --restart unless-stopped --name rsa nelsondane/auto-rsa:<tag>
+```
 4. The bot should appear online (You can also do `!ping` to check). See below for more command explanations.
 
 Docker Tags
