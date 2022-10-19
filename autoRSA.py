@@ -264,7 +264,8 @@ if __name__ == "__main__":
     @bot.command(name='rsa')
     async def rsa(ctx, wanted_action, wanted_amount, wanted_stock, wanted_account, DRY):
         # Convert string to boolean
-        DRY = stringToBool(DRY)
+        DRY = await stringToBool(DRY)
+        print(DRY)
         try:
             await place_order(wanted_action=wanted_action, wanted_amount=wanted_amount, wanted_stock=wanted_stock, single_broker=wanted_account, DRY=DRY, ctx=ctx)
         except discord.ext.commands.errors.MissingRequiredArgument:
