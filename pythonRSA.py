@@ -37,13 +37,13 @@ if len(sys.argv) > 1 and sys.argv[1] != "holdings":
     wanted_time = "day" # Only supports day for now
     wanted_price = "market" # Only supports market for now
     # Check if DRY mode is enabled   
-    if (sys.argv[4].lower()) == "dry" and not (sys.argv[4].lower() in supported_brokerages):
+    if ((sys.argv[4].lower()) == "dry" or (sys.argv[4].lower()) == "true") and not (sys.argv[4].lower() in supported_brokerages):
         DRY = True
         single_broker = "all"
     elif sys.argv[4].lower() in supported_brokerages:
         single_broker = sys.argv[4].lower()
     if len(sys.argv) > 5:
-        if sys.argv[5].lower() == "dry":
+        if sys.argv[5].lower() == "dry" or sys.argv[5].lower() == "true":
             DRY = True
         else:
             DRY = False
