@@ -146,14 +146,14 @@ async def place_order(wanted_action, wanted_amount, wanted_stock, single_broker,
                 # Ally
                 await ally_transaction(ally_account if AO is None else AO, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
                 # Robinhood
-                await robinhood_transaction(robinhood, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
+                await robinhood_transaction(robinhood if AO is None else AO, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
                 # Schwab
                 if not lightMode:
-                    await schwab_transaction(schwab, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
+                    await schwab_transaction(schwab if AO is None else AO, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
                 # Webull
                 # await webull_transaction(webull_account, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
                 # Tradier
-                await tradier_transaction(tradier, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
+                await tradier_transaction(tradier if AO is None else AO, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
             elif single_broker == "ally":
                 # Ally
                 await ally_transaction(ally_account if AO is None else AO, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
@@ -163,18 +163,18 @@ async def place_order(wanted_action, wanted_amount, wanted_stock, single_broker,
             #     print()
             elif single_broker == "robinhood" or single_broker == "rh":
                 # Robinhood
-                await robinhood_transaction(robinhood, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
+                await robinhood_transaction(robinhood if AO is None else AO, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
             elif single_broker == "schwab":
                 # Schwab
                 #print("bruh")
                 if not lightMode:
-                    await schwab_transaction(schwab, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
+                    await schwab_transaction(schwab if AO is None else AO, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
             # elif single_broker == "webull" or single_broker == "wb":
             #     # Webull
             #     await webull_transaction(webull_account, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
             elif single_broker == "tradier":
                 # Tradier
-                await tradier_transaction(tradier, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
+                await tradier_transaction(tradier if AO is None else AO, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
             else:
                 # Invalid broker
                 print("Error: Invalid broker")
