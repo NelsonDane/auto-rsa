@@ -139,7 +139,7 @@ async def tradier_transaction(tradier, action, stock, amount, price, time, DRY=T
                 print(f"Tradier account {account_number}: {action} {amount} of {stock}")
                 if ctx:
                     await ctx.send(f"Tradier account {account_number}: {action} {amount} of {stock}")
-                sleep(2)
+                sleep(5)
                 try:
                     # Print order info
                     response2 = requests.get(f'https://api.tradier.com/v1/accounts/{account_number}/orders',
