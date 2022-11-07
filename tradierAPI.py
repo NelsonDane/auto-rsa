@@ -3,7 +3,6 @@
 
 import os
 import sys
-import traceback
 import requests
 from time import sleep
 from dotenv import load_dotenv
@@ -139,31 +138,6 @@ async def tradier_transaction(tradier, action, stock, amount, price, time, DRY=T
                 print(f"Tradier account {account_number}: {action} {amount} of {stock}")
                 if ctx:
                     await ctx.send(f"Tradier account {account_number}: {action} {amount} of {stock}")
-                sleep(5)
-                try:
-                    # Print order info
-                    response2 = requests.get(f'https://api.tradier.com/v1/accounts/{account_number}/orders',
-                        params={'includeTags': 'true'},
-                        headers={'Authorization': f'Bearer {BEARER}', 'Accept': 'application/json'}
-                    )
-                    json_response2 = response2.json()
-
-                    # Print order symbols
-                    for order in json_response2['orders']['order']:
-                        if order['status'] == "filled" and order['symbol'] == stock:
-                            amounts = order['quantity']
-                            price = order['avg_fill_price']
-                            current_value = float(amounts) * float(price)
-                            # Round to 2 decimal places
-                            current_value = round(current_value, 2)
-                            print(f"Filled {amounts} @ ${price} = ${current_value}")
-                            if ctx:
-                                await ctx.send(f"Filled {amounts} @ ${price} = ${current_value}")
-                except Exception as e:
-                    traceback.print_exc()
-                    print(f"Tradier account {account_number}: Error getting order info: {e}")
-                    if ctx:
-                        await ctx.send(f"Tradier account {account_number}: Error getting order info: {e}")
             else:
                 print(f"Tradier account {account_number} Error: {json_response['order']['status']}")
                 if ctx:
