@@ -1,5 +1,10 @@
-# autoRSA Discord Bot and CLI Tool
+# AutoRSA Discord Bot and CLI Tool
 A CLI tool and Discord bot to buy and sell the same amount of stocks across multiple accounts!
+
+## What is RSA?
+RSA stands for "Reverse Split Arbitrage." This is a strategy where you buy the same amount of stocks in multiple accounts across multiple brokers right before a stock performs a reverse split. Once the stock splits and your fractional share is rounded up to a full share, you profit!
+
+This project will allow you to maximize your profits by being able to easily manage multiple accounts across different brokerages, buying and selling as needed.
 
 ## Discord Bot Installation
 ### Docker
@@ -8,15 +13,11 @@ View on [Docker Hub](https://hub.docker.com/repository/docker/nelsondane/auto-rs
 2. Create a `.env` file for your brokerage variables, and add your bot using `DISCORD_TOKEN` and `DISCORD_CHANNEL`
 3. Then run:
 ```bash
- docker run --env-file ./.env -itd --restart unless-stopped --name rsa nelsondane/auto-rsa:<tag>
+ docker run --env-file ./.env -itd --restart unless-stopped --name rsa nelsondane/auto-rsa:latest
 ```
-4. The bot should appear online (You can also do `!ping` to check). See below for more command explanations.
+4. The bot should appear online (You can also do `!ping` to check). 
 
-Docker Tags
-- `latest` - The latest version of the bot
-- `light` - The latest version of the bot, but running on Alpine Linux (smaller image size)
-
-Note: The `light` tag does not support `Schwab` or any future Selenium-based brokers. The only brokers currently supported in light mode are `Ally, Robinhood, and Tradier`.
+See below for more command explanations.
 
 ### Always Running Python Script
 Make sure python3-pip is installed
@@ -101,6 +102,7 @@ Required `.env` variables:
 - ALLY_ACCOUNT_NBR
 
 To get these, follow [these instructions](https://alienbrett.github.io/PyAlly/installing.html#get-the-library)
+
 ### Robinhood
 Made using [robin_stocks](https://github.com/jmfernandes/robin_stocks). Go give them a ⭐
 
@@ -110,6 +112,7 @@ Required `.env` variables:
 - ROBINHOOD_TOTP: If 2fa enabled
 
 Configuring 2fa can be tricky, read the TOTP section [here](https://github.com/jmfernandes/robin_stocks/blob/master/Robinhood.rst)
+
 ### Schwab
 Made using [schwab-api](https://github.com/itsjafer/schwab-api). Go give them a ⭐
 
@@ -119,6 +122,7 @@ Required `.env` variables:
 - SCHWAB_TOTP_SECRET= (If 2fa is enabled)
 
 To get your TOTP secret, use [this website by the api author](https://itsjafer.com/#/schwab)
+
 ### Tradier
 Made by yours truly using the official [Tradier API](https://documentation.tradier.com/brokerage-api/trading/getting-started)
 
@@ -126,6 +130,7 @@ Required `.env` variables:
 - TRADIER_ACCESS_TOKEN
 
 To get your access token, go to your [Tradier API settings](https://dash.tradier.com/settings/api)
+
 ### Maybe future brokerages
 #### Fidelity
 No official or 3rd party APIs were found, so would have to create one from scratch using web scraping. (Kind of like these: [one](https://www.youtube.com/watch?v=PrSgKllqquA) [two](https://www.youtube.com/watch?v=CF5ItVde4lc&t=315s)).
