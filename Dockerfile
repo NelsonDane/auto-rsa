@@ -1,7 +1,7 @@
 # Nelson Dane
 
-# Build from Playwright
-FROM mcr.microsoft.com/playwright:v1.24.0-focal
+# Build from Ubuntu 20.04
+FROM ubuntu:20.04
 # Set ENV variables
 ENV TZ=America/New_York
 ENV DEBIAN_FRONTEND=noninteractive
@@ -11,17 +11,20 @@ WORKDIR /app
 
 # Install python, pip, and tzdata
 RUN apt-get update && apt-get install -y \
+    wget \
+    gpg \
     python3-pip \
     tzdata \
 && rm -rf /var/lib/apt/lists/*
 
-COPY ./requirements.txt .
+# Install Edge
+RUN wget https://packages.microsoft.com/keys/microsoft.asc -O- | apt-key add -
+RUN sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/edge stable main" > /etc/apt/sources.list.d/microsoft-edge.list'
+RUN apt-get update && apt-get install -y microsoft-edge-stable && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies
+# Install python dependencies
+COPY ./requirements.txt .
 RUN pip install -r requirements.txt
-# Install playwright for Schwab
-RUN playwright install
-RUN playwright install-deps
 
 # Grab needed files
 COPY ./autoRSA.py .

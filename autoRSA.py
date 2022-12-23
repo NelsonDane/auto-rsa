@@ -11,28 +11,12 @@ from dotenv import load_dotenv
 # Custom API libraries
 from allyAPI import *
 from robinhoodAPI import *
+from fidelityAPI import *
 # from webullAPI import *
+from schwabAPI import *
 from tradierAPI import *
 
-# Whether to run in light mode
-if len(sys.argv) > 1:
-    if (sys.argv[1] == "light"):
-        lightMode = True
-else:
-    lightMode = False
-
-# Set light mode false if called from outside
-if __name__ != "__main__":
-    lightMode = False
-
-# Light mode settings
-if not lightMode:
-    from fidelityAPI import *
-    from schwabAPI import *
-    supported_brokerages = ["all", "ally", "robinhood", "rh", "tradier"]
-else:
-    # List of supported brokerages
-    supported_brokerages = ["all", "ally", "robinhood", "rh", "schwab", "tradier"]
+supported_brokerages = ["all", "ally", "fidelity", "robinhood", "rh", "schwab", "tradier"]
 
 # Initialize .env file
 load_dotenv()
@@ -92,16 +76,18 @@ async def get_holdings(accountName, AO=None, ctx=None):
                 await ally_holdings(ally_account if AO is None else AO, ctx)
         except:
             pass
-        # if account == "fidelity" or account == "all":
-        #     #await fidelity_get_holdings()
-        #     pass
+        try:
+            if accountName == "fidelity" or accountName == "all":
+                await fidelity_holdings(fidelity_account if AO is None else AO, ctx)
+        except:
+                pass
         try:
             if accountName == "robinhood" or accountName == "rh" or accountName == "all":
                 await robinhood_holdings(robinhood if AO is None else AO, ctx)
         except:
             pass
         try:
-            if accountName == "schwab" or accountName == "all" and not lightMode:
+            if accountName == "schwab" or accountName == "all":
                 await schwab_holdings(schwab if AO is None else AO, ctx)
         except:
             pass
@@ -148,8 +134,7 @@ async def place_order(wanted_action, wanted_amount, wanted_stock, single_broker,
                 # Robinhood
                 await robinhood_transaction(robinhood if AO is None else AO, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
                 # Schwab
-                if not lightMode:
-                    await schwab_transaction(schwab if AO is None else AO, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
+                await schwab_transaction(schwab if AO is None else AO, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
                 # Webull
                 # await webull_transaction(webull_account, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
                 # Tradier
@@ -167,8 +152,7 @@ async def place_order(wanted_action, wanted_amount, wanted_stock, single_broker,
             elif single_broker == "schwab":
                 # Schwab
                 #print("bruh")
-                if not lightMode:
-                    await schwab_transaction(schwab if AO is None else AO, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
+                await schwab_transaction(schwab if AO is None else AO, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
             # elif single_broker == "webull" or single_broker == "wb":
             #     # Webull
             #     await webull_transaction(webull_account, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
@@ -198,8 +182,8 @@ if __name__ == "__main__":
     print()
     ally_account = ally_init()
     print()
-    # fidelity_account = fidelity_init()
-    #print()
+    fidelity_account = fidelity_init()
+    print()
     try:
         robinhood = robinhood_init()
     except:
@@ -207,8 +191,7 @@ if __name__ == "__main__":
         sleep(5)
         robinhood = robinhood_init()
     print()
-    if not lightMode:
-        schwab = schwab_init()
+    schwab = schwab_init()
     print()
     # webull_account = webull_init()
     # print()

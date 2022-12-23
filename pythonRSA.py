@@ -75,9 +75,11 @@ if single_broker == "all":
         AO.append(ally_account)
         enabled_brokerages.append("ally")
     print()
-    # fidelity_account = fidelity_init()
-    # if fidelity_account is not None:
-    #print()
+    fidelity_account = fidelity_init()
+    if fidelity_account is not None:
+        AO.append(fidelity_account)
+        enabled_brokerages.append("fidelity")
+    print()
     try:
         robinhood = robinhood_init()
         if robinhood is not None:
@@ -110,8 +112,11 @@ elif single_broker == "ally":
         AO.append(ally_account)
         enabled_brokerages.append("ally")
     print()
-# elif single_broker == "fidelity":
-#     fidelity_account = fidelity_init()
+elif single_broker == "fidelity":
+    fidelity_account = fidelity_init()
+    if fidelity_account is not None:
+        AO.append(fidelity_account)
+        enabled_brokerages.append("fidelity")
 elif single_broker == "robinhood" or single_broker == "rh":
     try:
         robinhood = robinhood_init()
@@ -152,6 +157,7 @@ if should_get_holdings:
     try:
         if single_broker == "all":
             for i, a in enumerate(AO):
+                print(f"Getting holdings for {enabled_brokerages[i]}...")
                 asyncio.run(get_holdings(accountName=enabled_brokerages[i], AO=a))
         else:
             asyncio.run(get_holdings(accountName=single_broker, AO=AO[0]))

@@ -6,7 +6,4 @@ discord.py
 pyally
 pyotp
 robin_stocks
-playwright
-schwab-api
-webull
 requests
