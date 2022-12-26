@@ -1,16 +1,27 @@
 # Nelson Dane
 
-# Build from Ubuntu 20.04
-FROM ubuntu:20.04
+# Build from Ubuntu 22.04
+FROM ubuntu:22.04
 # Set ENV variables
 ENV TZ=America/New_York
 ENV DEBIAN_FRONTEND=noninteractive
+
+# Default display to :99
+ENV DISPLAY :99
 
 # CD into app
 WORKDIR /app
 
 # Install python, pip, and tzdata
 RUN apt-get update && apt-get install -y \
+    xvfb \
+    xvfb \
+    xfonts-cyrillic \
+    xfonts-100dpi \
+    xfonts-75dpi \
+    xfonts-base \
+    xfonts-scalable \
+    gtk2-engines-pixbuf \
     wget \
     gpg \
     python3-pip \
@@ -34,5 +45,11 @@ COPY ./robinhoodAPI.py .
 COPY ./schwabAPI.py .
 COPY ./tradierAPI.py .
 COPY ./webullAPI.py .
+COPY ./seleniumAPI.py .
+COPY ./entrypoint.sh .
 
-CMD ["python3","autoRSA.py"]
+# Make the entrypoint executable
+RUN chmod +x entrypoint.sh
+
+# Set the entrypoint to our entrypoint.sh                                                                                                                     
+ENTRYPOINT ["/app/entrypoint.sh"] 
