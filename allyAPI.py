@@ -30,6 +30,7 @@ def ally_init():
         print(f"Ally account numbers: {account_numbers}")
     except Exception as e:
         print(f'Ally: Error logging in: {e}')
+        traceback.print_exc()
         return None
     print("Logged in to Ally!")
     return a
