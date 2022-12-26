@@ -29,6 +29,13 @@ DISCORD_CHANNEL = os.getenv("DISCORD_CHANNEL", None)
 if DISCORD_CHANNEL:
     DISCORD_CHANNEL = int(DISCORD_CHANNEL)
 
+# If first arg is "docker", run in docker mode
+if len(sys.argv) > 1 and sys.argv[1] == "docker":
+    docker_mode = True
+    print("Running in docker mode")
+else:
+    docker_mode = False
+
 # Function to convert string to boolean
 async def stringToBool(string):
     true = ["true", "t", "yes", "y", "1"]
@@ -182,7 +189,7 @@ if __name__ == "__main__":
     print()
     ally_account = ally_init()
     print()
-    fidelity_account = fidelity_init()
+    fidelity_account = fidelity_init(DOCKER=True if docker_mode else False)
     print()
     try:
         robinhood = robinhood_init()
@@ -191,7 +198,7 @@ if __name__ == "__main__":
         sleep(5)
         robinhood = robinhood_init()
     print()
-    schwab = schwab_init()
+    schwab = schwab_init(DOCKER=True if docker_mode else False)
     print()
     # webull_account = webull_init()
     # print()

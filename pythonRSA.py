@@ -15,7 +15,7 @@ from webullAPI import *
 from tradierAPI import *
 
 # List of supported and enabled brokerages
-supported_brokerages = ["all", "ally", "robinhood", "rh", "schwab", "tradier"]
+supported_brokerages = ["all", "ally", "fidelity", "robinhood", "rh", "schwab", "tradier"]
 enabled_brokerages = []
 AO = []
 
