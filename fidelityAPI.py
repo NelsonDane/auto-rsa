@@ -4,26 +4,13 @@
 
 import os
 import sys
-import logging
 import traceback
 from time import sleep
 from dotenv import load_dotenv
-from selenium import webdriver
+from seleniumAPI import *
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions
-from webdriver_manager.microsoft import EdgeChromiumDriverManager
-from selenium.webdriver.edge.service import Service
-
-def check_if_page_loaded(driver):
-    """
-    Check if the page is loaded through document.readyState
-    :param driver:
-    Selenium WebDriver instance
-    :return:
-    """
-    readystate = driver.execute_script("return document.readyState;")
-    return readystate == "complete"
 
 def fidelity_init(DOCKER=False):
     try:
@@ -35,22 +22,9 @@ def fidelity_init(DOCKER=False):
             return None
         FIDELITY_USERNAME = os.environ["FIDELITY_USERNAME"]
         FIDELITY_PASSWORD = os.environ["FIDELITY_PASSWORD"]
-        # Init webdriver options
-        options = webdriver.EdgeOptions()
-        options.add_argument("--disable-blink-features=AutomationControlled")
-        options.add_argument("--disable-notifications")
-        options.add_argument("--log-level=3")
-        if DOCKER:
-            options.add_argument("--disable-dev-shm-usage")
-            options.add_argument("--no-sandbox")
         # Init webdriver
-        os.environ['WDM_LOG'] = str(logging.NOTSET)
-        driver = webdriver.Edge(
-            service=Service(EdgeChromiumDriverManager(cache_valid_range=30).install()),
-            options=options,
-        )
-        driver.maximize_window()
         print("Logging in to Fidelity...")
+        driver = getDriver(DOCKER)
         # Log in to Fidelity account
         driver.get("https://digital.fidelity.com/prgw/digital/login/full-page?AuthRedUrl=https://digital.fidelity.com/ftgw/digital/portfolio/summary")
         # Wait for page load
@@ -69,7 +43,7 @@ def fidelity_init(DOCKER=False):
         driver.find_element(by=By.CSS_SELECTOR, value="#fs-login-button").click()
         # Wait for page to load to summary page
         if not driver.current_url == "https://oltx.fidelity.com/ftgw/fbc/oftop/portfolio#summary":
-            WebDriverWait(driver, 10).until(
+            WebDriverWait(driver, 60).until(
                 expected_conditions.url_to_be("https://oltx.fidelity.com/ftgw/fbc/oftop/portfolio#summary")
             )
         # Wait for page to load
@@ -82,7 +56,7 @@ def fidelity_init(DOCKER=False):
         return None
     return driver
     
-def fidelity_holdings(driver, ctx):
+async def fidelity_holdings(driver, ctx):
     print()
     print("==============================")
     print("Fidelity Holdings")
@@ -101,6 +75,8 @@ def fidelity_holdings(driver, ctx):
         # Get total account value
         total_value = driver.find_elements(by=By.CSS_SELECTOR, value='body > div.fidgrid.fidgrid--shadow.fidgrid--nogutter > div.full-page--container > div.fidgrid--row.port-summary-container > div.port-summary-content.clearfix > div > div.fidgrid--content > div > div.account-selector-wrapper.port-nav.account-selector--reveal > div.account-selector.account-selector--normal-mode.clearfix > div.account-selector--main-wrapper > div.account-selector--accounts-wrapper > div.account-selector--tab.account-selector--tab-all.js-portfolio.account-selector--target-tab.js-selected > span.account-selector--tab-row.account-selector--all-accounts-balance.js-portfolio-balance')
         print(f'Total Fidelity account value: {total_value[0].text}')
+        if ctx:
+            await ctx.send(f'Total Fidelity account value: {total_value[0].text}')
         # Get value of individual and retirement accounts
         ind_accounts = driver.find_elements(by=By.CSS_SELECTOR, value='[data-group-id="IA"]')
         ret_accounts = driver.find_elements(by=By.CSS_SELECTOR, value='[data-group-id="RA"]')
@@ -128,12 +104,19 @@ def fidelity_holdings(driver, ctx):
             ret_val.append(x)
         # Print out account numbers and values
         print("Individual accounts:")
+        if ctx:
+            print("Individual accounts:")
         for x in range(len(ind_num)):
             print(f'{ind_num[x]} value: {ind_val[x]}')
+            if ctx:
+                await ctx.send(f'{ind_num[x]} value: {ind_val[x]}')
         print("Retirement accounts:")
+        if ctx:
+            print("Retirement accounts:")
         for x in range(len(ret_num)):
             print(f'{ret_num[x]} value: {ret_val[x]}')
-        sleep(5)
+            if ctx:
+                await ctx.send(f'{ret_num[x]} value: {ret_val[x]}')
         # We'll add positions later since that will be hard
     except Exception as e:
         print(f'Error getting holdings: {e}')
