@@ -83,32 +83,37 @@ async def schwab_holdings(driver, ctx=None):
     print("==============================")
     print()
     # Loop through tabs of accounts
-    ul = driver.find_element(by=By.CSS_SELECTOR, value="#root > div > div > div:nth-child(4) > div > div > div:nth-child(2) > div > ul")
-    accounts = ul.find_elements(by=By.TAG_NAME, value="li")
-    for account in accounts:
-        account.click()
-        # Get pretty json
-        response = driver.find_element(by=By.CSS_SELECTOR, value="#json-pretty > pre")
-        json_response = json.loads(response.text)
-        print(f"Account {account.text} value: ${json_response[account.text]['account_value']}")
-        if ctx:
-            await ctx.send(f"Account {account.text} value: ${json_response[account.text]['account_value']}")
-        # Loop through positions
-        for pos in json_response[account.text]['positions']:
-            amount = pos['quantity']
-            if amount == 0:
-                continue
-            sym = pos['symbol']
-            if sym == "":
-                sym = "UNKNOWN"
-            current_price = float(pos['market_value']/amount, 2)
-            message = f"{sym}: {amount} @ ${current_price}: ${pos['market_value']}"
-            print(message)
+    try:
+        ul = driver.find_element(by=By.CSS_SELECTOR, value="#root > div > div > div:nth-child(4) > div > div > div:nth-child(2) > div > ul")
+        accounts = ul.find_elements(by=By.TAG_NAME, value="li")
+        for account in accounts:
+            account.click()
+            # Get pretty json
+            response = driver.find_element(by=By.CSS_SELECTOR, value="#json-pretty > pre")
+            json_response = json.loads(response.text)
+            print(f"Account {account.text} value: ${json_response[account.text]['account_value']}")
             if ctx:
-                await ctx.send(message)
-        print()
-        sleep(1)
-
+                await ctx.send(f"Account {account.text} value: ${json_response[account.text]['account_value']}")
+            # Loop through positions
+            for pos in json_response[account.text]['positions']:
+                amount = pos['quantity']
+                if amount == 0:
+                    continue
+                sym = pos['symbol']
+                if sym == "":
+                    sym = "UNKNOWN"
+                current_price = round(float(pos['market_value']/amount), 2)
+                message = f"{sym}: {amount} @ ${current_price}: ${pos['market_value']}"
+                print(message)
+                if ctx:
+                    await ctx.send(message)
+            print()
+            sleep(1)
+    except Exception as e:
+        print(f'Error getting Schwab holdings: {e}')
+        traceback.print_exc()
+        return None
+        
 async def schwab_transaction(driver, action, stock, amount, price, time, DRY=True, ctx=None):
     # Make sure init didn't return None
     if driver is None:
