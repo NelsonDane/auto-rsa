@@ -9,9 +9,9 @@ This project will allow you to maximize your profits by being able to easily man
 ## Discord Bot Installation
 ### Docker
 View on [Docker Hub](https://hub.docker.com/repository/docker/nelsondane/auto-rsa)
-1. Clone the repo and cd into it
-2. Create a `.env` file for your brokerage variables, and add your bot using `DISCORD_TOKEN` and `DISCORD_CHANNEL`
-3. Then run:
+<!-- 1. Clone the repo and cd into it -->
+1. Create a `.env` file for your brokerage variables, and add your bot using `DISCORD_TOKEN` and `DISCORD_CHANNEL`
+2. Then run:
 ```bash
  docker run --env-file ./.env -itd --restart unless-stopped --name rsa nelsondane/auto-rsa:latest
 ```
@@ -103,6 +103,13 @@ Required `.env` variables:
 
 To get these, follow [these instructions](https://alienbrett.github.io/PyAlly/installing.html#get-the-library)
 
+### Fidelity
+Made by yours truly using Selenium (and many hours of web scraping).
+
+Required `.env` variables:
+- FIDELITY_USERNAME
+- FIDELITY_PASSWORD
+
 ### Robinhood
 Made using [robin_stocks](https://github.com/jmfernandes/robin_stocks). Go give them a ⭐
 
@@ -114,14 +121,14 @@ Required `.env` variables:
 Configuring 2fa can be tricky, read the TOTP section [here](https://github.com/jmfernandes/robin_stocks/blob/master/Robinhood.rst)
 
 ### Schwab
-Made using [schwab-api](https://github.com/itsjafer/schwab-api). Go give them a ⭐
+Made using a site by [Jafer Haider](https://itsjafer.com/#/reversesplit) using his [schwab-api](https://github.com/itsjafer/schwab-api). Go give them a ⭐
 
 Required `.env` variables:
 - SCHWAB_USERNAME=
 - SCHWAB_PASSWORD=
 - SCHWAB_TOTP_SECRET= (If 2fa is enabled)
 
-To get your TOTP secret, use [this website by the api author](https://itsjafer.com/#/schwab)
+To get your TOTP secret, use [this website by the api author above.](https://itsjafer.com/#/schwab)
 
 ### Tradier
 Made by yours truly using the official [Tradier API](https://documentation.tradier.com/brokerage-api/trading/getting-started)
@@ -132,14 +139,14 @@ Required `.env` variables:
 To get your access token, go to your [Tradier API settings](https://dash.tradier.com/settings/api)
 
 ### Maybe future brokerages
-#### Fidelity
-No official or 3rd party APIs were found, so would have to create one from scratch using web scraping. (Kind of like these: [one](https://www.youtube.com/watch?v=PrSgKllqquA) [two](https://www.youtube.com/watch?v=CF5ItVde4lc&t=315s)).
+#### Chase
+I will be signing up for a Chase account soon, and I have heard that it is possible, so I will be looking into it soon.
 #### Vanguard
-Same as Fidelity. I found this [vanguard-api](https://github.com/rikonor/vanguard-api), but it failed when I ran it.
+Will be added using Selenium just like Fidelity. I found this [vanguard-api](https://github.com/rikonor/vanguard-api), but it failed when I ran it.
 #### SoFi
 No official or 3rd party APIs, but they do have a website. So same as Fidelity and Vanguard.
 #### Webull
-Not currently working since login is broken in [webull](https://github.com/tedchou12/webull). Go give them a ⭐ anyways.
+Not currently working since login is broken in [webull](https://github.com/tedchou12/webull). They also use SMS 2fa, so I'll have to figure that out.
 ### Never working brokerages
 #### Public
 No official or 3rd party APIs and no website to scrape (app only).
