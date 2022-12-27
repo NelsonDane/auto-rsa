@@ -138,6 +138,8 @@ async def place_order(wanted_action, wanted_amount, wanted_stock, single_broker,
             if single_broker == "all":
                 # Ally
                 await ally_transaction(ally_account if AO is None else AO, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
+                # Fidelity
+                await fidelity_transaction(fidelity_account if AO is None else AO, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
                 # Robinhood
                 await robinhood_transaction(robinhood if AO is None else AO, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
                 # Schwab
@@ -149,16 +151,14 @@ async def place_order(wanted_action, wanted_amount, wanted_stock, single_broker,
             elif single_broker == "ally":
                 # Ally
                 await ally_transaction(ally_account if AO is None else AO, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
-            # elif single_broker == "fidelity":
-            #     # Fidelity
-            #     #fidelity_transaction(fidelity_user, fidelity_password, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY)
-            #     print()
+            elif single_broker == "fidelity":
+                # Fidelity
+                await fidelity_transaction(fidelity_account if AO is None else AO, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
             elif single_broker == "robinhood" or single_broker == "rh":
                 # Robinhood
                 await robinhood_transaction(robinhood if AO is None else AO, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
             elif single_broker == "schwab":
                 # Schwab
-                #print("bruh")
                 await schwab_transaction(schwab if AO is None else AO, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
             # elif single_broker == "webull" or single_broker == "wb":
             #     # Webull
