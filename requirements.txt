@@ -7,3 +7,4 @@ pyally
 pyotp
 robin_stocks
 requests
+pandas
