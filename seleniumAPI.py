@@ -13,6 +13,7 @@ from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions
 from webdriver_manager.microsoft import EdgeChromiumDriverManager
 from selenium.webdriver.edge.service import Service
+from selenium.webdriver import Keys
 from selenium.webdriver.support.ui import Select 
 
 def check_if_page_loaded(driver):
