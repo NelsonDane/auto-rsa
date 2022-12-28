@@ -12,9 +12,12 @@ def schwab_init(DOCKER=False):
     # Initialize .env file
     load_dotenv()
     # Import Schwab account
-    if not os.getenv("SCHWAB_USERNAME") or not os.getenv("SCHWAB_PASSWORD") or not os.getenv("SCHWAB_TOTP_SECRET"):
+    if not os.getenv("SCHWAB_USERNAME") or not os.getenv("SCHWAB_PASSWORD"):
         print("Schwab not found, skipping...")
         return None
+    if not os.getenv("SCHWAB_TOTP_SECRET"):
+        print("Schwab TOTP secret not found, if two-step verification is enabled, please add it to .env file")
+
     SCHWAB_USERNAME = os.environ["SCHWAB_USERNAME"]
     SCHWAB_PASSWORD = os.environ["SCHWAB_PASSWORD"]
     SCHWAB_TOTP_SECRET = os.environ["SCHWAB_TOTP_SECRET"]
