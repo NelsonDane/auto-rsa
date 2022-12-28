@@ -66,6 +66,7 @@ def schwab_init(DOCKER=False):
         accounts = ul.find_elements(by=By.TAG_NAME, value="li")
         for account in accounts:
             print(f"Account: {account.text}")
+        print("Logged in to Schwab!")
         return driver
     except Exception as e:
         print(f'Error logging in to Schwab: {e}')
