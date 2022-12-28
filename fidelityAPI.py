@@ -41,13 +41,15 @@ def fidelity_init(DOCKER=False):
         )
         password_field.send_keys(FIDELITY_PASSWORD)
         driver.find_element(by=By.CSS_SELECTOR, value="#fs-login-button").click()
+        sleep(5)
         # Wait for page to load to summary page
-        if not driver.current_url == "https://oltx.fidelity.com/ftgw/fbc/oftop/portfolio#summary":
+        if "portfolio summary" not in driver.title.lower() and ("ftgw/fbc/oftop/portfolio#summary" not in driver.current_url):
             WebDriverWait(driver, 60).until(
                 expected_conditions.url_to_be("https://oltx.fidelity.com/ftgw/fbc/oftop/portfolio#summary")
             )
         # Wait for page to load
         WebDriverWait(driver, 10).until(check_if_page_loaded)
+
         sleep(3)
         print("Logged in to Fidelity!")
     except Exception as e:
