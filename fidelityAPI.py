@@ -214,18 +214,21 @@ async def fidelity_transaction(driver, action, stock, amount, price, time, DRY=T
                 limit_button = driver.find_element(by=By.CSS_SELECTOR, value="#market-no > s-root > div > label > s-slot > s-assigned-wrapper")
                 limit_button.click()
                 # Set price
-                wanted_price = float(ask_price) + 0.01
+                wanted_price = round(float(ask_price) + 0.01, 3)
                 price_box = driver.find_element(by=By.CSS_SELECTOR, value="#eqt-ordsel-limit-price-field")
+                price_box.clear()
                 price_box.send_keys(wanted_price)
             # Preview order
-            preview_button = driver.find_element(by=By.CSS_SELECTOR, value="#previewOrderBtn > s-root > button > div > span > s-slot > s-assigned-wrapper")
+            WebDriverWait(driver, 10).until(check_if_page_loaded)
+            sleep(1)
+            preview_button = driver.find_element(by=By.CSS_SELECTOR, value="#previewOrderBtn")
             preview_button.click()
             # Wait for page to load
             WebDriverWait(driver, 10).until(check_if_page_loaded)
             sleep(1)
             # Place order
             if not DRY:
-                place_button = driver.find_element(by=By.CSS_SELECTOR, value="#placeOrderBtn > span")
+                place_button = driver.find_element(by=By.CSS_SELECTOR, value="#placeOrderBtn")
                 place_button.click()
                 # Wait for page to load
                 WebDriverWait(driver, 10).until(check_if_page_loaded)
