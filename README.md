@@ -90,6 +90,9 @@ To check individual account holdings:
 - `<account>`: What brokerage to run command in (robinhood, schwab, etc, or all)
 - `<dry>`: Whether to run in "dry" mode (in which no transactions are made, useful for testing). Set to True, False, or just write "dry" for True. Defaults to True, so if you want to run a real transaction, you must set this to False/dry.
 
+### Test Login
+To test your login credentials, run `python testLogin.py`. This will show whether it detected your login credentials correctly, and attempt to login to each brokerage. If you wish for you `.env` variables to be shown, run `python testLogin.py show`.
+
 ## Supported brokerages:
 ### Ally
 Made using [PyAlly](https://github.com/alienbrett/PyAlly). Go give them a ⭐

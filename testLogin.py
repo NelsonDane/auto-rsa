@@ -5,6 +5,7 @@
 # Custom API libraries
 from allyAPI import *
 from fidelityAPI import *
+from seleniumAPI import *
 from robinhoodAPI import *
 from schwabAPI import *
 from webullAPI import *
@@ -108,10 +109,12 @@ print()
 ally_account = ally_init()
 print()
 fidelity_account = fidelity_init()
+killDriver(fidelity_account)
 print()
 robinhood = robinhood_init()
 print()
 schwab = schwab_init()
+killDriver(schwab)
 print()
 # webull_account = webull_init()
 # if webull_account is not None:
