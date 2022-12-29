@@ -113,6 +113,8 @@ Required `.env` variables:
 - FIDELITY_USERNAME
 - FIDELITY_PASSWORD
 
+At this time, please also disable "Try Beta View" on your Fidelity dashboard.
+
 ### Robinhood
 Made using [robin_stocks](https://github.com/jmfernandes/robin_stocks). Go give them a ⭐
 
