@@ -144,6 +144,7 @@ async def schwab_transaction(driver, action, stock, amount, price, time, DRY=Tru
     WebDriverWait(driver, 10).until(
         expected_conditions.element_to_be_clickable(amount_input)
     )
+    amount_input.clear()
     amount_input.send_keys(amount)
     # Select buy/sell
     select = Select(driver.find_element(by=By.CSS_SELECTOR, value="#root > div > div > div:nth-child(4) > div > div > form > select:nth-child(9)"))
