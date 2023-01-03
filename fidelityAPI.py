@@ -52,7 +52,7 @@ def fidelity_init(DOCKER=False):
         print("Logged in to Fidelity!")
     except Exception as e:
         print(f'Error logging in: "{e}"')
-        print(traceback.print_exc())
+        traceback.print_exc()
         return None
     return driver
     
@@ -154,7 +154,8 @@ async def fidelity_transaction(driver, action, stock, amount, price, time, DRY=T
         #     print(f'Account {x+1}: {accounts_dropdown[x].text}')
         # return None
     except:
-        print("Error: No accounts found")
+        print("Error: No accounts foundin dropdown")
+        traceback.print_exc()
         return None
     # Complete on each account
     # Because of stale elements, we need to re-find the elements each time
@@ -253,6 +254,7 @@ async def fidelity_transaction(driver, action, stock, amount, price, time, DRY=T
             sleep(3)
         except Exception as e:
             print(e)
+            traceback.print_exc()
             continue
 
 # fidelity = fidelity_init()
