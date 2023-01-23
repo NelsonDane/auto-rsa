@@ -23,7 +23,10 @@ AO = []
 load_dotenv()
 
 # Get stock info from command line arguments
-if len(sys.argv) > 1 and sys.argv[1] != "holdings":
+if len(sys.argv) == 1:
+    print("Not enough arguments provided, please see the README for documentation.")
+    sys.exit(1)
+elif len(sys.argv) > 1 and sys.argv[1] != "holdings":
     wanted_action = sys.argv[1].lower()
     try:
         wanted_amount = int(sys.argv[2])
