@@ -113,7 +113,7 @@ Required `.env` variables:
 - FIDELITY_USERNAME
 - FIDELITY_PASSWORD
 
-At this time, please also disable "Try Beta View" on your Fidelity dashboard.
+At this time, the bot only works using the `old view` Fidelity site. The bot will attempt to switch to the `old view` if it detects you are on the `beta view`, but if you encounter issues, you may need to switch to the `old view` manually.
 
 ### Robinhood
 Made using [robin_stocks](https://github.com/jmfernandes/robin_stocks). Go give them a ⭐
