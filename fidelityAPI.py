@@ -29,7 +29,7 @@ def fidelity_init(DOCKER=False):
         driver.get("https://digital.fidelity.com/prgw/digital/login/full-page?AuthRedUrl=https://digital.fidelity.com/ftgw/digital/portfolio/summary")
         # Wait for page load
         WebDriverWait(driver, 10).until(check_if_page_loaded)
-        # Type in username and password   
+        # Type in username and password and click login 
         username_field = driver.find_element(by=By.CSS_SELECTOR, value="#userId-input")
         WebDriverWait(driver, 10).until(
             expected_conditions.element_to_be_clickable(username_field)
@@ -41,13 +41,27 @@ def fidelity_init(DOCKER=False):
         )
         password_field.send_keys(FIDELITY_PASSWORD)
         driver.find_element(by=By.CSS_SELECTOR, value="#fs-login-button").click()
-        # Wait for page to load to summary page
-        if not driver.current_url == "https://oltx.fidelity.com/ftgw/fbc/oftop/portfolio#summary":
-            WebDriverWait(driver, 60).until(
-                expected_conditions.url_to_be("https://oltx.fidelity.com/ftgw/fbc/oftop/portfolio#summary")
-            )
-        # Wait for page to load
         WebDriverWait(driver, 10).until(check_if_page_loaded)
+        sleep(3)
+        # Wait for page to load to summary page
+        if not "summary" in driver.current_url:
+            WebDriverWait(driver, 60).until(
+                expected_conditions.url_contains("summary")
+            )
+        # If in beta view, disable it
+        if "digital.fidelity.com" in driver.current_url:
+            # Disable beta view
+            driver.find_element(by=By.CSS_SELECTOR, value="#optout-btn").click()
+            WebDriverWait(driver, 10).until(check_if_page_loaded)
+            # Wait for page to be in old view
+            if not "oltx" in driver.current_url:
+                WebDriverWait(driver, 60).until(
+                    expected_conditions.url_contains("oltx")
+                )
+            WebDriverWait(driver, 10).until(check_if_page_loaded)
+            print("Disabled beta view!")
+        else:
+            print("Beta view already disabled!")
         sleep(3)
         print("Logged in to Fidelity!")
     except Exception as e:
