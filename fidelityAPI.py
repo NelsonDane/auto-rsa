@@ -51,6 +51,7 @@ def fidelity_init(DOCKER=False):
         # If in beta view, disable it
         if "digital.fidelity.com" in driver.current_url:
             # Disable beta view
+            print("Disabling beta view...")
             driver.find_element(by=By.CSS_SELECTOR, value="#optout-btn").click()
             WebDriverWait(driver, 10).until(check_if_page_loaded)
             # Wait for page to be in old view
