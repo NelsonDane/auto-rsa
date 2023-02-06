@@ -15,7 +15,6 @@ WORKDIR /app
 # Install python, pip, and tzdata
 RUN apt-get update && apt-get install -y \
     xvfb \
-    xvfb \
     xfonts-cyrillic \
     xfonts-100dpi \
     xfonts-75dpi \
