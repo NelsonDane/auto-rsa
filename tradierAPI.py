@@ -2,9 +2,9 @@
 # Tradier API
 
 import os
-import sys
 import requests
 from time import sleep
+import traceback
 from dotenv import load_dotenv
 
 def tradier_init():
@@ -29,13 +29,21 @@ def tradier_init():
     except Exception as e:
         print(f'Error logging in to Tradier: {e}')
         return None
-    # Print number of accounts found
-    print(f"Tradier accounts found: {len(json_response['profile']['account'])}")
+    # Multiple accounts have different JSON structure
+    if "'account': {'" in str(json_response):
+        account_num = 1
+    else:
+        account_num = len(json_response['profile']['account'])
+    print(f"Tradier accounts found: {account_num}")
     # Print account numbers
     tradier_accounts = []
-    for x in range(len(json_response['profile']['account'])):
-        print(f"{json_response['profile']['account'][x]['account_number']}")
-        tradier_accounts.append(json_response['profile']['account'][x]['account_number'])
+    if account_num == 1:
+        print(f"{json_response['profile']['account']['account_number']}")
+        tradier_accounts.append(json_response['profile']['account']['account_number'])
+    else:
+        for x in range(account_num):
+            print(f"{json_response['profile']['account'][x]['account_number']}")
+            tradier_accounts.append(json_response['profile']['account'][x]['account_number'])
     print("Logged in to Tradier!")
     return tradier_accounts
 
@@ -109,6 +117,7 @@ async def tradier_holdings(tradier, ctx=None):
             print(f"Tradier {account_number}: Error getting holdings: {e}")
             if ctx:
                 await ctx.send(f"Tradier {account_number}: Error getting holdings: {e}")
+            print(traceback.format_exc())
 
 async def tradier_transaction(tradier, action, stock, amount, price, time, DRY=True, ctx=None):
     print()
