@@ -77,6 +77,7 @@ async def fidelity_holdings(driver, ctx):
     print("Fidelity Holdings")
     print("==============================")
     print()
+    ret_acc = True
     # Make sure init didn't return None
     if driver is None:
         print("Error: No Fidelity account")
@@ -97,26 +98,33 @@ async def fidelity_holdings(driver, ctx):
         ret_accounts = driver.find_elements(by=By.CSS_SELECTOR, value='[data-group-id="RA"]')
         # Get text from elements
         test = ind_accounts[0].text
-        test2 = ret_accounts[0].text
+        try:
+            test2 = ret_accounts[0].text
+        except IndexError:
+            print("It seems there are no retirement accounts...")
+            ret_acc = False
         # Split by new line
         info = test.splitlines()
-        info2 = test2.splitlines()
+        if ret_acc:
+            info2 = test2.splitlines()
         # Get every 4th element in the list, starting at the 3rd element
         # This is the account number
         ind_num = []
         ret_num = []
         for x in info[3::4]:
             ind_num.append(x)
-        for x in info2[2::4]:
-            ret_num.append(x)
+        if ret_acc:
+            for x in info2[2::4]:
+                ret_num.append(x)
         # Get every 4th element in the list, starting at the 4th element
         # This is the account value
         ind_val = []
         ret_val = []
         for x in info[4::4]:
             ind_val.append(x)
-        for x in info2[3::4]:
-            ret_val.append(x)
+        if ret_acc:
+            for x in info2[3::4]:
+                ret_val.append(x)
         # Print out account numbers and values
         print("Individual accounts:")
         if ctx:
@@ -125,14 +133,15 @@ async def fidelity_holdings(driver, ctx):
             print(f'{ind_num[x]} value: {ind_val[x]}')
             if ctx:
                 await ctx.send(f'{ind_num[x]} value: {ind_val[x]}')
-        print("Retirement accounts:")
-        if ctx:
+        if ret_acc:
             print("Retirement accounts:")
-        for x in range(len(ret_num)):
-            print(f'{ret_num[x]} value: {ret_val[x]}')
             if ctx:
-                await ctx.send(f'{ret_num[x]} value: {ret_val[x]}')
-        # We'll add positions later since that will be hard
+                print("Retirement accounts:")
+            for x in range(len(ret_num)):
+                print(f'{ret_num[x]} value: {ret_val[x]}')
+                if ctx:
+                    await ctx.send(f'{ret_num[x]} value: {ret_val[x]}')
+            # We'll add positions later since that will be hard
     except Exception as e:
         print(f'Error getting holdings: {e}')
         print(traceback.format_exc())
@@ -157,9 +166,11 @@ async def fidelity_transaction(driver, action, stock, amount, price, time, DRY=T
     sleep(3)
     # Get number of accounts
     try:
-        accounts_dropdown = driver.find_element(by=By.CSS_SELECTOR, value="#dest-acct-dropdown > div")
+        accounts_dropdown = driver.find_element(by=By.CSS_SELECTOR, value="#eq-ticket-account-label") 
         accounts_dropdown.click()
-        sleep(0.5)
+        WebDriverWait(driver, 10).until(expected_conditions.presence_of_element_located
+                                        (driver.find_element(by=By.CSS_SELECTOR, value="#ett-acct-sel-list"))
+                                        )
         test = driver.find_element(by=By.CSS_SELECTOR, value="#ett-acct-sel-list")
         accounts_dropdown = test.find_elements(by=By.CSS_SELECTOR, value="li")
         print(f'Number of accounts: {len(accounts_dropdown)}')
@@ -177,8 +188,9 @@ async def fidelity_transaction(driver, action, stock, amount, price, time, DRY=T
     for x in range(number_of_accounts):
         try:
             # Select account
-            accounts_dropdown_in = driver.find_element(by=By.CSS_SELECTOR, value="#dest-acct-dropdown > div")
-            accounts_dropdown_in.click()
+            accounts_dropdown_in = driver.find_element(by=By.CSS_SELECTOR, value="#eq-ticket-account-label")
+            #accounts_dropdown_in.click()
+            driver.execute_script('arguments[0].click()', accounts_dropdown_in)
             sleep(0.5)
             test = driver.find_element(by=By.CSS_SELECTOR, value="#ett-acct-sel-list")
             accounts_dropdown_in = test.find_elements(by=By.CSS_SELECTOR, value="li")
