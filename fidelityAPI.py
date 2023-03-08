@@ -11,6 +11,7 @@ from seleniumAPI import *
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
 
 def fidelity_init(DOCKER=False):
     try:
@@ -28,41 +29,43 @@ def fidelity_init(DOCKER=False):
         # Log in to Fidelity account
         driver.get("https://digital.fidelity.com/prgw/digital/login/full-page?AuthRedUrl=https://digital.fidelity.com/ftgw/digital/portfolio/summary")
         # Wait for page load
-        WebDriverWait(driver, 10).until(check_if_page_loaded)
+        WebDriverWait(driver, 20).until(check_if_page_loaded)
         # Type in username and password and click login 
         username_field = driver.find_element(by=By.CSS_SELECTOR, value="#userId-input")
-        WebDriverWait(driver, 10).until(
+        WebDriverWait(driver, 20).until(
             expected_conditions.element_to_be_clickable(username_field)
         )
         username_field.send_keys(FIDELITY_USERNAME)
         password_field = driver.find_element(by=By.CSS_SELECTOR, value="#password")
-        WebDriverWait(driver, 10).until(
+        WebDriverWait(driver, 20).until(
             expected_conditions.element_to_be_clickable(password_field)
         )
         password_field.send_keys(FIDELITY_PASSWORD)
         driver.find_element(by=By.CSS_SELECTOR, value="#fs-login-button").click()
-        WebDriverWait(driver, 10).until(check_if_page_loaded)
-        sleep(3)
+        WebDriverWait(driver, 20).until(check_if_page_loaded)
+        sleep(6)
         # Wait for page to load to summary page
         if not "summary" in driver.current_url:
             WebDriverWait(driver, 60).until(
                 expected_conditions.url_contains("summary")
             )
-        # If in beta view, disable it
-        if "digital.fidelity.com" in driver.current_url:
-            # Disable beta view
+        # Make sure fidelity site is not in beta view
+        try:
+            WebDriverWait(driver, 30).until(
+                expected_conditions.presence_of_element_located((By.LINK_TEXT, "Try Beta view"))
+                                            )
+            print("Fidelity site is not in beta view, skipping...")
+        except TimeoutException:
             print("Disabling beta view...")
             driver.find_element(by=By.CSS_SELECTOR, value="#optout-btn").click()
-            WebDriverWait(driver, 10).until(check_if_page_loaded)
+            WebDriverWait(driver, 20).until(check_if_page_loaded)
             # Wait for page to be in old view
             if not "oltx" in driver.current_url:
                 WebDriverWait(driver, 60).until(
                     expected_conditions.url_contains("oltx")
                 )
-            WebDriverWait(driver, 10).until(check_if_page_loaded)
+            WebDriverWait(driver, 20).until(check_if_page_loaded)
             print("Disabled beta view!")
-        else:
-            print("Beta view already disabled!")
         sleep(3)
         print("Logged in to Fidelity!")
     except Exception as e:
@@ -77,6 +80,30 @@ async def fidelity_holdings(driver, ctx):
     print("Fidelity Holdings")
     print("==============================")
     print()
+    
+    # relogin if fidelity has logged out
+    try:
+        WebDriverWait(driver, 5).until(
+            expected_conditions.presence_of_element_located((By.CSS_SELECTOR, "#userId-input"))
+                                        )
+        FIDELITY_USERNAME = os.environ["FIDELITY_USERNAME"]
+        FIDELITY_PASSWORD = os.environ["FIDELITY_PASSWORD"]
+        print("Fidelity has logged out!")
+        print("Logging in to Fidelity...")
+        username_field = driver.find_element(by=By.CSS_SELECTOR, value="#userId-input")
+        username_field.send_keys(FIDELITY_USERNAME)
+        password_field = driver.find_element(by=By.CSS_SELECTOR, value="#password")
+        password_field.send_keys(FIDELITY_PASSWORD)
+        driver.find_element(by=By.CSS_SELECTOR, value="#fs-login-button").click()
+        sleep(5)
+        if not "summary" in driver.current_url:
+            WebDriverWait(driver, 60).until(
+                expected_conditions.url_contains("summary")
+            )
+    except TimeoutException:
+        print("Fidelity is still logged in.")
+        pass
+    
     ret_acc = True
     # Make sure init didn't return None
     if driver is None:
@@ -156,6 +183,31 @@ async def fidelity_transaction(driver, action, stock, amount, price, time, DRY=T
     print("Fidelity")
     print("==============================")
     print()
+
+
+    # relogin if fidelity has logged out
+    try:
+        WebDriverWait(driver, 5).until(
+            expected_conditions.presence_of_element_located((By.CSS_SELECTOR, "#userId-input"))
+                                        )
+        FIDELITY_USERNAME = os.environ["FIDELITY_USERNAME"]
+        FIDELITY_PASSWORD = os.environ["FIDELITY_PASSWORD"]
+        print("Fidelity has logged out!")
+        print("Logging in to Fidelity...")
+        username_field = driver.find_element(by=By.CSS_SELECTOR, value="#userId-input")
+        username_field.send_keys(FIDELITY_USERNAME)
+        password_field = driver.find_element(by=By.CSS_SELECTOR, value="#password")
+        password_field.send_keys(FIDELITY_PASSWORD)
+        driver.find_element(by=By.CSS_SELECTOR, value="#fs-login-button").click()
+        sleep(5)
+        if not "summary" in driver.current_url:
+            WebDriverWait(driver, 60).until(
+                expected_conditions.url_contains("summary")
+            )
+    except TimeoutException:
+        print("Fidelity is still logged in.")
+        pass
+
     action = action.lower()
     stock = stock.upper()
     amount = int(amount)
@@ -167,14 +219,16 @@ async def fidelity_transaction(driver, action, stock, amount, price, time, DRY=T
     # Get number of accounts
     try:
         accounts_dropdown = driver.find_element(by=By.CSS_SELECTOR, value="#eq-ticket-account-label") 
-        accounts_dropdown.click()
+        driver.execute_script("arguments[0].click();", accounts_dropdown)
         WebDriverWait(driver, 10).until(expected_conditions.presence_of_element_located
-                                        (driver.find_element(by=By.CSS_SELECTOR, value="#ett-acct-sel-list"))
+                                        ((By.CSS_SELECTOR, "#ett-acct-sel-list"))
                                         )
         test = driver.find_element(by=By.CSS_SELECTOR, value="#ett-acct-sel-list")
-        accounts_dropdown = test.find_elements(by=By.CSS_SELECTOR, value="li")
-        print(f'Number of accounts: {len(accounts_dropdown)}')
-        number_of_accounts = len(accounts_dropdown)
+        accounts_list = test.find_elements(by=By.CSS_SELECTOR, value="li")
+        print(f'Number of accounts: {len(accounts_list)}')
+        number_of_accounts = len(accounts_list)
+        # Click a second time to clear the account list
+        driver.execute_script("arguments[0].click();", accounts_dropdown)
         # # Print all account numbers
         # for x in range(len(accounts_dropdown)):
         #     print(f'Account {x+1}: {accounts_dropdown[x].text}')
@@ -189,10 +243,11 @@ async def fidelity_transaction(driver, action, stock, amount, price, time, DRY=T
         try:
             # Select account
             accounts_dropdown_in = driver.find_element(by=By.CSS_SELECTOR, value="#eq-ticket-account-label")
-            #accounts_dropdown_in.click()
-            driver.execute_script('arguments[0].click()', accounts_dropdown_in)
-            sleep(0.5)
-            test = driver.find_element(by=By.CSS_SELECTOR, value="#ett-acct-sel-list")
+            driver.execute_script("arguments[0].click();", accounts_dropdown_in)
+            WebDriverWait(driver, 10).until(expected_conditions.presence_of_element_located
+                                            ((By.ID, "ett-acct-sel-list"))
+                                            )
+            test = driver.find_element(by=By.ID, value="ett-acct-sel-list")
             accounts_dropdown_in = test.find_elements(by=By.CSS_SELECTOR, value="li")
             account_label = accounts_dropdown_in[x].text
             accounts_dropdown_in[x].click()
@@ -256,23 +311,31 @@ async def fidelity_transaction(driver, action, stock, amount, price, time, DRY=T
             sleep(1)
             # Place order
             if not DRY:
-                place_button = driver.find_element(by=By.CSS_SELECTOR, value="#placeOrderBtn")
-                place_button.click()
-                # Wait for page to load
-                WebDriverWait(driver, 10).until(check_if_page_loaded)
-                sleep(1)
-                # Check for error
                 try:
-                    error = driver.find_element(by=By.CSS_SELECTOR, value="#pvd-modal-body-id-638525840682 > s-slot > s-assigned-wrapper > pvd3-inline-alert > s-root > div > div.pvd-inline-alert__content > s-slot > s-assigned-wrapper > div")
-                    print(f"Error: {error.text}")
-                    continue
-                except:
-                    pass
+                    place_button = driver.find_element(by=By.CSS_SELECTOR, value="#placeOrderBtn")
+                    place_button.click()
+            
+                    # Wait for page to load
+                    WebDriverWait(driver, 10).until(check_if_page_loaded)
+                    sleep(1)
+                    # Send confirmation
+                    message = f"Fidelity {account_label}: {action} {amount} shares of {stock}"
+                    print(message)
+                    if ctx:
+                        await ctx.send(message)
+                except NoSuchElementException:
+                    # Check for error
+                    WebDriverWait(driver, 10).until(
+                        expected_conditions.presence_of_element_located((By.XPATH, "(//div[@class='pvd-modal__content'])[5]"))
+                                                    )   
+                    error_dismiss = driver.find_element(by=By.XPATH, value="(//button[@class='pvd-modal__close-button'])[5]")
+                    driver.execute_script("arguments[0].click();", error_dismiss)
+                    message = f"Fidelity {account_label}: {action} {amount} shares of {stock}. DID NOT COMPLETE! \nThis account does not have enough shares to complete this order."
+                    print(message)
+                    if ctx:
+                        await ctx.send(message)
                 # Send confirmation
-                message = f"Fidelity {account_label}: {action} {amount} shares of {stock}"
-                print(message)
-                if ctx:
-                    await ctx.send(message)
+                           
             else:
                 message = f"DRY: Fidelity {account_label}: {action} {amount} shares of {stock}"
                 print(message)
@@ -283,6 +346,10 @@ async def fidelity_transaction(driver, action, stock, amount, price, time, DRY=T
             print(e)
             traceback.print_exc()
             continue
+    message = f"Fidelity: {action} {amount} shares of {stock}. Operation complete!"
+    print(message)
+    if ctx:
+        await ctx.send(message)
 
 # fidelity = fidelity_init()
 # #     #input("Press enter to continue to holdings...")
