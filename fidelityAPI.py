@@ -80,30 +80,6 @@ async def fidelity_holdings(driver, ctx):
     print("Fidelity Holdings")
     print("==============================")
     print()
-    
-    # relogin if fidelity has logged out
-    try:
-        WebDriverWait(driver, 5).until(
-            expected_conditions.presence_of_element_located((By.CSS_SELECTOR, "#userId-input"))
-                                        )
-        FIDELITY_USERNAME = os.environ["FIDELITY_USERNAME"]
-        FIDELITY_PASSWORD = os.environ["FIDELITY_PASSWORD"]
-        print("Fidelity has logged out!")
-        print("Logging in to Fidelity...")
-        username_field = driver.find_element(by=By.CSS_SELECTOR, value="#userId-input")
-        username_field.send_keys(FIDELITY_USERNAME)
-        password_field = driver.find_element(by=By.CSS_SELECTOR, value="#password")
-        password_field.send_keys(FIDELITY_PASSWORD)
-        driver.find_element(by=By.CSS_SELECTOR, value="#fs-login-button").click()
-        sleep(5)
-        if not "summary" in driver.current_url:
-            WebDriverWait(driver, 60).until(
-                expected_conditions.url_contains("summary")
-            )
-    except TimeoutException:
-        print("Fidelity is still logged in.")
-        pass
-    
     ret_acc = True
     # Make sure init didn't return None
     if driver is None:
@@ -183,31 +159,6 @@ async def fidelity_transaction(driver, action, stock, amount, price, time, DRY=T
     print("Fidelity")
     print("==============================")
     print()
-
-
-    # relogin if fidelity has logged out
-    try:
-        WebDriverWait(driver, 5).until(
-            expected_conditions.presence_of_element_located((By.CSS_SELECTOR, "#userId-input"))
-                                        )
-        FIDELITY_USERNAME = os.environ["FIDELITY_USERNAME"]
-        FIDELITY_PASSWORD = os.environ["FIDELITY_PASSWORD"]
-        print("Fidelity has logged out!")
-        print("Logging in to Fidelity...")
-        username_field = driver.find_element(by=By.CSS_SELECTOR, value="#userId-input")
-        username_field.send_keys(FIDELITY_USERNAME)
-        password_field = driver.find_element(by=By.CSS_SELECTOR, value="#password")
-        password_field.send_keys(FIDELITY_PASSWORD)
-        driver.find_element(by=By.CSS_SELECTOR, value="#fs-login-button").click()
-        sleep(5)
-        if not "summary" in driver.current_url:
-            WebDriverWait(driver, 60).until(
-                expected_conditions.url_contains("summary")
-            )
-    except TimeoutException:
-        print("Fidelity is still logged in.")
-        pass
-
     action = action.lower()
     stock = stock.upper()
     amount = int(amount)
@@ -311,10 +262,11 @@ async def fidelity_transaction(driver, action, stock, amount, price, time, DRY=T
             sleep(1)
             # Place order
             if not DRY:
+                # Check for error popup and clear it if the account cannot sell the stock for some reason.
                 try:
                     place_button = driver.find_element(by=By.CSS_SELECTOR, value="#placeOrderBtn")
                     place_button.click()
-            
+
                     # Wait for page to load
                     WebDriverWait(driver, 10).until(check_if_page_loaded)
                     sleep(1)
@@ -335,7 +287,6 @@ async def fidelity_transaction(driver, action, stock, amount, price, time, DRY=T
                     if ctx:
                         await ctx.send(message)
                 # Send confirmation
-                           
             else:
                 message = f"DRY: Fidelity {account_label}: {action} {amount} shares of {stock}"
                 print(message)
@@ -346,10 +297,6 @@ async def fidelity_transaction(driver, action, stock, amount, price, time, DRY=T
             print(e)
             traceback.print_exc()
             continue
-    message = f"Fidelity: {action} {amount} shares of {stock}. Operation complete!"
-    print(message)
-    if ctx:
-        await ctx.send(message)
 
 # fidelity = fidelity_init()
 # #     #input("Press enter to continue to holdings...")
