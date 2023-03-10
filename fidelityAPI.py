@@ -58,7 +58,7 @@ def fidelity_init(DOCKER=False):
         except TimeoutException:
             print("Disabling beta view...")
             driver.find_element(by=By.CSS_SELECTOR, value="#optout-btn").click()
-            WebDriverWait(driver, 20).until(check_if_page_loaded)
+            WebDriverWait(driver, 10).until(check_if_page_loaded)
             # Wait for page to be in old view
             if not "oltx" in driver.current_url:
                 WebDriverWait(driver, 60).until(
