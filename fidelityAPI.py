@@ -30,19 +30,19 @@ def fidelity_init(DOCKER=False):
         driver.get("https://digital.fidelity.com/prgw/digital/login/full-page?AuthRedUrl=https://digital.fidelity.com/ftgw/digital/portfolio/summary")
         # Wait for page load
         WebDriverWait(driver, 20).until(check_if_page_loaded)
-        # Type in username and password and click login 
+        # Type in username and password and click login
+        WebDriverWait(driver, 10).until(
+            expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, "#userId-input"))
+        )
         username_field = driver.find_element(by=By.CSS_SELECTOR, value="#userId-input")
-        WebDriverWait(driver, 20).until(
-            expected_conditions.element_to_be_clickable(username_field)
-        )
         username_field.send_keys(FIDELITY_USERNAME)
-        password_field = driver.find_element(by=By.CSS_SELECTOR, value="#password")
-        WebDriverWait(driver, 20).until(
-            expected_conditions.element_to_be_clickable(password_field)
+        WebDriverWait(driver, 10).until(
+            expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, "#password"))
         )
+        password_field = driver.find_element(by=By.CSS_SELECTOR, value="#password")
         password_field.send_keys(FIDELITY_PASSWORD)
         driver.find_element(by=By.CSS_SELECTOR, value="#fs-login-button").click()
-        WebDriverWait(driver, 20).until(check_if_page_loaded)
+        WebDriverWait(driver, 10).until(check_if_page_loaded)
         sleep(6)
         # Wait for page to load to summary page
         if not "summary" in driver.current_url:
