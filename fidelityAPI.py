@@ -43,7 +43,7 @@ def fidelity_init(DOCKER=False):
         password_field.send_keys(FIDELITY_PASSWORD)
         driver.find_element(by=By.CSS_SELECTOR, value="#fs-login-button").click()
         WebDriverWait(driver, 10).until(check_if_page_loaded)
-        sleep(6)
+        sleep(3)
         # Wait for page to load to summary page
         if not "summary" in driver.current_url:
             WebDriverWait(driver, 60).until(
@@ -54,7 +54,7 @@ def fidelity_init(DOCKER=False):
             WebDriverWait(driver, 30).until(
                 expected_conditions.presence_of_element_located((By.LINK_TEXT, "Try Beta view"))
                                             )
-            print("Fidelity site is not in beta view, skipping...")
+            print("Beta view already disabled!")
         except TimeoutException:
             print("Disabling beta view...")
             driver.find_element(by=By.CSS_SELECTOR, value="#optout-btn").click()
@@ -64,7 +64,7 @@ def fidelity_init(DOCKER=False):
                 WebDriverWait(driver, 60).until(
                     expected_conditions.url_contains("oltx")
                 )
-            WebDriverWait(driver, 20).until(check_if_page_loaded)
+            WebDriverWait(driver, 10).until(check_if_page_loaded)
             print("Disabled beta view!")
         sleep(3)
         print("Logged in to Fidelity!")
