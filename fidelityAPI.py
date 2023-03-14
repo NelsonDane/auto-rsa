@@ -11,6 +11,7 @@ from seleniumAPI import *
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
 
 def fidelity_init(DOCKER=False):
     try:
@@ -28,17 +29,17 @@ def fidelity_init(DOCKER=False):
         # Log in to Fidelity account
         driver.get("https://digital.fidelity.com/prgw/digital/login/full-page?AuthRedUrl=https://digital.fidelity.com/ftgw/digital/portfolio/summary")
         # Wait for page load
-        WebDriverWait(driver, 10).until(check_if_page_loaded)
-        # Type in username and password and click login 
+        WebDriverWait(driver, 20).until(check_if_page_loaded)
+        # Type in username and password and click login
+        WebDriverWait(driver, 10).until(
+            expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, "#userId-input"))
+        )
         username_field = driver.find_element(by=By.CSS_SELECTOR, value="#userId-input")
-        WebDriverWait(driver, 10).until(
-            expected_conditions.element_to_be_clickable(username_field)
-        )
         username_field.send_keys(FIDELITY_USERNAME)
-        password_field = driver.find_element(by=By.CSS_SELECTOR, value="#password")
         WebDriverWait(driver, 10).until(
-            expected_conditions.element_to_be_clickable(password_field)
+            expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, "#password"))
         )
+        password_field = driver.find_element(by=By.CSS_SELECTOR, value="#password")
         password_field.send_keys(FIDELITY_PASSWORD)
         driver.find_element(by=By.CSS_SELECTOR, value="#fs-login-button").click()
         WebDriverWait(driver, 10).until(check_if_page_loaded)
@@ -48,9 +49,13 @@ def fidelity_init(DOCKER=False):
             WebDriverWait(driver, 60).until(
                 expected_conditions.url_contains("summary")
             )
-        # If in beta view, disable it
-        if "digital.fidelity.com" in driver.current_url:
-            # Disable beta view
+        # Make sure fidelity site is not in beta view
+        try:
+            WebDriverWait(driver, 30).until(
+                expected_conditions.presence_of_element_located((By.LINK_TEXT, "Try Beta view"))
+                                            )
+            print("Beta view already disabled!")
+        except TimeoutException:
             print("Disabling beta view...")
             driver.find_element(by=By.CSS_SELECTOR, value="#optout-btn").click()
             WebDriverWait(driver, 10).until(check_if_page_loaded)
@@ -61,8 +66,6 @@ def fidelity_init(DOCKER=False):
                 )
             WebDriverWait(driver, 10).until(check_if_page_loaded)
             print("Disabled beta view!")
-        else:
-            print("Beta view already disabled!")
         sleep(3)
         print("Logged in to Fidelity!")
     except Exception as e:
@@ -77,6 +80,7 @@ async def fidelity_holdings(driver, ctx):
     print("Fidelity Holdings")
     print("==============================")
     print()
+    ret_acc = True
     # Make sure init didn't return None
     if driver is None:
         print("Error: No Fidelity account")
@@ -97,26 +101,33 @@ async def fidelity_holdings(driver, ctx):
         ret_accounts = driver.find_elements(by=By.CSS_SELECTOR, value='[data-group-id="RA"]')
         # Get text from elements
         test = ind_accounts[0].text
-        test2 = ret_accounts[0].text
+        try:
+            test2 = ret_accounts[0].text
+        except IndexError:
+            print("No retirement accounts found, skipping...")
+            ret_acc = False
         # Split by new line
         info = test.splitlines()
-        info2 = test2.splitlines()
+        if ret_acc:
+            info2 = test2.splitlines()
         # Get every 4th element in the list, starting at the 3rd element
         # This is the account number
         ind_num = []
         ret_num = []
         for x in info[3::4]:
             ind_num.append(x)
-        for x in info2[2::4]:
-            ret_num.append(x)
+        if ret_acc:
+            for x in info2[2::4]:
+                ret_num.append(x)
         # Get every 4th element in the list, starting at the 4th element
         # This is the account value
         ind_val = []
         ret_val = []
         for x in info[4::4]:
             ind_val.append(x)
-        for x in info2[3::4]:
-            ret_val.append(x)
+        if ret_acc:
+            for x in info2[3::4]:
+                ret_val.append(x)
         # Print out account numbers and values
         print("Individual accounts:")
         if ctx:
@@ -125,14 +136,15 @@ async def fidelity_holdings(driver, ctx):
             print(f'{ind_num[x]} value: {ind_val[x]}')
             if ctx:
                 await ctx.send(f'{ind_num[x]} value: {ind_val[x]}')
-        print("Retirement accounts:")
-        if ctx:
+        if ret_acc:
             print("Retirement accounts:")
-        for x in range(len(ret_num)):
-            print(f'{ret_num[x]} value: {ret_val[x]}')
             if ctx:
-                await ctx.send(f'{ret_num[x]} value: {ret_val[x]}')
-        # We'll add positions later since that will be hard
+                print("Retirement accounts:")
+            for x in range(len(ret_num)):
+                print(f'{ret_num[x]} value: {ret_val[x]}')
+                if ctx:
+                    await ctx.send(f'{ret_num[x]} value: {ret_val[x]}')
+            # We'll add positions later since that will be hard
     except Exception as e:
         print(f'Error getting holdings: {e}')
         print(traceback.format_exc())
@@ -157,13 +169,17 @@ async def fidelity_transaction(driver, action, stock, amount, price, time, DRY=T
     sleep(3)
     # Get number of accounts
     try:
-        accounts_dropdown = driver.find_element(by=By.CSS_SELECTOR, value="#dest-acct-dropdown > div")
-        accounts_dropdown.click()
-        sleep(0.5)
+        accounts_dropdown = driver.find_element(by=By.CSS_SELECTOR, value="#eq-ticket-account-label") 
+        driver.execute_script("arguments[0].click();", accounts_dropdown)
+        WebDriverWait(driver, 10).until(expected_conditions.presence_of_element_located
+                                        ((By.CSS_SELECTOR, "#ett-acct-sel-list"))
+                                        )
         test = driver.find_element(by=By.CSS_SELECTOR, value="#ett-acct-sel-list")
-        accounts_dropdown = test.find_elements(by=By.CSS_SELECTOR, value="li")
-        print(f'Number of accounts: {len(accounts_dropdown)}')
-        number_of_accounts = len(accounts_dropdown)
+        accounts_list = test.find_elements(by=By.CSS_SELECTOR, value="li")
+        print(f'Number of accounts: {len(accounts_list)}')
+        number_of_accounts = len(accounts_list)
+        # Click a second time to clear the account list
+        driver.execute_script("arguments[0].click();", accounts_dropdown)
         # # Print all account numbers
         # for x in range(len(accounts_dropdown)):
         #     print(f'Account {x+1}: {accounts_dropdown[x].text}')
@@ -177,10 +193,12 @@ async def fidelity_transaction(driver, action, stock, amount, price, time, DRY=T
     for x in range(number_of_accounts):
         try:
             # Select account
-            accounts_dropdown_in = driver.find_element(by=By.CSS_SELECTOR, value="#dest-acct-dropdown > div")
-            accounts_dropdown_in.click()
-            sleep(0.5)
-            test = driver.find_element(by=By.CSS_SELECTOR, value="#ett-acct-sel-list")
+            accounts_dropdown_in = driver.find_element(by=By.CSS_SELECTOR, value="#eq-ticket-account-label")
+            driver.execute_script("arguments[0].click();", accounts_dropdown_in)
+            WebDriverWait(driver, 10).until(expected_conditions.presence_of_element_located
+                                            ((By.ID, "ett-acct-sel-list"))
+                                            )
+            test = driver.find_element(by=By.ID, value="ett-acct-sel-list")
             accounts_dropdown_in = test.find_elements(by=By.CSS_SELECTOR, value="li")
             account_label = accounts_dropdown_in[x].text
             accounts_dropdown_in[x].click()
@@ -244,23 +262,34 @@ async def fidelity_transaction(driver, action, stock, amount, price, time, DRY=T
             sleep(1)
             # Place order
             if not DRY:
-                place_button = driver.find_element(by=By.CSS_SELECTOR, value="#placeOrderBtn")
-                place_button.click()
-                # Wait for page to load
-                WebDriverWait(driver, 10).until(check_if_page_loaded)
-                sleep(1)
-                # Check for error
+                # Check for error popup and clear it if the account cannot sell the stock for some reason.
                 try:
-                    error = driver.find_element(by=By.CSS_SELECTOR, value="#pvd-modal-body-id-638525840682 > s-slot > s-assigned-wrapper > pvd3-inline-alert > s-root > div > div.pvd-inline-alert__content > s-slot > s-assigned-wrapper > div")
-                    print(f"Error: {error.text}")
-                    continue
-                except:
-                    pass
+                    place_button = driver.find_element(by=By.CSS_SELECTOR, value="#placeOrderBtn")
+                    place_button.click()
+
+                    # Wait for page to load
+                    WebDriverWait(driver, 10).until(check_if_page_loaded)
+                    sleep(1)
+                    # Send confirmation
+                    message = f"Fidelity {account_label}: {action} {amount} shares of {stock}"
+                    print(message)
+                    if ctx:
+                        await ctx.send(message)
+                except NoSuchElementException:
+                    # Check for error
+                    WebDriverWait(driver, 10).until(
+                        expected_conditions.presence_of_element_located((By.XPATH, "(//div[@class='pvd-modal__content'])[5]"))
+                                                    )   
+                    error_dismiss = driver.find_element(by=By.XPATH, value="(//button[@class='pvd-modal__close-button'])[5]")
+                    driver.execute_script("arguments[0].click();", error_dismiss)
+                    if action == "sell":
+                        message = f"Fidelity {account_label}: {action} {amount} shares of {stock}. DID NOT COMPLETE! \nEither this account does not have enough shares, or an order is already pending."
+                    elif action == "buy":
+                        message = f"Fidelity {account_label}: {action} {amount} shares of {stock}. DID NOT COMPLETE! \nEither this account does not have enough cash, or an order is already pending."
+                    print(message)
+                    if ctx:
+                        await ctx.send(message)
                 # Send confirmation
-                message = f"Fidelity {account_label}: {action} {amount} shares of {stock}"
-                print(message)
-                if ctx:
-                    await ctx.send(message)
             else:
                 message = f"DRY: Fidelity {account_label}: {action} {amount} shares of {stock}"
                 print(message)
