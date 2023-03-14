@@ -104,7 +104,7 @@ async def fidelity_holdings(driver, ctx):
         try:
             test2 = ret_accounts[0].text
         except IndexError:
-            print("It seems there are no retirement accounts...")
+            print("No retirement accounts found, skipping...")
             ret_acc = False
         # Split by new line
         info = test.splitlines()
@@ -282,7 +282,10 @@ async def fidelity_transaction(driver, action, stock, amount, price, time, DRY=T
                                                     )   
                     error_dismiss = driver.find_element(by=By.XPATH, value="(//button[@class='pvd-modal__close-button'])[5]")
                     driver.execute_script("arguments[0].click();", error_dismiss)
-                    message = f"Fidelity {account_label}: {action} {amount} shares of {stock}. DID NOT COMPLETE! \nThis account does not have enough shares to complete this order."
+                    if action == "sell":
+                        message = f"Fidelity {account_label}: {action} {amount} shares of {stock}. DID NOT COMPLETE! \nEither this account does not have enough shares, or an order is already pending."
+                    elif action == "buy":
+                        message = f"Fidelity {account_label}: {action} {amount} shares of {stock}. DID NOT COMPLETE! \nEither this account does not have enough cash, or an order is already pending."
                     print(message)
                     if ctx:
                         await ctx.send(message)
