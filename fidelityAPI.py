@@ -3,7 +3,6 @@
 # Uses headless Selenium
 
 import os
-import sys
 import traceback
 from time import sleep
 from dotenv import load_dotenv
@@ -180,10 +179,6 @@ async def fidelity_transaction(driver, action, stock, amount, price, time, DRY=T
         number_of_accounts = len(accounts_list)
         # Click a second time to clear the account list
         driver.execute_script("arguments[0].click();", accounts_dropdown)
-        # # Print all account numbers
-        # for x in range(len(accounts_dropdown)):
-        #     print(f'Account {x+1}: {accounts_dropdown[x].text}')
-        # return None
     except:
         print("Error: No accounts foundin dropdown")
         traceback.print_exc()
@@ -303,18 +298,3 @@ async def fidelity_transaction(driver, action, stock, amount, price, time, DRY=T
             print(e)
             traceback.print_exc()
             continue
-
-# fidelity = fidelity_init()
-# #     #input("Press enter to continue to holdings...")
-# #     fidelity_holdings(fidelity)
-# fidelity_transaction(fidelity, "buy", "AAPL", 1, 0, 0, DRY=True)
-# input("Press enter to quit...")
-# fidelity.close()
-# fidelity.quit()
-# sys.exit(0)
-# # Catch any errors
-# except KeyboardInterrupt:
-#     print("Quitting...")
-#     sys.exit(1)
-# except Exception as e:
-#     print(e)
