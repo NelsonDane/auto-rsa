@@ -31,12 +31,12 @@ def fidelity_init(DOCKER=False):
         WebDriverWait(driver, 20).until(check_if_page_loaded)
         # Type in username and password and click login
         WebDriverWait(driver, 10).until(
-            expected_conditions.element_to_be_clickable(By.CSS_SELECTOR, "#userId-input")
+            expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, "#userId-input"))
         )
         username_field = driver.find_element(by=By.CSS_SELECTOR, value="#userId-input")
         username_field.send_keys(FIDELITY_USERNAME)
         WebDriverWait(driver, 10).until(
-            expected_conditions.element_to_be_clickable(By.CSS_SELECTOR, "#password")
+            expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, "#password"))
         )
         password_field = driver.find_element(by=By.CSS_SELECTOR, value="#password")
         password_field.send_keys(FIDELITY_PASSWORD)
@@ -51,7 +51,7 @@ def fidelity_init(DOCKER=False):
         # Make sure fidelity site is not in beta view
         try:
             WebDriverWait(driver, 30).until(
-                expected_conditions.presence_of_element_located(By.LINK_TEXT, "Try Beta view")
+                expected_conditions.presence_of_element_located((By.LINK_TEXT, "Try Beta view"))
             )
             print("Beta view already disabled!")
         except TimeoutException:
@@ -170,7 +170,7 @@ async def fidelity_transaction(driver, action, stock, amount, price, time, DRY=T
     try:
         accounts_dropdown = driver.find_element(by=By.CSS_SELECTOR, value="#eq-ticket-account-label") 
         driver.execute_script("arguments[0].click();", accounts_dropdown)
-        WebDriverWait(driver, 10).until(expected_conditions.presence_of_element_located(By.CSS_SELECTOR, "#ett-acct-sel-list")
+        WebDriverWait(driver, 10).until(expected_conditions.presence_of_element_located((By.CSS_SELECTOR, "#ett-acct-sel-list"))
         )
         test = driver.find_element(by=By.CSS_SELECTOR, value="#ett-acct-sel-list")
         accounts_list = test.find_elements(by=By.CSS_SELECTOR, value="li")
@@ -189,8 +189,7 @@ async def fidelity_transaction(driver, action, stock, amount, price, time, DRY=T
             # Select account
             accounts_dropdown_in = driver.find_element(by=By.CSS_SELECTOR, value="#eq-ticket-account-label")
             driver.execute_script("arguments[0].click();", accounts_dropdown_in)
-            WebDriverWait(driver, 10).until(
-                expected_conditions.presence_of_element_located(By.ID, "ett-acct-sel-list")
+            WebDriverWait(driver, 10).until(expected_conditions.presence_of_element_located((By.ID, "ett-acct-sel-list"))
             )
             test = driver.find_element(by=By.ID, value="ett-acct-sel-list")
             accounts_dropdown_in = test.find_elements(by=By.CSS_SELECTOR, value="li")
@@ -263,6 +262,7 @@ async def fidelity_transaction(driver, action, stock, amount, price, time, DRY=T
                 try:
                     place_button = driver.find_element(by=By.CSS_SELECTOR, value="#placeOrderBtn")
                     place_button.click()
+
                     # Wait for page to load
                     WebDriverWait(driver, 10).until(check_if_page_loaded)
                     sleep(1)
@@ -274,8 +274,8 @@ async def fidelity_transaction(driver, action, stock, amount, price, time, DRY=T
                 except NoSuchElementException:
                     # Check for error
                     WebDriverWait(driver, 10).until(
-                        expected_conditions.presence_of_element_located(By.XPATH, "(//div[@class='pvd-modal__content'])[5]")
-                    )
+                        expected_conditions.presence_of_element_located((By.XPATH, "(//div[@class='pvd-modal__content'])[5]"))
+                    )   
                     error_dismiss = driver.find_element(by=By.XPATH, value="(//button[@class='pvd-modal__close-button'])[5]")
                     driver.execute_script("arguments[0].click();", error_dismiss)
                     if action == "sell":
