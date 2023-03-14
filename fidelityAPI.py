@@ -213,16 +213,16 @@ async def fidelity_transaction(driver, action, stock, amount, price, time, DRY=T
             sleep(1)
             # Check if symbol not found is displayed
             try:
-                symbol_not_found = driver.find_element(by=By.CSS_SELECTOR, value="body > div.app-body > ap122489-ett-component > div > order-entry > div.eq-ticket.order-entry__container-height > div > div > form > div.order-entry__container-content.scroll > div:nth-child(2) > symbol-search > div > div.eq-ticket--border-top > div > div:nth-child(2) > div > div > div > pvd3-inline-alert > s-root > div > div.pvd-inline-alert__content > s-slot > s-assigned-wrapper")
+                driver.find_element(by=By.CSS_SELECTOR, value="body > div.app-body > ap122489-ett-component > div > order-entry > div.eq-ticket.order-entry__container-height > div > div > form > div.order-entry__container-content.scroll > div:nth-child(2) > symbol-search > div > div.eq-ticket--border-top > div > div:nth-child(2) > div > div > div > pvd3-inline-alert > s-root > div > div.pvd-inline-alert__content > s-slot > s-assigned-wrapper")
                 print(f"Error: Symbol {stock} not found")
                 return None
             except:
                 pass
-            # Get ask price
-            ask_price = driver.find_element(by=By.CSS_SELECTOR, value="#quote-panel > div > div.eq-ticket__quote--blocks-container > div:nth-child(2) > div > span > span")
-            ask_price = ask_price.text
+            # Get ask/bid price
+            ask_price = (driver.find_element(by=By.CSS_SELECTOR, value="#quote-panel > div > div.eq-ticket__quote--blocks-container > div:nth-child(2) > div > span > span")).text
+            bid_price = (driver.find_element(by=By.CSS_SELECTOR, value="#quote-panel > div > div.eq-ticket__quote--blocks-container > div:nth-child(1) > div > span > span")).text
             # If price is under $1, then we have to use a limit order
-            if float(ask_price) < 1:
+            if float(ask_price) < 1 or float(bid_price) < 1:
                 LIMIT = True
             else:
                 LIMIT = False
@@ -248,7 +248,10 @@ async def fidelity_transaction(driver, action, stock, amount, price, time, DRY=T
                 limit_button = driver.find_element(by=By.CSS_SELECTOR, value="#market-no > s-root > div > label > s-slot > s-assigned-wrapper")
                 limit_button.click()
                 # Set price
-                wanted_price = round(float(ask_price) + 0.01, 3)
+                if action == "buy":
+                    wanted_price = round(float(ask_price) + 0.01, 3)
+                elif action == "sell":
+                    wanted_price = round(float(bid_price) - 0.01, 3)
                 price_box = driver.find_element(by=By.CSS_SELECTOR, value="#eqt-ordsel-limit-price-field")
                 price_box.clear()
                 price_box.send_keys(wanted_price)
