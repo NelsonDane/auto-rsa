@@ -8,3 +8,4 @@ pyotp
 robin_stocks
 requests
 pandas
+schwab-api

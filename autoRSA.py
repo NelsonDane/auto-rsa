@@ -198,7 +198,7 @@ if __name__ == "__main__":
         sleep(5)
         robinhood = robinhood_init()
     print()
-    schwab = schwab_init(DOCKER=True if docker_mode else False)
+    schwab = schwab_init()
     print()
     # webull_account = webull_init()
     # print()

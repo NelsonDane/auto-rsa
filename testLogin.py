@@ -114,7 +114,6 @@ print()
 robinhood = robinhood_init()
 print()
 schwab = schwab_init()
-killDriver(schwab)
 print()
 # webull_account = webull_init()
 # if webull_account is not None:

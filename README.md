@@ -126,14 +126,14 @@ Required `.env` variables:
 Configuring 2fa can be tricky, read the TOTP section [here](https://github.com/jmfernandes/robin_stocks/blob/master/Robinhood.rst)
 
 ### Schwab
-Made using a site by [Jafer Haider](https://itsjafer.com/#/reversesplit) using his [schwab-api](https://github.com/itsjafer/schwab-api). Go give them a ⭐
+Made using the [schwab-api](https://github.com/itsjafer/schwab-api). Go give them a ⭐
 
 Required `.env` variables:
 - SCHWAB_USERNAME=
 - SCHWAB_PASSWORD=
 - SCHWAB_TOTP_SECRET= (If 2fa is enabled)
 
-To get your TOTP secret, use [this website by the api author above.](https://itsjafer.com/#/schwab)
+To get your TOTP secret, use [this website by the api author above.](https://itsjafer.com/#/schwab). Then log in to your Schwab account, and use the code for 2FA.
 
 ### Tradier
 Made by yours truly using the official [Tradier API](https://documentation.tradier.com/brokerage-api/trading/getting-started)
@@ -149,11 +149,11 @@ I will be signing up for a Chase account soon, and I have heard that it is possi
 #### Vanguard
 Will be added using Selenium just like Fidelity. I found this [vanguard-api](https://github.com/rikonor/vanguard-api), but it failed when I ran it.
 #### SoFi
-No official or 3rd party APIs, but they do have a website. So same as Fidelity and Vanguard.
+Login requires SMS 2fa, and I'm not sure how to do that automatically.
 #### Webull
-Not currently working since login is broken in [webull](https://github.com/tedchou12/webull). They also use SMS 2fa, so I'll have to figure that out.
-### Never working brokerages
+Not currently working since login is broken in [webull](https://github.com/tedchou12/webull). They also use SMS 2fa, so I'm not sure how to do that automatically.
 #### Public
-No official or 3rd party APIs and no website to scrape (app only).
+Same as Webull and SoFi.
+### Never working brokerages
 #### Stash
 Why.

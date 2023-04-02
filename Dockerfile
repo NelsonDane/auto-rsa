@@ -1,7 +1,7 @@
 # Nelson Dane
 
-# Build from Ubuntu 22.04
-FROM ubuntu:22.04
+# Build from the playwright image
+FROM mcr.microsoft.com/playwright:v1.24.0-focal
 # Set ENV variables
 ENV TZ=America/New_York
 ENV DEBIAN_FRONTEND=noninteractive
@@ -35,6 +35,10 @@ RUN apt-get update && apt-get install -y microsoft-edge-stable && rm -rf /var/li
 # Install python dependencies
 COPY ./requirements.txt .
 RUN pip install -r requirements.txt
+
+# Install playwright
+RUN playwright install
+RUN playwright install-deps
 
 # Grab needed files
 COPY ./autoRSA.py .
