@@ -103,6 +103,10 @@ async def tradier_holdings(tradier, ctx=None):
                 # Set index for easy use
                 i = stocks.index(value)
                 current_value.append(amounts[i] * current_price[i])
+            # Round to 2 decimal places
+            for i in range(len(current_value)):
+                current_value[i] = round(current_value[i], 2)
+                current_price[i] = round(current_price[i], 2)
             # Print and send them
             print(f"Holdings on Tradier account {account_number}")
             if ctx:
