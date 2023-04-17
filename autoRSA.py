@@ -15,8 +15,11 @@ from fidelityAPI import *
 # from webullAPI import *
 from schwabAPI import *
 from tradierAPI import *
+from tastyRSAAPI import *
 
-supported_brokerages = ["all", "ally", "fidelity", "robinhood", "rh", "schwab", "tradier"]
+supported_brokerages = ["all", "ally", "fidelity", 
+                        "robinhood", "rh", "schwab", 
+                        "tradier", "tasty", "tastytrade"]
 
 # Initialize .env file
 load_dotenv()
@@ -105,6 +108,9 @@ async def get_holdings(accountName, AO=None, ctx=None):
                 await tradier_holdings(tradier if AO is None else AO, ctx)
         except:
             pass
+        try:
+            if accountName == "tasty" or accountName == "tastytrade" or accountName == "all":
+                await tastytrade_holdings(tastytrade_session if AO is None else, ctx)
     else:
         print("Error: Invalid broker")
 
@@ -203,6 +209,8 @@ if __name__ == "__main__":
     # webull_account = webull_init()
     # print()
     tradier = tradier_init()
+    print()
+    tastytrade = tastytrade_init()
     print()
 
     print("Waiting for Discord commands...")
