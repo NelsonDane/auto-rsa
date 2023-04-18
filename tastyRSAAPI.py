@@ -81,14 +81,14 @@ async def tastytrade_transaction(tastytrade_session, action, stock, amount, pric
         return None
     accounts = await TradingAccount.get_remote_accounts(tastytrade_session)
     stock_price = Security(stock)
-    await stock_price.get_security_price(stock_price, tastytrade_session)
-    print(f'Stock price: {stock_price.price}')
-    stock_price = D(stock_price.price)
+    await stock_price.get_security_price(tastytrade_session)
+    print(f'Stock price: {stock_price.bid}')
+    stock_price = D(stock_price.bid)
 
     try:
         if action == 'buy':
             # Execute an order
-            stock_price += 0.01
+            stock_price += D(0.01)
             action = 'Buy to Open'
             details = OrderDetails(
                 type=OrderType.LIMIT,
@@ -104,7 +104,7 @@ async def tastytrade_transaction(tastytrade_session, action, stock, amount, pric
                     print(res)
                     print('Tastytrade: does not support selling "all" of a position yet.')
             # Execute an order
-            stock_price -= 0.01
+            stock_price -= D(0.01)
             action = 'Sell to Close'
             details = OrderDetails(
                 type=OrderType.LIMIT,
@@ -113,20 +113,20 @@ async def tastytrade_transaction(tastytrade_session, action, stock, amount, pric
                 price_effect=OrderPriceEffect.CREDIT)
             new_order = Order(details)
             
-            leg = Equity(
-                    action=action,
-                    ticker=stock,
-                    quantity=amount)
-            new_order.add_leg(leg)
+        leg = Equity(
+                action=action,
+                ticker=stock,
+                quantity=amount)
+        new_order.add_leg(leg)
 
-            for acct in range(0, len(accounts)):
-                res = await accounts[acct].execute_order(new_order, tastytrade_session, dry_run=DRY)
-                if DRY:
-                    print(f"Tastytrade: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}")
-                    if ctx:
-                        await ctx.send(f"Tastytrade: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}")
-                print(f'Order executed successfully: {res}')
-                sleep(2)
+        for acct in range(0, len(accounts)):
+            res = await accounts[acct].execute_order(new_order, tastytrade_session, dry_run=DRY)
+            if DRY:
+                print(f"Tastytrade: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}")
+                if ctx:
+                    await ctx.send(f"Tastytrade: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}")
+            print(f'Order executed successfully: {res}')
+            sleep(2)
     except Exception as e:
         print(f'Tastytrade: Error submitting order: {e}')
         if ctx:

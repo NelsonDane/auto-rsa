@@ -13,9 +13,10 @@ from robinhoodAPI import *
 from schwabAPI import *
 from webullAPI import *
 from tradierAPI import *
+from tastyRSAAPI import *
 
 # List of supported and enabled brokerages
-supported_brokerages = ["all", "ally", "fidelity", "robinhood", "rh", "schwab", "tradier"]
+supported_brokerages = ["all", "ally", "fidelity", "robinhood", "rh", "schwab", "tradier", "tasty", "tastytrade"]
 enabled_brokerages = []
 AO = []
 
@@ -109,6 +110,10 @@ if single_broker == "all":
         AO.append(tradier)
         enabled_brokerages.append("tradier")
     print()
+    tastytrade = tastytrade_init()
+    if tastytrade is not None:
+        AO.append(tastytrade)
+        enabled_brokerages.append("tastytrade")
 elif single_broker == "ally":
     ally_account = ally_init()
     if ally_account is not None:
@@ -151,6 +156,11 @@ elif single_broker == "tradier":
         AO = [tradier]
         enabled_brokerages = ["tradier"]
     print()
+elif single_broker in ("tastytrade", "tasty"):
+    tastytrade = tastytrade_init()
+    if tastytrade is not None:
+        AO = [tastytrade]
+        enabled_brokerages = ["tastytrade"]
 else:
     print("Error: Invalid broker")
     sys.exit(1)
