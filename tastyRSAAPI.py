@@ -60,44 +60,74 @@ async def tastytrade_holdings(tastytrade_session, ctx):
         await ctx.send(f"All accounts cash balance is {all_account_balance}.")
     
 
-async def tastytrade_transaction(tastytrade_session, action, stock, amount, time, DRY=True, ctx=None):
-
+async def tastytrade_transaction(tastytrade_session, action, stock, amount, price, time, DRY=True, ctx=None):
+    print()
+    print("==============================")
+    print("Tastytrade")
+    print("==============================")
+    print()
+    action = action.lower()
+    stock = stock.upper()
+    if amount == "all" and action == "sell":
+        all_amount = True
+    elif amount < 1:
+        amount = float(amount)
+    else:
+        amount = int(amount)
+        all_amount = False
+    # Make sure init didn't return None
+    if tastytrade_session is None:
+        print("Error: No Tastytrade account")
+        return None
     accounts = await TradingAccount.get_remote_accounts(tastytrade_session)
-    stock_price= Security(stock)
-    await stock_price.get_security_price(ticker=stock_price, session=tastytrade_session)
+    stock_price = Security(stock)
+    await stock_price.get_security_price(stock_price, tastytrade_session)
     print(f'Stock price: {stock_price.price}')
     stock_price = D(stock_price.price)
 
-    if action == 'buy':
-        # Execute an order
-        stock_price += 0.01
-        action = 'Buy to Open'
-        details = OrderDetails(
-            type=OrderType.LIMIT,
-            time_in_force=TimeInForce.DAY,
-            price=stock_price,
-            price_effect=OrderPriceEffect.DEBIT)
-        new_order = Order(details)
+    try:
+        if action == 'buy':
+            # Execute an order
+            stock_price += 0.01
+            action = 'Buy to Open'
+            details = OrderDetails(
+                type=OrderType.LIMIT,
+                time_in_force=TimeInForce.DAY,
+                price=stock_price,
+                price_effect=OrderPriceEffect.DEBIT)
+            new_order = Order(details)
 
-    if action == 'sell':
-        # Execute an order
-        stock_price -= 0.01
-        action = 'Sell to Close'
-        details = OrderDetails(
-            type=OrderType.LIMIT,
-            time_in_force=TimeInForce.DAY,
-            price=stock_price,
-            price_effect=OrderPriceEffect.CREDIT)
-        new_order = Order(details)
-    
-    leg = Equity(
-            action=action,
-            ticker=stock,
-            quantity=amount)
-    new_order.add_leg(leg)
-    
+        elif action == 'sell':
+            if all_amount:
+                for acct in range(0, len(accounts)):
+                    res = await accounts[acct].get_balance(tastytrade_session)
+                    print(res)
+                    print('Tastytrade: does not support selling "all" of a position yet.')
+            # Execute an order
+            stock_price -= 0.01
+            action = 'Sell to Close'
+            details = OrderDetails(
+                type=OrderType.LIMIT,
+                time_in_force=TimeInForce.DAY,
+                price=stock_price,
+                price_effect=OrderPriceEffect.CREDIT)
+            new_order = Order(details)
+            
+            leg = Equity(
+                    action=action,
+                    ticker=stock,
+                    quantity=amount)
+            new_order.add_leg(leg)
 
-    for acct in range(0, len(accounts)):
-        res = await accounts[acct].execute_order(new_order, tastytrade_session, dry_run=DRY)
-        print(f'Order executed successfully: {res}')
-        sleep(2)
+            for acct in range(0, len(accounts)):
+                res = await accounts[acct].execute_order(new_order, tastytrade_session, dry_run=DRY)
+                if DRY:
+                    print(f"Tastytrade: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}")
+                    if ctx:
+                        await ctx.send(f"Tastytrade: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}")
+                print(f'Order executed successfully: {res}')
+                sleep(2)
+    except Exception as e:
+        print(f'Tastytrade: Error submitting order: {e}')
+        if ctx:
+            await ctx.send(f'Tastytrade: Error submitting order: {e}')
