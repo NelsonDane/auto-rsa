@@ -52,9 +52,35 @@ async def tastytrade_holdings(tastytrade_session, ctx):
         balances = await account.get_balance(tastytrade_session)
         cash_balance = (balances['cash-balance'])
         all_account_balance += D(cash_balance)
-        print(f'Account {account.account_number} has a cash balance of {cash_balance}.')
+        positions = await account.get_positions(tastytrade_session)
+        stocks = []
+        amounts = []
+        current_price = []
+        if len(positions) == 1:
+           stocks.append(positions[0]['symbol'])
+           amounts.append(positions[0]['quantity'])
+           current_price.append(positions[0]['average-daily-market-close-price'])
+        else:
+            for stock in positions:
+                stocks.append(stock['symbol'])
+                amounts.append(stock['quantity'])
+                current_price.append(stock['average-daily-market-close-price'])
+        current_value = []
+        for value in stocks:
+            i = stocks.index(value)
+            temp_value = round((float(amounts[i]) * float(current_price[i])), 2)
+            current_value.append(temp_value)
+        print(f"Holdings on Tastytrade account {account.account_number}")
         if ctx:
-            await ctx.send(f"Account {account.account_number} has a cash balance of {cash_balance}.")
+                await ctx.send(f"Holdings on Tastytrade account {account.account_number}")
+        for position in stocks:
+            i = stocks.index(position)
+            print(f"{position}: {amounts[i]} @ ${current_price[i]} = ${current_value[i]}")
+            if ctx:
+                await ctx.send(f"{position}: {amounts[i]} @ ${current_price[i]} = ${current_value[i]}")
+        print(f'Account cash balance is {cash_balance}.')
+        if ctx:
+            await ctx.send(f"Account cash balance is {cash_balance}.")
     print(f'All accounts cash balance is {all_account_balance}.')
     if ctx:
         await ctx.send(f"All accounts cash balance is {all_account_balance}.")
