@@ -17,8 +17,6 @@ class Security(object):
 
     
     async def get_security_price(self, session):
-        print(self.ticker)
-        print(self.url)
         async with aiohttp.request('GET', url=self.url, headers=session.get_request_headers()) as response:
             if response.status != 200:
                 raise Exception('Could not get live orders info from Tastyworks...')

@@ -29,8 +29,9 @@ Make sure python3-pip is installed
 ## CLI Tool Installation
 1. Clone this repository and cd into it
 2. Run `pip install -r requirements.txt`
-3. Create a `.env` file for your brokerage variables
-2. Run the script using `python pythonRSA.py <action> <amount> <ticker> <account> <dry>` (See below for more parameter explanations)
+3. Create a `.env` file for your brokerage variables using `.env.example` as a template.
+4. Run `playwright install-deps`
+5. Run the script using `python pythonRSA.py <action> <amount> <ticker> <account> <dry>` (See below for more parameter explanations)
 
 ## Usage
 ### Discord Bot

@@ -108,52 +108,52 @@ async def tastytrade_transaction(tastytrade_session, action, stock, amount, pric
     accounts = await TradingAccount.get_remote_accounts(tastytrade_session)
     stock_price = Security(stock)
     await stock_price.get_security_price(tastytrade_session)
-    print(f'Stock price: {stock_price.bid}')
     stock_price = D(stock_price.bid)
-
-    try:
-        if action == 'buy':
-            # Execute an order
-            stock_price += D(0.01)
-            action = 'Buy to Open'
-            details = OrderDetails(
-                type=OrderType.LIMIT,
-                time_in_force=TimeInForce.DAY,
-                price=stock_price,
-                price_effect=OrderPriceEffect.DEBIT)
-            new_order = Order(details)
-
-        elif action == 'sell':
-            if all_amount:
-                for acct in range(0, len(accounts)):
-                    res = await accounts[acct].get_balance(tastytrade_session)
-                    print(res)
-                    print('Tastytrade: does not support selling "all" of a position yet.')
-            # Execute an order
-            stock_price -= D(0.01)
-            action = 'Sell to Close'
-            details = OrderDetails(
-                type=OrderType.LIMIT,
-                time_in_force=TimeInForce.DAY,
-                price=stock_price,
-                price_effect=OrderPriceEffect.CREDIT)
-            new_order = Order(details)
-            
-        leg = Equity(
-                action=action,
-                ticker=stock,
-                quantity=amount)
-        new_order.add_leg(leg)
-
-        for acct in range(0, len(accounts)):
-            res = await accounts[acct].execute_order(new_order, tastytrade_session, dry_run=DRY)
-            if DRY:
-                print(f"Tastytrade: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}")
+    print(f'Tastyworks Ticker {stock} bid is: ${round(stock_price, 2)}')
+    if action == 'buy':
+        # Execute an order
+        stock_price += D(0.01)
+        action = 'Buy to Open'
+        details = OrderDetails(
+            type=OrderType.LIMIT,
+            time_in_force=TimeInForce.DAY,
+            price=stock_price,
+            price_effect=OrderPriceEffect.DEBIT)
+        new_order = Order(details)
+    elif action == 'sell':
+        if all_amount:
+            for acct in accounts:
+                res = await accounts[acct].get_balance(tastytrade_session)
+                print(res)
+                print('Tastytrade: does not support selling "all" of a position yet.')
+        # Execute an order
+        stock_price -= D(0.01)
+        action = 'Sell to Close'
+        details = OrderDetails(
+            type=OrderType.LIMIT,
+            time_in_force=TimeInForce.DAY,
+            price=stock_price,
+            price_effect=OrderPriceEffect.CREDIT)
+        new_order = Order(details)  
+    leg = Equity(
+            action=action,
+            ticker=stock,
+            quantity=amount)
+    new_order.add_leg(leg)
+    for acct in accounts:
+        if not DRY:
+            json_response = await accounts[acct].execute_order(new_order, tastytrade_session, dry_run=DRY)
+            if json_response['id']['status'] == 'Routed':
+                print(f"Tastytrade account {acct}: {action} {amount} of {stock}")
                 if ctx:
-                    await ctx.send(f"Tastytrade: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}")
-            print(f'Order executed successfully: {res}')
-            sleep(2)
-    except Exception as e:
-        print(f'Tastytrade: Error submitting order: {e}')
-        if ctx:
-            await ctx.send(f'Tastytrade: Error submitting order: {e}')
+                    print(f"Tastytrade account {acct}: {action} {amount} of {stock}")
+                sleep(2)
+            else:
+                print(f"Tastytrade account {acct} Error: {json_response['id']['status']}")
+                if ctx:
+                    await ctx.send(f"Tastytrade account {acct} Error: {json_response['id']['status']}")
+                return None
+        else:
+            print(f"Tastytrade: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}")
+            if ctx:
+                await ctx.send(f"Tastytrade: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}")

@@ -172,8 +172,7 @@ if should_get_holdings:
         if single_broker == "all":
             for i, a in enumerate(AO):
                 print(f"Getting holdings for {enabled_brokerages[i]}...")
-                task = asyncio.create_task(get_holdings(accountName=enabled_brokerages[i], AO=a))
-                asyncio.run(task)
+                asyncio.run(get_holdings(accountName=enabled_brokerages[i], AO=a))
         else:
             asyncio.run(get_holdings(accountName=single_broker, AO=AO[0]))
         sys.exit(0)
