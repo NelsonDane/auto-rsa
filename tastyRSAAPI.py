@@ -122,8 +122,8 @@ async def tastytrade_transaction(tastytrade_session, action, stock, amount, pric
         new_order = Order(details)
     elif action == 'sell':
         if all_amount:
-            for acct in accounts:
-                res = await accounts[acct].get_balance(tastytrade_session)
+            for index, acct in enumerate(accounts):
+                res = await accounts[index].get_balance(tastytrade_session)
                 print(res)
                 print('Tastytrade: does not support selling "all" of a position yet.')
         # Execute an order
@@ -140,18 +140,18 @@ async def tastytrade_transaction(tastytrade_session, action, stock, amount, pric
             ticker=stock,
             quantity=amount)
     new_order.add_leg(leg)
-    for acct in accounts:
+    for index, acct in enumerate(accounts):
         if not DRY:
-            json_response = await accounts[acct].execute_order(new_order, tastytrade_session, dry_run=DRY)
-            if json_response['id']['status'] == 'Routed':
-                print(f"Tastytrade account {acct}: {action} {amount} of {stock}")
+            json_response = await accounts[index].execute_order(new_order, tastytrade_session, dry_run=DRY)
+            if json_response['order']['status'] == 'Routed':
+                print(f"Tastytrade account {acct.account_number}: {action} {amount} of {stock}")
                 if ctx:
-                    print(f"Tastytrade account {acct}: {action} {amount} of {stock}")
+                    await ctx.send(f"Tastytrade account {acct.account_number}: {action} {amount} of {stock}")
                 sleep(2)
             else:
-                print(f"Tastytrade account {acct} Error: {json_response['id']['status']}")
+                print(f"Tastytrade account {acct.account_number} Error: {json_response['id']['status']}")
                 if ctx:
-                    await ctx.send(f"Tastytrade account {acct} Error: {json_response['id']['status']}")
+                    await ctx.send(f"Tastytrade account {acct.account_number} Error: {json_response['id']['status']}")
                 return None
         else:
             print(f"Tastytrade: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}")
