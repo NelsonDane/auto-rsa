@@ -23,6 +23,7 @@ AO = []
 # Initialize .env file
 load_dotenv()
 
+
 # Get stock info from command line arguments
 if len(sys.argv) == 1:
     print("Not enough arguments provided, please see the README for documentation.")
@@ -171,7 +172,8 @@ if should_get_holdings:
         if single_broker == "all":
             for i, a in enumerate(AO):
                 print(f"Getting holdings for {enabled_brokerages[i]}...")
-                asyncio.run(get_holdings(accountName=enabled_brokerages[i], AO=a))
+                task = asyncio.create_task(get_holdings(accountName=enabled_brokerages[i], AO=a))
+                asyncio.run(task)
         else:
             asyncio.run(get_holdings(accountName=single_broker, AO=AO[0]))
         sys.exit(0)
