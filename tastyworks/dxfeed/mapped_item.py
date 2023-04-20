@@ -1,8 +1,8 @@
 import abc
 import logging
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
-KEY_MAP: Dict[str, list[str]] = {}
+KEY_MAP: Dict[str, List[str]] = {}
 LOGGER = logging.getLogger(__name__)
 
 
