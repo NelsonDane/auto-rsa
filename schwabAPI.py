@@ -57,7 +57,10 @@ async def schwab_holdings(schwab, ctx=None):
                 mv = round(float(item['market_value']), 2)
                 qty = float(item['quantity'])
                 # Schwab doesn't return current price, so we have to calculate it
-                current_price = round(mv / qty, 2)
+                if qty == 0:
+                    current_price = 0
+                else:
+                    current_price = round(mv / qty, 2)
                 message = f"{sym}: {qty} @ ${current_price} = ${mv}"
                 print(message)
                 if ctx:
