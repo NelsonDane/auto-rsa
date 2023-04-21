@@ -22,12 +22,12 @@ def tastytrade_init():
         if not os.getenv("TASTY_USERNAME") or not os.getenv("TASTY_PASSWORD"):
             print("Robinhood not found, skipping...")
             return None
-        TASTY_USERNAME = os.environ["TASTY_USERNAME"]
-        TASTY_PASSWORD = os.environ["TASTY_PASSWORD"]
+        TASTYTRADE_USERNAME = os.environ["TASTY_USERNAME"]
+        TASTYTRADE_PASSWORD = os.environ["TASTY_PASSWORD"]
 
         # Log in to Tastytrade account
         print("Logging in to Tastytrade...")
-        tastytrade_session = tasty_session.create_new_session(TASTY_USERNAME, TASTY_PASSWORD)
+        tastytrade_session = tasty_session.create_new_session(TASTYTRADE_USERNAME, TASTYTRADE_PASSWORD)
         print("Logged in to Tastytrade!")
         return tastytrade_session
     except Exception as e:
