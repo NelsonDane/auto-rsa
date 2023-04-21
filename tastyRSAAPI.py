@@ -108,7 +108,7 @@ async def tastytrade_transaction(tastytrade_session, action, stock, amount, pric
     accounts = await TradingAccount.get_remote_accounts(tastytrade_session)
     stock_price = Security(stock)
     await stock_price.get_security_price(tastytrade_session)
-    stock_price = D(stock_price.bid)
+    stock_price = D(stock_price.last)
     print(f'Tastyworks Ticker {stock} bid is: ${round(stock_price, 2)}')
     if action == 'buy':
         # Execute an order
