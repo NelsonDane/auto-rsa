@@ -19,8 +19,8 @@ def tastytrade_init():
     try:
         load_dotenv()
         # Import Tastytrade account
-        if not os.getenv("TASTY_USERNAME") or not os.getenv("TASTY_PASSWORD"):
-            print("Robinhood not found, skipping...")
+        if not os.getenv("TASTYTRADE_USERNAME") or not os.getenv("TASTYTRADE_PASSWORD"):
+            print("Tastytrade not found, skipping...")
             return None
         TASTYTRADE_USERNAME = os.environ["TASTY_USERNAME"]
         TASTYTRADE_PASSWORD = os.environ["TASTY_PASSWORD"]
@@ -31,7 +31,7 @@ def tastytrade_init():
         print("Logged in to Tastytrade!")
         return tastytrade_session
     except Exception as e:
-        print(f'Error logging in to Tradier: {e}')
+        print(f'Error logging in to Tastytrade: {e}')
         return None
 
 
