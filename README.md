@@ -144,6 +144,14 @@ Required `.env` variables:
 
 To get your access token, go to your [Tradier API settings](https://dash.tradier.com/settings/api)
 
+### Tastyworks
+Original made by boyan-soubachov [tastyworks-api](https://github.com/boyan-soubachov/tastyworks_api) Modified by MaxxRK [Visit His Github Here](https://github.com/MaxxRK/)
+
+Required `.env` variables:
+- TASTYTRADE_USERNAME
+- TASTYTRADE_PASSWORD
+
+
 ### Maybe future brokerages
 #### Chase
 I will be signing up for a Chase account soon, and I have heard that it is possible, so I will be looking into it soon.
