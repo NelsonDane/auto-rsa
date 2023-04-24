@@ -102,7 +102,6 @@ def tastytrade_init():
         return None
 
 
-
 async def tastytrade_holdings(tt, ctx):
     print()
     print("==============================")
@@ -206,6 +205,16 @@ async def tastytrade_transaction(tt_session, action, stock, amount, price, time,
                 
             try:
                 json_response = await accounts[index].execute_order(new_order, tt_session, dry_run=DRY)
+                if json_response != {}:
+                    if json_response['order']['status'] == 'Routed':
+                        print(f"Tastytrade account {acct.account_number}: {action} {amount} of {stock}")
+                        if ctx:
+                            await ctx.send(f"Tastytrade account {acct.account_number}: {action} {amount} of {stock}")
+                        await asyncio.sleep(2)
+                    else:
+                        print(f"Tastytrade account {acct.account_number} Error: {error}")
+                        if ctx:
+                            await ctx.send(f"Tastytrade account {acct.account_number} Error: {error}")
             except Exception as error_json:
                 error_json = str(error_json)
                 error = error_json.split(':')
@@ -216,10 +225,10 @@ async def tastytrade_transaction(tt_session, action, stock, amount, price, time,
                     stock_limit = await streamer.stream(EventType.PROFILE, stock_list)
                     stock_quote = await streamer.stream(EventType.QUOTE, stock_list)
                     if all_amount:
-                            results = await accounts[index].get_positions(tt_session)
-                            for result in results:
-                                if stock == result['symbol']:
-                                    amount = float(result['quantity'])
+                        results = await accounts[index].get_positions(tt_session)
+                        for result in results:
+                            if stock == result['symbol']:
+                                amount = float(result['quantity'])
                     if action == 'buy':
                         stock_limit = stock_limit[0].highLimitPrice
                         if stock_limit.is_nan():
