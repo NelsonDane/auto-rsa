@@ -11,3 +11,4 @@ requests
 pandas
 schwab-api
 aiocometd
+tastytrade

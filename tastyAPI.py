@@ -10,15 +10,15 @@ from tastytrade.order import (Order, OrderDetails, OrderPriceEffect,
                                      OrderType, TimeInForce)
 from tastytrade.session import Session
 from tastytrade.account import TradingAccount
-from tastytrade.streamer import ( DataStreamer, EventType )
+from tastytrade.streamer import (DataStreamer, EventType)
 from time import sleep
 from dotenv import load_dotenv
-
 
 class rsaSession(Session):
     
     def is_active(self):
         return super().is_valid()
+
 
 
 @dataclass
@@ -105,12 +105,12 @@ def tastytrade_init():
         if not os.getenv("TASTYTRADE_USERNAME") or not os.getenv("TASTYTRADE_PASSWORD"):
             print("Robinhood not found, skipping...")
             return None
-        TASTY_USERNAME = os.environ["TASTYTRADE_USERNAME"]
-        TASTY_PASSWORD = os.environ["TASTYTRADE_PASSWORD"]
+        TASTYTRADE_USERNAME = os.environ["TASTYTRADE_USERNAME"]
+        TASTYTRADE_PASSWORD = os.environ["TASTYTRADE_PASSWORD"]
 
         # Log in to Tastytrade account
         print("Logging in to Tastytrade...")
-        tt = rsaSession(TASTY_USERNAME, TASTY_PASSWORD)
+        tt = rsaSession(TASTYTRADE_USERNAME, TASTYTRADE_PASSWORD)
         print("Logged in to Tastytrade!")
         return tt
     except Exception as e:
