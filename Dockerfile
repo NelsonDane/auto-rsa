@@ -49,7 +49,6 @@ COPY ./schwabAPI.py .
 COPY ./tradierAPI.py .
 COPY ./webullAPI.py .
 COPY ./seleniumAPI.py .
-COPY ./tastyworks /usr/lib/python3.8/tastyworks
 COPY ./tastyAPI.py .
 COPY ./entrypoint.sh .
 
