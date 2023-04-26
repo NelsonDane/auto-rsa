@@ -10,5 +10,5 @@ robin_stocks
 requests
 pandas
 schwab-api
-aiocometd
 tastytrade
+asyncio
