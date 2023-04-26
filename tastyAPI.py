@@ -11,14 +11,12 @@ from tastytrade.order import (Order, OrderDetails, OrderPriceEffect,
 from tastytrade.session import Session
 from tastytrade.account import TradingAccount
 from tastytrade.streamer import (DataStreamer, EventType)
-from time import sleep
 from dotenv import load_dotenv
 
 class rsaSession(Session):
-    
+
     def is_active(self):
         return super().is_valid()
-
 
 
 @dataclass
@@ -36,13 +34,14 @@ class Equity:
         }
         return res
 
+
 async def day_trade_check(session, acct, cash_balance):
-    if acct.is_margin and cash_balance < 25000:
+    if acct.is_margin and cash_balance <= 25000:
         api_url = 'https://api.tastyworks.com'
         url = f'{api_url}/accounts/{acct.account_number}/trading-status'
         async with aiohttp.request('GET', url, headers=session.get_request_headers()) as response:
             if response.status != 200:
-                raise Exception('Could not get trading accounts info from Tastyworks...')
+                raise Exception('Could not get trading accounts trading-status from Tastyworks...')
             data = (await response.json())['data']
             print(f"Tastytrade account {acct.account_number}: day trade count is {int(data['day-trade-count'])}.")
         if int(data['day-trade-count']) > 3:
@@ -80,7 +79,6 @@ def order_setup(order_type, stock_price, stock, amount):
             price=stock_price,
             price_effect=OrderPriceEffect.CREDIT)
         new_order = Order(details)
-        
     else:
         action = 'Sell to Close'
         details = OrderDetails(
@@ -107,7 +105,6 @@ def tastytrade_init():
             return None
         TASTYTRADE_USERNAME = os.environ["TASTYTRADE_USERNAME"]
         TASTYTRADE_PASSWORD = os.environ["TASTYTRADE_PASSWORD"]
-
         # Log in to Tastytrade account
         print("Logging in to Tastytrade...")
         tt = rsaSession(TASTYTRADE_USERNAME, TASTYTRADE_PASSWORD)
@@ -200,7 +197,6 @@ async def tastytrade_transaction(tt, action, stock, amount, price, time, DRY=Tru
             if day_trade_ok:
                 stock_limit = await streamer.stream(EventType.PROFILE, stock_list)
                 stock_quote = await streamer.stream(EventType.QUOTE, stock_list)
-                
                 if all_amount:
                         results = await accounts[index].get_positions(tt)
                         for result in results:
@@ -222,7 +218,6 @@ async def tastytrade_transaction(tt, action, stock, amount, price, time, DRY=Tru
                     else:
                         stock_price = stock_limit
                     new_order = order_setup(order_type, stock_price, stock, amount)
-                    
                 try:
                     json_response = await accounts[index].execute_order(new_order, tt, dry_run=DRY)
                     if json_response != {}:
@@ -269,7 +264,6 @@ async def tastytrade_transaction(tt, action, stock, amount, price, time, DRY=Tru
                                 print(f'Tastytrade Ticker {stock} low limit price is: ${round(stock_price, 2)}')
                             order_type = ['Market', 'Credit', 'Sell to Close']
                             new_order = order_setup(order_type, stock_price, stock, amount)
-                            
                         try:
                             json_response = await accounts[index].execute_order(new_order, tt, dry_run=DRY)
                         except Exception as error_json:
