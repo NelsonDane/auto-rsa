@@ -147,20 +147,15 @@ async def tradier_transaction(tradier, action, stock, amount, price, time, DRY=T
             json_response = response.json()
             #print(response.status_code)
             #print(json_response)
-            try:
-                if json_response['order']['status'] == "ok":
-                    print(f"Tradier account {account_number}: {action} {amount} of {stock}")
-                    if ctx:
-                        await ctx.send(f"Tradier account {account_number}: {action} {amount} of {stock}")
-                else:
-                    print(f"Tradier account {account_number} Error: {json_response['order']['status']}")
-                    if ctx:
-                        await ctx.send(f"Tradier account {account_number} Error: {json_response['order']['status']}")
-                    return None
-            except KeyError:
-                print(f"Tradier account {account_number} Error: This order did not route. Is this a new account?")
+            if json_response['order']['status'] == "ok":
+                print(f"Tradier account {account_number}: {action} {amount} of {stock}")
                 if ctx:
-                    await ctx.send(f"Tradier account {account_number} Error: This order did not route. Is this a new account?") 
+                    await ctx.send(f"Tradier account {account_number}: {action} {amount} of {stock}")
+            else:
+                print(f"Tradier account {account_number} Error: {json_response['order']['status']}")
+                if ctx:
+                    await ctx.send(f"Tradier account {account_number} Error: {json_response['order']['status']}")
+                return None
         else:
             print(f"Tradier account {account_number}: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}")
             if ctx:
