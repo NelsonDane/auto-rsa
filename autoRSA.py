@@ -15,7 +15,7 @@ from fidelityAPI import *
 # from webullAPI import *
 from schwabAPI import *
 from tradierAPI import *
-from tastyRSAAPI import *
+from tastyAPI import *
 
 supported_brokerages = ["all", "ally", "fidelity", 
                         "robinhood", "rh", "schwab", 

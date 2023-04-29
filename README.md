@@ -30,8 +30,7 @@ Make sure python3-pip is installed
 1. Clone this repository and cd into it
 2. Run `pip install -r requirements.txt`
 3. Create a `.env` file for your brokerage variables using `.env.example` as a template.
-4. Run `playwright install-deps`
-5. Run the script using `python pythonRSA.py <action> <amount> <ticker> <account> <dry>` (See below for more parameter explanations)
+4. Run the script using `python pythonRSA.py <action> <amount> <ticker> <account> <dry>` (See below for more parameter explanations)
 
 ## Usage
 ### Discord Bot
@@ -144,8 +143,8 @@ Required `.env` variables:
 
 To get your access token, go to your [Tradier API settings](https://dash.tradier.com/settings/api)
 
-### Tastyworks
-Original made by boyan-soubachov [tastyworks-api](https://github.com/boyan-soubachov/tastyworks_api) Modified by MaxxRK [Visit His Github Here](https://github.com/MaxxRK/)
+### Tastytrade
+Made by MaxxRK [Visit His Github Here](https://github.com/MaxxRK/) using the [tastytrade-api](https://github.com/tastyware/tastytrade) 
 
 Required `.env` variables:
 - TASTYTRADE_USERNAME

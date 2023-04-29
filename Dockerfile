@@ -1,7 +1,7 @@
 # Nelson Dane
 
 # Build from the playwright image
-FROM mcr.microsoft.com/playwright:v1.24.0-focal
+FROM mcr.microsoft.com/playwright:v1.32.0-jammy
 # Set ENV variables
 ENV TZ=America/New_York
 ENV DEBIAN_FRONTEND=noninteractive
@@ -49,8 +49,7 @@ COPY ./schwabAPI.py .
 COPY ./tradierAPI.py .
 COPY ./webullAPI.py .
 COPY ./seleniumAPI.py .
-COPY ./tastyworks /usr/lib/python3.8/tastyworks
-COPY ./tastyRSAAPI.py .
+COPY ./tastyAPI.py .
 COPY ./entrypoint.sh .
 
 # Make the entrypoint executable

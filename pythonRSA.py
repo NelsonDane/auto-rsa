@@ -13,7 +13,7 @@ from robinhoodAPI import *
 from schwabAPI import *
 from webullAPI import *
 from tradierAPI import *
-from tastyRSAAPI import *
+from tastyAPI import *
 
 # List of supported and enabled brokerages
 supported_brokerages = ["all", "ally", "fidelity", "robinhood", "rh", "schwab", "tradier", "tasty", "tastytrade"]
