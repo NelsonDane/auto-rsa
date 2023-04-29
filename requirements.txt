@@ -1,3 +1,4 @@
+wheel
 selenium
 python-dotenv
 webdriver-manager
@@ -9,3 +10,5 @@ robin_stocks
 requests
 pandas
 schwab-api
+tastytrade
+asyncio
