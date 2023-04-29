@@ -9,10 +9,5 @@ robin_stocks
 requests
 pandas
 schwab-api
-<<<<<<< HEAD
 tastytrade
 asyncio
-=======
-aiocometd
-wheel
->>>>>>> parent of ecc9c0b (Merge branch 'main' of https://github.com/MaxxRK/auto-rsa)
