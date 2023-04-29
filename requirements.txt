@@ -1,3 +1,4 @@
+wheel
 selenium
 python-dotenv
 webdriver-manager
