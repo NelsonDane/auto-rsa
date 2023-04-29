@@ -100,7 +100,7 @@ def tastytrade_init():
         load_dotenv()
         # Import Tastytrade account
         if not os.getenv("TASTYTRADE_USERNAME") or not os.getenv("TASTYTRADE_PASSWORD"):
-            print("Robinhood not found, skipping...")
+            print("Tastytrade not found, skipping...")
             return None
         TASTYTRADE_USERNAME = os.environ["TASTYTRADE_USERNAME"]
         TASTYTRADE_PASSWORD = os.environ["TASTYTRADE_PASSWORD"]
