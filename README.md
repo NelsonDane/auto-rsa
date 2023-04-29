@@ -23,13 +23,13 @@ See below for more command explanations.
 Make sure python3-pip is installed
 1. Clone this repository and cd into it
 2. Run `pip install -r requirements.txt`
-3. Create a `.env` file for your brokerage variables, and add your bot using `DISCORD_TOKEN` and `DISCORD_CHANNEL`
+3. Create a `.env` file for your brokerage variables using [.env.example](https://github.com/NelsonDane/auto-rsa/blob/main/.env.example) as a template, and add your bot using `DISCORD_TOKEN` and `DISCORD_CHANNEL`
 4. Run `python autoRSA.py` (See below for more command explanations)
 
 ## CLI Tool Installation
 1. Clone this repository and cd into it
 2. Run `pip install -r requirements.txt`
-3. Create a `.env` file for your brokerage variables using `.env.example` as a template.
+3. Create a `.env` file for your brokerage variables using [.env.example](https://github.com/NelsonDane/auto-rsa/blob/main/.env.example) as a template.
 4. Run the script using `python pythonRSA.py <action> <amount> <ticker> <account> <dry>` (See below for more parameter explanations)
 
 ## Usage
@@ -144,7 +144,7 @@ Required `.env` variables:
 To get your access token, go to your [Tradier API settings](https://dash.tradier.com/settings/api)
 
 ### Tastytrade
-Made by MaxxRK [Visit His Github Here](https://github.com/MaxxRK/) using the [tastytrade-api](https://github.com/tastyware/tastytrade) 
+Made by [MaxxRK](https://github.com/MaxxRK/) using the [tastytrade-api](https://github.com/tastyware/tastytrade) 
 
 Required `.env` variables:
 - TASTYTRADE_USERNAME
