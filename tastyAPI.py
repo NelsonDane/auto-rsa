@@ -1,11 +1,10 @@
-from dataclasses import dataclass, field
-from typing import Optional
-from datetime import date
 import os
-from decimal import Decimal as D
+import json
 import asyncio
 import aiohttp
-
+from dataclasses import dataclass
+from typing import Optional
+from decimal import Decimal as D
 from tastytrade.order import (Order, OrderDetails, OrderPriceEffect,
                                      OrderType, TimeInForce)
 from tastytrade.session import Session
@@ -233,6 +232,14 @@ async def tastytrade_transaction(tt, action, stock, amount, price, time, DRY=Tru
                 except Exception as error_json:
                     error_json = str(error_json)
                     error = error_json.split(':')
+                    error_string = ''
+                    count = 0
+                    for char in error_json:
+                        if char == ':' and count == 0:
+                            count += 1
+                        elif count > 0:
+                            error_string += char
+                    
                     if error[0] == 'Unknown remote error 422' or error[0] in 'Order execution failed ':
                         print("Tastytrade: Error placing MARKET order trying LIMIT...")
                         if ctx:
@@ -267,13 +274,25 @@ async def tastytrade_transaction(tt, action, stock, amount, price, time, DRY=Tru
                         try:
                             json_response = await accounts[index].execute_order(new_order, tt, dry_run=DRY)
                         except Exception as error_json:
-                            print(f"Tastytrade: Error occured placing LIMIT order... {error_json}")
+                            error_json = str(error_json)
+                            error_string = ''
+                            count = 0
+                            for char in error_json:
+                                if char == ':' and count == 0:
+                                    count += 1
+                                elif count > 0:
+                                    error_string += char
+                            error_json = json.loads(error_string)
+                            error = error_json['error']['errors'][0]['message']
+                            print(f"Tastytrade: {error}")
                             if ctx:
-                                await ctx.send(f"Tastytrade: Error occured placing order... {error_json}")  
+                                await ctx.send(f"Tastytrade: {error}")  
                     else:
-                        print(f"Tastytrade: Error occured placing order... {error_json}")
+                        error_json = json.loads(error_string)
+                        error = error_json['error']['errors'][0]['message']
+                        print(f"Tastytrade: Error occured placing order... {error}")
                         if ctx:
-                            await ctx.send(f"Tastytrade: Error occured placing order... {error_json}")   
+                            await ctx.send(f"Tastytrade: Error occured placing order... {error}")
                     if json_response != {}:
                         if json_response['order']['status'] == 'Routed':
                             print(f"Tastytrade account {acct.account_number}: {action} {amount} of {stock}")
