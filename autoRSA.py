@@ -15,8 +15,11 @@ from fidelityAPI import *
 # from webullAPI import *
 from schwabAPI import *
 from tradierAPI import *
+from tastyAPI import *
 
-supported_brokerages = ["all", "ally", "fidelity", "robinhood", "rh", "schwab", "tradier"]
+supported_brokerages = ["all", "ally", "fidelity", 
+                        "robinhood", "rh", "schwab", 
+                        "tradier", "tasty", "tastytrade"]
 
 # Initialize .env file
 load_dotenv()
@@ -105,6 +108,11 @@ async def get_holdings(accountName, AO=None, ctx=None):
                 await tradier_holdings(tradier if AO is None else AO, ctx)
         except:
             pass
+        try:
+            if accountName == "tasty" or accountName == "tastytrade" or accountName == "all":
+                await tastytrade_holdings(tastytrade if AO is None else AO, ctx)
+        except:
+            pass
     else:
         print("Error: Invalid broker")
 
@@ -148,6 +156,8 @@ async def place_order(wanted_action, wanted_amount, wanted_stock, single_broker,
                 # await webull_transaction(webull_account, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
                 # Tradier
                 await tradier_transaction(tradier if AO is None else AO, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
+                # Tastytrade
+                await tastytrade_transaction(tastytrade if AO is None else AO, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx) 
             elif single_broker == "ally":
                 # Ally
                 await ally_transaction(ally_account if AO is None else AO, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
@@ -166,6 +176,9 @@ async def place_order(wanted_action, wanted_amount, wanted_stock, single_broker,
             elif single_broker == "tradier":
                 # Tradier
                 await tradier_transaction(tradier if AO is None else AO, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
+            elif single_broker in ('tastytrade', 'tasty'):
+                # Tastytrade
+                await tastytrade_transaction(tastytrade if AO is None else AO, wanted_action, wanted_stock, wanted_amount, wanted_price, wanted_time, DRY, ctx)
             else:
                 # Invalid broker
                 print("Error: Invalid broker")
@@ -203,6 +216,8 @@ if __name__ == "__main__":
     # webull_account = webull_init()
     # print()
     tradier = tradier_init()
+    print()
+    tastytrade = tastytrade_init()
     print()
 
     print("Waiting for Discord commands...")
