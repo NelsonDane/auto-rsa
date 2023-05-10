@@ -10,5 +10,6 @@ robin_stocks
 requests
 pandas
 schwab-api
+tastyworks-aiocometd
 tastytrade
 asyncio
