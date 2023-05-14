@@ -13,9 +13,10 @@ from allyAPI import *
 from robinhoodAPI import *
 from fidelityAPI import *
 from schwabAPI import *
+from tastyAPI import *
 from tradierAPI import *
 
-supported_brokerages = ["ally", "fidelity", "robinhood", "schwab", "tradier"]
+supported_brokerages = ["ally", "fidelity", "robinhood", "schwab", "tastytrade", "tradier"]
 
 # Initialize .env file
 load_dotenv()
@@ -28,6 +29,8 @@ docker_mode = False
 async def nicknames(broker):
     if broker == "rh":
         return "robinhood"
+    elif broker == "tasty":
+        return "tastytrade"
     else:
         return broker
     
@@ -56,10 +59,11 @@ class stockOrder():
                     continue
                 fun_name = broker + type
                 try:
-                    if type == "_init" and await nicknames(broker) == "fidelity":
-                        self.logged_in.append(await globals()[fun_name](docker_mode)) # Fidelity requires docker mode argument
-                    elif type == "_init":
-                        self.logged_in.append(await globals()[fun_name]())
+                    if type == "_init": 
+                        if await nicknames(broker) == "fidelity":
+                            self.logged_in.append(await globals()[fun_name](docker_mode)) # Fidelity requires docker mode argument
+                        else:
+                            self.logged_in.append(await globals()[fun_name]())
                     else:
                         await globals()[fun_name](self.logged_in[index], ctx)
                 except:
