@@ -24,7 +24,7 @@ async def fidelity_init(DOCKER=False):
         FIDELITY_PASSWORD = os.environ["FIDELITY_PASSWORD"]
         # Init webdriver
         print("Logging in to Fidelity...")
-        driver = getDriver(DOCKER)
+        driver = await getDriver(DOCKER)
         # Log in to Fidelity account
         driver.get("https://digital.fidelity.com/prgw/digital/login/full-page?AuthRedUrl=https://digital.fidelity.com/ftgw/digital/portfolio/summary")
         # Wait for page load
