@@ -105,8 +105,8 @@ async def argParser(args, ctx=None):
             orderObj.stock = arg
         if await nicknames(arg) in supported_brokerages or arg == "all":
             orderObj.brokers.append(await nicknames(arg))
-        if arg == "dry" or arg == "true":
-            orderObj.dry = True
+        if arg == "false":
+            orderObj.dry = False
         if arg[0] == "!":
             orderObj.notbrokers.append(arg[1:])
         if arg == "holdings":
