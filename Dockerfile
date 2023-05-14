@@ -47,7 +47,6 @@ COPY ./fidelityAPI.py .
 COPY ./robinhoodAPI.py .
 COPY ./schwabAPI.py .
 COPY ./tradierAPI.py .
-COPY ./webullAPI.py .
 COPY ./seleniumAPI.py .
 COPY ./entrypoint.sh .
 
