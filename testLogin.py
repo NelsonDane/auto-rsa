@@ -10,6 +10,7 @@ from robinhoodAPI import *
 from schwabAPI import *
 from webullAPI import *
 from tradierAPI import *
+from tastyAPI import *
 
 # Initialize .env file
 load_dotenv()
@@ -100,6 +101,15 @@ if os.environ.get("TRADIER_TOKEN", None) is None:
     print(f"Tradier token not found")
 else:
     print(f"Tradier token found {os.environ.get('TRADIER_TOKEN', None) if show_env else ''}")
+# Tastytrade
+if os.environ.get("TASTYTRADE_USERNAME", None) is None:
+    print(f"Tastytrade username not found")
+else:
+    print(f"Tastytrade username found {os.environ.get('TASTYTRADE_USERNAME', None) if show_env else ''}")
+if os.environ.get("TASTYTRADE_PASSWORD", None) is None:
+    print(f"Tastytrade password not found")
+else:
+    print(f"Tastytrade password found {os.environ.get('TASTYTRADE_PASSWORD', None) if show_env else ''}")
 
 # Check each account
 print("==========================================================")
@@ -120,6 +130,7 @@ print()
 # print()
 tradier = tradier_init()
 print()
+tastytrade = tastytrade_init()
 # Print results
 print("==========================================================")
 print("All checks complete")
