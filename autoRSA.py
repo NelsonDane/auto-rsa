@@ -15,7 +15,7 @@ from fidelityAPI import *
 from schwabAPI import *
 from tradierAPI import *
 
-supported_brokerages = ["all", "ally", "fidelity", "robinhood", "rh", "schwab", "tradier"]
+supported_brokerages = ["ally", "fidelity", "robinhood", "schwab", "tradier"]
 
 # Initialize .env file
 load_dotenv()
@@ -24,9 +24,16 @@ load_dotenv()
 discord_bot = False
 docker_mode = False
 
+# Account nicknames
+async def nicknames(broker):
+    if broker == "rh":
+        return "robinhood"
+    else:
+        return broker
+    
 # Class to hold stock order information and login objects
 class stockOrder():
-    def __init__(self, action="NONE", amount="1", stock="NONE", time="day", price="market", brokers="NONE", notbrokers="NONE", dry=True, holdings=False):
+    def __init__(self, action="NONE", amount="1", stock="NONE", time="day", price="market", brokers=None, notbrokers="NONE", dry=True, holdings=False):
         self.action = None # Buy or sell
         self.amount = None # Amount of shares to buy/sell
         self.stock = None # Stock ticker
@@ -37,7 +44,7 @@ class stockOrder():
         self.dry = True # Dry run mode
         self.holdings = False # Get holdings from enabled brokerages
         self.logged_in = [] # List of Brokerage login objects
-
+                
     # Runs the specified function for each broker in the list
     # broker name + type of function
     async def fun_run(self, type, ctx=None):
@@ -49,13 +56,16 @@ class stockOrder():
                     continue
                 fun_name = broker + type
                 try:
-                    if type == "_init":
+                    if type == "_init" and await nicknames(broker) == "fidelity":
+                        self.logged_in.append(await globals()[fun_name](docker_mode)) # Fidelity requires docker mode argument
+                    elif type == "_init":
                         self.logged_in.append(await globals()[fun_name]())
                     else:
                         await globals()[fun_name](self.logged_in[index], ctx)
                 except:
                     print(traceback.format_exc())
                     print(f"Error: {fun_name} not found in fun_run {type}")
+                print()
 
     async def broker_login(self):            
             await self.fun_run("_init")
@@ -89,8 +99,8 @@ async def argParser(args, ctx=None):
             orderObj.amount = int(arg)
         if await isStockTicker(arg):
             orderObj.stock = arg
-        if arg in supported_brokerages:
-            orderObj.brokers.append(arg)
+        if await nicknames(arg) in supported_brokerages or arg == "all":
+            orderObj.brokers.append(await nicknames(arg))
         if arg == "dry" or arg == "true":
             orderObj.dry = True
         if arg[0] == "!":
@@ -107,13 +117,11 @@ if __name__ == "__main__":
     elif len(sys.argv) == 2 and sys.argv[1] == "docker": # If docker argument, run docker bot
         print("Running bot from docker")
         docker_mode = True
+        discord_bot = True
     else: # If any other argument, run bot, no docker or discord bot
         print("Running bot from command line")
         orderObj = asyncio.run(argParser(sys.argv[1:]))[0]
-        print(orderObj)
-        print()
         asyncio.run(orderObj.broker_login())
-        print()
         if orderObj.holdings:
             asyncio.run(orderObj.broker_holdings())
             sys.exit()
@@ -164,7 +172,7 @@ if __name__ == "__main__":
         # Main RSA command
         @bot.command(name='rsa')
         async def rsa(ctx, *args):
-            orderObj = await argParser(args)[0]
+            orderObj = (await argParser(args))[0]
             try:
                 await orderObj.broker_login()
                 await orderObj.broker_transaction(ctx)
@@ -176,7 +184,7 @@ if __name__ == "__main__":
         # Holdings command
         @bot.command(name='holdings')
         async def holdings(ctx, *args):
-            orderObj = await argParser(args)[0]
+            orderObj = (await argParser(args))[0]
             orderObj.holdings = True
             try:
                 await orderObj.broker_login()
