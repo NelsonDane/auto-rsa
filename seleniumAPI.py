@@ -16,7 +16,7 @@ from selenium.webdriver.edge.service import Service
 from selenium.webdriver import Keys
 from selenium.webdriver.support.ui import Select 
 
-def check_if_page_loaded(driver):
+async def check_if_page_loaded(driver):
     """
     Check if the page is loaded through document.readyState
     :param driver:
@@ -26,7 +26,7 @@ def check_if_page_loaded(driver):
     readystate = driver.execute_script("return document.readyState;")
     return readystate == "complete"
 
-def getDriver(DOCKER=False):
+async def getDriver(DOCKER=False):
     # Init webdriver options
     options = webdriver.EdgeOptions()
     options.add_argument("--disable-blink-features=AutomationControlled")
@@ -44,6 +44,6 @@ def getDriver(DOCKER=False):
     driver.maximize_window()
     return driver
 
-def killDriver(driver):
+async def killDriver(driver):
     driver.close()
     driver.quit()

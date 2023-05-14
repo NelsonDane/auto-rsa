@@ -12,7 +12,7 @@ from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
 
-def fidelity_init(DOCKER=False):
+async def fidelity_init(DOCKER=False):
     try:
         # Initialize .env file
         load_dotenv()

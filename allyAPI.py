@@ -8,7 +8,7 @@ import ally
 from dotenv import load_dotenv
 
 # Initialize Ally
-def ally_init():
+async def ally_init():
     # Initialize .env file
     load_dotenv()
     # Import Ally account

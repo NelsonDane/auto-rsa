@@ -7,7 +7,7 @@ from time import sleep
 import traceback
 from dotenv import load_dotenv
 
-def tradier_init():
+async def tradier_init():
     # Initialize .env file
     load_dotenv()
     # Import Tradier account

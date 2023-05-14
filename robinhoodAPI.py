@@ -10,7 +10,7 @@ import pprint
 import pyotp
 from dotenv import load_dotenv
 
-def robinhood_init():
+async def robinhood_init():
     # Initialize .env file
     load_dotenv()
     # Import Robinhood account

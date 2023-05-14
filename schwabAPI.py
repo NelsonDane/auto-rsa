@@ -8,7 +8,7 @@ from time import sleep
 from schwab_api import Schwab 
 from dotenv import load_dotenv
 
-def schwab_init():
+async def schwab_init():
     # Initialize .env file
     load_dotenv()
     # Import Schwab account
@@ -17,12 +17,15 @@ def schwab_init():
         return None
     SCHWAB_USERNAME = os.environ["SCHWAB_USERNAME"]
     SCHWAB_PASSWORD = os.environ["SCHWAB_PASSWORD"]
-    SCHWAB_TOTP_SECRET = os.environ["SCHWAB_TOTP_SECRET"]
+    SCHWAB_TOTP_SECRET = os.environ.get("SCHWAB_TOTP_SECRET", None)
     # Log in to Schwab account
     print("Logging in to Schwab...")
     try:
         schwab = Schwab()
-        schwab.login(username=SCHWAB_USERNAME, password=SCHWAB_PASSWORD, totp_secret=SCHWAB_TOTP_SECRET)
+        if SCHWAB_TOTP_SECRET:
+            schwab.login(username=SCHWAB_USERNAME, password=SCHWAB_PASSWORD, totp_secret=SCHWAB_TOTP_SECRET)
+        else:
+            schwab.login(username=SCHWAB_USERNAME, password=SCHWAB_PASSWORD)
         account_info = schwab.get_account_info()
         print(f"The following Schwab accounts were found: {list(account_info.keys())}")
         print("Logged in to Schwab!")
