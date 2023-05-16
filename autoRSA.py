@@ -24,14 +24,6 @@ supported_brokerages = ["all", "ally", "fidelity",
 # Initialize .env file
 load_dotenv()
 
-# Get discord token and channel from .env file, setting channel to None if not found
-if not os.environ["DISCORD_TOKEN"]:
-    raise Exception("DISCORD_TOKEN not found in .env file, please add it")
-DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-DISCORD_CHANNEL = os.getenv("DISCORD_CHANNEL", None)
-if DISCORD_CHANNEL:
-    DISCORD_CHANNEL = int(DISCORD_CHANNEL)
-
 # If first arg is "docker", run in docker mode
 if len(sys.argv) > 1 and sys.argv[1] == "docker":
     docker_mode = True
@@ -195,6 +187,14 @@ async def place_order(wanted_action, wanted_amount, wanted_stock, single_broker,
             await ctx.send("Unable to place order: Market is closed")
 
 if __name__ == "__main__":
+    # Get discord token and channel from .env file, setting channel to None if not found
+    if not os.environ["DISCORD_TOKEN"]:
+        raise Exception("DISCORD_TOKEN not found in .env file, please add it")
+    DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+    DISCORD_CHANNEL = os.getenv("DISCORD_CHANNEL", None)
+    if DISCORD_CHANNEL:
+        DISCORD_CHANNEL = int(DISCORD_CHANNEL)
+
     # Initialize Accounts
     print("==========================================================")
     print("Initializing Accounts...")
