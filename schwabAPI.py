@@ -18,7 +18,6 @@ def schwab_init():
     SCHWAB_USERNAME = os.environ["SCHWAB_USERNAME"]
     SCHWAB_PASSWORD = os.environ["SCHWAB_PASSWORD"]
     SCHWAB_TOTP_SECRET = os.environ.get("SCHWAB_TOTP_SECRET", None)
-    print(SCHWAB_TOTP_SECRET)
     # Log in to Schwab account
     print("Logging in to Schwab...")
     try:
