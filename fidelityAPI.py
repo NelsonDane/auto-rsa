@@ -274,9 +274,9 @@ async def fidelity_transaction(driver, action, stock, amount, price, time, DRY=T
                 except NoSuchElementException:
                     # Check for error
                     WebDriverWait(driver, 10).until(
-                        expected_conditions.presence_of_element_located((By.XPATH, "(//div[@class='pvd-modal__content'])[5]"))
+                        expected_conditions.presence_of_element_located((By.XPATH, "(//button[@class='pvd-modal__close-button'])[3]"))
                     )   
-                    error_dismiss = driver.find_element(by=By.XPATH, value="(//button[@class='pvd-modal__close-button'])[5]")
+                    error_dismiss = driver.find_element(by=By.XPATH, value="(//button[@class='pvd-modal__close-button'])[3]")
                     driver.execute_script("arguments[0].click();", error_dismiss)
                     if action == "sell":
                         message = f"Fidelity {account_label}: {action} {amount} shares of {stock}. DID NOT COMPLETE! \nEither this account does not have enough shares, or an order is already pending."
