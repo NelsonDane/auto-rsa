@@ -22,10 +22,7 @@ async def schwab_init():
     print("Logging in to Schwab...")
     try:
         schwab = Schwab()
-        if SCHWAB_TOTP_SECRET:
-            schwab.login(username=SCHWAB_USERNAME, password=SCHWAB_PASSWORD, totp_secret=SCHWAB_TOTP_SECRET)
-        else:
-            schwab.login(username=SCHWAB_USERNAME, password=SCHWAB_PASSWORD)
+        schwab.login(username=SCHWAB_USERNAME, password=SCHWAB_PASSWORD, totp_secret=SCHWAB_TOTP_SECRET)
         account_info = schwab.get_account_info()
         print(f"The following Schwab accounts were found: {list(account_info.keys())}")
         print("Logged in to Schwab!")
