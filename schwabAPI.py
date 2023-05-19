@@ -12,12 +12,13 @@ def schwab_init():
     # Initialize .env file
     load_dotenv()
     # Import Schwab account
-    if not os.getenv("SCHWAB_USERNAME") or not os.getenv("SCHWAB_PASSWORD") or not os.getenv("SCHWAB_TOTP_SECRET"):
+    if not os.getenv("SCHWAB_USERNAME") or not os.getenv("SCHWAB_PASSWORD"):
         print("Schwab not found, skipping...")
         return None
     SCHWAB_USERNAME = os.environ["SCHWAB_USERNAME"]
     SCHWAB_PASSWORD = os.environ["SCHWAB_PASSWORD"]
-    SCHWAB_TOTP_SECRET = os.environ["SCHWAB_TOTP_SECRET"]
+    SCHWAB_TOTP_SECRET = os.environ.get("SCHWAB_TOTP_SECRET", None)
+    print(SCHWAB_TOTP_SECRET)
     # Log in to Schwab account
     print("Logging in to Schwab...")
     try:
