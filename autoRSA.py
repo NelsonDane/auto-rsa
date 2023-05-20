@@ -2,8 +2,7 @@
 # Script to automate RSA stock purchases
 
 # Import libraries
-import os
-import sys
+import os, sys
 import re
 import discord
 from discord.ext import commands
@@ -16,17 +15,16 @@ from schwabAPI import *
 from tastyAPI import *
 from tradierAPI import *
 
-supported_brokerages = ["ally", "fidelity", "robinhood", "schwab", "tastytrade", "tradier"]
-
 # Initialize .env file
 load_dotenv()
 
 # Global variables
-discord_bot = False
-docker_mode = False
+SUPPORTED_BROKERS = ["ally", "fidelity", "robinhood", "schwab", "tastytrade", "tradier"]
+DISCORD_BOT = False
+DOCKER_MODE = False
 
 # Account nicknames
-async def nicknames(broker):
+def nicknames(broker):
     if broker == "rh":
         return "robinhood"
     elif broker == "tasty":
@@ -50,9 +48,9 @@ class stockOrder():
                 
     # Runs the specified function for each broker in the list
     # broker name + type of function
-    async def fun_run(self, type, ctx=None):
+    def fun_run(self, type, ctx=None, loop=None):
         if "all" in self.brokers:
-            self.brokers = supported_brokerages
+            self.brokers = SUPPORTED_BROKERS
         if type in ["_init", "_holdings", "_transaction"]:
             for index, broker in enumerate(self.brokers):
                 if broker in self.notbrokers:
@@ -60,36 +58,51 @@ class stockOrder():
                 fun_name = broker + type
                 try:
                     if type == "_init": 
-                        if await nicknames(broker) == "fidelity":
-                            self.logged_in.append(await globals()[fun_name](docker_mode)) # Fidelity requires docker mode argument
+                        if nicknames(broker) == "fidelity":
+                            # Fidelity requires docker mode argument
+                            self.logged_in.append(globals()[fun_name](DOCKER_MODE)) 
                         else:
-                            self.logged_in.append(await globals()[fun_name]())
-                    else:
-                        await globals()[fun_name](self.logged_in[index], ctx)
+                            self.logged_in.append(globals()[fun_name]())
+                    # Holdings and transaction 
+                    elif type == "_holdings":
+                        globals()[fun_name](self.logged_in[index], ctx, loop)
+                    elif type == "_transaction":
+                        globals()[fun_name](self.logged_in[index], self.action, self.stock, self.amount, self.price, self.time, self.dry, ctx, loop)
                 except:
                     print(traceback.format_exc())
-                    print(f"Error: {fun_name} not found in fun_run {type}")
+                    print(f"Error in {fun_name} with {broker}")
+                    print(self)
                 print()
 
-    async def broker_login(self):            
-            await self.fun_run("_init")
+    def broker_login(self):            
+            self.fun_run("_init")
 
-    async def broker_holdings(self, ctx=None):
-            await self.fun_run("_holdings", ctx)
+    def broker_holdings(self, ctx=None, loop=None):
+            self.fun_run("_holdings", ctx, loop)
 
-    async def broker_transaction(self, ctx=None):
-            await self.fun_run("_transaction")
+    def broker_transaction(self, ctx=None):
+            self.fun_run("_transaction")
 
     def __str__(self) -> str:
-        return f"Action: {self.action}\nAmount: {self.amount}\nStock: {self.stock}\nTime: {self.time}\nPrice: {self.price}\nBrokers: {self.brokers}\nNot Brokers: {self.notbrokers}\nDry: {self.dry}\nHoldings: {self.holdings}\nLogged In: {self.logged_in}"
+        return f"Self: \n \
+                Action: {self.action}\n \
+                Amount: {self.amount}\n \
+                Stock: {self.stock}\n \
+                Time: {self.time}\n \
+                Price: {self.price}\n \
+                Brokers: {self.brokers}\n \
+                Not Brokers: {self.notbrokers}\n \
+                Dry: {self.dry}\n \
+                Holdings: {self.holdings}\n \
+                Logged In: {self.logged_in}"
 
 # Regex function to check if stock ticker is valid
-async def isStockTicker(symbol):
+def isStockTicker(symbol):
     pattern = r'^[A-Z]{1,5}$' # Regex pattern for stock tickers
     return(re.match(pattern, symbol))
 
 # Parse input arguments and update the order object
-async def argParser(args, ctx=None):
+def argParser(args):
     docker = False
     orderObj = stockOrder()
     for arg in args:
@@ -97,43 +110,48 @@ async def argParser(args, ctx=None):
         if "docker" == arg:
             docker = True
             print("Running in docker mode")
-        if arg in ["buy", "sell"]:
+        # Exclusions
+        elif arg in ["not", "except", "exclude", "excluding"]:
+            orderObj.notbrokers.append(nicknames(args[args.index(arg)+1]))
+        elif arg in ["buy", "sell"]:
             orderObj.action = arg
-        if arg.isnumeric():
+        elif arg.isnumeric():
             orderObj.amount = int(arg)
-        if await isStockTicker(arg):
-            orderObj.stock = arg
-        if await nicknames(arg) in supported_brokerages or arg == "all":
-            orderObj.brokers.append(await nicknames(arg))
-        if arg == "false":
+        elif arg == "false":
             orderObj.dry = False
-        if arg[0] == "!":
-            orderObj.notbrokers.append(arg[1:])
-        if arg == "holdings":
+        # Check nicknames, or if all, and not in notbrokers
+        elif nicknames(arg) in SUPPORTED_BROKERS or arg == "all" and nicknames(arg) not in orderObj.notbrokers:
+            orderObj.brokers.append(nicknames(arg))
+        # !broker, also for not
+        elif arg[0] == "!":
+            orderObj.notbrokers.append(nicknames(arg[1:]))
+        elif arg == "holdings":
             orderObj.holdings = True
+        elif isStockTicker(arg.upper()) and arg.lower() != "dry" and orderObj.stock is None:
+            orderObj.stock = arg.upper()
     return orderObj, docker
 
 if __name__ == "__main__":
     # Determine if ran from command line
     if len(sys.argv) == 1: # If no arguments, run discord bot, no docker
         print("Running Discord bot from command line")
-        discord_bot = True
+        DISCORD_BOT = True
     elif len(sys.argv) == 2 and sys.argv[1] == "docker": # If docker argument, run docker bot
         print("Running bot from docker")
-        docker_mode = True
-        discord_bot = True
+        DOCKER_MODE = True
+        DISCORD_BOT = True
     else: # If any other argument, run bot, no docker or discord bot
         print("Running bot from command line")
-        orderObj = asyncio.run(argParser(sys.argv[1:]))[0]
-        asyncio.run(orderObj.broker_login())
+        orderObj = argParser(sys.argv[1:])[0]
+        orderObj.broker_login()
         if orderObj.holdings:
-            asyncio.run(orderObj.broker_holdings())
+            orderObj.broker_holdings()
             sys.exit()
         else:
-            asyncio.run(orderObj.broker_transaction())
+            orderObj.broker_transaction()
             sys.exit()
 
-    if discord_bot:
+    if DISCORD_BOT:
         # Get discord token and channel from .env file, setting channel to None if not found
         if not os.environ["DISCORD_TOKEN"]:
             raise Exception("DISCORD_TOKEN not found in .env file, please add it")
@@ -176,26 +194,18 @@ if __name__ == "__main__":
         # Main RSA command
         @bot.command(name='rsa')
         async def rsa(ctx, *args):
-            orderObj = (await argParser(args))[0]
+            orderObj = (await bot.loop.run_in_executor(None, argParser, args))[0]
+            loop = asyncio.get_event_loop()
             try:
-                await orderObj.broker_login()
-                await orderObj.broker_transaction(ctx)
+                await bot.loop.run_in_executor(None, orderObj.broker_login)
+                if orderObj.holdings:
+                    await bot.loop.run_in_executor(None, orderObj.broker_holdings, ctx, loop)
+                else:
+                    await bot.loop.run_in_executor(None, orderObj.broker_transaction, ctx, loop)
             except Exception as e:
                 print(f"Error placing order on {orderObj.name}: {e}")
                 if ctx:
                     await ctx.send(f"Error placing order on {orderObj.name}: {e}")
-            
-        # Holdings command
-        @bot.command(name='holdings')
-        async def holdings(ctx, *args):
-            orderObj = (await argParser(args))[0]
-            orderObj.holdings = True
-            try:
-                await orderObj.broker_login()
-                await orderObj.broker_holdings(ctx)
-            except Exception as e:
-                print(f"Error getting holdings: {e}")
-                await ctx.send(f"Error getting holdings: {e}")
 
         # Restart command
         @bot.command(name='restart')
