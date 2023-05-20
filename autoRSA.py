@@ -111,8 +111,10 @@ def argParser(args):
             docker = True
             print("Running in docker mode")
         # Exclusions
-        elif arg in ["not", "except", "exclude", "excluding"]:
-            orderObj.notbrokers.append(nicknames(args[args.index(arg)+1]))
+        elif arg in ["not", "but", "except", "exclude", "excluding"]:
+            next_arg = nicknames(args[args.index(arg)+1])
+            if next_arg in SUPPORTED_BROKERS:
+                orderObj.notbrokers.append(next_arg)
         elif arg in ["buy", "sell"]:
             orderObj.action = arg
         elif arg.isnumeric():
@@ -120,7 +122,7 @@ def argParser(args):
         elif arg == "false":
             orderObj.dry = False
         # Check nicknames, or if all, and not in notbrokers
-        elif nicknames(arg) in SUPPORTED_BROKERS or arg == "all" and nicknames(arg) not in orderObj.notbrokers:
+        elif (nicknames(arg) in SUPPORTED_BROKERS or arg == "all") and (nicknames(arg) not in orderObj.notbrokers):
             orderObj.brokers.append(nicknames(arg))
         # !broker, also for not
         elif arg[0] == "!":
@@ -143,6 +145,18 @@ if __name__ == "__main__":
     else: # If any other argument, run bot, no docker or discord bot
         print("Running bot from command line")
         orderObj = argParser(sys.argv[1:])[0]
+        print(f"Action: {orderObj.action}")
+        print(f"Amount: {orderObj.amount}")
+        print(f"Stock: {orderObj.stock}")
+        print(f"Time: {orderObj.time}")
+        print(f"Price: {orderObj.price}")
+        print(f"Broker: {orderObj.brokers}")
+        print(f"Not Broker: {orderObj.notbrokers}")
+        print(f"DRY: {orderObj.dry}")
+        print()
+        print("If correct, press enter to continue...")
+        input("Otherwise, press ctrl+c to exit")
+        print()
         orderObj.broker_login()
         if orderObj.holdings:
             orderObj.broker_holdings()
