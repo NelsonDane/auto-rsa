@@ -43,5 +43,6 @@ def getDriver(DOCKER=False):
     return driver
 
 def killDriver(driver):
+    print("Killed Selenium driver")
     driver.close()
     driver.quit()

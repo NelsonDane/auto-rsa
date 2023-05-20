@@ -145,25 +145,28 @@ if __name__ == "__main__":
     else: # If any other argument, run bot, no docker or discord bot
         print("Running bot from command line")
         orderObj = argParser(sys.argv[1:])[0]
-        print(f"Action: {orderObj.action}")
-        print(f"Amount: {orderObj.amount}")
-        print(f"Stock: {orderObj.stock}")
-        print(f"Time: {orderObj.time}")
-        print(f"Price: {orderObj.price}")
-        print(f"Broker: {orderObj.brokers}")
-        print(f"Not Broker: {orderObj.notbrokers}")
-        print(f"DRY: {orderObj.dry}")
-        print()
-        print("If correct, press enter to continue...")
-        input("Otherwise, press ctrl+c to exit")
-        print()
+        if not orderObj.holdings:
+            print(f"Action: {orderObj.action}")
+            print(f"Amount: {orderObj.amount}")
+            print(f"Stock: {orderObj.stock}")
+            print(f"Time: {orderObj.time}")
+            print(f"Price: {orderObj.price}")
+            print(f"Broker: {orderObj.brokers}")
+            print(f"Not Broker: {orderObj.notbrokers}")
+            print(f"DRY: {orderObj.dry}")
+            print()
+            print("If correct, press enter to continue...")
+            input("Otherwise, press ctrl+c to exit")
+            print()
         orderObj.broker_login()
         if orderObj.holdings:
             orderObj.broker_holdings()
-            sys.exit()
         else:
             orderObj.broker_transaction()
-            sys.exit()
+        # Kill selenium drivers
+        if "fidelity" in [n.lower() for n in orderObj.brokers]:
+            killDriver(orderObj.logged_in[orderObj.brokers.index("fidelity")])
+        sys.exit(0)
 
     if DISCORD_BOT:
         # Get discord token and channel from .env file, setting channel to None if not found
