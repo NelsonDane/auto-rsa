@@ -8,7 +8,7 @@ from time import sleep
 from schwab_api import Schwab 
 from dotenv import load_dotenv
 
-async def schwab_init():
+def schwab_init():
     # Initialize .env file
     load_dotenv()
     # Import Schwab account
@@ -31,7 +31,7 @@ async def schwab_init():
         print(f'Error logging in to Schwab: {e}')
         return None
 
-async def schwab_holdings(schwab, ctx=None):
+def schwab_holdings(schwab, ctx=None, loop=None):
     # Make sure init didn't return None
     if schwab is None:
         print()
@@ -46,8 +46,8 @@ async def schwab_holdings(schwab, ctx=None):
     try:
         for account in list(schwab.get_account_info().keys()):
             print(f"Holdings in Schwab Account: {account}")
-            if ctx:
-                await ctx.send(f"Holdings in Schwab: {account}")
+            if ctx and loop:
+                asyncio.ensure_future(ctx.send(f"Holdings in Schwab: {account}"), loop=loop)
             holdings = schwab.get_account_info()[account]['positions']
             for item in holdings:
                 # Get symbol, market value, quantity, current price, and total holdings
@@ -63,14 +63,14 @@ async def schwab_holdings(schwab, ctx=None):
                     current_price = round(mv / qty, 2)
                 message = f"{sym}: {qty} @ ${current_price} = ${mv}"
                 print(message)
-                if ctx:
-                    await ctx.send(message)
+                if ctx and loop:
+                    asyncio.ensure_future(ctx.send(message), loop=loop)
     except Exception as e:        
         print(f'Schwab {account}: Error getting holdings: {e}')
-        if ctx:
-            await ctx.send(f'Schwab {account}: Error getting holdings: {e}')
+        if ctx and loop:
+            asyncio.ensure_future(ctx.send(f'Schwab {account}: Error getting holdings: {e}'), loop=loop)
     
-async def schwab_transaction(schwab, action, stock, amount, price, time, DRY=True, ctx=None):
+def schwab_transaction(schwab, action, stock, amount, price, time, DRY=True, ctx=None, loop=None):
     # Make sure init didn't return None
     if schwab is None:
         print("Error: No Schwab account")
@@ -93,8 +93,8 @@ async def schwab_transaction(schwab, action, stock, amount, price, time, DRY=Tru
         # If DRY is True, don't actually make the transaction
         if DRY:
             print("Running in DRY mode. No transactions will be made.")
-            if ctx:
-                await ctx.send(f"Running in DRY mode. No transactions will be made.")
+            if ctx and loop:
+                asyncio.ensure_future(ctx.send(f"Running in DRY mode. No transactions will be made."), loop=loop)
         try:
             messages, success = schwab.trade(
                 ticker=stock, 
@@ -106,15 +106,15 @@ async def schwab_transaction(schwab, action, stock, amount, price, time, DRY=Tru
             print("The order verification was " + "successful" if success else "unsuccessful")
             print("The order verification produced the following messages: ")
             pprint.pprint(messages)
-            if ctx:
-                await ctx.send(f"Schwab account {account}: The order verification was " + "successful" if success else "unsuccessful")
+            if ctx and loop:
+                asyncio.ensure_future(ctx.send(f"Schwab account {account}: The order verification was " + "successful" if success else "unsuccessful"), loop=loop)
                 if not success:
-                    await ctx.send(f"Schwab account {account}: The order verification produced the following messages: ")
-                    await ctx.send(f"{messages}")
+                    asyncio.ensure_future(ctx.send(f"Schwab account {account}: The order verification produced the following messages: "), loop=loop)
+                    asyncio.ensure_future(ctx.send(f"{messages}"), loop=loop)
         except Exception as e:
             print(f'Schwab {account}: Error submitting order: {e}')
-            if ctx:
-                await ctx.send(f'Schwab {account}: Error submitting order: {e}')
+            if ctx and loop:
+                asyncio.ensure_future(ctx.send(f'Schwab {account}: Error submitting order: {e}'), loop=loop)
             return None
         sleep(1)
         print()

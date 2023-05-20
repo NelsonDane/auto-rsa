@@ -4,6 +4,7 @@
 
 import os
 import traceback
+import asyncio
 from time import sleep
 from dotenv import load_dotenv
 from seleniumAPI import *
@@ -12,7 +13,7 @@ from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
 
-async def fidelity_init(DOCKER=False):
+def fidelity_init(DOCKER=False):
     try:
         # Initialize .env file
         load_dotenv()
@@ -24,7 +25,7 @@ async def fidelity_init(DOCKER=False):
         FIDELITY_PASSWORD = os.environ["FIDELITY_PASSWORD"]
         # Init webdriver
         print("Logging in to Fidelity...")
-        driver = await getDriver(DOCKER)
+        driver = getDriver(DOCKER)
         # Log in to Fidelity account
         driver.get("https://digital.fidelity.com/prgw/digital/login/full-page?AuthRedUrl=https://digital.fidelity.com/ftgw/digital/portfolio/summary")
         # Wait for page load
@@ -73,7 +74,7 @@ async def fidelity_init(DOCKER=False):
         return None
     return driver
     
-async def fidelity_holdings(driver, ctx):
+def fidelity_holdings(driver, ctx=None, loop=None):
     print()
     print("==============================")
     print("Fidelity Holdings")
@@ -93,8 +94,8 @@ async def fidelity_holdings(driver, ctx):
         # Get total account value
         total_value = driver.find_elements(by=By.CSS_SELECTOR, value='body > div.fidgrid.fidgrid--shadow.fidgrid--nogutter > div.full-page--container > div.fidgrid--row.port-summary-container > div.port-summary-content.clearfix > div > div.fidgrid--content > div > div.account-selector-wrapper.port-nav.account-selector--reveal > div.account-selector.account-selector--normal-mode.clearfix > div.account-selector--main-wrapper > div.account-selector--accounts-wrapper > div.account-selector--tab.account-selector--tab-all.js-portfolio.account-selector--target-tab.js-selected > span.account-selector--tab-row.account-selector--all-accounts-balance.js-portfolio-balance')
         print(f'Total Fidelity account value: {total_value[0].text}')
-        if ctx:
-            await ctx.send(f'Total Fidelity account value: {total_value[0].text}')
+        if ctx and loop:
+            asyncio.ensure_future(ctx.send(f'Total Fidelity account value: {total_value[0].text}'), loop=loop)
         # Get value of individual and retirement accounts
         ind_accounts = driver.find_elements(by=By.CSS_SELECTOR, value='[data-group-id="IA"]')
         ret_accounts = driver.find_elements(by=By.CSS_SELECTOR, value='[data-group-id="RA"]')
@@ -129,26 +130,26 @@ async def fidelity_holdings(driver, ctx):
                 ret_val.append(x)
         # Print out account numbers and values
         print("Individual accounts:")
-        if ctx:
-            print("Individual accounts:")
+        if ctx and loop:
+            asyncio.ensure_future(ctx.send("Individual accounts:"), loop=loop)
         for x in range(len(ind_num)):
             print(f'{ind_num[x]} value: {ind_val[x]}')
-            if ctx:
-                await ctx.send(f'{ind_num[x]} value: {ind_val[x]}')
+            if ctx and loop:
+                asyncio.ensure_future(ctx.send(f'{ind_num[x]} value: {ind_val[x]}'), loop=loop)
         if ret_acc:
             print("Retirement accounts:")
-            if ctx:
-                print("Retirement accounts:")
+            if ctx and loop:
+                asyncio.ensure_future(ctx.send("Retirement accounts:"), loop=loop)
             for x in range(len(ret_num)):
                 print(f'{ret_num[x]} value: {ret_val[x]}')
-                if ctx:
-                    await ctx.send(f'{ret_num[x]} value: {ret_val[x]}')
+                if ctx and loop:
+                    asyncio.ensure_future(ctx.send(f'{ret_num[x]} value: {ret_val[x]}'), loop=loop)
             # We'll add positions later since that will be hard
     except Exception as e:
         print(f'Error getting holdings: {e}')
         print(traceback.format_exc())
 
-async def fidelity_transaction(driver, action, stock, amount, price, time, DRY=True, ctx=None):
+def fidelity_transaction(driver, action, stock, amount, price, time, DRY=True, ctx=None, loop=None):
     # Make sure init didn't return None
     if driver is None:
         print("Error: No Fidelity account")
@@ -269,8 +270,8 @@ async def fidelity_transaction(driver, action, stock, amount, price, time, DRY=T
                     # Send confirmation
                     message = f"Fidelity {account_label}: {action} {amount} shares of {stock}"
                     print(message)
-                    if ctx:
-                        await ctx.send(message)
+                    if ctx and loop:
+                        asyncio.ensure_future(ctx.send(message), loop=loop)
                 except NoSuchElementException:
                     # Check for error
                     WebDriverWait(driver, 10).until(
@@ -283,14 +284,14 @@ async def fidelity_transaction(driver, action, stock, amount, price, time, DRY=T
                     elif action == "buy":
                         message = f"Fidelity {account_label}: {action} {amount} shares of {stock}. DID NOT COMPLETE! \nEither this account does not have enough cash, or an order is already pending."
                     print(message)
-                    if ctx:
-                        await ctx.send(message)
+                    if ctx and loop:
+                        asyncio.ensure_future(ctx.send(message), loop=loop)
                 # Send confirmation
             else:
                 message = f"DRY: Fidelity {account_label}: {action} {amount} shares of {stock}"
                 print(message)
-                if ctx:
-                    await ctx.send(message)
+                if ctx and loop:
+                    asyncio.ensure_future(ctx.send(message), loop=loop)
             sleep(3)
         except Exception as e:
             print(e)

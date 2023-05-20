@@ -26,7 +26,7 @@ def check_if_page_loaded(driver):
     readystate = driver.execute_script("return document.readyState;")
     return readystate == "complete"
 
-async def getDriver(DOCKER=False):
+def getDriver(DOCKER=False):
     # Init webdriver options
     options = webdriver.EdgeOptions()
     options.add_argument("--disable-blink-features=AutomationControlled")
@@ -42,6 +42,6 @@ async def getDriver(DOCKER=False):
     driver.maximize_window()
     return driver
 
-async def killDriver(driver):
+def killDriver(driver):
     driver.close()
     driver.quit()

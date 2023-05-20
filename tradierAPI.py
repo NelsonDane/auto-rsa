@@ -5,9 +5,10 @@ import os
 import requests
 from time import sleep
 import traceback
+import asyncio
 from dotenv import load_dotenv
 
-async def tradier_init():
+def tradier_init():
     # Initialize .env file
     load_dotenv()
     # Import Tradier account
@@ -47,7 +48,7 @@ async def tradier_init():
     print("Logged in to Tradier!")
     return tradier_accounts
 
-async def tradier_holdings(tradier, ctx=None):
+def tradier_holdings(tradier, ctx=None, loop=None):
     print()
     print("==============================")
     print("Tradier")
@@ -73,8 +74,8 @@ async def tradier_holdings(tradier, ctx=None):
             # Check if holdings is empty
             if json_response['positions'] == 'null':
                 print(f"Tradier {account_number}: No holdings")
-                if ctx:
-                    await ctx.send(f"Tradier {account_number}: No holdings")
+                if ctx and loop:
+                    asyncio.ensure_future(ctx.send(f"Tradier {account_number}: No holdings"), loop=loop)
                 continue
             # Create list of holdings and amounts
             stocks = []
@@ -109,21 +110,21 @@ async def tradier_holdings(tradier, ctx=None):
                 current_price[i] = round(current_price[i], 2)
             # Print and send them
             print(f"Holdings on Tradier account {account_number}")
-            if ctx:
-                await ctx.send(f"Holdings on Tradier account {account_number}")
+            if ctx and loop:
+                asyncio.ensure_future(ctx.send(f"Holdings on Tradier account {account_number}"), loop=loop)
             for position in stocks:
                 # Set index for easy use
                 i = stocks.index(position)
                 print(f"{position}: {amounts[i]} @ ${current_price[i]} = ${current_value[i]}")
-                if ctx:
-                    await ctx.send(f"{position}: {amounts[i]} @ ${current_price[i]} = ${current_value[i]}")
+                if ctx and loop:
+                    asyncio.ensure_future(ctx.send(f"{position}: {amounts[i]} @ ${current_price[i]} = ${current_value[i]}"), loop=loop)
         except Exception as e:
             print(f"Tradier {account_number}: Error getting holdings: {e}")
-            if ctx:
-                await ctx.send(f"Tradier {account_number}: Error getting holdings: {e}")
+            if ctx and loop:
+                asyncio.ensure_future(ctx.send(f"Tradier {account_number}: Error getting holdings: {e}"), loop=loop)
             print(traceback.format_exc())
 
-async def tradier_transaction(tradier, action, stock, amount, price, time, DRY=True, ctx=None):
+def tradier_transaction(tradier, action, stock, amount, price, time, DRY=True, ctx=None, loop=None):
     print()
     print("==============================")
     print("Tradier")
@@ -150,18 +151,18 @@ async def tradier_transaction(tradier, action, stock, amount, price, time, DRY=T
             try:
                 if json_response['order']['status'] == "ok":
                     print(f"Tradier account {account_number}: {action} {amount} of {stock}")
-                    if ctx:
-                        await ctx.send(f"Tradier account {account_number}: {action} {amount} of {stock}")
+                    if ctx and loop:
+                        asyncio.ensure_future(ctx.send(f"Tradier account {account_number}: {action} {amount} of {stock}"), loop=loop)
                 else:
                     print(f"Tradier account {account_number} Error: {json_response['order']['status']}")
-                    if ctx:
-                        await ctx.send(f"Tradier account {account_number} Error: {json_response['order']['status']}")
+                    if ctx and loop:
+                        asyncio.ensure_future(ctx.send(f"Tradier account {account_number} Error: {json_response['order']['status']}"), loop=loop)
                     return None
             except KeyError:
                 print(f"Tradier account {account_number} Error: This order did not route. Is this a new account?")
-                if ctx:
-                    await ctx.send(f"Tradier account {account_number} Error: This order did not route. Is this a new account?") 
+                if ctx and loop:
+                    asyncio.ensure_future(ctx.send(f"Tradier account {account_number} Error: This order did not route. Is this a new account?"), loop=loop)
         else:
             print(f"Tradier account {account_number}: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}")
-            if ctx:
-                await ctx.send(f"Tradier account {account_number}: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}")
+            if ctx and loop:
+                asyncio.ensure_future(ctx.send(f"Tradier account {account_number}: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}"), loop=loop)
