@@ -80,8 +80,8 @@ class stockOrder():
     def broker_holdings(self, ctx=None, loop=None):
             self.fun_run("_holdings", ctx, loop)
 
-    def broker_transaction(self, ctx=None):
-            self.fun_run("_transaction")
+    def broker_transaction(self, ctx=None, loop=None):
+            self.fun_run("_transaction", ctx, loop)
 
     def __str__(self) -> str:
         return f"Self: \n \
