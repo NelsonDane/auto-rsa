@@ -54,10 +54,6 @@ To check your account holdings:
 
 `!holdings <account>`
 
-To see when the market opens/closes:
-
-`!market` or `!market_hours`
-
 To restart the bot:
 
 `!restart`
