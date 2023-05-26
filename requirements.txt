@@ -11,5 +11,5 @@ requests
 pandas
 schwab-api
 tastyworks-aiocometd
-tastytrade
+tastytrade==1.0
 asyncio
