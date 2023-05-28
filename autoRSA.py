@@ -112,9 +112,10 @@ def argParser(args):
             print("Running in docker mode")
         # Exclusions
         elif arg in ["not", "but", "except", "exclude", "excluding"]:
-            next_arg = nicknames(args[args.index(arg)+1])
-            if next_arg in SUPPORTED_BROKERS:
-                orderObj.notbrokers.append(next_arg)
+            next_arg = nicknames(args[args.index(arg)+1]).split(",")
+            for broker in next_arg:
+                if broker in SUPPORTED_BROKERS:
+                    orderObj.notbrokers.append(broker)
         elif arg in ["buy", "sell"]:
             orderObj.action = arg
         elif arg.isnumeric():
@@ -122,11 +123,9 @@ def argParser(args):
         elif arg == "false":
             orderObj.dry = False
         # Check nicknames, or if all, and not in notbrokers
-        elif (nicknames(arg) in SUPPORTED_BROKERS or arg == "all") and (nicknames(arg) not in orderObj.notbrokers):
-            orderObj.brokers.append(nicknames(arg))
-        # !broker, also for not
-        elif arg[0] == "!":
-            orderObj.notbrokers.append(nicknames(arg[1:]))
+        elif (nicknames(arg.split(",")[0]) in SUPPORTED_BROKERS or arg == "all") and (nicknames(arg.split(",")[0]) not in orderObj.notbrokers):
+            for broker in arg.split(","):
+                orderObj.brokers.append(nicknames(broker))
         elif arg == "holdings":
             orderObj.holdings = True
         elif isStockTicker(arg.upper()) and arg.lower() != "dry" and orderObj.stock is None:
