@@ -155,8 +155,13 @@ if __name__ == "__main__":
             print(f"DRY: {orderObj.dry}")
             print()
             print("If correct, press enter to continue...")
-            input("Otherwise, press ctrl+c to exit")
-            print()
+            try:
+                input("Otherwise, press ctrl+c to exit")
+                print()
+            except KeyboardInterrupt:
+                print()
+                print("Exiting, no orders placed")
+                sys.exit(0)
         orderObj.broker_login()
         if orderObj.holdings:
             orderObj.broker_holdings()
