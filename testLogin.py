@@ -32,7 +32,8 @@ else:
 if os.environ.get("ALLY_CONSUMER_SECRET", None) is None:
     print(f"Ally consumer secret not found")
 else:
-    print(f"Ally consumer secret found {os.environ.get('ALLY_CONSUMER_SECRET')}")
+    print(
+        f"Ally consumer secret found {os.environ.get('ALLY_CONSUMER_SECRET')}")
 if os.environ.get("ALLY_OAUTH_TOKEN", None) is None:
     print(f"Ally oauth token not found")
 else:

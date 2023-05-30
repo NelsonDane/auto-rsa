@@ -8,6 +8,7 @@ import traceback
 import asyncio
 from dotenv import load_dotenv
 
+
 def tradier_init():
     # Initialize .env file
     load_dotenv()
@@ -21,9 +22,11 @@ def tradier_init():
     print("Logging in to Tradier...")
     try:
         response = requests.get('https://api.tradier.com/v1/user/profile',
-        params={},
-        headers={'Authorization': f'Bearer {BEARER}', 'Accept': 'application/json'}
-        )
+                                params={},
+                                headers={
+                                    'Authorization': f'Bearer {BEARER}',
+                                    'Accept': 'application/json'
+                                })
         json_response = response.json()
         if json_response is None:
             raise Exception("Error: Tradier API returned None")
@@ -40,13 +43,17 @@ def tradier_init():
     tradier_accounts = []
     if account_num == 1:
         print(f"{json_response['profile']['account']['account_number']}")
-        tradier_accounts.append(json_response['profile']['account']['account_number'])
+        tradier_accounts.append(
+            json_response['profile']['account']['account_number'])
     else:
         for x in range(account_num):
-            print(f"{json_response['profile']['account'][x]['account_number']}")
-            tradier_accounts.append(json_response['profile']['account'][x]['account_number'])
+            print(
+                f"{json_response['profile']['account'][x]['account_number']}")
+            tradier_accounts.append(
+                json_response['profile']['account'][x]['account_number'])
     print("Logged in to Tradier!")
     return tradier_accounts
+
 
 def tradier_holdings(tradier, ctx=None, loop=None):
     print()
@@ -65,17 +72,22 @@ def tradier_holdings(tradier, ctx=None, loop=None):
     for account_number in tradier:
         try:
             # Get holdings from API
-            response = requests.get(f'https://api.tradier.com/v1/accounts/{account_number}/positions',
+            response = requests.get(
+                f'https://api.tradier.com/v1/accounts/{account_number}/positions',
                 params={},
-                headers={'Authorization': f'Bearer {BEARER}', 'Accept': 'application/json'}
-            )
+                headers={
+                    'Authorization': f'Bearer {BEARER}',
+                    'Accept': 'application/json'
+                })
             # Convert to JSON
             json_response = response.json()
             # Check if holdings is empty
             if json_response['positions'] == 'null':
                 print(f"Tradier {account_number}: No holdings")
                 if ctx and loop:
-                    asyncio.ensure_future(ctx.send(f"Tradier {account_number}: No holdings"), loop=loop)
+                    asyncio.ensure_future(
+                        ctx.send(f"Tradier {account_number}: No holdings"),
+                        loop=loop)
                 continue
             # Create list of holdings and amounts
             stocks = []
@@ -83,7 +95,8 @@ def tradier_holdings(tradier, ctx=None, loop=None):
             # Check if there's only one holding
             if 'symbol' in json_response['positions']['position']:
                 stocks.append(json_response['positions']['position']['symbol'])
-                amounts.append(json_response['positions']['position']['quantity'])
+                amounts.append(
+                    json_response['positions']['position']['quantity'])
             else:
                 # Loop through holdings
                 for stock in json_response['positions']['position']:
@@ -92,10 +105,16 @@ def tradier_holdings(tradier, ctx=None, loop=None):
             # Get current price of each stock
             current_price = []
             for sym in stocks:
-                response = requests.get('https://api.tradier.com/v1/markets/quotes',
-                    params={'symbols': sym, 'greeks': 'false'},
-                    headers={'Authorization': f'Bearer {BEARER}', 'Accept': 'application/json'}
-                )
+                response = requests.get(
+                    'https://api.tradier.com/v1/markets/quotes',
+                    params={
+                        'symbols': sym,
+                        'greeks': 'false'
+                    },
+                    headers={
+                        'Authorization': f'Bearer {BEARER}',
+                        'Accept': 'application/json'
+                    })
                 json_response = response.json()
                 current_price.append(json_response['quotes']['quote']['last'])
             # Current value for position
@@ -111,20 +130,38 @@ def tradier_holdings(tradier, ctx=None, loop=None):
             # Print and send them
             print(f"Holdings on Tradier account {account_number}")
             if ctx and loop:
-                asyncio.ensure_future(ctx.send(f"Holdings on Tradier account {account_number}"), loop=loop)
+                asyncio.ensure_future(
+                    ctx.send(f"Holdings on Tradier account {account_number}"),
+                    loop=loop)
             for position in stocks:
                 # Set index for easy use
                 i = stocks.index(position)
-                print(f"{position}: {amounts[i]} @ ${current_price[i]} = ${current_value[i]}")
+                print(
+                    f"{position}: {amounts[i]} @ ${current_price[i]} = ${current_value[i]}"
+                )
                 if ctx and loop:
-                    asyncio.ensure_future(ctx.send(f"{position}: {amounts[i]} @ ${current_price[i]} = ${current_value[i]}"), loop=loop)
+                    asyncio.ensure_future(ctx.send(
+                        f"{position}: {amounts[i]} @ ${current_price[i]} = ${current_value[i]}"
+                    ),
+                                          loop=loop)
         except Exception as e:
             print(f"Tradier {account_number}: Error getting holdings: {e}")
             if ctx and loop:
-                asyncio.ensure_future(ctx.send(f"Tradier {account_number}: Error getting holdings: {e}"), loop=loop)
+                asyncio.ensure_future(ctx.send(
+                    f"Tradier {account_number}: Error getting holdings: {e}"),
+                                      loop=loop)
             print(traceback.format_exc())
 
-def tradier_transaction(tradier, action, stock, amount, price, time, DRY=True, ctx=None, loop=None):
+
+def tradier_transaction(tradier,
+                        action,
+                        stock,
+                        amount,
+                        price,
+                        time,
+                        DRY=True,
+                        ctx=None,
+                        loop=None):
     print()
     print("==============================")
     print("Tradier")
@@ -141,28 +178,58 @@ def tradier_transaction(tradier, action, stock, amount, price, time, DRY=True, c
     # Loop through accounts
     for account_number in tradier:
         if not DRY:
-            response = requests.post(f'https://api.tradier.com/v1/accounts/{account_number}/orders',
-            data={'class': 'equity', 'symbol': stock, 'side': action, 'quantity': amount, 'type': 'market', 'duration': 'day'},
-            headers={'Authorization': f'Bearer {BEARER}', 'Accept': 'application/json'}
-            )
+            response = requests.post(
+                f'https://api.tradier.com/v1/accounts/{account_number}/orders',
+                data={
+                    'class': 'equity',
+                    'symbol': stock,
+                    'side': action,
+                    'quantity': amount,
+                    'type': 'market',
+                    'duration': 'day'
+                },
+                headers={
+                    'Authorization': f'Bearer {BEARER}',
+                    'Accept': 'application/json'
+                })
             json_response = response.json()
             #print(response.status_code)
             #print(json_response)
             try:
                 if json_response['order']['status'] == "ok":
-                    print(f"Tradier account {account_number}: {action} {amount} of {stock}")
+                    print(
+                        f"Tradier account {account_number}: {action} {amount} of {stock}"
+                    )
                     if ctx and loop:
-                        asyncio.ensure_future(ctx.send(f"Tradier account {account_number}: {action} {amount} of {stock}"), loop=loop)
+                        asyncio.ensure_future(ctx.send(
+                            f"Tradier account {account_number}: {action} {amount} of {stock}"
+                        ),
+                                              loop=loop)
                 else:
-                    print(f"Tradier account {account_number} Error: {json_response['order']['status']}")
+                    print(
+                        f"Tradier account {account_number} Error: {json_response['order']['status']}"
+                    )
                     if ctx and loop:
-                        asyncio.ensure_future(ctx.send(f"Tradier account {account_number} Error: {json_response['order']['status']}"), loop=loop)
+                        asyncio.ensure_future(ctx.send(
+                            f"Tradier account {account_number} Error: {json_response['order']['status']}"
+                        ),
+                                              loop=loop)
                     return None
             except KeyError:
-                print(f"Tradier account {account_number} Error: This order did not route. Is this a new account?")
+                print(
+                    f"Tradier account {account_number} Error: This order did not route. Is this a new account?"
+                )
                 if ctx and loop:
-                    asyncio.ensure_future(ctx.send(f"Tradier account {account_number} Error: This order did not route. Is this a new account?"), loop=loop)
+                    asyncio.ensure_future(ctx.send(
+                        f"Tradier account {account_number} Error: This order did not route. Is this a new account?"
+                    ),
+                                          loop=loop)
         else:
-            print(f"Tradier account {account_number}: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}")
+            print(
+                f"Tradier account {account_number}: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}"
+            )
             if ctx and loop:
-                asyncio.ensure_future(ctx.send(f"Tradier account {account_number}: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}"), loop=loop)
+                asyncio.ensure_future(ctx.send(
+                    f"Tradier account {account_number}: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}"
+                ),
+                                      loop=loop)
