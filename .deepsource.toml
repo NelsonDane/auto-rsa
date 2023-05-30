@@ -13,4 +13,4 @@ name = "python"
 name = "docker"
 
 [[transformers]]
-name = "yapf"
+name = "autopep8"
