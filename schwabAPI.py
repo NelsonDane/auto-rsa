@@ -5,8 +5,9 @@ import os
 import pprint
 import asyncio
 from time import sleep
-from schwab_api import Schwab 
+from schwab_api import Schwab
 from dotenv import load_dotenv
+
 
 def schwab_init():
     # Initialize .env file
@@ -22,14 +23,19 @@ def schwab_init():
     print("Logging in to Schwab...")
     try:
         schwab = Schwab()
-        schwab.login(username=SCHWAB_USERNAME, password=SCHWAB_PASSWORD, totp_secret=SCHWAB_TOTP_SECRET)
+        schwab.login(username=SCHWAB_USERNAME,
+                     password=SCHWAB_PASSWORD,
+                     totp_secret=SCHWAB_TOTP_SECRET)
         account_info = schwab.get_account_info()
-        print(f"The following Schwab accounts were found: {list(account_info.keys())}")
+        print(
+            f"The following Schwab accounts were found: {list(account_info.keys())}"
+        )
         print("Logged in to Schwab!")
         return schwab
     except Exception as e:
         print(f'Error logging in to Schwab: {e}')
         return None
+
 
 async def schwab_holdings(schwab, ctx=None):
     # Make sure init didn't return None
@@ -65,12 +71,20 @@ async def schwab_holdings(schwab, ctx=None):
                 print(message)
                 if ctx:
                     await ctx.send(message)
-    except Exception as e:        
+    except Exception as e:
         print(f'Schwab {account}: Error getting holdings: {e}')
         if ctx:
             await ctx.send(f'Schwab {account}: Error getting holdings: {e}')
-    
-async def schwab_transaction(schwab, action, stock, amount, price, time, DRY=True, ctx=None):
+
+
+async def schwab_transaction(schwab,
+                             action,
+                             stock,
+                             amount,
+                             price,
+                             time,
+                             DRY=True,
+                             ctx=None):
     # Make sure init didn't return None
     if schwab is None:
         print("Error: No Schwab account")
@@ -94,27 +108,35 @@ async def schwab_transaction(schwab, action, stock, amount, price, time, DRY=Tru
         if DRY:
             print("Running in DRY mode. No transactions will be made.")
             if ctx:
-                await ctx.send(f"Running in DRY mode. No transactions will be made.")
+                await ctx.send(
+                    f"Running in DRY mode. No transactions will be made.")
         try:
             messages, success = schwab.trade(
-                ticker=stock, 
+                ticker=stock,
                 side=action,
                 qty=amount,
-                account_id=account, # Replace with your account number
-                dry_run=DRY # If dry_run=True, we won't place the order, we'll just verify it.
+                account_id=account,  # Replace with your account number
+                dry_run=
+                DRY  # If dry_run=True, we won't place the order, we'll just verify it.
             )
-            print("The order verification was " + "successful" if success else "unsuccessful")
+            print("The order verification was " +
+                  "successful" if success else "unsuccessful")
             print("The order verification produced the following messages: ")
             pprint.pprint(messages)
             if ctx:
-                await ctx.send(f"Schwab account {account}: The order verification was " + "successful" if success else "unsuccessful")
+                await ctx.send(
+                    f"Schwab account {account}: The order verification was " +
+                    "successful" if success else "unsuccessful")
                 if not success:
-                    await ctx.send(f"Schwab account {account}: The order verification produced the following messages: ")
+                    await ctx.send(
+                        f"Schwab account {account}: The order verification produced the following messages: "
+                    )
                     await ctx.send(f"{messages}")
         except Exception as e:
             print(f'Schwab {account}: Error submitting order: {e}')
             if ctx:
-                await ctx.send(f'Schwab {account}: Error submitting order: {e}')
+                await ctx.send(f'Schwab {account}: Error submitting order: {e}'
+                               )
             return None
         sleep(1)
         print()

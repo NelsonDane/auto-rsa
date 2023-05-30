@@ -7,12 +7,16 @@ import traceback
 import ally
 from dotenv import load_dotenv
 
+
 # Initialize Ally
 def ally_init():
     # Initialize .env file
     load_dotenv()
     # Import Ally account
-    if not os.getenv("ALLY_CONSUMER_KEY") or not os.getenv("ALLY_CONSUMER_SECRET") or not os.getenv("ALLY_OAUTH_TOKEN") or not os.getenv("ALLY_OAUTH_SECRET") or not os.getenv("ALLY_ACCOUNT_NBR"):
+    if not os.getenv("ALLY_CONSUMER_KEY") or not os.getenv(
+            "ALLY_CONSUMER_SECRET") or not os.getenv(
+                "ALLY_OAUTH_TOKEN") or not os.getenv(
+                    "ALLY_OAUTH_SECRET") or not os.getenv("ALLY_ACCOUNT_NBR"):
         print("Ally not found, skipping...")
         return None
     ALLY_CONSUMER_KEY = os.environ["ALLY_CONSUMER_KEY"]
@@ -34,6 +38,7 @@ def ally_init():
         return None
     print("Logged in to Ally!")
     return a
+
 
 # Function to get the current account holdings
 async def ally_holdings(a, ctx=None):
@@ -70,16 +75,28 @@ async def ally_holdings(a, ctx=None):
             for symbol in account_symbols:
                 # Set index for easy use
                 i = account_symbols.index(symbol)
-                print(f"{symbol}: {float(qty[i])} @ ${round(float(current_price[i]), 2)} = ${round(float(qty[i]) * float(current_price[i]), 2)}")
+                print(
+                    f"{symbol}: {float(qty[i])} @ ${round(float(current_price[i]), 2)} = ${round(float(qty[i]) * float(current_price[i]), 2)}"
+                )
                 if ctx:
-                    await ctx.send(f"{symbol}: {float(qty[i])} @ ${round(float(current_price[i]), 2)} = ${round(float(qty[i]) * float(current_price[i]), 2)}")
+                    await ctx.send(
+                        f"{symbol}: {float(qty[i])} @ ${round(float(current_price[i]), 2)} = ${round(float(qty[i]) * float(current_price[i]), 2)}"
+                    )
     except Exception as e:
         print(f'Ally: Error getting account holdings: {e}')
         if ctx:
             await ctx.send(f'Ally: Error getting account holdings: {e}')
 
+
 # Function to buy/sell stock on Ally
-async def ally_transaction(a, action, stock, amount, price, time, DRY=True, ctx=None):
+async def ally_transaction(a,
+                           action,
+                           stock,
+                           amount,
+                           price,
+                           time,
+                           DRY=True,
+                           ctx=None):
     print()
     print("==============================")
     print("Ally")
@@ -99,13 +116,11 @@ async def ally_transaction(a, action, stock, amount, price, time, DRY=True, ctx=
         price = ally.Order.Limit(limpx=float(price))
     try:
         # Create order
-        o = ally.Order.Order(
-            buysell = action,
-            symbol = stock,
-            price = price,
-            time = time,
-            qty = amount
-        )
+        o = ally.Order.Order(buysell=action,
+                             symbol=stock,
+                             price=price,
+                             time=time,
+                             qty=amount)
         # Print order preview
         print(str(o))
         # Submit order
@@ -113,9 +128,13 @@ async def ally_transaction(a, action, stock, amount, price, time, DRY=True, ctx=
         if not DRY:
             a.submit(o, preview=False)
         else:
-            print(f"Ally: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}")
+            print(
+                f"Ally: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}"
+            )
             if ctx:
-                await ctx.send(f"Ally: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}")
+                await ctx.send(
+                    f"Ally: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}"
+                )
         if o.orderid:
             print(f"Ally: Order {o.orderid} submitted")
             if ctx:
@@ -126,7 +145,8 @@ async def ally_transaction(a, action, stock, amount, price, time, DRY=True, ctx=
                 await ctx.send(f"Ally: Order not submitted")
     except Exception as e:
         ally_call_error = "Error: For your security, certain symbols may only be traded by speaking to an Ally Invest registered representative. Please call 1-855-880-2559 if you need further assistance with this order."
-        if "500 server error: internal server error for url:" in str(e).lower():
+        if "500 server error: internal server error for url:" in str(
+                e).lower():
             # If selling too soon, then an error is thrown
             if action == "sell":
                 print(ally_call_error)
@@ -134,24 +154,34 @@ async def ally_transaction(a, action, stock, amount, price, time, DRY=True, ctx=
                     await ctx.send(ally_call_error)
             # If the message comes up while buying, then try again with a limit order
             elif action == "buy":
-                print(f"Ally: Error placing market buy, trying again with limit order...")
+                print(
+                    f"Ally: Error placing market buy, trying again with limit order..."
+                )
                 if ctx:
-                    await ctx.send(f"Ally: Error placing market buy, trying again with limit order...")
+                    await ctx.send(
+                        f"Ally: Error placing market buy, trying again with limit order..."
+                    )
                 # Need to get stock price (compare bid, ask, and last)
                 try:
                     # Get stock values
                     quotes = a.quote(
-                    stock,
-                    fields=['bid','ask','last'],
+                        stock,
+                        fields=['bid', 'ask', 'last'],
                     )
                     # Add 1 cent to the highest value of the 3 above
-                    new_price = (max([float(quotes['last']), float(quotes['bid']), float(quotes['ask'])])) + 0.01
+                    new_price = (max([
+                        float(quotes['last']),
+                        float(quotes['bid']),
+                        float(quotes['ask'])
+                    ])) + 0.01
                     # Run function again with limit order
-                    await ally_transaction(a, action, stock, amount, new_price, time, DRY, ctx)
+                    await ally_transaction(a, action, stock, amount, new_price,
+                                           time, DRY, ctx)
                 except Exception as e:
                     print(f"Ally: Failed to place limit order: {e}")
                     if ctx:
-                        await ctx.send(f"Ally: Failed to place limit order: {e}")
+                        await ctx.send(
+                            f"Ally: Failed to place limit order: {e}")
         elif type(price) is not str:
             print(f"Ally: Error placing limit order: {e}")
             if ctx:

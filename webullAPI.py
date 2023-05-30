@@ -7,6 +7,7 @@ from time import sleep
 # from webull import webull
 from dotenv import load_dotenv
 
+
 def webull_init():
     # Disable until login is figured out
     #print("Webull disabled, skipping...")
@@ -14,12 +15,13 @@ def webull_init():
     # Initialize .env file
     load_dotenv()
     # Import Webull account
-    if not os.getenv("WEBULL_USERNAME") or not os.getenv("WEBULL_PASSWORD") or not os.getenv("WEBULL_TRADE_PIN"):
+    if not os.getenv("WEBULL_USERNAME") or not os.getenv(
+            "WEBULL_PASSWORD") or not os.getenv("WEBULL_TRADE_PIN"):
         print("Webull not found, skipping...")
         return None
     WEBULL_USERNAME = os.environ["WEBULL_USERNAME"]
     WEBULL_PASSWORD = os.environ["WEBULL_PASSWORD"]
-    WEBULL_TRADE_PIN = os.environ["WEBULL_TRADE_PIN"]    
+    WEBULL_TRADE_PIN = os.environ["WEBULL_TRADE_PIN"]
     # Log in to Webull account
     print("Logging in to Webull...")
     try:
@@ -31,6 +33,7 @@ def webull_init():
     except Exception as e:
         print(f'Error logging in to Webull: {e}')
         return None
+
 
 async def webull_holdings(wb, ctx=None):
     # Make sure init didn't return None
@@ -56,7 +59,15 @@ async def webull_holdings(wb, ctx=None):
             await ctx.send(f'Error getting holdings on Webull: {e}')
         return None
 
-async def webull_transaction(webull, action, stock, amount, price, time, DRY=True, ctx=None):
+
+async def webull_transaction(webull,
+                             action,
+                             stock,
+                             amount,
+                             price,
+                             time,
+                             DRY=True,
+                             ctx=None):
     print()
     print("==============================")
     print("Webull")
@@ -83,9 +94,12 @@ async def webull_transaction(webull, action, stock, amount, price, time, DRY=Tru
                 if ctx:
                     await ctx.send(f"Bought {amount} of {stock} on Webull")
             except Exception as e:
-                print(f'Error buying 100 shares of {stock} order on Webull: {e}')
+                print(
+                    f'Error buying 100 shares of {stock} order on Webull: {e}')
                 if ctx:
-                    await ctx.send(f'Error buying 100 shares of {stock} order on Webull: {e}')
+                    await ctx.send(
+                        f'Error buying 100 shares of {stock} order on Webull: {e}'
+                    )
                 return None
             # Sell 99 shares
             sleep(5)
@@ -95,9 +109,12 @@ async def webull_transaction(webull, action, stock, amount, price, time, DRY=Tru
                 if ctx:
                     await ctx.send(f"Sold 99 shares of {stock} on Webull")
             except Exception as e:
-                print(f'Error selling 99 shares of {stock} order on Webull: {e}')
+                print(
+                    f'Error selling 99 shares of {stock} order on Webull: {e}')
                 if ctx:
-                    await ctx.send(f'Error selling 99 shares of {stock} order on Webull: {e}')
+                    await ctx.send(
+                        f'Error selling 99 shares of {stock} order on Webull: {e}'
+                    )
                 return None
         try:
             # Buy Market order
@@ -122,10 +139,18 @@ async def webull_transaction(webull, action, stock, amount, price, time, DRY=Tru
             return None
     else:
         if buy100:
-            print(f"Running in DRY mode. Trasaction would've been: Buy 100 of {stock} on Webull, then Sell 99 of {stock} on Webull")
+            print(
+                f"Running in DRY mode. Trasaction would've been: Buy 100 of {stock} on Webull, then Sell 99 of {stock} on Webull"
+            )
             if ctx:
-                await ctx.send(f"Running in DRY mode. Trasaction would've been: Buy 100 of {stock} on Webull, then Sell 99 of {stock} on Webull")
+                await ctx.send(
+                    f"Running in DRY mode. Trasaction would've been: Buy 100 of {stock} on Webull, then Sell 99 of {stock} on Webull"
+                )
         else:
-            print(f"Running in DRY mode. Trasaction would've been: {action} {amount} of {stock} on Webull")
+            print(
+                f"Running in DRY mode. Trasaction would've been: {action} {amount} of {stock} on Webull"
+            )
             if ctx:
-                await ctx.send(f"Running in DRY mode. Trasaction would've been: {action} {amount} of {stock} on Webull")
+                await ctx.send(
+                    f"Running in DRY mode. Trasaction would've been: {action} {amount} of {stock} on Webull"
+                )

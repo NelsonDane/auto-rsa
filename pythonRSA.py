@@ -16,17 +16,21 @@ from tradierAPI import *
 from tastyAPI import *
 
 # List of supported and enabled brokerages
-supported_brokerages = ["all", "ally", "fidelity", "robinhood", "rh", "schwab", "tradier", "tasty", "tastytrade"]
+supported_brokerages = [
+    "all", "ally", "fidelity", "robinhood", "rh", "schwab", "tradier", "tasty",
+    "tastytrade"
+]
 enabled_brokerages = []
 AO = []
 
 # Initialize .env file
 load_dotenv()
 
-
 # Get stock info from command line arguments
 if len(sys.argv) == 1:
-    print("Not enough arguments provided, please see the README for documentation.")
+    print(
+        "Not enough arguments provided, please see the README for documentation."
+    )
     sys.exit(1)
 elif len(sys.argv) > 1 and sys.argv[1] != "holdings":
     wanted_action = sys.argv[1].lower()
@@ -39,10 +43,11 @@ elif len(sys.argv) > 1 and sys.argv[1] != "holdings":
             print("Error: Invalid amount")
             sys.exit(1)
     wanted_stock = sys.argv[3].upper()
-    wanted_time = "day" # Only supports day for now
-    wanted_price = "market" # Only supports market for now
-    # Check if DRY mode is enabled   
-    if ((sys.argv[4].lower()) == "dry" or (sys.argv[4].lower()) == "true") and not (sys.argv[4].lower() in supported_brokerages):
+    wanted_time = "day"  # Only supports day for now
+    wanted_price = "market"  # Only supports market for now
+    # Check if DRY mode is enabled
+    if ((sys.argv[4].lower()) == "dry" or (sys.argv[4].lower())
+            == "true") and not (sys.argv[4].lower() in supported_brokerages):
         DRY = True
         single_broker = "all"
     elif sys.argv[4].lower() in supported_brokerages:
@@ -172,7 +177,8 @@ if should_get_holdings:
         if single_broker == "all":
             for i, a in enumerate(AO):
                 print(f"Getting holdings for {enabled_brokerages[i]}...")
-                asyncio.run(get_holdings(accountName=enabled_brokerages[i], AO=a))
+                asyncio.run(
+                    get_holdings(accountName=enabled_brokerages[i], AO=a))
         else:
             asyncio.run(get_holdings(accountName=single_broker, AO=AO[0]))
         sys.exit(0)
@@ -184,9 +190,21 @@ if should_get_holdings:
 try:
     if single_broker == "all":
         for i, a in enumerate(AO):
-            asyncio.run(place_order(wanted_action, wanted_amount, wanted_stock, single_broker=enabled_brokerages[i], AO=a, DRY=DRY))
+            asyncio.run(
+                place_order(wanted_action,
+                            wanted_amount,
+                            wanted_stock,
+                            single_broker=enabled_brokerages[i],
+                            AO=a,
+                            DRY=DRY))
     else:
-        asyncio.run(place_order(wanted_action, wanted_amount, wanted_stock, single_broker, AO=AO[0], DRY=DRY))
+        asyncio.run(
+            place_order(wanted_action,
+                        wanted_amount,
+                        wanted_stock,
+                        single_broker,
+                        AO=AO[0],
+                        DRY=DRY))
     sys.exit(0)
 # If error, exit with error code
 except Exception as e:

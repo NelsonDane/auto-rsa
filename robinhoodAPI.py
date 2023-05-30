@@ -10,11 +10,13 @@ import pprint
 import pyotp
 from dotenv import load_dotenv
 
+
 def robinhood_init():
     # Initialize .env file
     load_dotenv()
     # Import Robinhood account
-    if not os.getenv("ROBINHOOD_USERNAME") or not os.getenv("ROBINHOOD_PASSWORD"):
+    if not os.getenv("ROBINHOOD_USERNAME") or not os.getenv(
+            "ROBINHOOD_PASSWORD"):
         print("Robinhood not found, skipping...")
         return None
     RH_USERNAME = os.environ["ROBINHOOD_USERNAME"]
@@ -37,6 +39,7 @@ def robinhood_init():
         return None
     print("Logged in to Robinhood!")
     return rh
+
 
 async def robinhood_holdings(rh, ctx=None):
     print()
@@ -64,7 +67,8 @@ async def robinhood_holdings(rh, ctx=None):
                 sym = item['symbol'] = rh.get_symbol_by_url(item['instrument'])
                 qty = float(item['quantity'])
                 try:
-                    current_price = round(float(rh.stocks.get_latest_price(sym)[0]), 2)
+                    current_price = round(
+                        float(rh.stocks.get_latest_price(sym)[0]), 2)
                     total_value = round(qty * current_price, 2)
                 except TypeError as e:
                     if "NoneType" in str(e):
@@ -72,14 +76,23 @@ async def robinhood_holdings(rh, ctx=None):
                         total_value = "N/A"
                 print(f"{sym}: {qty} @ ${(current_price)} = ${total_value}")
                 if ctx:
-                    await ctx.send(f"{sym}: {qty} @ ${(current_price)} = ${total_value}")
+                    await ctx.send(
+                        f"{sym}: {qty} @ ${(current_price)} = ${total_value}")
     except Exception as e:
         print(f'Robinhood: Error getting account holdings: {e}')
         print(traceback.format_exc())
         if ctx:
             await ctx.send(f'Robinhood: Error getting account holdings: {e}')
 
-async def robinhood_transaction(rh, action, stock, amount, price, time, DRY=True, ctx=None):
+
+async def robinhood_transaction(rh,
+                                action,
+                                stock,
+                                amount,
+                                price,
+                                time,
+                                DRY=True,
+                                ctx=None):
     print()
     print("==============================")
     print("Robinhood")
@@ -112,7 +125,8 @@ async def robinhood_transaction(rh, action, stock, amount, price, time, DRY=True
                     # Get account holdings
                     positions = rh.get_open_stock_positions()
                     for item in positions:
-                        sym = item['symbol'] = rh.get_symbol_by_url(item['instrument'])
+                        sym = item['symbol'] = rh.get_symbol_by_url(
+                            item['instrument'])
                         if sym.upper() == stock:
                             amount = float(item['quantity'])
                             break
@@ -128,6 +142,10 @@ async def robinhood_transaction(rh, action, stock, amount, price, time, DRY=True
             if ctx:
                 await ctx.send(f'Robinhood: Error submitting order: {e}')
     else:
-        print(f"Robinhood: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}")
+        print(
+            f"Robinhood: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}"
+        )
         if ctx:
-            await ctx.send(f"Robinhood: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}")
+            await ctx.send(
+                f"Robinhood: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}"
+            )

@@ -14,7 +14,8 @@ from selenium.webdriver.support import expected_conditions
 from webdriver_manager.microsoft import EdgeChromiumDriverManager
 from selenium.webdriver.edge.service import Service
 from selenium.webdriver import Keys
-from selenium.webdriver.support.ui import Select 
+from selenium.webdriver.support.ui import Select
+
 
 def check_if_page_loaded(driver):
     """
@@ -25,6 +26,7 @@ def check_if_page_loaded(driver):
     """
     readystate = driver.execute_script("return document.readyState;")
     return readystate == "complete"
+
 
 def getDriver(DOCKER=False):
     # Init webdriver options
@@ -38,11 +40,13 @@ def getDriver(DOCKER=False):
     # Init webdriver
     os.environ['WDM_LOG'] = str(logging.NOTSET)
     driver = webdriver.Edge(
-        service=Service(EdgeChromiumDriverManager(cache_valid_range=30).install()),
+        service=Service(
+            EdgeChromiumDriverManager(cache_valid_range=30).install()),
         options=options,
     )
     driver.maximize_window()
     return driver
+
 
 def killDriver(driver):
     driver.close()
