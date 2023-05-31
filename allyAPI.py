@@ -149,9 +149,9 @@ def ally_transaction(
                     ctx.send(f"Ally: Order {o.orderid} submitted"), loop=loop
                 )
         else:
-            print(f"Ally: Order not submitted")
+            print("Ally: Order not submitted")
             if ctx and loop:
-                asyncio.ensure_future(ctx.send(f"Ally: Order not submitted"), loop=loop)
+                asyncio.ensure_future(ctx.send("Ally: Order not submitted"), loop=loop)
     except Exception as e:
         ally_call_error = "Error: For your security, certain symbols may only be traded by speaking to an Ally Invest registered representative. Please call 1-855-880-2559 if you need further assistance with this order."
         if "500 server error: internal server error for url:" in str(e).lower():
