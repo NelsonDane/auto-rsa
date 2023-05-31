@@ -151,21 +151,21 @@ def fidelity_holdings(driver, ctx=None, loop=None):
         print("Individual accounts:")
         if ctx and loop:
             asyncio.ensure_future(ctx.send("Individual accounts:"), loop=loop)
-        for x in range(len(ind_num)):
-            print(f"{ind_num[x]} value: {ind_val[x]}")
+        for x, item in enumerate(ind_num):
+            print(f"{item} value: {ind_val[x]}")
             if ctx and loop:
                 asyncio.ensure_future(
-                    ctx.send(f"{ind_num[x]} value: {ind_val[x]}"), loop=loop
+                    ctx.send(f"{item} value: {ind_val[x]}"), loop=loop
                 )
         if ret_acc:
             print("Retirement accounts:")
             if ctx and loop:
                 asyncio.ensure_future(ctx.send("Retirement accounts:"), loop=loop)
-            for x in range(len(ret_num)):
-                print(f"{ret_num[x]} value: {ret_val[x]}")
+            for x, item in enumerate(ret_num):
+                print(f"{item} value: {ret_val[x]}")
                 if ctx and loop:
                     asyncio.ensure_future(
-                        ctx.send(f"{ret_num[x]} value: {ret_val[x]}"), loop=loop
+                        ctx.send(f"{item} value: {ret_val[x]}"), loop=loop
                     )
             # We'll add positions later since that will be hard
     except Exception as e:
@@ -269,10 +269,7 @@ def fidelity_transaction(
                 )
             ).text
             # If price is under $1, then we have to use a limit order
-            if float(ask_price) < 1 or float(bid_price) < 1:
-                LIMIT = True
-            else:
-                LIMIT = False
+            LIMIT = bool(float(ask_price) < 1 or float(bid_price) < 1)
             # Set buy/sell
             if action == "buy":
                 buy_button = driver.find_element(
