@@ -3,7 +3,6 @@
 
 import asyncio
 import os
-import sys
 import traceback
 
 import ally
@@ -164,12 +163,12 @@ def ally_transaction(
             # If the message comes up while buying, then try again with a limit order
             elif action == "buy":
                 print(
-                    f"Ally: Error placing market buy, trying again with limit order..."
+                    "Ally: Error placing market buy, trying again with limit order..."
                 )
                 if ctx and loop:
                     asyncio.ensure_future(
                         ctx.send(
-                            f"Ally: Error placing market buy, trying again with limit order..."
+                            "Ally: Error placing market buy, trying again with limit order..."
                         ),
                         loop=loop,
                     )

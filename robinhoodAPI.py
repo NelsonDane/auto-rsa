@@ -3,7 +3,6 @@
 
 import asyncio
 import os
-import pprint
 import sys
 import traceback
 from time import sleep

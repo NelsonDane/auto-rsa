@@ -1,7 +1,6 @@
 # Nelson Dane
 # API to Interface with Selenium
 
-import logging
 import os
 import sys
 import traceback

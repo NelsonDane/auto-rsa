@@ -109,7 +109,7 @@ def schwab_transaction(
             print("Running in DRY mode. No transactions will be made.")
             if ctx and loop:
                 asyncio.ensure_future(
-                    ctx.send(f"Running in DRY mode. No transactions will be made."),
+                    ctx.send("Running in DRY mode. No transactions will be made."),
                     loop=loop,
                 )
         try:
