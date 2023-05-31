@@ -269,10 +269,7 @@ def fidelity_transaction(
                 )
             ).text
             # If price is under $1, then we have to use a limit order
-            if float(ask_price) < 1 or float(bid_price) < 1:
-                LIMIT = True
-            else:
-                LIMIT = False
+            LIMIT = bool(float(ask_price) < 1 or float(bid_price) < 1)
             # Set buy/sell
             if action == "buy":
                 buy_button = driver.find_element(
