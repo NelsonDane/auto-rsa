@@ -9,9 +9,9 @@ from time import sleep
 
 from dotenv import load_dotenv
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
+from selenium.webdriver import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions
-from selenium.webdriver import Keys
 from selenium.webdriver.support.wait import WebDriverWait
 
 from seleniumAPI import *
