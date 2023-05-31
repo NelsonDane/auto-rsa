@@ -1,15 +1,16 @@
 # Nelson Dane
 # Robinhood API
 
+import asyncio
 import os
 import sys
 import traceback
-import robin_stocks.robinhood as rh
 from time import sleep
-import pprint
-import asyncio
+
 import pyotp
+import robin_stocks.robinhood as rh
 from dotenv import load_dotenv
+
 
 def robinhood_init():
     # Initialize .env file
@@ -39,6 +40,7 @@ def robinhood_init():
     print("Logged in to Robinhood!")
     return rh
 
+
 def robinhood_holdings(rh, ctx=None, loop=None):
     print()
     print("==============================")
@@ -62,8 +64,8 @@ def robinhood_holdings(rh, ctx=None, loop=None):
                 asyncio.ensure_future(ctx.send("Holdings in Robinhood:"), loop=loop)
             for item in positions:
                 # Get symbol, quantity, price, and total value
-                sym = item['symbol'] = rh.get_symbol_by_url(item['instrument'])
-                qty = float(item['quantity'])
+                sym = item["symbol"] = rh.get_symbol_by_url(item["instrument"])
+                qty = float(item["quantity"])
                 try:
                     current_price = round(float(rh.stocks.get_latest_price(sym)[0]), 2)
                     total_value = round(qty * current_price, 2)
@@ -73,14 +75,22 @@ def robinhood_holdings(rh, ctx=None, loop=None):
                         total_value = "N/A"
                 print(f"{sym}: {qty} @ ${(current_price)} = ${total_value}")
                 if ctx and loop:
-                    asyncio.ensure_future(ctx.send(f"{sym}: {qty} @ ${(current_price)} = ${total_value}"), loop=loop)
+                    asyncio.ensure_future(
+                        ctx.send(f"{sym}: {qty} @ ${(current_price)} = ${total_value}"),
+                        loop=loop,
+                    )
     except Exception as e:
-        print(f'Robinhood: Error getting account holdings: {e}')
+        print(f"Robinhood: Error getting account holdings: {e}")
         print(traceback.format_exc())
         if ctx and loop:
-            asyncio.ensure_future(ctx.send(f'Robinhood: Error getting account holdings: {e}'), loop=loop)
+            asyncio.ensure_future(
+                ctx.send(f"Robinhood: Error getting account holdings: {e}"), loop=loop
+            )
 
-def robinhood_transaction(rh, action, stock, amount, price, time, DRY=True, ctx=None, loop=None):
+
+def robinhood_transaction(
+    rh, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
+):
     print()
     print("==============================")
     print("Robinhood")
@@ -106,29 +116,42 @@ def robinhood_transaction(rh, action, stock, amount, price, time, DRY=True, ctx=
                 rh.order_buy_market(stock, amount)
                 print(f"Robinhood: Bought {amount} of {stock}")
                 if ctx and loop:
-                    asyncio.ensure_future(ctx.send(f"Robinhood: Bought {amount} of {stock}"), loop=loop)
+                    asyncio.ensure_future(
+                        ctx.send(f"Robinhood: Bought {amount} of {stock}"), loop=loop
+                    )
             # Sell Market order
             elif action == "sell":
                 if all_amount:
                     # Get account holdings
                     positions = rh.get_open_stock_positions()
                     for item in positions:
-                        sym = item['symbol'] = rh.get_symbol_by_url(item['instrument'])
+                        sym = item["symbol"] = rh.get_symbol_by_url(item["instrument"])
                         if sym.upper() == stock:
-                            amount = float(item['quantity'])
+                            amount = float(item["quantity"])
                             break
                 rh.order_sell_market(stock, amount)
                 print(f"Robinhood: Sold {amount} of {stock}")
                 if ctx and loop:
-                    asyncio.ensure_future(ctx.send(f"Robinhood: Sold {amount} of {stock}"), loop=loop)
+                    asyncio.ensure_future(
+                        ctx.send(f"Robinhood: Sold {amount} of {stock}"), loop=loop
+                    )
             else:
                 print("Error: Invalid action")
                 return None
         except Exception as e:
-            print(f'Robinhood: Error submitting order: {e}')
+            print(f"Robinhood: Error submitting order: {e}")
             if ctx and loop:
-                asyncio.ensure_future(ctx.send(f'Robinhood: Error submitting order: {e}'), loop=loop)
+                asyncio.ensure_future(
+                    ctx.send(f"Robinhood: Error submitting order: {e}"), loop=loop
+                )
     else:
-        print(f"Robinhood: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}")
+        print(
+            f"Robinhood: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}"
+        )
         if ctx and loop:
-            asyncio.ensure_future(ctx.send(f"Robinhood: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}"), loop=loop)
+            asyncio.ensure_future(
+                ctx.send(
+                    f"Robinhood: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}"
+                ),
+                loop=loop,
+            )
