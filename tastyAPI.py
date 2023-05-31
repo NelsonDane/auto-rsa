@@ -190,8 +190,7 @@ async def tastytrade_transaction(
     print()
     # Streamer takes a list for an argument
     json_response = {}
-    stock_list = []
-    stock_list.append(stock)
+    stock_list = [stock]
     action = action.lower()
     stock = stock.upper()
     if amount == "all" and action == "sell":
