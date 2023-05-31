@@ -34,7 +34,7 @@ RUN apt-get update && apt-get install -y microsoft-edge-stable && rm -rf /var/li
 
 # Install python dependencies
 COPY ./requirements.txt .
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Install playwright
 RUN playwright install
