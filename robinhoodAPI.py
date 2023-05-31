@@ -3,9 +3,7 @@
 
 import asyncio
 import os
-import sys
 import traceback
-from time import sleep
 
 import pyotp
 import robin_stocks.robinhood as rh

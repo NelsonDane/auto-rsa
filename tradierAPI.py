@@ -187,8 +187,6 @@ def tradier_transaction(
                 },
             )
             json_response = response.json()
-            # print(response.status_code)
-            # print(json_response)
             try:
                 if json_response["order"]["status"] == "ok":
                     print(

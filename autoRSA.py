@@ -124,7 +124,7 @@ def argParser(args):
     orderObj = stockOrder()
     for arg in args:
         arg = arg.lower()
-        if "docker" == arg:
+        if arg == "docker":
             docker = True
             print("Running in docker mode")
         # Exclusions
