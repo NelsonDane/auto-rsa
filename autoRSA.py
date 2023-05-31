@@ -39,18 +39,7 @@ def nicknames(broker):
 
 # Class to hold stock order information and login objects
 class stockOrder:
-    def __init__(
-        self,
-        action="NONE",
-        amount="1",
-        stock="NONE",
-        time="day",
-        price="market",
-        brokers=None,
-        notbrokers="NONE",
-        dry=True,
-        holdings=False,
-    ):
+    def __init__(self):        
         self.action = None  # Buy or sell
         self.amount = None  # Amount of shares to buy/sell
         self.stock = None  # Stock ticker

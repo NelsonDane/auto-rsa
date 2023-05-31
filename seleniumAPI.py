@@ -1,19 +1,8 @@
 # Nelson Dane
 # API to Interface with Selenium
 
-import os
-import sys
-import traceback
-from time import sleep
-
-from dotenv import load_dotenv
 from selenium import webdriver
-from selenium.webdriver import Keys
-from selenium.webdriver.common.by import By
 from selenium.webdriver.edge.service import Service
-from selenium.webdriver.support import expected_conditions
-from selenium.webdriver.support.ui import Select
-from selenium.webdriver.support.wait import WebDriverWait
 from webdriver_manager.microsoft import EdgeChromiumDriverManager
 
 
