@@ -57,8 +57,7 @@ async def day_trade_check(session, acct, cash_balance):
             )
         if int(data["day-trade-count"]) > 3:
             return False
-        else:
-            return True
+        return True
     else:
         return True
 

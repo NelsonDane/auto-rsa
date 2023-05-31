@@ -31,10 +31,9 @@ DOCKER_MODE = False
 def nicknames(broker):
     if broker == "rh":
         return "robinhood"
-    elif broker == "tasty":
+    if broker == "tasty":
         return "tastytrade"
-    else:
-        return broker
+    return broker
 
 
 # Class to hold stock order information and login objects
