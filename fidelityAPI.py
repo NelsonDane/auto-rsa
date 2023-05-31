@@ -53,7 +53,7 @@ def fidelity_init(DOCKER=False):
         WebDriverWait(driver, 10).until(check_if_page_loaded)
         sleep(3)
         # Wait for page to load to summary page
-        if not "summary" in driver.current_url:
+        if "summary" not in driver.current_url:
             WebDriverWait(driver, 60).until(expected_conditions.url_contains("summary"))
         # Make sure fidelity site is not in beta view
         try:
@@ -68,7 +68,7 @@ def fidelity_init(DOCKER=False):
             driver.find_element(by=By.CSS_SELECTOR, value="#optout-btn").click()
             WebDriverWait(driver, 10).until(check_if_page_loaded)
             # Wait for page to be in old view
-            if not "oltx" in driver.current_url:
+            if "oltx" not in driver.current_url:
                 WebDriverWait(driver, 60).until(
                     expected_conditions.url_contains("oltx")
                 )
