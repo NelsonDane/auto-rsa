@@ -82,12 +82,14 @@ def ally_holdings(a, ctx=None, loop=None):
                 # Set index for easy use
                 i = account_symbols.index(symbol)
                 print(
-                    f"{symbol}: {float(qty[i])} @ ${round(float(current_price[i]), 2)} = ${round(float(qty[i]) * float(current_price[i]), 2)}"
+                    f"{symbol}: {float(qty[i])} @ ${round(float(current_price[i]), 2)} \
+                    = ${round(float(qty[i]) * float(current_price[i]), 2)}"
                 )
                 if ctx and loop:
                     asyncio.ensure_future(
                         ctx.send(
-                            f"{symbol}: {float(qty[i])} @ ${round(float(current_price[i]), 2)} = ${round(float(qty[i]) * float(current_price[i]), 2)}"
+                            f"{symbol}: {float(qty[i])} @ ${round(float(current_price[i]), 2)} \
+                            = ${round(float(qty[i]) * float(current_price[i]), 2)}"
                         ),
                         loop=loop,
                     )
@@ -133,12 +135,14 @@ def ally_transaction(
             a.submit(o, preview=False)
         else:
             print(
-                f"Ally: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}"
+                f"Ally: Running in DRY mode. \
+                Trasaction would've been: {action} {amount} of {stock}"
             )
             if ctx and loop:
                 asyncio.ensure_future(
                     ctx.send(
-                        f"Ally: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}"
+                        f"Ally: Running in DRY mode. \
+                        Trasaction would've been: {action} {amount} of {stock}"
                     ),
                     loop=loop,
                 )
@@ -153,7 +157,9 @@ def ally_transaction(
             if ctx and loop:
                 asyncio.ensure_future(ctx.send("Ally: Order not submitted"), loop=loop)
     except Exception as e:
-        ally_call_error = "Error: For your security, certain symbols may only be traded by speaking to an Ally Invest registered representative. Please call 1-855-880-2559 if you need further assistance with this order."
+        ally_call_error = "Error: For your security, certain symbols may only be traded \
+            by speaking to an Ally Invest registered representative. \
+            Please call 1-855-880-2559 if you need further assistance with this order."
         if "500 server error: internal server error for url:" in str(e).lower():
             # If selling too soon, then an error is thrown
             if action == "sell":
@@ -168,7 +174,8 @@ def ally_transaction(
                 if ctx and loop:
                     asyncio.ensure_future(
                         ctx.send(
-                            "Ally: Error placing market buy, trying again with limit order..."
+                            "Ally: Error placing market buy, \
+                            trying again with limit order..."
                         ),
                         loop=loop,
                     )
