@@ -1,20 +1,22 @@
 # Nelson Dane
 # API to Interface with Selenium
 
+import logging
 import os
 import sys
-import logging
 import traceback
 from time import sleep
+
 from dotenv import load_dotenv
 from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.wait import WebDriverWait
-from selenium.webdriver.support import expected_conditions
-from webdriver_manager.microsoft import EdgeChromiumDriverManager
-from selenium.webdriver.edge.service import Service
 from selenium.webdriver import Keys
-from selenium.webdriver.support.ui import Select 
+from selenium.webdriver.common.by import By
+from selenium.webdriver.edge.service import Service
+from selenium.webdriver.support import expected_conditions
+from selenium.webdriver.support.ui import Select
+from selenium.webdriver.support.wait import WebDriverWait
+from webdriver_manager.microsoft import EdgeChromiumDriverManager
+
 
 def check_if_page_loaded(driver):
     """
@@ -25,6 +27,7 @@ def check_if_page_loaded(driver):
     """
     readystate = driver.execute_script("return document.readyState;")
     return readystate == "complete"
+
 
 def getDriver(DOCKER=False):
     # Init webdriver options
@@ -41,6 +44,7 @@ def getDriver(DOCKER=False):
     )
     driver.maximize_window()
     return driver
+
 
 def killDriver(driver):
     print("Killed Selenium driver")

@@ -5,11 +5,11 @@
 # Custom API libraries
 from allyAPI import *
 from fidelityAPI import *
-from seleniumAPI import *
 from robinhoodAPI import *
 from schwabAPI import *
-from tradierAPI import *
+from seleniumAPI import *
 from tastyAPI import *
+from tradierAPI import *
 
 # Initialize .env file
 load_dotenv()
