@@ -17,7 +17,7 @@ def day_trade_check(tt, acct, cash_balance):
     day_trade_count = trading_status.day_trade_count
     if acct.margin_or_cash == 'Margin' and cash_balance <= 25000:
         print(f"Tastytrade account {acct.account_number}: day trade count is {day_trade_count}.")
-        return False if day_trade_count > 3 else True
+        return bool(day_trade_count > 3)
     return True
 
 
