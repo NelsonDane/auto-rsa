@@ -113,11 +113,11 @@ def tastytrade_holdings(tt, ctx, loop=None):
             print(message)
             if ctx and loop:
                 asyncio.ensure_future(ctx.send(message), loop=loop)
-        message = f'Account cash balance is {cash_balance}.'
+        message = f'Account cash balance is ${round(float(cash_balance), 2)}.'
         print(message)
         if ctx and loop:
             asyncio.ensure_future(ctx.send(message), loop=loop)
-    message = f'All accounts cash balance is {all_account_balance}.'
+    message = f'All accounts cash balance is ${round(float(all_account_balance), 2)}.'
     print(message)
     if ctx and loop:
         asyncio.ensure_future(ctx.send(message), loop=loop)
