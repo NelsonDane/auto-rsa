@@ -4,7 +4,22 @@
 from selenium import webdriver
 from selenium.webdriver.edge.service import Service
 from webdriver_manager.microsoft import EdgeChromiumDriverManager
+from time import sleep
 
+def type_slowly(element, string, delay=0.3):
+    """
+    Type a string into an element, one character at a time
+    :param element:
+    Selenium WebElement instance
+    :param string:
+    String to type
+    :param delay:
+    Delay between each character
+    :return:
+    """
+    for character in string:
+        element.send_keys(character)
+        sleep(delay)
 
 def check_if_page_loaded(driver):
     """
