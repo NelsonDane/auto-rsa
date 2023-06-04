@@ -7,15 +7,11 @@ RSA stands for "Reverse Split Arbitrage." This is a strategy where you buy the s
 This project will allow you to maximize your profits by being able to easily manage multiple accounts across different brokerages, buying and selling as needed.
 
 ## Discord Bot Installation
+To create your Discord bot and get your `DISCORD_TOKEN`, follow this [guide](guides/discordBot.md).
 ### Docker
-View on [Docker Hub](https://hub.docker.com/repository/docker/nelsondane/auto-rsa)
-<!-- 1. Clone the repo and cd into it -->
-1. Create a `.env` file for your brokerage variables, and add your bot using `DISCORD_TOKEN` and `DISCORD_CHANNEL`
-2. Then run:
-```bash
- docker run --env-file ./.env -itd --restart unless-stopped --name rsa nelsondane/auto-rsa:latest
-```
-4. The bot should appear online (You can also do `!ping` to check). 
+1. Create a `.env` file for your brokerage variables using [.env.example](.env.example) as a template, and add your bot using `DISCORD_TOKEN` and `DISCORD_CHANNEL`
+2. Using the provided [docker-compose.yml](docker-compose.yml) file, run `docker compose up -d`
+3. The bot should appear online (You can also do `!ping` to check). 
 
 See below for more command explanations.
 
@@ -23,71 +19,60 @@ See below for more command explanations.
 Make sure python3-pip is installed
 1. Clone this repository and cd into it
 2. Run `pip install -r requirements.txt`
-3. Create a `.env` file for your brokerage variables using [.env.example](https://github.com/NelsonDane/auto-rsa/blob/main/.env.example) as a template, and add your bot using `DISCORD_TOKEN` and `DISCORD_CHANNEL`
+3. Create a `.env` file for your brokerage variables using [.env.example](.env.example) as a template, and add your bot using `DISCORD_TOKEN` and `DISCORD_CHANNEL`
 4. Run `python autoRSA.py` (See below for more command explanations)
 
 ## CLI Tool Installation
 1. Clone this repository and cd into it
 2. Run `pip install -r requirements.txt`
-3. Create a `.env` file for your brokerage variables using [.env.example](https://github.com/NelsonDane/auto-rsa/blob/main/.env.example) as a template.
+3. Create a `.env` file for your brokerage variables using [.env.example](.env.example) as a template.
 4. Run the script using `python pythonRSA.py <action> <amount> <ticker> <account> <dry>` (See below for more parameter explanations)
 
 ## Usage
-### Discord Bot
-Once the bot is invited to your server, you can check that it's running by sending:
+If running as a Discord bot, append `!rsa` to the beginning of each command.
+If running from the CLI tool, append `python autoRSA.py` to the beginning of each command.
 
-`!ping`
-
-To buy and sell stocks, just send a message of this format in discord:
-
-`!rsa <action> <amount> <ticker> <account> <dry>`
+To buy and sell stocks, use this command:
+`<action> <amount> <ticker> <account> <dry>`
 
 For example, to buy 1 STAF in all accounts:
 
-`!rsa buy 1 STAF all false`
+`buy 1 STAF all false`
 
 For a dry run of the above command in Robinhood only:
 
-`!rsa buy 1 STAF robinhood true`
+`buy 1 STAF robinhood true`
 
 To check your account holdings:
 
-`!holdings <account>`
+`holdings <account>`
 
-To restart the bot:
+To restart the Discord bot:
 
-`!restart`
+`!restart` (without appending `!rsa`)
 
 For help:
 
-`!help`
-
-### CLI Tool:
-To buy and sell stocks, just this command when in the repo directory:
-
-`python pythonRSA.py <action> <amount> <ticker> <account> <dry>`
-
-For example, to buy 1 STAF in all accounts:
-
-`python pythonRSA.py buy 1 STAF all false`
-
-For a dry run of the above command in Robinhood only:
-
-`python pythonRSA.py buy 1 STAF robinhood true`
-
-To check individual account holdings:
-
-`python pythonRSA.py holdings <account>`
+`!help` (without appending `!rsa`)
 
 ### Parameters
-- `<action>`: "buy" or "sell"
-- `<amount>`: Amount to buy or sell. Must be an integer
-- `<ticker>`: The stock ticker to buy or sell
-- `<account>`: What brokerage to run command in (robinhood, schwab, etc, or all)
-- `<dry>`: Whether to run in "dry" mode (in which no transactions are made, useful for testing). Set to True, False, or just write "dry" for True. Defaults to True, so if you want to run a real transaction, you must set this to False/dry.
+- `<action>`: string, "buy" or "sell"
+- `<amount>`: integer, Amount to buy or sell.
+- `<ticker>`: string, The stock ticker to buy or sell
+- `<account>`: string, What brokerage to run command in (robinhood, schwab, etc, or all)
+- `<dry>`: boolean, Whether to run in `dry` mode (in which no transactions are made. Useful for testing). Set to `True`, `False`, or just write `dry` for`True`. Defaults to `True`, so if you want to run a real transaction, you must set this explicitly.
 
-### Test Login
-To test your login credentials, run `python testLogin.py`. This will show whether it detected your login credentials correctly, and attempt to login to each brokerage. If you wish for you `.env` variables to be shown, run `python testLogin.py show`.
+### Testing your Login Credentials
+To test your login credentials, run `python testLogin.py`. This will print all your `.env` variables and attempt to log in to each brokerage. If you get an error, check your `.env` variables and try again. This prints everything in plain text, so don't share the output with anyone!
+
+## Contributing
+Found or fixed a bug? Have a feature request? Want to add support for a new brokerage? Feel free to open an issue or pull request!
+
+Is someone selling a ripoff of this bot? (Looking at you OSU freshmen). Get it from here and contribute to open source!
+
+Like what you see? Feel free to support me on Ko-Fi! [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/X8X6LFCI0)
+## DISCLAIMER
+DISCLAIMER: I am not a financial advisor and not affiliated with any of the brokerages listed below. Use this tool at your own risk. I am not responsible for any losses or damages you may incur by using this project. This tool is provided as-is with no warranty.
 
 ## Supported brokerages:
 ### Ally
@@ -100,7 +85,7 @@ Required `.env` variables:
 - ALLY_OAUTH_SECRET
 - ALLY_ACCOUNT_NBR
 
-To get these, follow [these instructions](https://alienbrett.github.io/PyAlly/installing.html#get-the-library)
+To get these, follow [these instructions](https://alienbrett.github.io/PyAlly/installing.html#get-the-library).
 
 ### Fidelity
 Made by yours truly using Selenium (and many hours of web scraping).
@@ -108,8 +93,6 @@ Made by yours truly using Selenium (and many hours of web scraping).
 Required `.env` variables:
 - FIDELITY_USERNAME
 - FIDELITY_PASSWORD
-
-At this time, the bot only works using the `old view` Fidelity site. The bot will attempt to switch to the `old view` if it detects you are on the `beta view`, but if you encounter issues, you may need to switch to the `old view` manually.
 
 ### Robinhood
 Made using [robin_stocks](https://github.com/jmfernandes/robin_stocks). Go give them a ⭐
@@ -119,7 +102,7 @@ Required `.env` variables:
 - ROBINHOOD_PASSWORD
 - ROBINHOOD_TOTP: If 2fa enabled
 
-Configuring 2fa can be tricky, read the TOTP section [here](https://github.com/jmfernandes/robin_stocks/blob/master/Robinhood.rst)
+Configuring 2fa can be tricky, read the TOTP section [here](https://github.com/jmfernandes/robin_stocks/blob/master/Robinhood.rst).
 
 ### Schwab
 Made using the [schwab-api](https://github.com/itsjafer/schwab-api). Go give them a ⭐
@@ -129,18 +112,18 @@ Required `.env` variables:
 - SCHWAB_PASSWORD=
 - SCHWAB_TOTP_SECRET= (If 2fa is enabled)
 
-To get your TOTP secret, use [this website by the api author above.](https://itsjafer.com/#/schwab). Then log in to your Schwab account, and use the code for 2FA.
+To get your TOTP secret, follow this [guide](guides/schwabSetup.md).
 
 ### Tradier
-Made by yours truly using the official [Tradier API](https://documentation.tradier.com/brokerage-api/trading/getting-started)
+Made by yours truly using the official [Tradier API](https://documentation.tradier.com/brokerage-api/trading/getting-started). Consider giving me a ⭐
 
 Required `.env` variables:
 - TRADIER_ACCESS_TOKEN
 
-To get your access token, go to your [Tradier API settings](https://dash.tradier.com/settings/api)
+To get your access token, go to your [Tradier API settings](https://dash.tradier.com/settings/api).
 
 ### Tastytrade
-Made by [MaxxRK](https://github.com/MaxxRK/) using the [tastytrade-api](https://github.com/tastyware/tastytrade) 
+Made by [MaxxRK](https://github.com/MaxxRK/) using the [tastytrade-api](https://github.com/tastyware/tastytrade). Go give them a ⭐
 
 Required `.env` variables:
 - TASTYTRADE_USERNAME
