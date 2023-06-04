@@ -206,7 +206,8 @@ if __name__ == "__main__":
         if DISCORD_CHANNEL:
             DISCORD_CHANNEL = int(DISCORD_CHANNEL)
         # Initialize discord bot
-        intents = discord.Intents.all()  # TODO: Change this to only the intents we need
+        intents = discord.Intents.default()
+        intents.message_content = True
         # Discord bot command prefix
         bot = commands.Bot(command_prefix="!", intents=intents)
         bot.remove_command("help")
