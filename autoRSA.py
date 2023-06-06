@@ -55,6 +55,8 @@ class stockOrder:
     def fun_run(self, type, ctx=None, loop=None):
         if "all" in self.brokers:
             self.brokers = SUPPORTED_BROKERS
+            for broker in self.notbrokers:
+                self.brokers.remove(broker)
         if type in ["_init", "_holdings", "_transaction"]:
             for index, broker in enumerate(self.brokers):
                 if broker in self.notbrokers:
