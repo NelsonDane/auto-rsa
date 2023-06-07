@@ -6,7 +6,7 @@ pyally
 pyotp
 python-dotenv
 requests
-robin_stocks
+robin_stocks==2.1.0
 schwab-api
 selenium
 tastytrade
