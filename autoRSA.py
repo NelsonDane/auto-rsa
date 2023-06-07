@@ -53,10 +53,6 @@ class stockOrder:
     # Runs the specified function for each broker in the list
     # broker name + type of function
     def fun_run(self, type, ctx=None, loop=None):
-        if "all" in self.brokers:
-            self.brokers = SUPPORTED_BROKERS
-            for broker in self.notbrokers:
-                self.brokers.remove(broker)
         if type in ["_init", "_holdings", "_transaction"]:
             for index, broker in enumerate(self.brokers):
                 if broker in self.notbrokers:
@@ -129,23 +125,26 @@ def argParser(args):
             docker = True
             print("Running in docker mode")
         # Exclusions
-        elif arg in ["not", "but", "except", "exclude", "excluding"]:
+        elif arg == "not":
             next_arg = nicknames(args[args.index(arg) + 1]).split(",")
             for broker in next_arg:
-                if broker in SUPPORTED_BROKERS:
-                    orderObj.notbrokers.append(broker)
+                if nicknames(broker) in SUPPORTED_BROKERS:
+                    orderObj.notbrokers.append(nicknames(broker))
         elif arg in ["buy", "sell"]:
             orderObj.action = arg
         elif arg.isnumeric():
             orderObj.amount = int(arg)
         elif arg == "false":
             orderObj.dry = False
-        # Check nicknames, or if all, and not in notbrokers
-        elif (nicknames(arg.split(",")[0]) in SUPPORTED_BROKERS or arg == "all") and (
-            nicknames(arg.split(",")[0]) not in orderObj.notbrokers
-        ):
+        # If first item of list is a broker, it must be a list of brokers
+        elif nicknames(arg.split(",")[0]) in SUPPORTED_BROKERS:
             for broker in arg.split(","):
-                orderObj.brokers.append(nicknames(broker))
+                # Add broker if it is valid and not in notbrokers
+                if nicknames(broker) in SUPPORTED_BROKERS and nicknames(broker) not in orderObj.notbrokers:
+                    orderObj.brokers.append(nicknames(broker))
+        elif arg == "all":
+            if "all" not in orderObj.brokers and orderObj.brokers == []:
+                orderObj.brokers = SUPPORTED_BROKERS
         elif arg == "holdings":
             orderObj.holdings = True
         elif (
@@ -154,6 +153,13 @@ def argParser(args):
             and orderObj.stock is None
         ):
             orderObj.stock = arg.upper()
+    # Remove duplicates
+    orderObj.brokers = list(dict.fromkeys(orderObj.brokers))
+    orderObj.notbrokers = list(dict.fromkeys(orderObj.notbrokers))
+    # Remove notbrokers from brokers
+    for broker in orderObj.notbrokers:
+        if broker in orderObj.brokers:
+            orderObj.brokers.remove(broker)
     return orderObj, docker
 
 
