@@ -26,14 +26,15 @@ Make sure python3-pip is installed
 1. Clone this repository and cd into it
 2. Run `pip install -r requirements.txt`
 3. Create a `.env` file for your brokerage variables using [.env.example](.env.example) as a template.
-4. Run the script using `python pythonRSA.py <action> <amount> <ticker> <account> <dry>` (See below for more parameter explanations)
+4. Run the script using `python pythonRSA.py <action> <amount> <ticker> <accounts> <dry>` (See below for more parameter explanations)
 
 ## Usage
 If running as a Discord bot, append `!rsa` to the beginning of each command.
 If running from the CLI tool, append `python autoRSA.py` to the beginning of each command.
 
 To buy and sell stocks, use this command:
-`<action> <amount> <ticker> <account> <dry>`
+
+`<action> <amount> <ticker> <accounts> <dry>`
 
 For example, to buy 1 STAF in all accounts:
 
@@ -43,9 +44,13 @@ For a dry run of the above command in Robinhood only:
 
 `buy 1 STAF robinhood true`
 
+For a real run on Ally and Robinhood, but not Schwab:
+
+`buy 1 STAF ally,robinhood not schwab false`
+
 To check your account holdings:
 
-`holdings <account>`
+`holdings <accounts>`
 
 To restart the Discord bot:
 
@@ -59,11 +64,17 @@ For help:
 - `<action>`: string, "buy" or "sell"
 - `<amount>`: integer, Amount to buy or sell.
 - `<ticker>`: string, The stock ticker to buy or sell
-- `<account>`: string, What brokerage to run command in (robinhood, schwab, etc, or all)
+- `<accounts>`: string, What brokerage to run command in (robinhood, schwab, etc, or all). Separate multiple brokerages with commas.
+- `<not accounts>`: string proceeding `not`, What brokerages to exclude from command. Separate multiple brokerages with commas.
 - `<dry>`: boolean, Whether to run in `dry` mode (in which no transactions are made. Useful for testing). Set to `True`, `False`, or just write `dry` for`True`. Defaults to `True`, so if you want to run a real transaction, you must set this explicitly.
 
 ### Testing your Login Credentials
 To test your login credentials, run `python testLogin.py`. This will print all your `.env` variables and attempt to log in to each brokerage. If you get an error, check your `.env` variables and try again. This prints everything in plain text, so don't share the output with anyone!
+
+### Guides
+More detailed guides for some of the difficult setups:
+- [Discord Bot Setup](guides/discordBot.md)
+- [Schwab 2FA Setup](guides/schwabSetup.md)
 
 ## Contributing
 Found or fixed a bug? Have a feature request? Want to add support for a new brokerage? Feel free to open an issue or pull request!
