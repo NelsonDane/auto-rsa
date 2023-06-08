@@ -130,8 +130,7 @@ async def tastytrade_execute(tt, action, stock, amount, price, time, DRY=True, c
     print("==============================")
     print()
     # Streamer takes a list for an argument
-    stock_list = []
-    stock_list.append(stock)
+    stock_list = [stock]
     action = action.lower()
     stock = stock.upper()
     if amount == "all" and action == "sell":

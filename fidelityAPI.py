@@ -110,10 +110,10 @@ def fidelity_holdings(driver, ctx=None, loop=None):
             )
         # Get value of individual and retirement accounts
         ind_accounts = driver.find_elements(
-            by=By.CSS_SELECTOR, value="#Investment\ Accounts"
+            by=By.CSS_SELECTOR, value=r"#Investment\ Accounts"
         )
         ret_accounts = driver.find_elements(
-            by=By.CSS_SELECTOR, value="#Retirement\ Accounts"
+            by=By.CSS_SELECTOR, value=r"#Retirement\ Accounts"
         )
         # Get text from elements
         account_list = ind_accounts[0].text.replace("\n", " ").split(" ")[1::5]
@@ -147,7 +147,6 @@ def fidelity_holdings(driver, ctx=None, loop=None):
             # We'll add positions later since that will be hard
     except Exception as e:
         print(f"Error getting holdings: {e}")
-        input()
         print(traceback.format_exc())
 
 
