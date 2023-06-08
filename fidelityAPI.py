@@ -70,7 +70,9 @@ def fidelity_init(DOCKER=False):
                 WebDriverWait(driver, 10).until(check_if_page_loaded)
                 print("Disabled old view!")
         except (TimeoutException, NoSuchElementException):
-            print("Failed to disable old view! This might cause issues but maybe not...")
+            print(
+                "Failed to disable old view! This might cause issues but maybe not..."
+            )
         sleep(3)
         print("Logged in to Fidelity!")
     except Exception as e:
@@ -100,7 +102,7 @@ def fidelity_holdings(driver, ctx=None, loop=None):
         # Get total account value
         total_value = driver.find_elements(
             by=By.CSS_SELECTOR,
-            value="body > ap143528-portsum-dashboard-root > dashboard-root > div > div.account-selector__outer-box.account-selector__outer-box--expand-in-pc > accounts-selector > nav > div.acct-selector__acct-list > pvd3-link > s-root > span > a > span > s-slot > s-assigned-wrapper > div > div > div > span:nth-child(2)"
+            value="body > ap143528-portsum-dashboard-root > dashboard-root > div > div.account-selector__outer-box.account-selector__outer-box--expand-in-pc > accounts-selector > nav > div.acct-selector__acct-list > pvd3-link > s-root > span > a > span > s-slot > s-assigned-wrapper > div > div > div > span:nth-child(2)",
         )
         print(f"Total Fidelity account value: {total_value[0].text}")
         if ctx and loop:
@@ -131,9 +133,7 @@ def fidelity_holdings(driver, ctx=None, loop=None):
         for x, item in enumerate(account_list):
             print(f"{item} value: {values[x]}")
             if ctx and loop:
-                asyncio.ensure_future(
-                    ctx.send(f"{item} value: {values[x]}"), loop=loop
-                )
+                asyncio.ensure_future(ctx.send(f"{item} value: {values[x]}"), loop=loop)
         if ret_acc:
             print("Retirement accounts:")
             if ctx and loop:
