@@ -136,13 +136,13 @@ def ally_transaction(
             a.submit(o, preview=False)
         else:
             print(
-                f"Ally: Running in DRY mode."
+                "Ally: Running in DRY mode."
                 + f"Trasaction would've been: {action} {amount} of {stock}"
             )
             if ctx and loop:
                 asyncio.ensure_future(
                     ctx.send(
-                        f"Ally: Running in DRY mode."
+                        "Ally: Running in DRY mode."
                         + f"Trasaction would've been: {action} {amount} of {stock}"
                     ),
                     loop=loop,
