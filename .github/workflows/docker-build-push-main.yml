@@ -10,6 +10,7 @@ jobs:
     uses: NelsonDane/DockerHub-Actions/.github/workflows/dockerhub_build_push.yml@main
     with:
       dockerhub_repo_name: auto-rsa
+      should_push: ${{ github.ref == 'refs/heads/main' }}
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
