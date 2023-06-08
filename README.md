@@ -13,8 +13,6 @@ To create your Discord bot and get your `DISCORD_TOKEN`, follow this [guide](gui
 2. Using the provided [docker-compose.yml](docker-compose.yml) file, run `docker compose up -d`
 3. The bot should appear online (You can also do `!ping` to check). 
 
-See below for more command explanations.
-
 ### Always Running Python Script
 Make sure python3-pip is installed
 1. Clone this repository and cd into it
@@ -26,11 +24,11 @@ Make sure python3-pip is installed
 1. Clone this repository and cd into it
 2. Run `pip install -r requirements.txt`
 3. Create a `.env` file for your brokerage variables using [.env.example](.env.example) as a template.
-4. Run the script using `python pythonRSA.py <action> <amount> <ticker> <accounts> <dry>` (See below for more parameter explanations)
+4. Run the script using `python pythonRSA.py` plus the command you want to run (See below for more command explanations)
 
 ## Usage
 If running as a Discord bot, append `!rsa` to the beginning of each command.
-If running from the CLI tool, append `python autoRSA.py` to the beginning of each command.
+If running from the CLI Tool, append `python autoRSA.py` to the beginning of each command.
 
 To buy and sell stocks, use this command:
 
@@ -119,9 +117,9 @@ Configuring 2fa can be tricky, read the TOTP section [here](https://github.com/j
 Made using the [schwab-api](https://github.com/itsjafer/schwab-api). Go give them a ⭐
 
 Required `.env` variables:
-- SCHWAB_USERNAME=
-- SCHWAB_PASSWORD=
-- SCHWAB_TOTP_SECRET= (If 2fa is enabled)
+- SCHWAB_USERNAME
+- SCHWAB_PASSWORD
+- SCHWAB_TOTP_SECRET (Optional, if 2fa is enabled)
 
 To get your TOTP secret, follow this [guide](guides/schwabSetup.md).
 
