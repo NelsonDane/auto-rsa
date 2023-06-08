@@ -140,7 +140,10 @@ def argParser(args):
         elif nicknames(arg.split(",")[0]) in SUPPORTED_BROKERS:
             for broker in arg.split(","):
                 # Add broker if it is valid and not in notbrokers
-                if nicknames(broker) in SUPPORTED_BROKERS and nicknames(broker) not in orderObj.notbrokers:
+                if (
+                    nicknames(broker) in SUPPORTED_BROKERS
+                    and nicknames(broker) not in orderObj.notbrokers
+                ):
                     orderObj.brokers.append(nicknames(broker))
         elif arg == "all":
             if "all" not in orderObj.brokers and orderObj.brokers == []:

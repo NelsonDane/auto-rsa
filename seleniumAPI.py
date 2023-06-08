@@ -1,10 +1,12 @@
 # Nelson Dane
 # API to Interface with Selenium
 
+from time import sleep
+
 from selenium import webdriver
 from selenium.webdriver.edge.service import Service
 from webdriver_manager.microsoft import EdgeChromiumDriverManager
-from time import sleep
+
 
 def type_slowly(element, string, delay=0.3):
     """
@@ -20,6 +22,7 @@ def type_slowly(element, string, delay=0.3):
     for character in string:
         element.send_keys(character)
         sleep(delay)
+
 
 def check_if_page_loaded(driver):
     """
