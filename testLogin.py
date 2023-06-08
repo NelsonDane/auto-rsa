@@ -5,132 +5,108 @@
 # Custom API libraries
 from allyAPI import *
 from fidelityAPI import *
-from seleniumAPI import *
 from robinhoodAPI import *
 from schwabAPI import *
-from webullAPI import *
-from tradierAPI import *
+from seleniumAPI import *
 from tastyAPI import *
+from tradierAPI import *
 
 # Initialize .env file
 load_dotenv()
 
-# Check whether to show env variables
-if len(sys.argv) > 1 and sys.argv[1] == "show":
-    show_env = True
-else:
-    show_env = False
-
 # Check for environment variables
 # Discord
-if os.environ.get("DISCORD_TOKEN", None) is None:
-    print(f"Discord token not found")
+if os.environ.get("DISCORD_TOKEN") is None:
+    print("Discord token not found")
 else:
-    print(f"Discord token found {os.environ.get('DISCORD_TOKEN', None) if show_env else ''}")
-if os.environ.get("DISCORD_CHANNEL", None) is None:
-    print(f"Discord channel not found")
+    print(f"Discord token found {os.environ.get('DISCORD_TOKEN')}")
+if os.environ.get("DISCORD_CHANNEL") is None:
+    print("Discord channel not found")
 else:
-    print(f"Discord channel found {os.environ.get('DISCORD_CHANNEL', None) if show_env else ''}")
+    print(f"Discord channel found {os.environ.get('DISCORD_CHANNEL')}")
 # Ally
-if os.environ.get("ALLY_CONSUMER_KEY", None) is None:
-    print(f"Ally consumer key not found")
+if os.environ.get("ALLY_CONSUMER_KEY") is None:
+    print("Ally consumer key not found")
 else:
-    print(f"Ally consumer key found {os.environ.get('ALLY_CONSUMER_KEY', None) if show_env else ''}")
-if os.environ.get("ALLY_CONSUMER_SECRET", None) is None:
-    print(f"Ally consumer secret not found")
+    print(f"Ally consumer key found {os.environ.get('ALLY_CONSUMER_KEY')}")
+if os.environ.get("ALLY_CONSUMER_SECRET") is None:
+    print("Ally consumer secret not found")
 else:
-    print(f"Ally consumer secret found {os.environ.get('ALLY_CONSUMER_SECRET', None) if show_env else ''}")
-if os.environ.get("ALLY_OAUTH_TOKEN", None) is None:
-    print(f"Ally oauth token not found")
+    print(f"Ally consumer secret found {os.environ.get('ALLY_CONSUMER_SECRET')}")
+if os.environ.get("ALLY_OAUTH_TOKEN") is None:
+    print("Ally oauth token not found")
 else:
-    print(f"Ally oauth token found {os.environ.get('ALLY_OAUTH_TOKEN', None) if show_env else ''}")
-if os.environ.get("ALLY_OAUTH_SECRET", None) is None:
-    print(f"Ally oauth secret not found")
+    print(f"Ally oauth token found {os.environ.get('ALLY_OAUTH_TOKEN')}")
+if os.environ.get("ALLY_OAUTH_SECRET") is None:
+    print("Ally oauth secret not found")
 else:
-    print(f"Ally oauth secret found {os.environ.get('ALLY_OAUTH_SECRET', None) if show_env else ''}")
+    print(f"Ally oauth secret found {os.environ.get('ALLY_OAUTH_SECRET')}")
 # Fidelity
-if os.environ.get("FIDELITY_USERNAME", None) is None:
-    print(f"Fidelity username not found")
+if os.environ.get("FIDELITY_USERNAME") is None:
+    print("Fidelity username not found")
 else:
-    print(f"Fidelity username found {os.environ.get('FIDELITY_USERNAME', None) if show_env else ''}")
-if os.environ.get("FIDELITY_PASSWORD", None) is None:
-    print(f"Fidelity password not found")
+    print(f"Fidelity username found {os.environ.get('FIDELITY_USERNAME')}")
+if os.environ.get("FIDELITY_PASSWORD") is None:
+    print("Fidelity password not found")
 else:
-    print(f"Fidelity password found {os.environ.get('FIDELITY_PASSWORD', None) if show_env else ''}")
+    print(f"Fidelity password found {os.environ.get('FIDELITY_PASSWORD')}")
 # Robinhood
-if os.environ.get("ROBINHOOD_USERNAME", None) is None:
-    print(f"Robinhood username not found")
+if os.environ.get("ROBINHOOD_USERNAME") is None:
+    print("Robinhood username not found")
 else:
-    print(f"Robinhood username found {os.environ.get('ROBINHOOD_USERNAME', None) if show_env else ''}")
-if os.environ.get("ROBINHOOD_PASSWORD", None) is None:
-    print(f"Robinhood password not found")
+    print(f"Robinhood username found {os.environ.get('ROBINHOOD_USERNAME')}")
+if os.environ.get("ROBINHOOD_PASSWORD") is None:
+    print("Robinhood password not found")
 else:
-    print(f"Robinhood password found {os.environ.get('ROBINHOOD_PASSWORD', None) if show_env else ''}")
-if os.environ.get("ROBINHOOD_TOTP", None) is None:
-    print(f"Robinhood totp not found")
+    print(f"Robinhood password found {os.environ.get('ROBINHOOD_PASSWORD')}")
+if os.environ.get("ROBINHOOD_TOTP") is None:
+    print("Robinhood totp not found")
 else:
-    print(f"Robinhood totp found {os.environ.get('ROBINHOOD_TOTP', None) if show_env else ''}")
+    print(f"Robinhood totp found {os.environ.get('ROBINHOOD_TOTP')}")
 # Schwab
-if os.environ.get("SCHWAB_USERNAME", None) is None:
-    print(f"Schwab username not found")
+if os.environ.get("SCHWAB_USERNAME") is None:
+    print("Schwab username not found")
 else:
-    print(f"Schwab username found {os.environ.get('SCHWAB_USERNAME', None) if show_env else ''}")
-if os.environ.get("SCHWAB_PASSWORD", None) is None:
-    print(f"Schwab password not found")
+    print(f"Schwab username found {os.environ.get('SCHWAB_USERNAME')}")
+if os.environ.get("SCHWAB_PASSWORD") is None:
+    print("Schwab password not found")
 else:
-    print(f"Schwab password found {os.environ.get('SCHWAB_PASSWORD', None) if show_env else ''}")
-if os.environ.get("SCHWAB_TOTP_SECRET", None) is None:
-    print(f"Schwab totp secret not found")
+    print(f"Schwab password found {os.environ.get('SCHWAB_PASSWORD')}")
+if os.environ.get("SCHWAB_TOTP_SECRET") is None:
+    print("Schwab totp secret not found")
 else:
-    print(f"Schwab totp secret found {os.environ.get('SCHWAB_TOTP_SECRET', None) if show_env else ''}")
-# Webull
-if os.environ.get("WEBULL_USERNAME", None) is None:
-    print(f"Webull username not found")
-else:
-    print(f"Webull username found {os.environ.get('WEBULL_USERNAME', None) if show_env else ''}")
-if os.environ.get("WEBULL_PASSWORD", None) is None:
-    print(f"Webull password not found")
-else:
-    print(f"Webull password found {os.environ.get('WEBULL_PASSWORD', None) if show_env else ''}")
-if os.environ.get("WEBULL_TRADE_PIN", None) is None:
-    print(f"Webull trade pin not found")
-else:
-    print(f"Webull trade pin found {os.environ.get('WEBULL_TRADE_PIN', None) if show_env else ''}")
+    print(f"Schwab totp secret found {os.environ.get('SCHWAB_TOTP_SECRET')}")
 # Tradier
-if os.environ.get("TRADIER_TOKEN", None) is None:
-    print(f"Tradier token not found")
+if os.environ.get("TRADIER_TOKEN") is None:
+    print("Tradier token not found")
 else:
-    print(f"Tradier token found {os.environ.get('TRADIER_TOKEN', None) if show_env else ''}")
+    print(f"Tradier token found {os.environ.get('TRADIER_TOKEN')}")
 # Tastytrade
-if os.environ.get("TASTYTRADE_USERNAME", None) is None:
-    print(f"Tastytrade username not found")
+if os.environ.get("TASTYTRADE_USERNAME") is None:
+    print("Tastytrade username not found")
 else:
-    print(f"Tastytrade username found {os.environ.get('TASTYTRADE_USERNAME', None) if show_env else ''}")
-if os.environ.get("TASTYTRADE_PASSWORD", None) is None:
-    print(f"Tastytrade password not found")
+    print(f"Tastytrade username found {os.environ.get('TASTYTRADE_USERNAME')}")
+if os.environ.get("TASTYTRADE_PASSWORD") is None:
+    print("Tastytrade password not found")
 else:
-    print(f"Tastytrade password found {os.environ.get('TASTYTRADE_PASSWORD', None) if show_env else ''}")
+    print(f"Tastytrade password found {os.environ.get('TASTYTRADE_PASSWORD')}")
 
 # Check each account
 print("==========================================================")
 print("Checking Accounts...")
 print("==========================================================")
 print()
-ally_account = ally_init()
+ally_init()
 print()
-fidelity_account = fidelity_init()
-killDriver(fidelity_account)
+fidelity_init()
 print()
-robinhood = robinhood_init()
+robinhood_init()
 print()
-schwab = schwab_init()
+schwab_init()
 print()
-# webull_account = webull_init()
-# if webull_account is not None:
-# print()
-tradier = tradier_init()
+tradier_init()
 print()
-tastytrade = tastytrade_init()
+tastytrade_init()
 # Print results
 print("==========================================================")
 print("All checks complete")

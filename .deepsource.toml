@@ -13,4 +13,7 @@ name = "python"
 name = "docker"
 
 [[transformers]]
-name = "yapf"
+name = "black"
+
+[[transformers]]
+name = "isort"

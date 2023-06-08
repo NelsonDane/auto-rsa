@@ -1,20 +1,28 @@
 # Nelson Dane
 # API to Interface with Selenium
 
-import os
-import sys
-import logging
-import traceback
 from time import sleep
-from dotenv import load_dotenv
+
 from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.wait import WebDriverWait
-from selenium.webdriver.support import expected_conditions
-from webdriver_manager.microsoft import EdgeChromiumDriverManager
 from selenium.webdriver.edge.service import Service
-from selenium.webdriver import Keys
-from selenium.webdriver.support.ui import Select 
+from webdriver_manager.microsoft import EdgeChromiumDriverManager
+
+
+def type_slowly(element, string, delay=0.3):
+    """
+    Type a string into an element, one character at a time
+    :param element:
+    Selenium WebElement instance
+    :param string:
+    String to type
+    :param delay:
+    Delay between each character
+    :return:
+    """
+    for character in string:
+        element.send_keys(character)
+        sleep(delay)
+
 
 def check_if_page_loaded(driver):
     """
@@ -26,17 +34,16 @@ def check_if_page_loaded(driver):
     readystate = driver.execute_script("return document.readyState;")
     return readystate == "complete"
 
+
 def getDriver(DOCKER=False):
     # Init webdriver options
     options = webdriver.EdgeOptions()
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_argument("--disable-notifications")
-    options.add_argument("--log-level=3")
     if DOCKER:
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--no-sandbox")
     # Init webdriver
-    os.environ['WDM_LOG'] = str(logging.NOTSET)
     driver = webdriver.Edge(
         service=Service(EdgeChromiumDriverManager(cache_valid_range=30).install()),
         options=options,
@@ -44,6 +51,8 @@ def getDriver(DOCKER=False):
     driver.maximize_window()
     return driver
 
+
 def killDriver(driver):
+    print("Killed Selenium driver")
     driver.close()
     driver.quit()

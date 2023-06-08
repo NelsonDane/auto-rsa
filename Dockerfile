@@ -13,7 +13,7 @@ ENV DISPLAY :99
 WORKDIR /app
 
 # Install python, pip, and tzdata
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     xvfb \
     xfonts-cyrillic \
     xfonts-100dpi \
@@ -30,11 +30,11 @@ RUN apt-get update && apt-get install -y \
 # Install Edge
 RUN wget https://packages.microsoft.com/keys/microsoft.asc -O- | apt-key add -
 RUN sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/edge stable main" > /etc/apt/sources.list.d/microsoft-edge.list'
-RUN apt-get update && apt-get install -y microsoft-edge-stable && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends microsoft-edge-stable && rm -rf /var/lib/apt/lists/*
 
 # Install python dependencies
 COPY ./requirements.txt .
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Install playwright
 RUN playwright install
@@ -47,7 +47,6 @@ COPY ./fidelityAPI.py .
 COPY ./robinhoodAPI.py .
 COPY ./schwabAPI.py .
 COPY ./tradierAPI.py .
-COPY ./webullAPI.py .
 COPY ./seleniumAPI.py .
 COPY ./tastyAPI.py .
 COPY ./entrypoint.sh .
