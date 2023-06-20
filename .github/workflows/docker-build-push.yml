@@ -1,16 +1,18 @@
-name: Docker Build and Push Main
+name: Docker Build and Push
 
 on:
   push:
     branches:
       - 'main'
+      - 'develop'
 
 jobs:
   call-workflow-dockerhub-build-push:
     uses: NelsonDane/DockerHub-Actions/.github/workflows/dockerhub_build_push.yml@main
     with:
       dockerhub_repo_name: auto-rsa
-      should_push: ${{ github.ref == 'refs/heads/main' }}
+      image_tag: ${{ github.ref == 'refs/heads/main' && 'latest' || github.ref == 'refs/heads/develop' && 'develop' }}
+      should_push: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' }}
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}

@@ -200,11 +200,8 @@ def ally_transaction(
                         )
                     ) + 0.01
                     # Run function again with limit order
-                    asyncio.ensure_future(
-                        ally_transaction(
-                            a, action, stock, amount, new_price, time, DRY, ctx
-                        ),
-                        loop=loop,
+                    ally_transaction(
+                        a, action, stock, amount, new_price, time, DRY, ctx, loop
                     )
                 except Exception as e:
                     print(f"Ally: Failed to place limit order: {e}")

@@ -79,7 +79,10 @@ Found or fixed a bug? Have a feature request? Want to add support for a new brok
 
 Is someone selling a ripoff of this bot? (Looking at you OSU freshmen). Get it from here and contribute to open source!
 
-Like what you see? Feel free to support me on Ko-Fi! [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/X8X6LFCI0)
+Like what you see? Feel free to support me on Ko-Fi! 
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/X8X6LFCI0)
+
 ## DISCLAIMER
 DISCLAIMER: I am not a financial advisor and not affiliated with any of the brokerages listed below. Use this tool at your own risk. I am not responsible for any losses or damages you may incur by using this project. This tool is provided as-is with no warranty.
 
