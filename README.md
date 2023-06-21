@@ -87,6 +87,9 @@ Like what you see? Feel free to support me on Ko-Fi!
 DISCLAIMER: I am not a financial advisor and not affiliated with any of the brokerages listed below. Use this tool at your own risk. I am not responsible for any losses or damages you may incur by using this project. This tool is provided as-is with no warranty.
 
 ## Supported brokerages:
+
+All brokers: separate account credentials with ":". For example, `ALLY_USERNAME:ALLY_PASSWORD`. Separate multiple accounts with the same broker with ",". For example, `ALLY_USERNAME:ALLY_PASSWORD,ALLY_USERNAME2:ALLY_PASSWORD2`.
+
 ### Ally
 Made using [PyAlly](https://github.com/alienbrett/PyAlly). Go give them a ⭐
 
@@ -97,6 +100,9 @@ Required `.env` variables:
 - ALLY_OAUTH_SECRET
 - ALLY_ACCOUNT_NBR
 
+`.env` file format:
+- ALLY=ALLY_CONSUMER_KEY:ALLY_CONSUMER_SECRET:ALLY_OAUTH_TOKEN:ALLY_OAUTH_SECRET:ALLY_ACCOUNT_NBR
+
 To get these, follow [these instructions](https://alienbrett.github.io/PyAlly/installing.html#get-the-library).
 
 ### Fidelity
@@ -106,6 +112,9 @@ Required `.env` variables:
 - FIDELITY_USERNAME
 - FIDELITY_PASSWORD
 
+`.env` file format:
+- FIDELITY=FIDELITY_USERNAME:FIDELITY_PASSWORD
+
 ### Robinhood
 Made using [robin_stocks](https://github.com/jmfernandes/robin_stocks). Go give them a ⭐
 
@@ -113,6 +122,10 @@ Required `.env` variables:
 - ROBINHOOD_USERNAME
 - ROBINHOOD_PASSWORD
 - ROBINHOOD_TOTP: If 2fa enabled
+
+`.env` file format:
+- With 2fa: ROBINHOOD=ROBINHOOD_USERNAME:ROBINHOOD_PASSWORD:ROBINHOOD_TOTP
+- Without 2fa: ROBINHOOD=ROBINHOOD_USERNAME:ROBINHOOD_PASSWORD:NA
 
 Configuring 2fa can be tricky, read the TOTP section [here](https://github.com/jmfernandes/robin_stocks/blob/master/Robinhood.rst).
 
@@ -124,6 +137,10 @@ Required `.env` variables:
 - SCHWAB_PASSWORD
 - SCHWAB_TOTP_SECRET (Optional, if 2fa is enabled)
 
+`.env` file format:
+- With 2fa: SCHWAB=SCHWAB_USERNAME:SCHWAB_PASSWORD:SCHWAB_TOTP_SECRET
+- Without 2fa: SCHWAB=SCHWAB_USERNAME:SCHWAB_PASSWORD:NA
+
 To get your TOTP secret, follow this [guide](guides/schwabSetup.md).
 
 ### Tradier
@@ -131,6 +148,9 @@ Made by yours truly using the official [Tradier API](https://documentation.tradi
 
 Required `.env` variables:
 - TRADIER_ACCESS_TOKEN
+
+`.env` file format:
+- TRADIER=TRADIER_ACCESS_TOKEN
 
 To get your access token, go to your [Tradier API settings](https://dash.tradier.com/settings/api).
 
@@ -141,6 +161,8 @@ Required `.env` variables:
 - TASTYTRADE_USERNAME
 - TASTYTRADE_PASSWORD
 
+`.env` file format:
+- TASTYTRADE=TASTYTRADE_USERNAME:TASTYTRADE_PASSWORD
 
 ### Maybe future brokerages
 #### Chase
