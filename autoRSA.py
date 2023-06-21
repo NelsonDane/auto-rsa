@@ -26,6 +26,18 @@ except Exception as e:
 # Initialize .env file
 load_dotenv()
 
+# Check for legacy .env file format
+# This should be removed in a future release
+if re.search(r"(_USERNAME|_PASSWORD)", str(os.environ)):
+    print("Legacy .env file found. Please update to new format.")
+    print("See .env.example for details.")
+    # Print troublesome variables
+    print("Please update/remove the following variables:")
+    for key in os.environ:
+        if re.search(r"(_USERNAME|_PASSWORD)", key):
+            print(f"{key}={os.environ[key]}")
+    sys.exit(1)
+
 # Global variables
 SUPPORTED_BROKERS = ["ally", "fidelity", "robinhood", "schwab", "tastytrade", "tradier"]
 DISCORD_BOT = False
