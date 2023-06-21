@@ -21,7 +21,7 @@ def load_accounts():
     # Initialize .env file
     load_dotenv()
     # Import Tradier account
-    if not os.getenv("TRADIER_ACCESS_TOKEN"):
+    if not os.getenv("TRADIER"):
         print("Tradier not found, skipping...")
         return None
     # Get access token and split into list
