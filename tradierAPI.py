@@ -25,8 +25,7 @@ def load_accounts():
         print("Tradier not found, skipping...")
         return None
     # Get access token and split into list
-    accounts = os.environ["TRADIER_ACCESS_TOKEN"].split(",")
-    return [x.strip() for x in accounts]
+    return os.environ["TRADIER_ACCESS_TOKEN"].strip().split(",")
 
 
 def tradier_init():
