@@ -52,7 +52,8 @@ def getDriver(DOCKER=False):
     return driver
 
 
-def killDriver(driver):
-    print("Killed Selenium driver")
-    driver.close()
-    driver.quit()
+def killDriver(drivers):
+    for driver in drivers:
+        print(f"Killed Selenium driver {drivers.index(driver) + 1}")
+        driver.close()
+        driver.quit()
