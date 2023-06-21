@@ -105,12 +105,13 @@ def robinhood_transaction(
                 index = rh.index(obj) + 1
                 # Buy Market order
                 if action == "buy":
-                    obj.order_buy_market(symbol=stock, quantity=amount)
+                    result = obj.order_buy_market(symbol=stock, quantity=amount)
                     print(f"Robinhood {index}: Bought {amount} of {stock}")
                     if ctx and loop:
                         asyncio.ensure_future(
                             ctx.send(f"Robinhood {index}: Bought {amount} of {stock}"), loop=loop
                         )
+                    print(result)
                 # Sell Market order
                 elif action == "sell":
                     if all_amount:
@@ -121,12 +122,13 @@ def robinhood_transaction(
                             if sym.upper() == stock:
                                 amount = float(item["quantity"])
                                 break
-                    obj.order_sell_market(symbol=stock, quantity=amount)
+                    result = obj.order_sell_market(symbol=stock, quantity=amount)
                     print(f"Robinhood {index}: Sold {amount} of {stock}")
                     if ctx and loop:
                         asyncio.ensure_future(
                             ctx.send(f"Robinhood {index}: Sold {amount} of {stock}"), loop=loop
                         )
+                    print(result)
                 else:
                     print("Error: Invalid action")
                     return None
