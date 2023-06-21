@@ -14,29 +14,27 @@ def robinhood_init():
     # Initialize .env file
     load_dotenv()
     # Import Robinhood account
-    if not os.getenv("ROBINHOOD_USERNAME") or not os.getenv("ROBINHOOD_PASSWORD"):
+    rh_objs = []
+    if not os.getenv("ROBINHOOD"):
         print("Robinhood not found, skipping...")
         return None
-    RH_USERNAME = os.environ["ROBINHOOD_USERNAME"]
-    RH_PASSWORD = os.environ["ROBINHOOD_PASSWORD"]
-    if os.environ["ROBINHOOD_TOTP"]:
-        RH_TOTP = os.environ["ROBINHOOD_TOTP"]
-        totp = pyotp.TOTP(RH_TOTP).now()
-    else:
-        totp = None
+    RH = os.environ["ROBINHOOD"].split(",")
     # Log in to Robinhood account
-    print("Logging in to Robinhood...")
-    try:
-        if not totp:
-            rh.login(RH_USERNAME, RH_PASSWORD)
-        else:
-            print("Using Robinhood TOTP")
-            rh.login(RH_USERNAME, RH_PASSWORD, mfa_code=totp)
-    except Exception as e:
-        print(f"Error: Unable to log in to Robinhood: {e}")
-        return None
-    print("Logged in to Robinhood!")
-    return rh
+    for account in RH:
+        print("Logging in to Robinhood...")
+        try:
+            account = account.split(":")
+            rh.login(
+                username=account[0],
+                password=account[1],
+                mfa_code=None if account[2] == "NA" else pyotp.TOTP(account[2]).now(),
+            )
+            rh_objs.append(rh)
+        except Exception as e:
+            print(f"Error: Unable to log in to Robinhood: {e}")
+            return None
+        print("Logged in to Robinhood!")
+    return rh_objs
 
 
 def robinhood_holdings(rh, ctx=None, loop=None):
@@ -45,45 +43,43 @@ def robinhood_holdings(rh, ctx=None, loop=None):
     print("Robinhood Holdings")
     print("==============================")
     print()
-    # Make sure init didn't return None
-    if rh is None:
-        print("Error: No Robinhood account")
-        return None
-    try:
-        # Get account holdings
-        positions = rh.get_open_stock_positions()
-        if positions == []:
-            print("No holdings in Robinhood")
-            if ctx and loop:
-                asyncio.ensure_future(ctx.send("No holdings in Robinhood"), loop=loop)
-        else:
-            print("Holdings in Robinhood:")
-            if ctx and loop:
-                asyncio.ensure_future(ctx.send("Holdings in Robinhood:"), loop=loop)
-            for item in positions:
-                # Get symbol, quantity, price, and total value
-                sym = item["symbol"] = rh.get_symbol_by_url(item["instrument"])
-                qty = float(item["quantity"])
-                try:
-                    current_price = round(float(rh.stocks.get_latest_price(sym)[0]), 2)
-                    total_value = round(qty * current_price, 2)
-                except TypeError as e:
-                    if "NoneType" in str(e):
-                        current_price = "N/A"
-                        total_value = "N/A"
-                print(f"{sym}: {qty} @ ${(current_price)} = ${total_value}")
+    for obj in rh:
+        try:
+            # Get account holdings
+            index = rh.index(obj) + 1
+            positions = obj.get_open_stock_positions()
+            if positions == []:
+                print(f"No holdings in Robinhood {index}")
                 if ctx and loop:
-                    asyncio.ensure_future(
-                        ctx.send(f"{sym}: {qty} @ ${(current_price)} = ${total_value}"),
-                        loop=loop,
-                    )
-    except Exception as e:
-        print(f"Robinhood: Error getting account holdings: {e}")
-        print(traceback.format_exc())
-        if ctx and loop:
-            asyncio.ensure_future(
-                ctx.send(f"Robinhood: Error getting account holdings: {e}"), loop=loop
-            )
+                    asyncio.ensure_future(ctx.send(f"No holdings in Robinhood {index}"), loop=loop)
+            else:
+                print(f"Holdings in Robinhood {index}:")
+                if ctx and loop:
+                    asyncio.ensure_future(ctx.send(f"Holdings in Robinhood {index}:"), loop=loop)
+                for item in positions:
+                    # Get symbol, quantity, price, and total value
+                    sym = item["symbol"] = obj.get_symbol_by_url(item["instrument"])
+                    qty = float(item["quantity"])
+                    try:
+                        current_price = round(float(obj.stocks.get_latest_price(sym)[0]), 2)
+                        total_value = round(qty * current_price, 2)
+                    except TypeError as e:
+                        if "NoneType" in str(e):
+                            current_price = "N/A"
+                            total_value = "N/A"
+                    print(f"{sym}: {qty} @ ${(current_price)} = ${total_value}")
+                    if ctx and loop:
+                        asyncio.ensure_future(
+                            ctx.send(f"{sym}: {qty} @ ${(current_price)} = ${total_value}"),
+                            loop=loop,
+                        )
+        except Exception as e:
+            print(f"Robinhood {index}: Error getting account holdings: {e}")
+            print(traceback.format_exc())
+            if ctx and loop:
+                asyncio.ensure_future(
+                    ctx.send(f"Robinhood {index}: Error getting account holdings: {e}"), loop=loop
+                )
 
 
 def robinhood_transaction(
@@ -103,53 +99,51 @@ def robinhood_transaction(
     else:
         amount = int(amount)
         all_amount = False
-    # Make sure init didn't return None
-    if rh is None:
-        print("Error: No Robinhood account")
-        return None
-    if not DRY:
-        try:
-            # Buy Market order
-            if action == "buy":
-                rh.order_buy_market(symbol=stock, quantity=amount)
-                print(f"Robinhood: Bought {amount} of {stock}")
+    for obj in rh:
+        if not DRY:
+            try:
+                index = rh.index(obj) + 1
+                # Buy Market order
+                if action == "buy":
+                    obj.order_buy_market(symbol=stock, quantity=amount)
+                    print(f"Robinhood {index}: Bought {amount} of {stock}")
+                    if ctx and loop:
+                        asyncio.ensure_future(
+                            ctx.send(f"Robinhood {index}: Bought {amount} of {stock}"), loop=loop
+                        )
+                # Sell Market order
+                elif action == "sell":
+                    if all_amount:
+                        # Get account holdings
+                        positions = obj.get_open_stock_positions()
+                        for item in positions:
+                            sym = item["symbol"] = obj.get_symbol_by_url(item["instrument"])
+                            if sym.upper() == stock:
+                                amount = float(item["quantity"])
+                                break
+                    obj.order_sell_market(symbol=stock, quantity=amount)
+                    print(f"Robinhood {index}: Sold {amount} of {stock}")
+                    if ctx and loop:
+                        asyncio.ensure_future(
+                            ctx.send(f"Robinhood {index}: Sold {amount} of {stock}"), loop=loop
+                        )
+                else:
+                    print("Error: Invalid action")
+                    return None
+            except Exception as e:
+                print(f"Robinhood {index} Error submitting order: {e}")
                 if ctx and loop:
                     asyncio.ensure_future(
-                        ctx.send(f"Robinhood: Bought {amount} of {stock}"), loop=loop
+                        ctx.send(f"Robinhood {index} Error submitting order: {e}"), loop=loop
                     )
-            # Sell Market order
-            elif action == "sell":
-                if all_amount:
-                    # Get account holdings
-                    positions = rh.get_open_stock_positions()
-                    for item in positions:
-                        sym = item["symbol"] = rh.get_symbol_by_url(item["instrument"])
-                        if sym.upper() == stock:
-                            amount = float(item["quantity"])
-                            break
-                rh.order_sell_market(symbol=stock, quantity=amount)
-                print(f"Robinhood: Sold {amount} of {stock}")
-                if ctx and loop:
-                    asyncio.ensure_future(
-                        ctx.send(f"Robinhood: Sold {amount} of {stock}"), loop=loop
-                    )
-            else:
-                print("Error: Invalid action")
-                return None
-        except Exception as e:
-            print(f"Robinhood: Error submitting order: {e}")
+        else:
+            print(
+                f"Robinhood {index} Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}"
+            )
             if ctx and loop:
                 asyncio.ensure_future(
-                    ctx.send(f"Robinhood: Error submitting order: {e}"), loop=loop
+                    ctx.send(
+                        f"Robinhood {index} Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}"
+                    ),
+                    loop=loop,
                 )
-    else:
-        print(
-            f"Robinhood: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}"
-        )
-        if ctx and loop:
-            asyncio.ensure_future(
-                ctx.send(
-                    f"Robinhood: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}"
-                ),
-                loop=loop,
-            )
