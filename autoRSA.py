@@ -2,21 +2,26 @@
 # Script to automate RSA stock purchases
 
 # Import libraries
-import os
-import re
-import sys
+try:
+    import os
+    import re
+    import sys
 
-import discord
-from discord.ext import commands
-from dotenv import load_dotenv
+    import discord
+    from discord.ext import commands
+    from dotenv import load_dotenv
 
-# Custom API libraries
-from allyAPI import *
-from fidelityAPI import *
-from robinhoodAPI import *
-from schwabAPI import *
-from tastyAPI import *
-from tradierAPI import *
+    # Custom API libraries
+    from allyAPI import *
+    from fidelityAPI import *
+    from robinhoodAPI import *
+    from schwabAPI import *
+    from tastyAPI import *
+    from tradierAPI import *
+except Exception as e:
+    print(f"Error importing libraries: {e}")
+    print("Please run 'pip install -r requirements.txt'")
+    sys.exit(1)
 
 # Initialize .env file
 load_dotenv()
