@@ -7,7 +7,7 @@ from allyAPI import *
 from fidelityAPI import *
 from robinhoodAPI import *
 from schwabAPI import *
-from helper import *
+from helperAPI import *
 from tastyAPI import *
 from tradierAPI import *
 

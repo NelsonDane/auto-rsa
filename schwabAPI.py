@@ -8,7 +8,7 @@ from time import sleep
 
 from dotenv import load_dotenv
 from schwab_api import Schwab
-from helper import Brokerage
+from helperAPI import Brokerage
 
 
 def schwab_init():
