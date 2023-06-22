@@ -7,6 +7,7 @@ import traceback
 
 import ally
 from dotenv import load_dotenv
+from helper import Brokerage
 
 
 # Initialize Ally
@@ -30,7 +31,7 @@ def ally_init():
         }
         params_list.append(params)
     # Initialize Ally account
-    ally_objs = []
+    ally_obj = Brokerage("Ally")
     for account in accounts:
         index = accounts.index(account) + 1
         try:
@@ -39,21 +40,24 @@ def ally_init():
             an = a.balances()
             account_numbers = an["account"].values
             print(f"Ally {index} account numbers: {account_numbers}")
-            ally_objs.append(a)
+            ally_obj.loggedInObjects.append(a)
+            for an in account_numbers:
+                ally_obj.add_account_number(f"Ally {index}", an)
         except Exception as e:
             print(f"Ally {index}: Error logging in: {e}")
             traceback.print_exc()
             return None
         print("Logged in to Ally!")
-    return ally_objs
+    return ally_obj
 
 
 # Function to get the current account holdings
-def ally_holdings(a, ctx=None, loop=None):
+def ally_holdings(ao, ctx=None, loop=None):
     print("==============================")
     print("Ally Holdings")
     print("==============================")
     print()
+    a = ao.loggedInObjects
     for obj in a:
         index = a.index(obj) + 1
         try:
@@ -105,7 +109,7 @@ def ally_holdings(a, ctx=None, loop=None):
 
 # Function to buy/sell stock on Ally
 def ally_transaction(
-    a, action, stock, amount, price, time, DRY=True, ctx=None, loop=None, index=None
+    ao, action, stock, amount, price, time, DRY=True, ctx=None, loop=None, index=None
 ):
     print()
     print("==============================")
@@ -120,6 +124,11 @@ def ally_transaction(
         price = ally.Order.Market()
     elif type(price) is float or type(price) is int:
         price = ally.Order.Limit(limpx=float(price))
+    # If doing a retry, ao is a list
+    if type(ao) is not list:
+        a = ao.loggedInObjects
+    else:
+        a = ao
     for obj in a:
         if index is None:
             index = a.index(obj) + 1

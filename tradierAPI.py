@@ -7,17 +7,10 @@ import traceback
 
 import requests
 from dotenv import load_dotenv
+from helper import Brokerage
 
-class Tradier:
-    def __init__(self, bearer, account_list):
-        self.bearer = bearer
-        self.account_list = account_list
 
-    def __str__(self) -> str:
-        return f"Tradier: {self.bearer}, {self.account_list}"
-    
-
-def load_accounts():
+def tradier_init():
     # Initialize .env file
     load_dotenv()
     # Import Tradier account
@@ -25,18 +18,12 @@ def load_accounts():
         print("Tradier not found, skipping...")
         return None
     # Get access token and split into list
-    return os.environ["TRADIER_ACCESS_TOKEN"].strip().split(",")
-
-
-def tradier_init():
-    accounts = load_accounts()
-    if accounts is None:
-        return None
+    accounts = os.environ["TRADIER"].strip().split(",")
     # Login to each account
-    tradier_objs = []
+    tradier_obj = Brokerage("Tradier")
     for account in accounts:
-        tradier_accounts = []
-        print("Logging in to Tradier")
+        index = accounts.index(account) + 1
+        print(f"Logging in to Tradier {index}")
         try:
             response = requests.get(
                 "https://api.tradier.com/v1/user/profile",
@@ -57,35 +44,37 @@ def tradier_init():
         print(f"Tradier accounts found: {account_num}")
         # Print account numbers
         if account_num == 1:
-            print(f"{json_response['profile']['account']['account_number']}")
-            tradier_accounts.append(json_response["profile"]["account"]["account_number"])
+            an = json_response["profile"]["account"]["account_number"]
+            print(an)
+            tradier_obj.add_account_number(f"Tradier {index}", an)
         else:
             for x in range(account_num):
-                print(f"{json_response['profile']['account'][x]['account_number']}")
-                tradier_accounts.append(
-                    json_response["profile"]["account"][x]["account_number"]
-                )
-        print("Logged in to Tradier!")
-        tradier_objs.append(Tradier(account, tradier_accounts))
-    return tradier_objs
+                an = json_response["profile"]["account"][x]["account_number"]
+                print(an)
+                tradier_obj.add_account_number(f"Tradier {index}", an)
+        tradier_obj.loggedInObjects.append(account)
+        print(f"Logged in to Tradier {index}!")
+    return tradier_obj
 
 
-def tradier_holdings(tradier, ctx=None, loop=None):
+def tradier_holdings(tradier_o, ctx=None, loop=None):
     print()
     print("==============================")
     print("Tradier")
     print("==============================")
     print()
     # Loop through accounts
+    tradier = tradier_o.loggedInObjects
     for obj in tradier:
-        for account_number in obj.account_list:
+        index = tradier.index(obj) + 1
+        for account_number in tradier_o.get_account_numbers(f"Tradier {index}"):
             try:
                 # Get holdings from API
                 response = requests.get(
                     f"https://api.tradier.com/v1/accounts/{account_number}/positions",
                     params={},
                     headers={
-                        "Authorization": f"Bearer {obj.bearer}",
+                        "Authorization": f"Bearer {obj}",
                         "Accept": "application/json",
                     },
                 )
@@ -118,7 +107,7 @@ def tradier_holdings(tradier, ctx=None, loop=None):
                         "https://api.tradier.com/v1/markets/quotes",
                         params={"symbols": sym, "greeks": "false"},
                         headers={
-                            "Authorization": f"Bearer {obj.bearer}",
+                            "Authorization": f"Bearer {obj}",
                             "Accept": "application/json",
                         },
                     )
@@ -135,10 +124,10 @@ def tradier_holdings(tradier, ctx=None, loop=None):
                     current_value[i] = round(current_value[i], 2)
                     current_price[i] = round(current_price[i], 2)
                 # Print and send them
-                print(f"Holdings on Tradier account {account_number}")
+                print(f"Holdings on Tradier {account_number}")
                 if ctx and loop:
                     asyncio.ensure_future(
-                        ctx.send(f"Holdings on Tradier account {account_number}"), loop=loop
+                        ctx.send(f"Holdings on Tradier {account_number}"), loop=loop
                     )
                 for position in stocks:
                     # Set index for easy use
@@ -164,7 +153,7 @@ def tradier_holdings(tradier, ctx=None, loop=None):
 
 
 def tradier_transaction(
-    tradier, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
+    tradier_o, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
 ):
     print()
     print("==============================")
@@ -175,8 +164,10 @@ def tradier_transaction(
     stock = stock.upper()
     amount = int(amount)
     # Loop through accounts
+    tradier = tradier_o.loggedInObjects
     for obj in tradier:
-        for account_number in obj.account_list:
+        index = tradier.index(obj) + 1
+        for account_number in tradier_o.get_account_numbers(f"Tradier {index}"):
             if not DRY:
                 response = requests.post(
                     f"https://api.tradier.com/v1/accounts/{account_number}/orders",
@@ -189,7 +180,7 @@ def tradier_transaction(
                         "duration": "day",
                     },
                     headers={
-                        "Authorization": f"Bearer {obj.bearer}",
+                        "Authorization": f"Bearer {obj}",
                         "Accept": "application/json",
                     },
                 )

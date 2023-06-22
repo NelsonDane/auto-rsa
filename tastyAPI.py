@@ -3,6 +3,7 @@ import os
 from decimal import Decimal as D
 
 from dotenv import load_dotenv
+from helper import Brokerage
 from tastytrade.account import Account
 from tastytrade.dxfeed.event import EventType
 from tastytrade.instruments import Equity
@@ -69,33 +70,40 @@ def order_setup(tt, order_type, stock_price, stock, amount):
 
 
 def tastytrade_init():
-    tasty_objs = []
-    try:
-        load_dotenv()
-        # Import Tastytrade account
-        if not os.getenv("TASTYTRADE"):
-            print("Tastytrade not found, skipping...")
-            return None
-        accounts = os.environ["TASTYTRADE"].split(",")
-        # Log in to Tastytrade account
-        print("Logging in to Tastytrade...")
-        for account in accounts:
-            account = account.strip().split(":")
-            tasty_objs.append(Session(account[0], account[1]))
-        print("Logged in to Tastytrade!")
-        return tasty_objs
-    except Exception as e:
-        print(f"Error logging in to Tastytrade: {e}")
+    load_dotenv()
+    # Import Tastytrade account
+    if not os.getenv("TASTYTRADE"):
+        print("Tastytrade not found, skipping...")
         return None
+    accounts = os.environ["TASTYTRADE"].strip().split(",")
+    tasty_obj = Brokerage("Tastytrade")
+    # Log in to Tastytrade account
+    print("Logging in to Tastytrade...")
+    for account in accounts:
+        try:
+            index = accounts.index(account) + 1
+            account = account.strip().split(":")
+            tasty = Session(account[0], account[1])
+            tasty_obj.loggedInObjects.append(tasty)
+            an = Account.get_accounts(tasty)
+            for acct in an:
+                tasty_obj.add_account_number(f"TastyTrade {index}", acct.account_number)
+            print(f"Logged in to Tastytrade {index}!")
+        except Exception as e:
+            print(f"Error logging in to Tastytrade {index}: {e}")
+            return None
+    return tasty_obj
 
 
-def tastytrade_holdings(tt, ctx, loop=None):
+def tastytrade_holdings(tt_o, ctx, loop=None):
     print()
     print("==============================")
     print("Tastytrade Holdings")
     print("==============================")
     print()
+    tt = tt_o.loggedInObjects
     for obj in tt:
+        index = tt.index(obj) + 1
         accounts = Account.get_accounts(obj)
         all_account_balance = 0
         for acct in accounts:
@@ -115,7 +123,7 @@ def tastytrade_holdings(tt, ctx, loop=None):
                 i = stocks.index(value)
                 temp_value = round((float(amounts[i]) * float(current_price[i])), 2)
                 current_value.append(temp_value)
-            message = f"Holdings on Tastytrade account {acct.account_number}"
+            message = f"Holdings on Tastytrade {index} {acct.account_number}"
             print(message)
             if ctx and loop:
                 asyncio.ensure_future(ctx.send(message), loop=loop)
@@ -139,7 +147,7 @@ def tastytrade_holdings(tt, ctx, loop=None):
 
 
 async def tastytrade_execute(
-        tt, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
+        tt_o, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
 ):
     print()
     print("==============================")
@@ -157,9 +165,11 @@ async def tastytrade_execute(
     else:
         amount = int(amount)
         all_amount = False
+    tt = tt_o.loggedInObjects
     for obj in tt:
+        index = tt.index(obj) + 1
         accounts = Account.get_accounts(obj)
-        for index, acct in enumerate(accounts):
+        for i, acct in enumerate(accounts):
             try:
                 if not DRY:
                     balances = acct.get_balances(obj)
@@ -167,7 +177,7 @@ async def tastytrade_execute(
                     day_trade_ok = day_trade_check(obj, acct, cash_balance)
                     if day_trade_ok:
                         if all_amount:
-                            results = accounts[index].get_positions(obj)
+                            results = accounts[i].get_positions(obj)
                             for result in results:
                                 if stock == result.symbol:
                                     amount = result.quantity
@@ -183,16 +193,16 @@ async def tastytrade_execute(
                             new_order = order_setup(
                                 obj, order_type, stock_price, stock, amount
                             )
-                        placed_order = accounts[index].place_order(
+                        placed_order = accounts[i].place_order(
                             obj, new_order, dry_run=DRY
                         )
                         if placed_order.order.status.value == "Routed":
-                            message = f"Tastytrade account {acct.account_number}: {action} {amount} of {stock}"
+                            message = f"Tastytrade {index} {acct.account_number}: {action} {amount} of {stock}"
                             print(message)
                             if ctx and loop:
                                 asyncio.ensure_future(ctx.send(message), loop=loop)
                         elif placed_order.order.status.value == "Rejected":
-                            message = f"Tastytrade account {acct.account_number} Error: Order Rejected! Trying LIMIT order."
+                            message = f"Tastytrade {index} {acct.account_number} Error: Order Rejected! Trying LIMIT order."
                             streamer = await DataStreamer.create(obj)
                             stock_limit = await streamer.oneshot(
                                 EventType.PROFILE, stock_list
@@ -201,7 +211,7 @@ async def tastytrade_execute(
                             if ctx:
                                 asyncio.ensure_future(ctx.send(message), loop=loop)
                             if all_amount:
-                                results = accounts[index].get_positions(obj)
+                                results = accounts[i].get_positions(obj)
                                 for result in results:
                                     if stock == result["symbol"]:
                                         amount = float(result["quantity"])
@@ -243,29 +253,29 @@ async def tastytrade_execute(
                                 new_order = order_setup(
                                     obj, order_type, stock_price, stock, amount
                                 )
-                            placed_order = accounts[index].place_order(
+                            placed_order = accounts[i].place_order(
                                 obj, new_order, dry_run=DRY
                             )
                             if placed_order.order.status.value == "Routed":
-                                message = f"Tastytrade account {acct.account_number}: {action} {amount} of {stock}"
+                                message = f"Tastytrade {index} {acct.account_number}: {action} {amount} of {stock}"
                                 print(message)
                                 if ctx and loop:
                                     asyncio.ensure_future(ctx.send(message), loop=loop)
                             elif placed_order.order.status.value == "Rejected":
-                                message = f"Tastytrade account {acct.account_number} Error: Order Rejected! Skipping Account."
+                                message = f"Tastytrade {index} {acct.account_number} Error: Order Rejected! Skipping Account."
                                 print(message)
                                 if ctx:
                                     asyncio.ensure_future(ctx.send(message), loop=loop)
                         else:
-                            message_one = f"Tastytrade: Error occured placing order: {placed_order.id} on account {acct.account_number} with the following {action} {amount} of {stock}"
-                            message_two = f"Tastytrade: Returned order status {placed_order.order.status.value}"
+                            message_one = f"Tastytrade {index}: Error occured placing order: {placed_order.id} on account {acct.account_number} with the following {action} {amount} of {stock}"
+                            message_two = f"Tastytrade {index}: Returned order status {placed_order.order.status.value}"
                             print(message_one)
                             print(message_two)
                             if ctx and loop:
                                 asyncio.ensure_future(ctx.send(message_one), loop=loop)
                                 asyncio.ensure_future(ctx.send(message_two), loop=loop)
                     else:
-                        message_one = f"Tastytrade account {acct.account_number}: day trade count is >= 3 skipping..."
+                        message_one = f"Tastytrade {index} {acct.account_number}: day trade count is >= 3 skipping..."
                         message_two = (
                             "More than 3 day trades will cause a strike on your account!"
                         )
@@ -284,21 +294,21 @@ async def tastytrade_execute(
                     stock_quote = await streamer.oneshot(EventType.QUOTE, stock_list)
                     stock_price = D(stock_quote[0].bidPrice)
                     new_order = order_setup(obj, order_type, stock_price, stock, amount)
-                    placed_order = accounts[index].place_order(obj, new_order, dry_run=DRY)
+                    placed_order = accounts[i].place_order(obj, new_order, dry_run=DRY)
                     if placed_order.order.status.value == "Received":
-                        message = f"Tastytrade: Running in DRY mode. Transaction would've been: {placed_order.order.order_type.value} {placed_order.order.size} of {placed_order.order.underlying_symbol}"
+                        message = f"Tastytrade {index}: Running in DRY mode. Transaction would've been: {placed_order.order.order_type.value} {placed_order.order.size} of {placed_order.order.underlying_symbol}"
                         print(message)
                         if ctx and loop:
                             asyncio.ensure_future(ctx.send(message), loop=loop)
                     else:
                         message = (
-                            "Tastytrade: Running in DRY mode. Transaction did not complete!"
+                            f"Tastytrade {index}: Running in DRY mode. Transaction did not complete!"
                         )
                         print(message)
                         if ctx and loop:
                             asyncio.ensure_future(ctx.send(message), loop=loop)
             except TE as te:
-                message = f"Tastytrade: Error: {te}"
+                message = f"Tastytrade {index}: Error: {te}"
                 print(message)
                 if ctx and loop:
                     asyncio.ensure_future(ctx.send(message), loop=loop)

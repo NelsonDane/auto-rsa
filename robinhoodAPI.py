@@ -8,13 +8,14 @@ import traceback
 import pyotp
 import robin_stocks.robinhood as rh
 from dotenv import load_dotenv
+from helper import Brokerage
 
 
 def robinhood_init():
     # Initialize .env file
     load_dotenv()
     # Import Robinhood account
-    rh_objs = []
+    rh_obj = Brokerage("Robinhood")
     if not os.getenv("ROBINHOOD"):
         print("Robinhood not found, skipping...")
         return None
@@ -22,27 +23,31 @@ def robinhood_init():
     # Log in to Robinhood account
     for account in RH:
         print("Logging in to Robinhood...")
+        index = RH.index(account) + 1
         try:
             account = account.split(":")
             rh.login(
                 username=account[0],
                 password=account[1],
                 mfa_code=None if account[2] == "NA" else pyotp.TOTP(account[2]).now(),
+                store_session=False,
             )
-            rh_objs.append(rh)
+            rh_obj.loggedInObjects.append(rh)
+            rh_obj.add_account_number(f"Robinhood {index}", rh.account.load_account_profile(info="account_number"))
         except Exception as e:
             print(f"Error: Unable to log in to Robinhood: {e}")
             return None
         print("Logged in to Robinhood!")
-    return rh_objs
+    return rh_obj
 
 
-def robinhood_holdings(rh, ctx=None, loop=None):
+def robinhood_holdings(rho, ctx=None, loop=None):
     print()
     print("==============================")
     print("Robinhood Holdings")
     print("==============================")
     print()
+    rh = rho.loggedInObjects
     for obj in rh:
         try:
             # Get account holdings
@@ -83,7 +88,7 @@ def robinhood_holdings(rh, ctx=None, loop=None):
 
 
 def robinhood_transaction(
-    rh, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
+    rho, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
 ):
     print()
     print("==============================")
@@ -99,6 +104,7 @@ def robinhood_transaction(
     else:
         amount = int(amount)
         all_amount = False
+    rh = rho.loggedInObjects
     for obj in rh:
         if not DRY:
             try:

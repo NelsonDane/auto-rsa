@@ -8,6 +8,7 @@ from time import sleep
 
 from dotenv import load_dotenv
 from schwab_api import Schwab
+from helper import Brokerage
 
 
 def schwab_init():
@@ -20,8 +21,9 @@ def schwab_init():
     accounts = os.environ["SCHWAB"].strip().split(",")
     # Log in to Schwab account
     print("Logging in to Schwab...")
-    schwab_objs = []
+    schwab_obj = Brokerage("Schwab")
     for account in accounts:
+        index = accounts.index(account) + 1
         try:
             account = account.split(":")
             schwab = Schwab()
@@ -31,22 +33,26 @@ def schwab_init():
                 totp_secret=None if account[2] == "NA" else account[2],
             )
             account_info = schwab.get_account_info()
-            print(f"The following Schwab accounts were found: {list(account_info.keys())}")
+            account_list = list(account_info.keys())
+            print(f"The following Schwab accounts were found: {account_list}")
             print("Logged in to Schwab!")
-            schwab_objs.append(schwab)
+            schwab_obj.loggedInObjects.append(schwab)
+            for account in account_list:
+                schwab_obj.add_account_number(f"Schwab {index}", account)
         except Exception as e:
             print(f"Error logging in to Schwab: {e}")
             return None
-    return schwab_objs
+    return schwab_obj
 
 
-def schwab_holdings(schwab, ctx=None, loop=None):
+def schwab_holdings(schwab_o, ctx=None, loop=None):
     print()
     print("==============================")
     print("Schwab Holdings")
     print("==============================")
     print()
     # Get holdings on each account
+    schwab = schwab_o.loggedInObjects
     for obj in schwab:
         index = schwab.index(obj) + 1
         try:
@@ -82,7 +88,7 @@ def schwab_holdings(schwab, ctx=None, loop=None):
 
 
 def schwab_transaction(
-    schwab, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
+    schwab_o, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
 ):
     print()
     print("==============================")
@@ -97,6 +103,7 @@ def schwab_transaction(
     stock = stock.upper()
     amount = int(amount)
     # Buy on each account
+    schwab = schwab_o.loggedInObjects
     for obj in schwab:
         index = schwab.index(obj) + 1
         for account in list(obj.get_account_info().keys()):

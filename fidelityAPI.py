@@ -4,6 +4,7 @@
 
 import asyncio
 import os
+import datetime
 import traceback
 from time import sleep
 
@@ -14,7 +15,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.wait import WebDriverWait
 
-from seleniumAPI import *
+from helper import *
 
 
 def fidelity_init(DOCKER=False):
@@ -25,9 +26,10 @@ def fidelity_init(DOCKER=False):
         print("Fidelity not found, skipping...")
         return None
     accounts = os.environ["FIDELITY"].strip().split(",")
-    fidelity_drivers = []
+    fidelity_obj = Brokerage("Fidelity")
     # Init webdriver
     for account in accounts:
+        index = accounts.index(account) + 1
         account = account.split(":")
         try:
             print("Logging in to Fidelity...")
@@ -76,13 +78,80 @@ def fidelity_init(DOCKER=False):
                     "Failed to disable old view! This might cause issues but maybe not..."
                 )
             sleep(3)
+            fidelity_obj.loggedInObjects.append(driver)
+            ind, ret = fidelity_account_numbers(driver, index=index)[0:2]
+            for i in ind:
+                fidelity_obj.add_account_number(f"Fidelity {index} (Individual)", i)
+            for i in ret:
+                fidelity_obj.add_account_number(f"Fidelity {index} (Retirement)", i)
             print("Logged in to Fidelity!")
         except Exception as e:
             print(f'Error logging in: "{e}"')
+            driver.save_screenshot(f"fidelity-login-error-{datetime.datetime.now()}.png")
             traceback.print_exc()
             return None
-        fidelity_drivers.append(driver)
-    return fidelity_drivers
+    return fidelity_obj
+
+
+def fidelity_account_numbers(driver, ctx=None, loop=None, index=1):
+    ret_acc = True
+    try:
+        # Get account holdings
+        driver.get("https://digital.fidelity.com/ftgw/digital/portfolio/positions")
+        # Wait for page load
+        WebDriverWait(driver, 10).until(check_if_page_loaded)
+        sleep(5)
+        # Get total account value
+        total_value = driver.find_elements(
+            by=By.CSS_SELECTOR,
+            value="body > ap143528-portsum-dashboard-root > dashboard-root > div > div.account-selector__outer-box.account-selector__outer-box--expand-in-pc > accounts-selector > nav > div.acct-selector__acct-list > pvd3-link > s-root > span > a > span > s-slot > s-assigned-wrapper > div > div > div > span:nth-child(2)",
+        )
+        print(f"Total Fidelity {index} account value: {total_value[0].text}")
+        if ctx and loop:
+            asyncio.ensure_future(
+                ctx.send(f"Total Fidelity {index} account value: {total_value[0].text}"),
+                loop=loop,
+            )
+        # Get value of individual and retirement accounts
+        ind_accounts = driver.find_elements(
+            by=By.CSS_SELECTOR, value=r"#Investment\ Accounts"
+        )
+        ret_accounts = driver.find_elements(
+            by=By.CSS_SELECTOR, value=r"#Retirement\ Accounts"
+        )
+        # Get text from elements
+        account_list = ind_accounts[0].text.replace("\n", " ").split(" ")[1::5]
+        values = ind_accounts[0].text.replace("\n", " ").split(" ")[2::5]
+        try:
+            ret_account_list = ret_accounts[0].text.replace("\n", " ").split(" ")[2::6]
+            ret_values = ret_accounts[0].text.replace("\n", " ").split(" ")[3::6]
+        except IndexError:
+            print("No retirement accounts found, skipping...")
+            ret_acc = False
+        # Print out account numbers and values
+        print("Individual accounts:")
+        if ctx and loop:
+            asyncio.ensure_future(ctx.send("Individual accounts:"), loop=loop)
+        for x, item in enumerate(account_list):
+            print(f"{item} value: {values[x]}")
+            if ctx and loop:
+                asyncio.ensure_future(ctx.send(f"{item} value: {values[x]}"), loop=loop)
+        if ret_acc:
+            print("Retirement accounts:")
+            if ctx and loop:
+                asyncio.ensure_future(ctx.send("Retirement accounts:"), loop=loop)
+            for x, item in enumerate(ret_account_list):
+                print(f"{item} value: {ret_values[x]}")
+                if ctx and loop:
+                    asyncio.ensure_future(
+                        ctx.send(f"{item} value: {ret_values[x]}"), loop=loop
+                    )
+        return account_list, ret_account_list, values, ret_values
+    except Exception as e:
+        print(f"Fidelity {index}: Error getting holdings: {e}")
+        driver.save_screenshot(f"fidelity-an-error-{datetime.datetime.now()}.png")
+        print(traceback.format_exc())
+        return None, None, None, None
 
 
 def fidelity_holdings(drivers, ctx=None, loop=None):
@@ -91,68 +160,14 @@ def fidelity_holdings(drivers, ctx=None, loop=None):
     print("Fidelity Holdings")
     print("==============================")
     print()
-    for driver in drivers:
-        index = drivers.index(driver) + 1
-        ret_acc = True
-        try:
-            # Get account holdings
-            driver.get("https://digital.fidelity.com/ftgw/digital/portfolio/positions")
-            # Wait for page load
-            WebDriverWait(driver, 10).until(check_if_page_loaded)
-            sleep(5)
-            # Get total account value
-            total_value = driver.find_elements(
-                by=By.CSS_SELECTOR,
-                value="body > ap143528-portsum-dashboard-root > dashboard-root > div > div.account-selector__outer-box.account-selector__outer-box--expand-in-pc > accounts-selector > nav > div.acct-selector__acct-list > pvd3-link > s-root > span > a > span > s-slot > s-assigned-wrapper > div > div > div > span:nth-child(2)",
-            )
-            print(f"Total Fidelity {index} account value: {total_value[0].text}")
-            if ctx and loop:
-                asyncio.ensure_future(
-                    ctx.send(f"Total Fidelity {index} account value: {total_value[0].text}"),
-                    loop=loop,
-                )
-            # Get value of individual and retirement accounts
-            ind_accounts = driver.find_elements(
-                by=By.CSS_SELECTOR, value=r"#Investment\ Accounts"
-            )
-            ret_accounts = driver.find_elements(
-                by=By.CSS_SELECTOR, value=r"#Retirement\ Accounts"
-            )
-            # Get text from elements
-            account_list = ind_accounts[0].text.replace("\n", " ").split(" ")[1::5]
-            values = ind_accounts[0].text.replace("\n", " ").split(" ")[2::5]
-            try:
-                ret_account_list = ret_accounts[0].text.replace("\n", " ").split(" ")[2::6]
-                ret_values = ret_accounts[0].text.replace("\n", " ").split(" ")[3::6]
-            except IndexError:
-                print("No retirement accounts found, skipping...")
-                ret_acc = False
-            # Print out account numbers and values
-            print("Individual accounts:")
-            if ctx and loop:
-                asyncio.ensure_future(ctx.send("Individual accounts:"), loop=loop)
-            for x, item in enumerate(account_list):
-                print(f"{item} value: {values[x]}")
-                if ctx and loop:
-                    asyncio.ensure_future(ctx.send(f"{item} value: {values[x]}"), loop=loop)
-            if ret_acc:
-                print("Retirement accounts:")
-                if ctx and loop:
-                    asyncio.ensure_future(ctx.send("Retirement accounts:"), loop=loop)
-                for x, item in enumerate(ret_account_list):
-                    print(f"{item} value: {ret_values[x]}")
-                    if ctx and loop:
-                        asyncio.ensure_future(
-                            ctx.send(f"{item} value: {ret_values[x]}"), loop=loop
-                        )
-                # We'll add positions later since that will be hard
-        except Exception as e:
-            print(f"Fidelity {index}: Error getting holdings: {e}")
-            print(traceback.format_exc())
+    for driver in drivers.loggedInObjects:
+        index = drivers.loggedInObjects.index(driver) + 1
+        # Get account holdings
+        fidelity_account_numbers(driver, ctx=ctx, loop=loop, index=index)
 
 
 def fidelity_transaction(
-    drivers, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
+    driver_o, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
 ):
     print()
     print("==============================")
@@ -162,6 +177,7 @@ def fidelity_transaction(
     action = action.lower()
     stock = stock.upper()
     amount = int(amount)
+    drivers = driver_o.loggedInObjects
     for driver in drivers:
         index = drivers.index(driver) + 1
         # Go to trade page
@@ -352,4 +368,6 @@ def fidelity_transaction(
             except Exception as e:
                 print(e)
                 traceback.print_exc()
+                driver.save_screenshot(f"fidelity-login-error-{datetime.datetime.now()}.png")
                 continue
+
