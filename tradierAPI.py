@@ -10,15 +10,15 @@ from dotenv import load_dotenv
 from helperAPI import Brokerage
 
 
-def tradier_init():
+def tradier_init(TRADIER_EXTERNAL=None):
     # Initialize .env file
     load_dotenv()
     # Import Tradier account
-    if not os.getenv("TRADIER"):
+    if not os.getenv("TRADIER") and TRADIER_EXTERNAL is None:
         print("Tradier not found, skipping...")
         return None
     # Get access token and split into list
-    accounts = os.environ["TRADIER"].strip().split(",")
+    accounts = os.environ["TRADIER"].strip().split(",") if TRADIER_EXTERNAL is None else TRADIER_EXTERNAL.strip().split(",")
     # Login to each account
     tradier_obj = Brokerage("Tradier")
     for account in accounts:

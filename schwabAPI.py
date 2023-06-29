@@ -11,14 +11,14 @@ from schwab_api import Schwab
 from helperAPI import Brokerage
 
 
-def schwab_init():
+def schwab_init(SCHWAB_EXTERNAL=None):
     # Initialize .env file
     load_dotenv()
     # Import Schwab account
-    if not os.getenv("SCHWAB"):
+    if not os.getenv("SCHWAB") and SCHWAB_EXTERNAL is None:
         print("Schwab not found, skipping...")
         return None
-    accounts = os.environ["SCHWAB"].strip().split(",")
+    accounts = os.environ["SCHWAB"].strip().split(",") if SCHWAB_EXTERNAL is None else SCHWAB_EXTERNAL.strip().split(",")
     # Log in to Schwab account
     print("Logging in to Schwab...")
     schwab_obj = Brokerage("Schwab")

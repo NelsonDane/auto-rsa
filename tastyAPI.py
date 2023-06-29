@@ -69,13 +69,13 @@ def order_setup(tt, order_type, stock_price, stock, amount):
     return new_order
 
 
-def tastytrade_init():
+def tastytrade_init(TASTYTRADE_EXTERNAL=None):
     load_dotenv()
     # Import Tastytrade account
-    if not os.getenv("TASTYTRADE"):
+    if not os.getenv("TASTYTRADE") and TASTYTRADE_EXTERNAL is None:
         print("Tastytrade not found, skipping...")
         return None
-    accounts = os.environ["TASTYTRADE"].strip().split(",")
+    accounts = os.environ["TASTYTRADE"].strip().split(",") if TASTYTRADE_EXTERNAL is None else TASTYTRADE_EXTERNAL.strip().split(",")
     tasty_obj = Brokerage("Tastytrade")
     # Log in to Tastytrade account
     print("Logging in to Tastytrade...")

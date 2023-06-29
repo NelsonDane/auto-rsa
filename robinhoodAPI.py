@@ -11,15 +11,15 @@ from dotenv import load_dotenv
 from helperAPI import Brokerage
 
 
-def robinhood_init():
+def robinhood_init(ROBINHOOD_EXTERNAL=None):
     # Initialize .env file
     load_dotenv()
     # Import Robinhood account
     rh_obj = Brokerage("Robinhood")
-    if not os.getenv("ROBINHOOD"):
+    if not os.getenv("ROBINHOOD") and ROBINHOOD_EXTERNAL is None:
         print("Robinhood not found, skipping...")
         return None
-    RH = os.environ["ROBINHOOD"].split(",")
+    RH = os.environ["ROBINHOOD"].strip().split(",") if ROBINHOOD_EXTERNAL is None else ROBINHOOD_EXTERNAL.strip().split(",")
     # Log in to Robinhood account
     for account in RH:
         print("Logging in to Robinhood...")

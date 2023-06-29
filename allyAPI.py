@@ -11,14 +11,14 @@ from helperAPI import Brokerage
 
 
 # Initialize Ally
-def ally_init():
+def ally_init(ALLY_EXTERNAL=None):
     # Initialize .env file
     load_dotenv()
     # Import Ally account
-    if not os.getenv("ALLY"):
+    if not os.getenv("ALLY") and ALLY_EXTERNAL is None:
         print("Ally not found, skipping...")
         return None
-    accounts = os.environ["ALLY"].strip().split(",")
+    accounts = os.environ["ALLY"].strip().split(",") if ALLY_EXTERNAL is None else ALLY_EXTERNAL.strip().split(",")
     params_list = []
     for account in accounts:
         account = account.split(":")

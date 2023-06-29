@@ -18,14 +18,14 @@ from selenium.webdriver.support.wait import WebDriverWait
 from helperAPI import *
 
 
-def fidelity_init(DOCKER=False):
+def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
     # Initialize .env file
     load_dotenv()
     # Import Fidelity account
-    if not os.getenv("FIDELITY"):
+    if not os.getenv("FIDELITY") and FIDELITY_EXTERNAL is None:
         print("Fidelity not found, skipping...")
         return None
-    accounts = os.environ["FIDELITY"].strip().split(",")
+    accounts = os.environ["FIDELITY"].strip().split(",") if FIDELITY_EXTERNAL is None else FIDELITY_EXTERNAL.strip().split(",")
     fidelity_obj = Brokerage("Fidelity")
     # Init webdriver
     for account in accounts:
