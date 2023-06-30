@@ -2,11 +2,11 @@
 # Script to automate RSA stock purchases
 
 # Import libraries
-try:
-    import os
-    import re
-    import sys
+import os
+import re
+import sys
 
+try:
     import discord
     from discord.ext import commands
     from dotenv import load_dotenv
@@ -69,23 +69,23 @@ class stockOrder:
 
     # Runs the specified function for each broker in the list
     # broker name + type of function
-    def fun_run(self, type, ctx=None, loop=None):
-        if type in ["_init", "_holdings", "_transaction"]:
+    def fun_run(self, command, ctx=None, loop=None):
+        if command in ["_init", "_holdings", "_transaction"]:
             for index, broker in enumerate(self.brokers):
                 if broker in self.notbrokers:
                     continue
-                fun_name = broker + type
+                fun_name = broker + command
                 try:
-                    if type == "_init":
+                    if command == "_init":
                         if nicknames(broker) == "fidelity":
                             # Fidelity requires docker mode argument
                             self.logged_in.append(globals()[fun_name](DOCKER_MODE))
                         else:
                             self.logged_in.append(globals()[fun_name]())
                     # Holdings and transaction
-                    elif type == "_holdings":
+                    elif command == "_holdings":
                         globals()[fun_name](self.logged_in[index], ctx, loop)
-                    elif type == "_transaction":
+                    elif command == "_transaction":
                         globals()[fun_name](
                             self.logged_in[index],
                             self.action,
