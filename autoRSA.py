@@ -6,20 +6,37 @@ import os
 import re
 import sys
 
-import discord
-from discord.ext import commands
-from dotenv import load_dotenv
+try:
+    import discord
+    from discord.ext import commands
+    from dotenv import load_dotenv
 
-# Custom API libraries
-from allyAPI import *
-from fidelityAPI import *
-from robinhoodAPI import *
-from schwabAPI import *
-from tastyAPI import *
-from tradierAPI import *
+    # Custom API libraries
+    from allyAPI import *
+    from fidelityAPI import *
+    from robinhoodAPI import *
+    from schwabAPI import *
+    from tastyAPI import *
+    from tradierAPI import *
+except Exception as e:
+    print(f"Error importing libraries: {e}")
+    print("Please run 'pip install -r requirements.txt'")
+    sys.exit(1)
 
 # Initialize .env file
 load_dotenv()
+
+# Check for legacy .env file format
+# This should be removed in a future release
+if re.search(r"(_USERNAME|_PASSWORD)", str(os.environ)):
+    print("Legacy .env file found. Please update to new format.")
+    print("See .env.example for details.")
+    # Print troublesome variables
+    print("Please update/remove the following variables:")
+    for key in os.environ:
+        if re.search(r"(_USERNAME|_PASSWORD)", key):
+            print(f"{key}={os.environ[key]}")
+    sys.exit(1)
 
 # Global variables
 SUPPORTED_BROKERS = ["ally", "fidelity", "robinhood", "schwab", "tastytrade", "tradier"]
@@ -52,23 +69,23 @@ class stockOrder:
 
     # Runs the specified function for each broker in the list
     # broker name + type of function
-    def fun_run(self, type, ctx=None, loop=None):
-        if type in ["_init", "_holdings", "_transaction"]:
+    def fun_run(self, command, ctx=None, loop=None):
+        if command in ["_init", "_holdings", "_transaction"]:
             for index, broker in enumerate(self.brokers):
                 if broker in self.notbrokers:
                     continue
-                fun_name = broker + type
+                fun_name = broker + command
                 try:
-                    if type == "_init":
+                    if command == "_init":
                         if nicknames(broker) == "fidelity":
                             # Fidelity requires docker mode argument
                             self.logged_in.append(globals()[fun_name](DOCKER_MODE))
                         else:
                             self.logged_in.append(globals()[fun_name]())
                     # Holdings and transaction
-                    elif type == "_holdings":
+                    elif command == "_holdings":
                         globals()[fun_name](self.logged_in[index], ctx, loop)
-                    elif type == "_transaction":
+                    elif command == "_transaction":
                         globals()[fun_name](
                             self.logged_in[index],
                             self.action,
