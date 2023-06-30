@@ -28,7 +28,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 && rm -rf /var/lib/apt/lists/*
 
 # Install Edge
-RUN wget https://packages.microsoft.com/keys/microsoft.asc -O- | apt-key add -
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+RUN wget -q https://packages.microsoft.com/keys/microsoft.asc -O- | apt-key add -
 RUN sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/edge stable main" > /etc/apt/sources.list.d/microsoft-edge.list'
 RUN apt-get update && apt-get install -y --no-install-recommends microsoft-edge-stable && rm -rf /var/lib/apt/lists/*
 
@@ -37,8 +38,8 @@ COPY ./requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Install playwright
-RUN playwright install
-RUN playwright install-deps
+RUN playwright install && \
+    playwright install-deps
 
 # Grab needed files
 COPY ./autoRSA.py .
