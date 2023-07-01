@@ -185,14 +185,18 @@ def argParser(args):
 
 if __name__ == "__main__":
     # Determine if ran from command line
-    if len(sys.argv) == 1:  # If no arguments, run discord bot, no docker
-        print("Running Discord bot from command line")
-        DISCORD_BOT = True
+    if len(sys.argv) == 1:  # If no arguments, do nothing
+        print("No arguments given, see README for usage")
+        sys.exit(1)
     elif (
-        len(sys.argv) == 2 and sys.argv[1] == "docker"
+        len(sys.argv) == 2 and sys.argv[1].lower() == "docker"
     ):  # If docker argument, run docker bot
         print("Running bot from docker")
-        DOCKER_MODE = True
+        DOCKER_MODE = DISCORD_BOT = True
+    elif (
+        len(sys.argv) == 2 and sys.argv[1].lower() == "discord"
+    ):  # If discord argument, run discord bot, no docker, no prompt
+        print("Running Discord bot from command line")
         DISCORD_BOT = True
     else:  # If any other argument, run bot, no docker or discord bot
         print("Running bot from command line")
