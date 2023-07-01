@@ -65,7 +65,7 @@ class stockOrder:
         self.notbrokers = []  # List of brokerages to not use !ally
         self.dry = True  # Dry run mode
         self.holdings = False  # Get holdings from enabled brokerages
-        self.logged_in = []  # List of Brokerage login objects
+        self.logged_in = []  # List of Brokerage objects
 
     # Runs the specified function for each broker in the list
     # broker name + type of function
@@ -79,7 +79,7 @@ class stockOrder:
                     if command == "_init":
                         if nicknames(broker) == "fidelity":
                             # Fidelity requires docker mode argument
-                            self.logged_in.append(globals()[fun_name](DOCKER_MODE))
+                            self.logged_in.append(globals()[fun_name](DOCKER=DOCKER_MODE))
                         else:
                             self.logged_in.append(globals()[fun_name]())
                     # Holdings and transaction
@@ -221,8 +221,9 @@ if __name__ == "__main__":
         else:
             orderObj.broker_transaction()
         # Kill selenium drivers
-        if "fidelity" in [n.lower() for n in orderObj.brokers]:
-            killDriver(orderObj.logged_in[orderObj.brokers.index("fidelity")])
+        for obj in orderObj.logged_in:
+            if obj.name.lower() == "fidelity":
+                killDriver(obj)
         sys.exit(0)
 
     if DISCORD_BOT:

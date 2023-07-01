@@ -169,23 +169,36 @@ def tradier_transaction(
         index = tradier.index(obj) + 1
         for account_number in tradier_o.get_account_numbers(f"Tradier {index}"):
             if not DRY:
-                response = requests.post(
-                    f"https://api.tradier.com/v1/accounts/{account_number}/orders",
-                    data={
-                        "class": "equity",
-                        "symbol": stock,
-                        "side": action,
-                        "quantity": amount,
-                        "type": "market",
-                        "duration": "day",
-                    },
-                    headers={
-                        "Authorization": f"Bearer {obj}",
-                        "Accept": "application/json",
-                    },
-                )
-                json_response = response.json()
                 try:
+                    response = requests.post(
+                        f"https://api.tradier.com/v1/accounts/{account_number}/orders",
+                        data={
+                            "class": "equity",
+                            "symbol": stock,
+                            "side": action,
+                            "quantity": amount,
+                            "type": "market",
+                            "duration": "day",
+                        },
+                        headers={
+                            "Authorization": f"Bearer {obj}",
+                            "Accept": "application/json",
+                        },
+                    )
+                    try:
+                        json_response = response.json()
+                    except requests.exceptions.JSONDecodeError as e:
+                        print(
+                            f"Tradier account {account_number} Error: {e} JSON response: {response}"
+                        )
+                        if ctx and loop:
+                            asyncio.ensure_future(
+                                ctx.send(
+                                    f"Tradier account {account_number} Error: {e} JSON response: {response}"
+                                ),
+                                loop=loop,
+                            )
+                        continue
                     if json_response["order"]["status"] == "ok":
                         print(
                             f"Tradier account {account_number}: {action} {amount} of {stock}"
@@ -208,18 +221,28 @@ def tradier_transaction(
                                 ),
                                 loop=loop,
                             )
-                        return None
+                        continue
                 except KeyError:
                     print(
-                        f"Tradier account {account_number} Error: This order did not route. Is this a new account?"
+                        f"Tradier account {account_number} Error: This order did not route. JSON response: {json_response}"
                     )
                     if ctx and loop:
                         asyncio.ensure_future(
                             ctx.send(
-                                f"Tradier account {account_number} Error: This order did not route. Is this a new account?"
+                                f"Tradier account {account_number} Error: This order did not route. JSON response: {json_response}"
                             ),
                             loop=loop,
                         )
+                except Exception as e:
+                    print(f"Tradier account {account_number}: Error: {e}")
+                    print(traceback.format_exc())
+                    print(json_response)
+                    if ctx and loop:
+                        asyncio.ensure_future(
+                            ctx.send(f"Tradier account {account_number}: Error: {e}"),
+                            loop=loop,
+                        )
+                    print(traceback.format_exc())
             else:
                 print(
                     f"Tradier account {account_number}: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}"

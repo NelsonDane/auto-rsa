@@ -62,9 +62,9 @@ def getDriver(DOCKER=False):
     return driver
 
 
-def killDriver(drivers):
+def killDriver(brokerObj):
     # Kill all drivers
-    for driver in drivers:
-        print(f"Killed Selenium driver {drivers.index(driver) + 1}")
+    for driver in brokerObj.loggedInObjects:
+        print(f"Killed Selenium driver {brokerObj.loggedInObjects.index(driver) + 1}")
         driver.close()
         driver.quit()

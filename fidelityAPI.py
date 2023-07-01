@@ -316,7 +316,16 @@ def fidelity_transaction(
                 preview_button.click()
                 # Wait for page to load
                 WebDriverWait(driver, 10).until(check_if_page_loaded)
-                sleep(1)
+                sleep(3)
+                # Check for error popup and clear
+                try:
+                    error_dismiss = driver.find_element(
+                        by=By.XPATH,
+                        value="(//button[@class='pvd-modal__close-button'])[3]",
+                    )
+                    driver.execute_script("arguments[0].click();", error_dismiss)
+                except NoSuchElementException:
+                    pass
                 # Place order
                 if not DRY:
                     # Check for error popup and clear it if the account cannot sell the stock for some reason.
