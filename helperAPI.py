@@ -12,9 +12,9 @@ from webdriver_manager.microsoft import EdgeChromiumDriverManager
 
 class Brokerage:
     def __init__(self, name):
-        self.name = name # Name of brokerage
-        self.account_numbers = {} # Dictionary of accounts
-        self.loggedInObjects = [] # List of logged in objects
+        self.name = name  # Name of brokerage
+        self.account_numbers = {}  # Dictionary of account names and numbers
+        self.loggedInObjects = []  # List of logged in objects
 
     def add_account_number(self, name, number):
         if name in self.account_numbers:
@@ -31,6 +31,7 @@ class Brokerage:
             Account Numbers: {self.account_numbers}
             Logged In Objects: {self.loggedInObjects}
         """)
+
 
 def type_slowly(element, string, delay=0.3):
     # Type slower

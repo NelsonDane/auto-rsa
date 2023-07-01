@@ -207,7 +207,7 @@ def fidelity_transaction(
         except:
             print("Error: No accounts foundin dropdown")
             traceback.print_exc()
-            return None
+            return
         # Complete on each account
         # Because of stale elements, we need to re-find the elements each time
         for x in range(number_of_accounts):
@@ -244,7 +244,7 @@ def fidelity_transaction(
                         value="body > div.app-body > ap122489-ett-component > div > order-entry > div.eq-ticket.order-entry__container-height > div > div > form > div.order-entry__container-content.scroll > div:nth-child(2) > symbol-search > div > div.eq-ticket--border-top > div > div:nth-child(2) > div > div > div > pvd3-inline-alert > s-root > div > div.pvd-inline-alert__content > s-slot > s-assigned-wrapper",
                     )
                     print(f"Error: Symbol {stock} not found")
-                    return None
+                    return
                 except:
                     pass
                 # Get ask/bid price
@@ -277,7 +277,7 @@ def fidelity_transaction(
                     sell_button.click()
                 else:
                     print(f"Error: Invalid action {action}")
-                    return None
+                    return
                 # Set amount (and clear previous amount)
                 amount_box = driver.find_element(
                     by=By.CSS_SELECTOR, value="#eqt-shared-quantity"
@@ -379,4 +379,3 @@ def fidelity_transaction(
                 traceback.print_exc()
                 driver.save_screenshot(f"fidelity-login-error-{datetime.datetime.now()}.png")
                 continue
-

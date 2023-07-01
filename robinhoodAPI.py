@@ -137,7 +137,7 @@ def robinhood_transaction(
                     print(result)
                 else:
                     print("Error: Invalid action")
-                    return None
+                    return
             except Exception as e:
                 print(f"Robinhood {index} Error submitting order: {e}")
                 if ctx and loop:

@@ -156,6 +156,6 @@ def schwab_transaction(
                         ctx.send(f"Schwab {index} {account}: Error submitting order: {e}"),
                         loop=loop,
                     )
-                return None
+                return
             sleep(1)
             print()
