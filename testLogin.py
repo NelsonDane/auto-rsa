@@ -2,14 +2,17 @@
 # Script to check auto rsa logins
 # Run this to make sure the accounts successfully log in
 
+# Standard libraries
+import os
+from dotenv import load_dotenv
+
 # Custom API libraries
-from allyAPI import *
-from fidelityAPI import *
-from robinhoodAPI import *
-from schwabAPI import *
-from helperAPI import *
-from tastyAPI import *
-from tradierAPI import *
+from allyAPI import ally_init
+from fidelityAPI import fidelity_init
+from robinhoodAPI import robinhood_init
+from schwabAPI import schwab_init
+from tastyAPI import tastytrade_init
+from tradierAPI import tradier_init
 
 # Initialize .env file
 load_dotenv()

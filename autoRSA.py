@@ -14,6 +14,7 @@ try:
     # Custom API libraries
     from allyAPI import *
     from fidelityAPI import *
+    from helperAPI import *
     from robinhoodAPI import *
     from schwabAPI import *
     from tastyAPI import *

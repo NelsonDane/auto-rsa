@@ -7,7 +7,7 @@ import traceback
 
 import ally
 from dotenv import load_dotenv
-from helperAPI import Brokerage
+from helperAPI import Brokerage, printAndDiscord
 
 
 # Initialize Ally
@@ -65,46 +65,28 @@ def ally_holdings(ao, ctx=None, loop=None):
             ab = obj.balances()
             a_value = ab["accountvalue"].values
             for value in a_value:
-                print(f"Ally {index} account value: ${value}")
-                if ctx and loop:
-                    asyncio.ensure_future(
-                        ctx.send(f"Ally {index} account value: ${value}"), loop=loop
-                    )
+                printAndDiscord(f"Ally {index} account value: ${value}", ctx, loop)
             # Print account stock holdings
             ah = obj.holdings()
             # Test if holdings is empty. Supposedly len and index are faster than .empty
             if len(ah.index) == 0:
-                print(f"Ally {index}: No holdings found")
-                if ctx and loop:
-                    asyncio.ensure_future(ctx.send(f"Ally {index}: No holdings found"), loop=loop)
+                printAndDiscord(f"Ally {index}: No holdings found", ctx, loop)
             else:
                 account_symbols = (ah["sym"].values).tolist()
                 qty = (ah["qty"].values).tolist()
                 current_price = (ah["marketvalue"].values).tolist()
-                print(f"Ally {index} account symbols:")
-                if ctx and loop:
-                    asyncio.ensure_future(ctx.send(f"Ally {index} account symbols:"), loop=loop)
+                printAndDiscord(f"Ally {index} account symbols:", ctx, loop)
                 for symbol in account_symbols:
                     # Set index for easy use
                     i = account_symbols.index(symbol)
-                    print(
+                    printAndDiscord(
                         f"{symbol}: {float(qty[i])} @ ${round(float(current_price[i]), 2)} "
-                        + f"= ${round(float(qty[i]) * float(current_price[i]), 2)}"
+                        + f"= ${round(float(qty[i]) * float(current_price[i]), 2)}",
+                        ctx,
+                        loop,
                     )
-                    if ctx and loop:
-                        asyncio.ensure_future(
-                            ctx.send(
-                                f"{symbol}: {float(qty[i])} @ ${round(float(current_price[i]), 2)}"
-                                + f"= ${round(float(qty[i]) * float(current_price[i]), 2)}"
-                            ),
-                            loop=loop,
-                        )
         except Exception as e:
-            print(f"Ally {index}: Error getting account holdings: {e}")
-            if ctx and loop:
-                asyncio.ensure_future(
-                    ctx.send(f"Ally {index}: Error getting account holdings: {e}"), loop=loop
-                )
+            printAndDiscord(f"Ally {index}: Error getting account holdings: {e}", ctx, loop)
 
 
 # Function to buy/sell stock on Ally
@@ -144,28 +126,17 @@ def ally_transaction(
             if not DRY:
                 obj.submit(o, preview=False)
             else:
-                print(
+                printAndDiscord(
                     f"Ally {index}: Running in DRY mode."
-                    + f"Trasaction would've been: {action} {amount} of {stock}"
+                    + f"Trasaction would've been: {action} {amount} of {stock}",
+                    ctx,
+                    loop,
                 )
-                if ctx and loop:
-                    asyncio.ensure_future(
-                        ctx.send(
-                            f"Ally {index}: Running in DRY mode."
-                            + f"Trasaction would've been: {action} {amount} of {stock}"
-                        ),
-                        loop=loop,
-                    )
+            # Print order status
             if o.orderid:
-                print(f"Ally {index}: Order {o.orderid} submitted")
-                if ctx and loop:
-                    asyncio.ensure_future(
-                        ctx.send(f"Ally {index}: Order {o.orderid} submitted"), loop=loop
-                    )
+                printAndDiscord(f"Ally {index}: Order {o.orderid} submitted", ctx, loop)
             else:
-                print(f"Ally {index}: Order not submitted")
-                if ctx and loop:
-                    asyncio.ensure_future(ctx.send(f"Ally {index}: Order not submitted"), loop=loop)
+                printAndDiscord(f"Ally {index}: Order not submitted", ctx, loop)
         except Exception as e:
             ally_call_error = (
                 "Error: For your security, certain symbols may only be traded "
@@ -175,22 +146,14 @@ def ally_transaction(
             if "500 server error: internal server error for url:" in str(e).lower():
                 # If selling too soon, then an error is thrown
                 if action == "sell":
-                    print(ally_call_error)
-                    if ctx and loop:
-                        asyncio.ensure_future(ctx.send(ally_call_error), loop=loop)
+                    printAndDiscord(ally_call_error, ctx, loop)
                 # If the message comes up while buying, then try again with a limit order
                 elif action == "buy":
-                    print(
-                        f"Ally {index}: Error placing market buy, trying again with limit order..."
+                    printAndDiscord(
+                        f"Ally {index}: Error placing market buy, trying again with limit order...",
+                        ctx,
+                        loop,
                     )
-                    if ctx and loop:
-                        asyncio.ensure_future(
-                            ctx.send(
-                                f"Ally {index}: Error placing market buy "
-                                + "trying again with limit order..."
-                            ),
-                            loop=loop,
-                        )
                     # Need to get stock price (compare bid, ask, and last)
                     try:
                         # Get stock values
@@ -213,21 +176,8 @@ def ally_transaction(
                             obj, action, stock, amount, new_price, time, DRY, ctx, loop, index
                         )
                     except Exception as e:
-                        print(f"Ally {index}: Failed to place limit order: {e}")
-                        if ctx and loop:
-                            asyncio.ensure_future(
-                                ctx.send(f"Ally {index}: Failed to place limit order: {e}"),
-                                loop=loop,
-                            )
+                        printAndDiscord(f"Ally {index}: Failed to place limit order: {e}", ctx, loop)
             elif type(price) is not str:
-                print(f"Ally {index}: Error placing limit order: {e}")
-                if ctx and loop:
-                    asyncio.ensure_future(
-                        ctx.send(f"Ally {index}: Error placing limit order: {e}"), loop=loop
-                    )
+                printAndDiscord(f"Ally {index}: Error placing limit order: {e}", ctx, loop)
             else:
-                print(f"Ally {index}: Error submitting order: {e}")
-                if ctx and loop:
-                    asyncio.ensure_future(
-                        ctx.send(f"Ally {index}: Error submitting order: {e}", loop=loop)
-                    )
+                printAndDiscord(f"Ally {index}: Error submitting order: {e}", ctx, loop)

@@ -3,7 +3,7 @@ import os
 from decimal import Decimal as D
 
 from dotenv import load_dotenv
-from helperAPI import Brokerage
+from helperAPI import Brokerage, printAndDiscord
 from tastytrade.account import Account
 from tastytrade.dxfeed.event import EventType
 from tastytrade.instruments import Equity
@@ -123,27 +123,17 @@ def tastytrade_holdings(tt_o, ctx, loop=None):
                 i = stocks.index(value)
                 temp_value = round((float(amounts[i]) * float(current_price[i])), 2)
                 current_value.append(temp_value)
-            message = f"Holdings on Tastytrade {index} {acct.account_number}"
-            print(message)
-            if ctx and loop:
-                asyncio.ensure_future(ctx.send(message), loop=loop)
+            printAndDiscord(f"Holdings on Tastytrade {index} {acct.account_number}")
             for position in stocks:
                 i = stocks.index(position)
-                message = (
-                    f"{position}: {amounts[i]} @ ${current_price[i]} = ${current_value[i]}"
+                printAndDiscord(
+                    f"{position}: {amounts[i]} @ ${current_price[i]} = ${current_value[i]}",
+                    ctx,
+                    loop,
                 )
-                print(message)
-                if ctx and loop:
-                    asyncio.ensure_future(ctx.send(message), loop=loop)
-            message = f"Account cash balance is ${round(float(cash_balance), 2)}."
-            print(message)
-            if ctx and loop:
-                asyncio.ensure_future(ctx.send(message), loop=loop)
-        message = f"All accounts cash balance is ${round(float(all_account_balance), 2)}."
-        print(message)
+            printAndDiscord(f"Account cash balance is ${round(float(cash_balance), 2)}.", ctx, loop)
+        printAndDiscord(f"All accounts cash balance is ${round(float(all_account_balance), 2)}.", ctx, loop)
         print()
-        if ctx and loop:
-            asyncio.ensure_future(ctx.send(message), loop=loop)
 
 
 async def tastytrade_execute(
@@ -197,19 +187,21 @@ async def tastytrade_execute(
                             obj, new_order, dry_run=DRY
                         )
                         if placed_order.order.status.value == "Routed":
-                            message = f"Tastytrade {index} {acct.account_number}: {action} {amount} of {stock}"
-                            print(message)
-                            if ctx and loop:
-                                asyncio.ensure_future(ctx.send(message), loop=loop)
+                            printAndDiscord(
+                                f"Tastytrade {index} {acct.account_number}: {action} {amount} of {stock}",
+                                ctx,
+                                loop,
+                            )
                         elif placed_order.order.status.value == "Rejected":
-                            message = f"Tastytrade {index} {acct.account_number} Error: Order Rejected! Trying LIMIT order."
                             streamer = await DataStreamer.create(obj)
                             stock_limit = await streamer.oneshot(
                                 EventType.PROFILE, stock_list
                             )
-                            print(message)
-                            if ctx:
-                                asyncio.ensure_future(ctx.send(message), loop=loop)
+                            printAndDiscord(
+                                f"Tastytrade {index} {acct.account_number} Error: Order Rejected! Trying LIMIT order.",
+                                ctx,
+                                loop,
+                            )
                             if all_amount:
                                 results = accounts[i].get_positions(obj)
                                 for result in results:
@@ -257,33 +249,39 @@ async def tastytrade_execute(
                                 obj, new_order, dry_run=DRY
                             )
                             if placed_order.order.status.value == "Routed":
-                                message = f"Tastytrade {index} {acct.account_number}: {action} {amount} of {stock}"
-                                print(message)
-                                if ctx and loop:
-                                    asyncio.ensure_future(ctx.send(message), loop=loop)
+                                printAndDiscord(
+                                    f"Tastytrade {index} {acct.account_number}: {action} {amount} of {stock}",
+                                    ctx,
+                                    loop,
+                                )
                             elif placed_order.order.status.value == "Rejected":
-                                message = f"Tastytrade {index} {acct.account_number} Error: Order Rejected! Skipping Account."
-                                print(message)
-                                if ctx:
-                                    asyncio.ensure_future(ctx.send(message), loop=loop)
+                                printAndDiscord(
+                                    f"Tastytrade {index} {acct.account_number} Error: Order Rejected! Skipping Account.",
+                                    ctx,
+                                    loop,
+                                )
                         else:
-                            message_one = f"Tastytrade {index}: Error occured placing order: {placed_order.id} on account {acct.account_number} with the following {action} {amount} of {stock}"
-                            message_two = f"Tastytrade {index}: Returned order status {placed_order.order.status.value}"
-                            print(message_one)
-                            print(message_two)
-                            if ctx and loop:
-                                asyncio.ensure_future(ctx.send(message_one), loop=loop)
-                                asyncio.ensure_future(ctx.send(message_two), loop=loop)
+                            printAndDiscord(
+                                f"Tastytrade {index} {acct.account_number}: Error occured placing order: {placed_order.id} on account {acct.account_number} with the following {action} {amount} of {stock}",
+                                ctx,
+                                loop,
+                            )
+                            printAndDiscord(
+                                f"Tastytrade {index} {acct.account_number}: Returned order status {placed_order.order.status.value}",
+                                ctx,
+                                loop,
+                            )
                     else:
-                        message_one = f"Tastytrade {index} {acct.account_number}: day trade count is >= 3 skipping..."
-                        message_two = (
-                            "More than 3 day trades will cause a strike on your account!"
+                        printAndDiscord(
+                            f"Tastytrade {index} {acct.account_number}: day trade count is >= 3 skipping...",
+                            ctx,
+                            loop,
                         )
-                        print(message_one)
-                        print(message_two)
-                        if ctx and loop:
-                            asyncio.ensure_future(ctx.send(message_one), loop=loop)
-                            asyncio.ensure_future(ctx.send(message_two), loop=loop)
+                        printAndDiscord(
+                            "More than 3 day trades will cause a strike on your account!",
+                            ctx,
+                            loop,
+                        )
                 else:
                     # DRY Run
                     if action == "buy":
@@ -296,22 +294,23 @@ async def tastytrade_execute(
                     new_order = order_setup(obj, order_type, stock_price, stock, amount)
                     placed_order = accounts[i].place_order(obj, new_order, dry_run=DRY)
                     if placed_order.order.status.value == "Received":
-                        message = f"Tastytrade {index}: Running in DRY mode. Transaction would've been: {placed_order.order.order_type.value} {placed_order.order.size} of {placed_order.order.underlying_symbol}"
-                        print(message)
-                        if ctx and loop:
-                            asyncio.ensure_future(ctx.send(message), loop=loop)
-                    else:
-                        message = (
-                            f"Tastytrade {index}: Running in DRY mode. Transaction did not complete!"
+                        printAndDiscord(
+                            f"Tastytrade {index} {acct.account_number}: Running in DRY mode. Transaction would've been: {placed_order.order.order_type.value} {placed_order.order.size} of {placed_order.order.underlying_symbol}",
+                            ctx,
+                            loop,
                         )
-                        print(message)
-                        if ctx and loop:
-                            asyncio.ensure_future(ctx.send(message), loop=loop)
+                    else:
+                        printAndDiscord(
+                            f"Tastytrade {index} {acct.account_number}: Running in DRY mode. Transaction did not complete!",
+                            ctx,
+                            loop,
+                        )
             except TE as te:
-                message = f"Tastytrade {index}: Error: {te}"
-                print(message)
-                if ctx and loop:
-                    asyncio.ensure_future(ctx.send(message), loop=loop)
+                printAndDiscord(
+                    f"Tastytrade {index} {acct.account_number}: Error: {te}",
+                    ctx,
+                    loop,
+                )
 
 
 def tastytrade_transaction(

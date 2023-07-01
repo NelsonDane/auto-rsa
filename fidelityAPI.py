@@ -15,7 +15,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.wait import WebDriverWait
 
-from helperAPI import *
+from helperAPI import Brokerage, getDriver, type_slowly, check_if_page_loaded, printAndDiscord
 
 
 def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
@@ -106,12 +106,7 @@ def fidelity_account_numbers(driver, ctx=None, loop=None, index=1):
             by=By.CSS_SELECTOR,
             value="body > ap143528-portsum-dashboard-root > dashboard-root > div > div.account-selector__outer-box.account-selector__outer-box--expand-in-pc > accounts-selector > nav > div.acct-selector__acct-list > pvd3-link > s-root > span > a > span > s-slot > s-assigned-wrapper > div > div > div > span:nth-child(2)",
         )
-        print(f"Total Fidelity {index} account value: {total_value[0].text}")
-        if ctx and loop:
-            asyncio.ensure_future(
-                ctx.send(f"Total Fidelity {index} account value: {total_value[0].text}"),
-                loop=loop,
-            )
+        printAndDiscord(f"Total Fidelity {index} account value: {total_value[0].text}", ctx, loop)
         # Get value of individual and retirement accounts
         ind_accounts = driver.find_elements(
             by=By.CSS_SELECTOR, value=r"#Investment\ Accounts"
@@ -129,23 +124,13 @@ def fidelity_account_numbers(driver, ctx=None, loop=None, index=1):
             print("No retirement accounts found, skipping...")
             ret_acc = False
         # Print out account numbers and values
-        print("Individual accounts:")
-        if ctx and loop:
-            asyncio.ensure_future(ctx.send("Individual accounts:"), loop=loop)
+        printAndDiscord("Individual accounts:", ctx, loop)
         for x, item in enumerate(account_list):
-            print(f"{item} value: {values[x]}")
-            if ctx and loop:
-                asyncio.ensure_future(ctx.send(f"{item} value: {values[x]}"), loop=loop)
+            printAndDiscord(f"{item} value: {values[x]}", ctx, loop)
         if ret_acc:
-            print("Retirement accounts:")
-            if ctx and loop:
-                asyncio.ensure_future(ctx.send("Retirement accounts:"), loop=loop)
+            printAndDiscord("Retirement accounts:", ctx, loop)
             for x, item in enumerate(ret_account_list):
-                print(f"{item} value: {ret_values[x]}")
-                if ctx and loop:
-                    asyncio.ensure_future(
-                        ctx.send(f"{item} value: {ret_values[x]}"), loop=loop
-                    )
+                printAndDiscord(f"{item} value: {ret_values[x]}", ctx, loop)
         return account_list, ret_account_list, values, ret_values
     except Exception as e:
         print(f"Fidelity {index}: Error getting holdings: {e}")
@@ -339,12 +324,11 @@ def fidelity_transaction(
                         WebDriverWait(driver, 10).until(check_if_page_loaded)
                         sleep(1)
                         # Send confirmation
-                        message = (
-                            f"Fidelity {index} {account_label}: {action} {amount} shares of {stock}"
+                        printAndDiscord(
+                            f"Fidelity {index} {account_label}: {action} {amount} shares of {stock}",
+                            ctx,
+                            loop,
                         )
-                        print(message)
-                        if ctx and loop:
-                            asyncio.ensure_future(ctx.send(message), loop=loop)
                     except NoSuchElementException:
                         # Check for error
                         WebDriverWait(driver, 10).until(
@@ -360,19 +344,18 @@ def fidelity_transaction(
                             value="(//button[@class='pvd-modal__close-button'])[3]",
                         )
                         driver.execute_script("arguments[0].click();", error_dismiss)
-                        if action == "sell":
-                            message = f"Fidelity {index} {account_label}: {action} {amount} shares of {stock}. DID NOT COMPLETE! \nEither this account does not have enough shares, or an order is already pending."
-                        elif action == "buy":
-                            message = f"Fidelity {index} {account_label}: {action} {amount} shares of {stock}. DID NOT COMPLETE! \nEither this account does not have enough cash, or an order is already pending."
-                        print(message)
-                        if ctx and loop:
-                            asyncio.ensure_future(ctx.send(message), loop=loop)
+                        printAndDiscord(
+                            f"Fidelity {index} {account_label}: {action} {amount} shares of {stock}. DID NOT COMPLETE! \nEither this account does not have enough shares, or an order is already pending.",
+                            ctx,
+                            loop,
+                        )
                     # Send confirmation
                 else:
-                    message = f"DRY: Fidelity {index} {account_label}: {action} {amount} shares of {stock}"
-                    print(message)
-                    if ctx and loop:
-                        asyncio.ensure_future(ctx.send(message), loop=loop)
+                    printAndDiscord(
+                        f"DRY: Fidelity {index} {account_label}: {action} {amount} shares of {stock}",
+                        ctx,
+                        loop,
+                    )
                 sleep(3)
             except Exception as e:
                 print(e)

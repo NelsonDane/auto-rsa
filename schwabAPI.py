@@ -8,7 +8,7 @@ from time import sleep
 
 from dotenv import load_dotenv
 from schwab_api import Schwab
-from helperAPI import Brokerage
+from helperAPI import Brokerage, printAndDiscord
 
 
 def schwab_init(SCHWAB_EXTERNAL=None):
@@ -57,11 +57,7 @@ def schwab_holdings(schwab_o, ctx=None, loop=None):
         index = schwab.index(obj) + 1
         try:
             for account in list(obj.get_account_info().keys()):
-                print(f"Holdings in Schwab {index} Account: {account}")
-                if ctx and loop:
-                    asyncio.ensure_future(
-                        ctx.send(f"Holdings in Schwab {index}: {account}"), loop=loop
-                    )
+                printAndDiscord(f"Holdings in Schwab {index} Account: {account}", ctx, loop)
                 holdings = obj.get_account_info()[account]["positions"]
                 for item in holdings:
                     # Get symbol, market value, quantity, current price, and total holdings
@@ -75,16 +71,9 @@ def schwab_holdings(schwab_o, ctx=None, loop=None):
                         current_price = 0
                     else:
                         current_price = round(mv / qty, 2)
-                    message = f"{sym}: {qty} @ ${current_price} = ${mv}"
-                    print(message)
-                    if ctx and loop:
-                        asyncio.ensure_future(ctx.send(message), loop=loop)
+                    printAndDiscord(f"{sym}: {qty} @ ${current_price} = ${mv}", ctx, loop)
         except Exception as e:
-            print(f"Schwab {index} {account}: Error getting holdings: {e}")
-            if ctx and loop:
-                asyncio.ensure_future(
-                    ctx.send(f"Schwab {index} {account}: Error getting holdings: {e}"), loop=loop
-                )
+            printAndDiscord(f"Schwab {index} {account}: Error getting holdings: {e}", ctx, loop)
 
 
 def schwab_transaction(
@@ -110,12 +99,7 @@ def schwab_transaction(
             print(f"Schwab {index} Account: {account}")
             # If DRY is True, don't actually make the transaction
             if DRY:
-                print("Running in DRY mode. No transactions will be made.")
-                if ctx and loop:
-                    asyncio.ensure_future(
-                        ctx.send("Running in DRY mode. No transactions will be made."),
-                        loop=loop,
-                    )
+                printAndDiscord("Running in DRY mode. No transactions will be made.", ctx, loop)
             try:
                 messages, success = obj.trade(
                     ticker=stock,
@@ -124,38 +108,24 @@ def schwab_transaction(
                     account_id=account,  # Replace with your account number
                     dry_run=DRY,  # If dry_run=True, we won't place the order, we'll just verify it.
                 )
-                print(
-                    "The order verification was " + "successful"
-                    if success
-                    else "unsuccessful"
-                )
                 print("The order verification produced the following messages: ")
                 pprint.pprint(messages)
-                if ctx and loop:
-                    asyncio.ensure_future(
-                        ctx.send(
-                            f"Schwab {index} account {account}: The order verification was "
-                            + "successful"
-                            if success
-                            else "unsuccessful"
-                        ),
-                        loop=loop,
+                printAndDiscord(
+                    f"Schwab {index} account {account}: The order verification was "
+                    + "successful"
+                    if success
+                    else "unsuccessful",
+                    ctx,
+                    loop,
+                )
+                if not success:
+                    printAndDiscord(
+                        f"Schwab {index} account {account}: The order verification produced the following messages: {messages}",
+                        ctx,
+                        loop,
                     )
-                    if not success:
-                        asyncio.ensure_future(
-                            ctx.send(
-                                f"Schwab {index} account {account}: The order verification produced the following messages: "
-                            ),
-                            loop=loop,
-                        )
-                        asyncio.ensure_future(ctx.send(f"{messages}"), loop=loop)
             except Exception as e:
-                print(f"Schwab {index} {account}: Error submitting order: {e}")
-                if ctx and loop:
-                    asyncio.ensure_future(
-                        ctx.send(f"Schwab {index} {account}: Error submitting order: {e}"),
-                        loop=loop,
-                    )
-                return
+                printAndDiscord(f"Schwab {index} {account}: Error submitting order: {e}", ctx, loop)
+                continue
             sleep(1)
             print()

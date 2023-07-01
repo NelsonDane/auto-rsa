@@ -7,7 +7,7 @@ import traceback
 
 import requests
 from dotenv import load_dotenv
-from helperAPI import Brokerage
+from helperAPI import Brokerage, printAndDiscord
 
 
 def tradier_init(TRADIER_EXTERNAL=None):
@@ -82,11 +82,7 @@ def tradier_holdings(tradier_o, ctx=None, loop=None):
                 json_response = response.json()
                 # Check if holdings is empty
                 if json_response["positions"] == "null":
-                    print(f"Tradier {account_number}: No holdings")
-                    if ctx and loop:
-                        asyncio.ensure_future(
-                            ctx.send(f"Tradier {account_number}: No holdings"), loop=loop
-                        )
+                    printAndDiscord(f"Tradier {account_number}: No holdings", ctx=ctx, loop=loop)
                     continue
                 # Create list of holdings and amounts
                 stocks = []
@@ -124,31 +120,17 @@ def tradier_holdings(tradier_o, ctx=None, loop=None):
                     current_value[i] = round(current_value[i], 2)
                     current_price[i] = round(current_price[i], 2)
                 # Print and send them
-                print(f"Holdings on Tradier {account_number}")
-                if ctx and loop:
-                    asyncio.ensure_future(
-                        ctx.send(f"Holdings on Tradier {account_number}"), loop=loop
-                    )
+                printAndDiscord(f"Holdings on Tradier {account_number}", ctx=ctx, loop=loop)
                 for position in stocks:
                     # Set index for easy use
                     i = stocks.index(position)
-                    print(
-                        f"{position}: {amounts[i]} @ ${current_price[i]} = ${current_value[i]}"
-                    )
-                    if ctx and loop:
-                        asyncio.ensure_future(
-                            ctx.send(
-                                f"{position}: {amounts[i]} @ ${current_price[i]} = ${current_value[i]}"
-                            ),
-                            loop=loop,
-                        )
-            except Exception as e:
-                print(f"Tradier {account_number}: Error getting holdings: {e}")
-                if ctx and loop:
-                    asyncio.ensure_future(
-                        ctx.send(f"Tradier {account_number}: Error getting holdings: {e}"),
+                    printAndDiscord(
+                        f"{position}: {amounts[i]} @ ${current_price[i]} = ${current_value[i]}",
+                        ctx=ctx,
                         loop=loop,
                     )
+            except Exception as e:
+                printAndDiscord(f"Tradier {account_number}: Error getting holdings: {e}", ctx=ctx, loop=loop)
                 print(traceback.format_exc())
 
 
@@ -188,69 +170,38 @@ def tradier_transaction(
                     try:
                         json_response = response.json()
                     except requests.exceptions.JSONDecodeError as e:
-                        print(
-                            f"Tradier account {account_number} Error: {e} JSON response: {response}"
+                        printAndDiscord(
+                            f"Tradier account {account_number} Error: {e} JSON response: {response}",
+                            ctx=ctx,
+                            loop=loop,
                         )
-                        if ctx and loop:
-                            asyncio.ensure_future(
-                                ctx.send(
-                                    f"Tradier account {account_number} Error: {e} JSON response: {response}"
-                                ),
-                                loop=loop,
-                            )
                         continue
                     if json_response["order"]["status"] == "ok":
-                        print(
-                            f"Tradier account {account_number}: {action} {amount} of {stock}"
+                        printAndDiscord(
+                            f"Tradier account {account_number}: {action} {amount} of {stock}",
+                            ctx=ctx,
+                            loop=loop,
                         )
-                        if ctx and loop:
-                            asyncio.ensure_future(
-                                ctx.send(
-                                    f"Tradier account {account_number}: {action} {amount} of {stock}"
-                                ),
-                                loop=loop,
-                            )
                     else:
-                        print(
-                            f"Tradier account {account_number} Error: {json_response['order']['status']}"
+                        printAndDiscord(
+                            f"Tradier account {account_number} Error: {json_response['order']['status']}",
+                            ctx=ctx,
+                            loop=loop,
                         )
-                        if ctx and loop:
-                            asyncio.ensure_future(
-                                ctx.send(
-                                    f"Tradier account {account_number} Error: {json_response['order']['status']}"
-                                ),
-                                loop=loop,
-                            )
                         continue
                 except KeyError:
-                    print(
-                        f"Tradier account {account_number} Error: This order did not route. JSON response: {json_response}"
-                    )
-                    if ctx and loop:
-                        asyncio.ensure_future(
-                            ctx.send(
-                                f"Tradier account {account_number} Error: This order did not route. JSON response: {json_response}"
-                            ),
-                            loop=loop,
-                        )
-                except Exception as e:
-                    print(f"Tradier account {account_number}: Error: {e}")
-                    print(traceback.format_exc())
-                    print(json_response)
-                    if ctx and loop:
-                        asyncio.ensure_future(
-                            ctx.send(f"Tradier account {account_number}: Error: {e}"),
-                            loop=loop,
-                        )
-                    print(traceback.format_exc())
-            else:
-                print(
-                    f"Tradier account {account_number}: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}"
-                )
-                if ctx and loop:
-                    asyncio.ensure_future(
-                        ctx.send(
-                            f"Tradier account {account_number}: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}"
-                        ),
+                    printAndDiscord(
+                        f"Tradier account {account_number} Error: This order did not route. JSON response: {json_response}",
+                        ctx=ctx,
                         loop=loop,
                     )
+                except Exception as e:
+                    printAndDiscord(f"Tradier account {account_number}: Error: {e}", ctx=ctx, loop=loop)
+                    print(traceback.format_exc())
+                    print(json_response)
+            else:
+                printAndDiscord(
+                    f"Tradier account {account_number}: Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}",
+                    ctx=ctx,
+                    loop=loop,
+                )

@@ -2,6 +2,7 @@
 # Helper functions and classes
 # to share between scripts
 
+import asyncio
 import textwrap
 from time import sleep
 
@@ -69,3 +70,12 @@ def killDriver(brokerObj):
         print(f"Killed Selenium driver {brokerObj.loggedInObjects.index(driver) + 1}")
         driver.close()
         driver.quit()
+
+
+def printAndDiscord(message, ctx=None, loop=None):
+    # Print message
+    print(message)
+    # Send message to Discord
+    if ctx is not None and loop is not None:
+        sleep(0.5)
+        asyncio.run_coroutine_threadsafe(ctx.send(message), loop)
