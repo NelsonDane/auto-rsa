@@ -88,20 +88,20 @@ DISCLAIMER: I am not a financial advisor and not affiliated with any of the brok
 
 ## Supported brokerages:
 
-All brokers: separate account credentials with ":". For example, `ALLY_USERNAME:ALLY_PASSWORD`. Separate multiple accounts with the same broker with ",". For example, `ALLY_USERNAME:ALLY_PASSWORD,ALLY_USERNAME2:ALLY_PASSWORD2`.
+All brokers: separate account credentials with a colon (":"). For example, `ALLY_USERNAME:ALLY_PASSWORD`. Separate multiple logins with the same broker with a comma (","). For example, `ALLY_USERNAME:ALLY_PASSWORD,ALLY_USERNAME2:ALLY_PASSWORD2`.
 
 ### Ally
 Made using [PyAlly](https://github.com/alienbrett/PyAlly). Go give them a ⭐
 
 Required `.env` variables:
-- ALLY_CONSUMER_KEY
-- ALLY_CONSUMER_SECRET
-- ALLY_OAUTH_TOKEN
-- ALLY_OAUTH_SECRET
-- ALLY_ACCOUNT_NBR
+- `ALLY_CONSUMER_KEY`
+- `ALLY_CONSUMER_SECRET`
+- `ALLY_OAUTH_TOKEN`
+- `ALLY_OAUTH_SECRET`
+- `ALLY_ACCOUNT_NBR`
 
 `.env` file format:
-- ALLY=ALLY_CONSUMER_KEY:ALLY_CONSUMER_SECRET:ALLY_OAUTH_TOKEN:ALLY_OAUTH_SECRET:ALLY_ACCOUNT_NBR
+- `ALLY=ALLY_CONSUMER_KEY:ALLY_CONSUMER_SECRET:ALLY_OAUTH_TOKEN:ALLY_OAUTH_SECRET:ALLY_ACCOUNT_NBR`
 
 To get these, follow [these instructions](https://alienbrett.github.io/PyAlly/installing.html#get-the-library).
 
@@ -109,23 +109,23 @@ To get these, follow [these instructions](https://alienbrett.github.io/PyAlly/in
 Made by yours truly using Selenium (and many hours of web scraping).
 
 Required `.env` variables:
-- FIDELITY_USERNAME
-- FIDELITY_PASSWORD
+- `FIDELITY_USERNAME`
+- `FIDELITY_PASSWORD`
 
 `.env` file format:
-- FIDELITY=FIDELITY_USERNAME:FIDELITY_PASSWORD
+- `FIDELITY=FIDELITY_USERNAME:FIDELITY_PASSWORD`
 
 ### Robinhood
 Made using [robin_stocks](https://github.com/jmfernandes/robin_stocks). Go give them a ⭐
 
 Required `.env` variables:
-- ROBINHOOD_USERNAME
-- ROBINHOOD_PASSWORD
-- ROBINHOOD_TOTP: If 2fa enabled
+- `ROBINHOOD_USERNAME`
+- `ROBINHOOD_PASSWORD`
+- `ROBINHOOD_TOTP` (If 2fa enabled, else NA)
 
 `.env` file format:
-- With 2fa: ROBINHOOD=ROBINHOOD_USERNAME:ROBINHOOD_PASSWORD:ROBINHOOD_TOTP
-- Without 2fa: ROBINHOOD=ROBINHOOD_USERNAME:ROBINHOOD_PASSWORD:NA
+- With 2fa: `ROBINHOOD=ROBINHOOD_USERNAME:ROBINHOOD_PASSWORD:ROBINHOOD_TOTP`
+- Without 2fa: `ROBINHOOD=ROBINHOOD_USERNAME:ROBINHOOD_PASSWORD:NA`
 
 Configuring 2fa can be tricky, read the TOTP section [here](https://github.com/jmfernandes/robin_stocks/blob/master/Robinhood.rst).
 
@@ -133,13 +133,13 @@ Configuring 2fa can be tricky, read the TOTP section [here](https://github.com/j
 Made using the [schwab-api](https://github.com/itsjafer/schwab-api). Go give them a ⭐
 
 Required `.env` variables:
-- SCHWAB_USERNAME
-- SCHWAB_PASSWORD
-- SCHWAB_TOTP_SECRET (Optional, if 2fa is enabled)
+- `SCHWAB_USERNAME`
+- `SCHWAB_PASSWORD`
+- `SCHWAB_TOTP_SECRET` (If 2fa is enabled, else NA)
 
 `.env` file format:
-- With 2fa: SCHWAB=SCHWAB_USERNAME:SCHWAB_PASSWORD:SCHWAB_TOTP_SECRET
-- Without 2fa: SCHWAB=SCHWAB_USERNAME:SCHWAB_PASSWORD:NA
+- With 2fa: `SCHWAB=SCHWAB_USERNAME:SCHWAB_PASSWORD:SCHWAB_TOTP_SECRET`
+- Without 2fa: `SCHWAB=SCHWAB_USERNAME:SCHWAB_PASSWORD:NA`
 
 To get your TOTP secret, follow this [guide](guides/schwabSetup.md).
 
@@ -147,10 +147,10 @@ To get your TOTP secret, follow this [guide](guides/schwabSetup.md).
 Made by yours truly using the official [Tradier API](https://documentation.tradier.com/brokerage-api/trading/getting-started). Consider giving me a ⭐
 
 Required `.env` variables:
-- TRADIER_ACCESS_TOKEN
+- `TRADIER_ACCESS_TOKEN`
 
 `.env` file format:
-- TRADIER=TRADIER_ACCESS_TOKEN
+- `TRADIER=TRADIER_ACCESS_TOKEN`
 
 To get your access token, go to your [Tradier API settings](https://dash.tradier.com/settings/api).
 
@@ -158,11 +158,11 @@ To get your access token, go to your [Tradier API settings](https://dash.tradier
 Made by [MaxxRK](https://github.com/MaxxRK/) using the [tastytrade-api](https://github.com/tastyware/tastytrade). Go give them a ⭐
 
 Required `.env` variables:
-- TASTYTRADE_USERNAME
-- TASTYTRADE_PASSWORD
+- `TASTYTRADE_USERNAME`
+- `TASTYTRADE_PASSWORD`
 
 `.env` file format:
-- TASTYTRADE=TASTYTRADE_USERNAME:TASTYTRADE_PASSWORD
+- `TASTYTRADE=TASTYTRADE_USERNAME:TASTYTRADE_PASSWORD`
 
 ### Maybe future brokerages
 #### Chase
