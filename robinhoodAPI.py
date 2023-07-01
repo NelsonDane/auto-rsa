@@ -95,6 +95,11 @@ def robinhood_transaction(
     print("Robinhood")
     print("==============================")
     print()
+    error = "Robinhood transactions are temporarily disabled due to API issues. Please see https://github.com/jmfernandes/robin_stocks/pull/403 and https://github.com/jmfernandes/robin_stocks/issues/401 for more details."
+    print(error)
+    if ctx and loop:
+        asyncio.ensure_future(ctx.send(error), loop=loop)
+    return
     action = action.lower()
     stock = stock.upper()
     if amount == "all" and action == "sell":

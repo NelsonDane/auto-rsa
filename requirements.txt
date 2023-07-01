@@ -6,7 +6,7 @@ pyally==1.1.2
 pyotp==2.8.0
 python-dotenv==1.0.0
 requests==2.31.0
-robin_stocks==2.1.0
+robin_stocks==3.0.4
 schwab-api==0.2.3
 selenium==4.10.0
 tastytrade==5.4
