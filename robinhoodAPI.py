@@ -1,7 +1,6 @@
 # Nelson Dane
 # Robinhood API
 
-import asyncio
 import os
 import traceback
 

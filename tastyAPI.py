@@ -1,3 +1,6 @@
+# Donald Ryan Gullett
+# TastyTrade API
+
 import asyncio
 import os
 from decimal import Decimal as D

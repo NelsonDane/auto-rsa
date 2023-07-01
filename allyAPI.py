@@ -1,7 +1,6 @@
 # Nelson Dane
 # Ally API
 
-import asyncio
 import os
 import traceback
 

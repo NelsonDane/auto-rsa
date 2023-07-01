@@ -1,7 +1,6 @@
 # Nelson Dane
 # Schwab API
 
-import asyncio
 import os
 import pprint
 from time import sleep

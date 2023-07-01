@@ -2,7 +2,6 @@
 # API to Interface with Fidelity
 # Uses headless Selenium
 
-import asyncio
 import os
 import datetime
 import traceback
