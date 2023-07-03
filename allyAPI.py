@@ -126,7 +126,7 @@ def ally_transaction(
                 obj.submit(o, preview=False)
             else:
                 printAndDiscord(
-                    f"Ally {index}: Running in DRY mode."
+                    f"Ally {index}: Running in DRY mode. "
                     + f"Trasaction would've been: {action} {amount} of {stock}",
                     ctx,
                     loop,
