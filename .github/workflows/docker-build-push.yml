@@ -13,6 +13,7 @@ jobs:
       dockerhub_repo_name: auto-rsa
       image_tag: ${{ github.ref == 'refs/heads/main' && 'latest' || github.ref == 'refs/heads/develop' && 'develop' }}
       should_push: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' }}
+      platforms: linux/amd64,linux/arm64
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}

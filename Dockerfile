@@ -25,20 +25,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gpg \
     python3-pip \
     tzdata \
+    software-properties-common \
 && rm -rf /var/lib/apt/lists/*
 
-# Install Edge
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN wget -q https://packages.microsoft.com/keys/microsoft.asc -O- | apt-key add -
-RUN sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/edge stable main" > /etc/apt/sources.list.d/microsoft-edge.list'
-RUN apt-get update && apt-get install -y --no-install-recommends microsoft-edge-stable && rm -rf /var/lib/apt/lists/*
+# Install Chromium
+RUN add-apt-repository ppa:saiarcot895/chromium-beta
+RUN apt-get update && apt-get install -y --no-install-recommends chromium-browser chromium-chromedriver && rm -rf /var/lib/apt/lists/*
+RUN ln -s /usr/lib/chromium-browser/chromedriver /usr/bin/chromedriver
 
 # Install python dependencies
 COPY ./requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Install playwright
-RUN playwright install && \
+RUN playwright install firefox && \
     playwright install-deps
 
 # Grab needed files

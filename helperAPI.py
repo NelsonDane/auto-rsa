@@ -7,9 +7,9 @@ import textwrap
 from time import sleep
 
 from selenium import webdriver
-from selenium.webdriver.edge.service import Service
-from webdriver_manager.microsoft import EdgeChromiumDriverManager
-
+from selenium.webdriver.chrome.service import Service as ChromiumService
+from webdriver_manager.chrome import ChromeDriverManager
+from webdriver_manager.core.utils import ChromeType
 
 class Brokerage:
     def __init__(self, name):
@@ -49,17 +49,23 @@ def check_if_page_loaded(driver):
 
 def getDriver(DOCKER=False):
     # Init webdriver options
-    options = webdriver.EdgeOptions()
+    options = webdriver.ChromeOptions()
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_argument("--disable-notifications")
     if DOCKER:
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--no-sandbox")
-    # Init webdriver
-    driver = webdriver.Edge(
-        service=Service(EdgeChromiumDriverManager(cache_valid_range=30).install()),
-        options=options,
-    )
+        options.add_argument("--disable-gpu")
+        # Docker uses specific chromedriver installed via apt
+        driver = webdriver.Chrome(
+            service=ChromiumService("/usr/bin/chromedriver"),
+            options=options,
+        )
+    else:
+        driver = webdriver.Chrome(
+            service=ChromiumService(ChromeDriverManager(chrome_type=ChromeType.CHROMIUM, cache_valid_range=30).install()),
+            options=options,
+        )
     driver.maximize_window()
     return driver
 
