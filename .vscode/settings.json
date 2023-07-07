@@ -5,7 +5,8 @@
     },
     "python.formatting.provider": "black",
     "python.formatting.blackArgs": [
-        "--line-length=88"
+        "--line-length=88",
+        "--preview",
     ],
     "isort.args": [
         "--profile",

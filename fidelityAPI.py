@@ -85,7 +85,8 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
                     print("Disabled old view!")
             except (TimeoutException, NoSuchElementException):
                 print(
-                    "Failed to disable old view! This might cause issues but maybe not..."
+                    "Failed to disable old view! This might cause"
+                    " issues but maybe not..."
                 )
             sleep(3)
             fidelity_obj.loggedInObjects.append(driver)
@@ -116,7 +117,13 @@ def fidelity_account_numbers(driver, ctx=None, loop=None, index=1):
         # Get total account value
         total_value = driver.find_elements(
             by=By.CSS_SELECTOR,
-            value="body > ap143528-portsum-dashboard-root > dashboard-root > div > div.account-selector__outer-box.account-selector__outer-box--expand-in-pc > accounts-selector > nav > div.acct-selector__acct-list > pvd3-link > s-root > span > a > span > s-slot > s-assigned-wrapper > div > div > div > span:nth-child(2)",
+            value=(
+                "body > ap143528-portsum-dashboard-root > dashboard-root > div >"
+                " div.account-selector__outer-box.account-selector__outer-box--expand-in-pc"
+                " > accounts-selector > nav > div.acct-selector__acct-list > pvd3-link"
+                " > s-root > span > a > span > s-slot > s-assigned-wrapper > div > div"
+                " > div > span:nth-child(2)"
+            ),
         )
         printAndDiscord(
             f"Total Fidelity {index} account value: {total_value[0].text}", ctx, loop
@@ -242,7 +249,17 @@ def fidelity_transaction(
                 try:
                     driver.find_element(
                         by=By.CSS_SELECTOR,
-                        value="body > div.app-body > ap122489-ett-component > div > order-entry > div.eq-ticket.order-entry__container-height > div > div > form > div.order-entry__container-content.scroll > div:nth-child(2) > symbol-search > div > div.eq-ticket--border-top > div > div:nth-child(2) > div > div > div > pvd3-inline-alert > s-root > div > div.pvd-inline-alert__content > s-slot > s-assigned-wrapper",
+                        value=(
+                            "body > div.app-body > ap122489-ett-component > div >"
+                            " order-entry > div.eq-ticket.order-entry__container-height"
+                            " > div > div > form >"
+                            " div.order-entry__container-content.scroll >"
+                            " div:nth-child(2) > symbol-search > div >"
+                            " div.eq-ticket--border-top > div > div:nth-child(2) > div"
+                            " > div > div > pvd3-inline-alert > s-root > div >"
+                            " div.pvd-inline-alert__content > s-slot >"
+                            " s-assigned-wrapper"
+                        ),
                     )
                     print(f"Error: Symbol {stock} not found")
                     return
@@ -252,13 +269,21 @@ def fidelity_transaction(
                 ask_price = (
                     driver.find_element(
                         by=By.CSS_SELECTOR,
-                        value="#quote-panel > div > div.eq-ticket__quote--blocks-container > div:nth-child(2) > div > span > span",
+                        value=(
+                            "#quote-panel > div >"
+                            " div.eq-ticket__quote--blocks-container > div:nth-child(2)"
+                            " > div > span > span"
+                        ),
                     )
                 ).text
                 bid_price = (
                     driver.find_element(
                         by=By.CSS_SELECTOR,
-                        value="#quote-panel > div > div.eq-ticket__quote--blocks-container > div:nth-child(1) > div > span > span",
+                        value=(
+                            "#quote-panel > div >"
+                            " div.eq-ticket__quote--blocks-container > div:nth-child(1)"
+                            " > div > span > span"
+                        ),
                     )
                 ).text
                 # If price is under $1, then we have to use a limit order
@@ -267,13 +292,19 @@ def fidelity_transaction(
                 if action == "buy":
                     buy_button = driver.find_element(
                         by=By.CSS_SELECTOR,
-                        value="#action-buy > s-root > div > label > s-slot > s-assigned-wrapper",
+                        value=(
+                            "#action-buy > s-root > div > label > s-slot >"
+                            " s-assigned-wrapper"
+                        ),
                     )
                     buy_button.click()
                 elif action == "sell":
                     sell_button = driver.find_element(
                         by=By.CSS_SELECTOR,
-                        value="#action-sell > s-root > div > label > s-slot > s-assigned-wrapper",
+                        value=(
+                            "#action-sell > s-root > div > label > s-slot >"
+                            " s-assigned-wrapper"
+                        ),
                     )
                     sell_button.click()
                 else:
@@ -289,13 +320,19 @@ def fidelity_transaction(
                 if not LIMIT:
                     market_button = driver.find_element(
                         by=By.CSS_SELECTOR,
-                        value="#market-yes > s-root > div > label > s-slot > s-assigned-wrapper",
+                        value=(
+                            "#market-yes > s-root > div > label > s-slot >"
+                            " s-assigned-wrapper"
+                        ),
                     )
                     market_button.click()
                 else:
                     limit_button = driver.find_element(
                         by=By.CSS_SELECTOR,
-                        value="#market-no > s-root > div > label > s-slot > s-assigned-wrapper",
+                        value=(
+                            "#market-no > s-root > div > label > s-slot >"
+                            " s-assigned-wrapper"
+                        ),
                     )
                     limit_button.click()
                     # Set price
@@ -341,7 +378,10 @@ def fidelity_transaction(
                         sleep(1)
                         # Send confirmation
                         printAndDiscord(
-                            f"Fidelity {index} {account_label}: {action} {amount} shares of {stock}",
+                            (
+                                f"Fidelity {index} {account_label}:"
+                                f" {action} {amount} shares of {stock}"
+                            ),
                             ctx,
                             loop,
                         )
@@ -361,14 +401,22 @@ def fidelity_transaction(
                         )
                         driver.execute_script("arguments[0].click();", error_dismiss)
                         printAndDiscord(
-                            f"Fidelity {index} {account_label}: {action} {amount} shares of {stock}. DID NOT COMPLETE! \nEither this account does not have enough shares, or an order is already pending.",
+                            (
+                                f"Fidelity {index} {account_label}:"
+                                f" {action} {amount} shares of {stock}. DID NOT"
+                                " COMPLETE! \nEither this account does not have enough"
+                                " shares, or an order is already pending."
+                            ),
                             ctx,
                             loop,
                         )
                     # Send confirmation
                 else:
                     printAndDiscord(
-                        f"DRY: Fidelity {index} {account_label}: {action} {amount} shares of {stock}",
+                        (
+                            f"DRY: Fidelity {index} {account_label}:"
+                            f" {action} {amount} shares of {stock}"
+                        ),
                         ctx,
                         loop,
                     )

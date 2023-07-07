@@ -190,9 +190,9 @@ def ally_transaction(
                             loop,
                             index,
                         )
-                    except Exception as e:
+                    except Exception as ex:
                         printAndDiscord(
-                            f"Ally {index}: Failed to place limit order: {e}", ctx, loop
+                            f"Ally {index}: Failed to place limit order: {ex}", ctx, loop
                         )
             elif type(price) is not str:
                 printAndDiscord(
