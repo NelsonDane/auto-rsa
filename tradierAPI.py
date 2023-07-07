@@ -6,6 +6,7 @@ import traceback
 
 import requests
 from dotenv import load_dotenv
+
 from helperAPI import Brokerage, printAndDiscord
 
 
@@ -17,7 +18,11 @@ def tradier_init(TRADIER_EXTERNAL=None):
         print("Tradier not found, skipping...")
         return None
     # Get access token and split into list
-    accounts = os.environ["TRADIER"].strip().split(",") if TRADIER_EXTERNAL is None else TRADIER_EXTERNAL.strip().split(",")
+    accounts = (
+        os.environ["TRADIER"].strip().split(",")
+        if TRADIER_EXTERNAL is None
+        else TRADIER_EXTERNAL.strip().split(",")
+    )
     # Login to each account
     tradier_obj = Brokerage("Tradier")
     for account in accounts:
@@ -129,7 +134,9 @@ def tradier_holdings(tradier_o, ctx=None, loop=None):
                         loop=loop,
                     )
             except Exception as e:
-                printAndDiscord(f"Tradier {account_number}: Error getting holdings: {e}", ctx=ctx, loop=loop)
+                printAndDiscord(
+                    f"Tradier {account_number}: Error getting holdings: {e}", ctx=ctx, loop=loop
+                )
                 print(traceback.format_exc())
 
 
@@ -195,7 +202,9 @@ def tradier_transaction(
                         loop=loop,
                     )
                 except Exception as e:
-                    printAndDiscord(f"Tradier account {account_number}: Error: {e}", ctx=ctx, loop=loop)
+                    printAndDiscord(
+                        f"Tradier account {account_number}: Error: {e}", ctx=ctx, loop=loop
+                    )
                     print(traceback.format_exc())
                     print(json_response)
             else:

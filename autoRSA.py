@@ -168,11 +168,7 @@ def argParser(args):
                 orderObj.brokers = SUPPORTED_BROKERS
         elif arg == "holdings":
             orderObj.holdings = True
-        elif (
-            isStockTicker(arg.upper())
-            and arg.lower() != "dry"
-            and orderObj.stock is None
-        ):
+        elif isStockTicker(arg.upper()) and arg.lower() != "dry" and orderObj.stock is None:
             orderObj.stock = arg.upper()
     # Remove duplicates
     orderObj.brokers = list(dict.fromkeys(orderObj.brokers))
@@ -283,13 +279,9 @@ if __name__ == "__main__":
             try:
                 await bot.loop.run_in_executor(None, orderObj.broker_login)
                 if orderObj.holdings:
-                    await bot.loop.run_in_executor(
-                        None, orderObj.broker_holdings, ctx, loop
-                    )
+                    await bot.loop.run_in_executor(None, orderObj.broker_holdings, ctx, loop)
                 else:
-                    await bot.loop.run_in_executor(
-                        None, orderObj.broker_transaction, ctx, loop
-                    )
+                    await bot.loop.run_in_executor(None, orderObj.broker_transaction, ctx, loop)
             except Exception as e:
                 print(f"Error placing order on {orderObj.name}: {e}")
                 if ctx:

@@ -11,6 +11,7 @@ from selenium.webdriver.chrome.service import Service as ChromiumService
 from webdriver_manager.chrome import ChromeDriverManager
 from webdriver_manager.core.utils import ChromeType
 
+
 class Brokerage:
     def __init__(self, name):
         self.name = name  # Name of brokerage
@@ -27,11 +28,13 @@ class Brokerage:
         return self.account_numbers[name]
 
     def __str__(self):
-        return textwrap.dedent(f"""
+        return textwrap.dedent(
+            f"""
             Brokerage: {self.name}
             Account Numbers: {self.account_numbers}
             Logged In Objects: {self.loggedInObjects}
-        """)
+        """
+        )
 
 
 def type_slowly(element, string, delay=0.3):
@@ -63,7 +66,11 @@ def getDriver(DOCKER=False):
         )
     else:
         driver = webdriver.Chrome(
-            service=ChromiumService(ChromeDriverManager(chrome_type=ChromeType.CHROMIUM, cache_valid_range=30).install()),
+            service=ChromiumService(
+                ChromeDriverManager(
+                    chrome_type=ChromeType.CHROMIUM, cache_valid_range=30
+                ).install()
+            ),
             options=options,
         )
     driver.maximize_window()

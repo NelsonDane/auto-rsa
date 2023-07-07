@@ -6,6 +6,7 @@ import traceback
 
 import ally
 from dotenv import load_dotenv
+
 from helperAPI import Brokerage, printAndDiscord
 
 
@@ -17,7 +18,11 @@ def ally_init(ALLY_EXTERNAL=None):
     if not os.getenv("ALLY") and ALLY_EXTERNAL is None:
         print("Ally not found, skipping...")
         return None
-    accounts = os.environ["ALLY"].strip().split(",") if ALLY_EXTERNAL is None else ALLY_EXTERNAL.strip().split(",")
+    accounts = (
+        os.environ["ALLY"].strip().split(",")
+        if ALLY_EXTERNAL is None
+        else ALLY_EXTERNAL.strip().split(",")
+    )
     params_list = []
     for account in accounts:
         account = account.split(":")
@@ -115,9 +120,7 @@ def ally_transaction(
             index = a.index(obj) + 1
         try:
             # Create order
-            o = ally.Order.Order(
-                buysell=action, symbol=stock, price=price, time=time, qty=amount
-            )
+            o = ally.Order.Order(buysell=action, symbol=stock, price=price, time=time, qty=amount)
             # Print order preview
             print(str(o))
             # Submit order
@@ -175,7 +178,9 @@ def ally_transaction(
                             obj, action, stock, amount, new_price, time, DRY, ctx, loop, index
                         )
                     except Exception as e:
-                        printAndDiscord(f"Ally {index}: Failed to place limit order: {e}", ctx, loop)
+                        printAndDiscord(
+                            f"Ally {index}: Failed to place limit order: {e}", ctx, loop
+                        )
             elif type(price) is not str:
                 printAndDiscord(f"Ally {index}: Error placing limit order: {e}", ctx, loop)
             else:

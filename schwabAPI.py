@@ -7,6 +7,7 @@ from time import sleep
 
 from dotenv import load_dotenv
 from schwab_api import Schwab
+
 from helperAPI import Brokerage, printAndDiscord
 
 
@@ -17,7 +18,11 @@ def schwab_init(SCHWAB_EXTERNAL=None):
     if not os.getenv("SCHWAB") and SCHWAB_EXTERNAL is None:
         print("Schwab not found, skipping...")
         return None
-    accounts = os.environ["SCHWAB"].strip().split(",") if SCHWAB_EXTERNAL is None else SCHWAB_EXTERNAL.strip().split(",")
+    accounts = (
+        os.environ["SCHWAB"].strip().split(",")
+        if SCHWAB_EXTERNAL is None
+        else SCHWAB_EXTERNAL.strip().split(",")
+    )
     # Log in to Schwab account
     print("Logging in to Schwab...")
     schwab_obj = Brokerage("Schwab")
@@ -110,8 +115,7 @@ def schwab_transaction(
                 print("The order verification produced the following messages: ")
                 pprint.pprint(messages)
                 printAndDiscord(
-                    f"Schwab {index} account {account}: The order verification was "
-                    + "successful"
+                    f"Schwab {index} account {account}: The order verification was " + "successful"
                     if success
                     else "unsuccessful",
                     ctx,
@@ -124,7 +128,9 @@ def schwab_transaction(
                         loop,
                     )
             except Exception as e:
-                printAndDiscord(f"Schwab {index} {account}: Error submitting order: {e}", ctx, loop)
+                printAndDiscord(
+                    f"Schwab {index} {account}: Error submitting order: {e}", ctx, loop
+                )
                 continue
             sleep(1)
             print()

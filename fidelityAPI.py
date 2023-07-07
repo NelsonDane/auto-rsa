@@ -2,8 +2,8 @@
 # API to Interface with Fidelity
 # Uses headless Selenium
 
-import os
 import datetime
+import os
 import traceback
 from time import sleep
 
@@ -14,7 +14,13 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.wait import WebDriverWait
 
-from helperAPI import Brokerage, getDriver, type_slowly, check_if_page_loaded, printAndDiscord
+from helperAPI import (
+    Brokerage,
+    check_if_page_loaded,
+    getDriver,
+    printAndDiscord,
+    type_slowly,
+)
 
 
 def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
@@ -24,7 +30,11 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
     if not os.getenv("FIDELITY") and FIDELITY_EXTERNAL is None:
         print("Fidelity not found, skipping...")
         return None
-    accounts = os.environ["FIDELITY"].strip().split(",") if FIDELITY_EXTERNAL is None else FIDELITY_EXTERNAL.strip().split(",")
+    accounts = (
+        os.environ["FIDELITY"].strip().split(",")
+        if FIDELITY_EXTERNAL is None
+        else FIDELITY_EXTERNAL.strip().split(",")
+    )
     fidelity_obj = Brokerage("Fidelity")
     # Init webdriver
     for account in accounts:
@@ -41,9 +51,7 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
             WebDriverWait(driver, 20).until(check_if_page_loaded)
             # Type in username and password and click login
             WebDriverWait(driver, 10).until(
-                expected_conditions.element_to_be_clickable(
-                    (By.CSS_SELECTOR, "#userId-input")
-                )
+                expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, "#userId-input"))
             )
             username_field = driver.find_element(by=By.CSS_SELECTOR, value="#userId-input")
             type_slowly(username_field, account[0])
@@ -73,9 +81,7 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
                     WebDriverWait(driver, 10).until(check_if_page_loaded)
                     print("Disabled old view!")
             except (TimeoutException, NoSuchElementException):
-                print(
-                    "Failed to disable old view! This might cause issues but maybe not..."
-                )
+                print("Failed to disable old view! This might cause issues but maybe not...")
             sleep(3)
             fidelity_obj.loggedInObjects.append(driver)
             ind, ret = fidelity_account_numbers(driver, index=index)[0:2]
@@ -107,12 +113,8 @@ def fidelity_account_numbers(driver, ctx=None, loop=None, index=1):
         )
         printAndDiscord(f"Total Fidelity {index} account value: {total_value[0].text}", ctx, loop)
         # Get value of individual and retirement accounts
-        ind_accounts = driver.find_elements(
-            by=By.CSS_SELECTOR, value=r"#Investment\ Accounts"
-        )
-        ret_accounts = driver.find_elements(
-            by=By.CSS_SELECTOR, value=r"#Retirement\ Accounts"
-        )
+        ind_accounts = driver.find_elements(by=By.CSS_SELECTOR, value=r"#Investment\ Accounts")
+        ret_accounts = driver.find_elements(by=By.CSS_SELECTOR, value=r"#Retirement\ Accounts")
         # Get text from elements
         account_list = ind_accounts[0].text.replace("\n", " ").split(" ")[1::5]
         values = ind_accounts[0].text.replace("\n", " ").split(" ")[2::5]
@@ -165,9 +167,7 @@ def fidelity_transaction(
     for driver in drivers:
         index = drivers.index(driver) + 1
         # Go to trade page
-        driver.get(
-            "https://digital.fidelity.com/ftgw/digital/trade-equity/index/orderEntry"
-        )
+        driver.get("https://digital.fidelity.com/ftgw/digital/trade-equity/index/orderEntry")
         # Wait for page to load
         WebDriverWait(driver, 20).until(check_if_page_loaded)
         sleep(3)
@@ -202,9 +202,7 @@ def fidelity_transaction(
                 )
                 driver.execute_script("arguments[0].click();", accounts_dropdown_in)
                 WebDriverWait(driver, 10).until(
-                    expected_conditions.presence_of_element_located(
-                        (By.ID, "ett-acct-sel-list")
-                    )
+                    expected_conditions.presence_of_element_located((By.ID, "ett-acct-sel-list"))
                 )
                 test = driver.find_element(by=By.ID, value="ett-acct-sel-list")
                 accounts_dropdown_in = test.find_elements(by=By.CSS_SELECTOR, value="li")
@@ -263,9 +261,7 @@ def fidelity_transaction(
                     print(f"Error: Invalid action {action}")
                     return
                 # Set amount (and clear previous amount)
-                amount_box = driver.find_element(
-                    by=By.CSS_SELECTOR, value="#eqt-shared-quantity"
-                )
+                amount_box = driver.find_element(by=By.CSS_SELECTOR, value="#eqt-shared-quantity")
                 amount_box.clear()
                 amount_box.send_keys(amount)
                 # Set market/limit
@@ -294,9 +290,7 @@ def fidelity_transaction(
                 # Preview order
                 WebDriverWait(driver, 10).until(check_if_page_loaded)
                 sleep(1)
-                preview_button = driver.find_element(
-                    by=By.CSS_SELECTOR, value="#previewOrderBtn"
-                )
+                preview_button = driver.find_element(by=By.CSS_SELECTOR, value="#previewOrderBtn")
                 preview_button.click()
                 # Wait for page to load
                 WebDriverWait(driver, 10).until(check_if_page_loaded)

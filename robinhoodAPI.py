@@ -7,6 +7,7 @@ import traceback
 import pyotp
 import robin_stocks.robinhood as rh
 from dotenv import load_dotenv
+
 from helperAPI import Brokerage, printAndDiscord
 
 
@@ -18,7 +19,11 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
     if not os.getenv("ROBINHOOD") and ROBINHOOD_EXTERNAL is None:
         print("Robinhood not found, skipping...")
         return None
-    RH = os.environ["ROBINHOOD"].strip().split(",") if ROBINHOOD_EXTERNAL is None else ROBINHOOD_EXTERNAL.strip().split(",")
+    RH = (
+        os.environ["ROBINHOOD"].strip().split(",")
+        if ROBINHOOD_EXTERNAL is None
+        else ROBINHOOD_EXTERNAL.strip().split(",")
+    )
     # Log in to Robinhood account
     for account in RH:
         print("Logging in to Robinhood...")
@@ -32,7 +37,9 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
                 store_session=False,
             )
             rh_obj.loggedInObjects.append(rh)
-            rh_obj.add_account_number(f"Robinhood {index}", rh.account.load_account_profile(info="account_number"))
+            rh_obj.add_account_number(
+                f"Robinhood {index}", rh.account.load_account_profile(info="account_number")
+            )
         except Exception as e:
             print(f"Error: Unable to log in to Robinhood: {e}")
             return None
@@ -67,15 +74,15 @@ def robinhood_holdings(rho, ctx=None, loop=None):
                         if "NoneType" in str(e):
                             current_price = "N/A"
                             total_value = "N/A"
-                    printAndDiscord(f"{sym}: {qty} @ ${(current_price)} = ${total_value}", ctx, loop)
+                    printAndDiscord(
+                        f"{sym}: {qty} @ ${(current_price)} = ${total_value}", ctx, loop
+                    )
         except Exception as e:
             printAndDiscord(f"Robinhood {index}: Error getting account holdings: {e}", ctx, loop)
             print(traceback.format_exc())
 
 
-def robinhood_transaction(
-    rho, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
-):
+def robinhood_transaction(rho, action, stock, amount, price, time, DRY=True, ctx=None, loop=None):
     print()
     print("==============================")
     print("Robinhood")
@@ -84,7 +91,7 @@ def robinhood_transaction(
     # printAndDiscord(
     #     "Robinhood transactions are temporarily disabled due to API issues. Please see https://github.com/jmfernandes/robin_stocks/pull/403 and https://github.com/jmfernandes/robin_stocks/issues/401 for more details.",
     #     ctx,
-    #     loop,   
+    #     loop,
     # )
     # return
     action = action.lower()
@@ -116,7 +123,9 @@ def robinhood_transaction(
                                 amount = float(item["quantity"])
                                 break
                     result = obj.order_sell_market(symbol=stock, quantity=amount)
-                    printAndDiscord(f"Robinhood {index}: Sold {amount} of {stock}: {result}", ctx, loop)
+                    printAndDiscord(
+                        f"Robinhood {index}: Sold {amount} of {stock}: {result}", ctx, loop
+                    )
                 else:
                     print("Error: Invalid action")
                     return
@@ -128,4 +137,3 @@ def robinhood_transaction(
                 ctx,
                 loop,
             )
-            
