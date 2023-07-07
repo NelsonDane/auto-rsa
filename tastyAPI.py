@@ -9,13 +9,8 @@ from dotenv import load_dotenv
 from tastytrade.account import Account
 from tastytrade.dxfeed.event import EventType
 from tastytrade.instruments import Equity
-from tastytrade.order import (
-    NewOrder,
-    OrderAction,
-    OrderTimeInForce,
-    OrderType,
-    PriceEffect,
-)
+from tastytrade.order import (NewOrder, OrderAction, OrderTimeInForce,
+                              OrderType, PriceEffect)
 from tastytrade.session import Session
 from tastytrade.streamer import DataStreamer
 from tastytrade.utils import TastytradeError as TE
