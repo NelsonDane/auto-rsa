@@ -81,12 +81,12 @@ def robinhood_transaction(
     print("Robinhood")
     print("==============================")
     print()
-    printAndDiscord(
-        "Robinhood transactions are temporarily disabled due to API issues. Please see https://github.com/jmfernandes/robin_stocks/pull/403 and https://github.com/jmfernandes/robin_stocks/issues/401 for more details.",
-        ctx,
-        loop,   
-    )
-    return
+    # printAndDiscord(
+    #     "Robinhood transactions are temporarily disabled due to API issues. Please see https://github.com/jmfernandes/robin_stocks/pull/403 and https://github.com/jmfernandes/robin_stocks/issues/401 for more details.",
+    #     ctx,
+    #     loop,   
+    # )
+    # return
     action = action.lower()
     stock = stock.upper()
     if amount == "all" and action == "sell":
