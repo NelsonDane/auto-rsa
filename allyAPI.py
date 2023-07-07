@@ -90,7 +90,9 @@ def ally_holdings(ao, ctx=None, loop=None):
                         loop,
                     )
         except Exception as e:
-            printAndDiscord(f"Ally {index}: Error getting account holdings: {e}", ctx, loop)
+            printAndDiscord(
+                f"Ally {index}: Error getting account holdings: {e}", ctx, loop
+            )
 
 
 # Function to buy/sell stock on Ally
@@ -120,7 +122,9 @@ def ally_transaction(
             index = a.index(obj) + 1
         try:
             # Create order
-            o = ally.Order.Order(buysell=action, symbol=stock, price=price, time=time, qty=amount)
+            o = ally.Order.Order(
+                buysell=action, symbol=stock, price=price, time=time, qty=amount
+            )
             # Print order preview
             print(str(o))
             # Submit order
@@ -191,6 +195,8 @@ def ally_transaction(
                             f"Ally {index}: Failed to place limit order: {e}", ctx, loop
                         )
             elif type(price) is not str:
-                printAndDiscord(f"Ally {index}: Error placing limit order: {e}", ctx, loop)
+                printAndDiscord(
+                    f"Ally {index}: Error placing limit order: {e}", ctx, loop
+                )
             else:
                 printAndDiscord(f"Ally {index}: Error submitting order: {e}", ctx, loop)
