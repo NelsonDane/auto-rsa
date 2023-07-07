@@ -2,7 +2,7 @@
     "editor.formatOnSave": true,
     "python.formatting.provider": "none",
     "python.formatting.blackArgs": [
-        "--line-length=99"
+        "--line-length=88"
     ],
     "isort.args": [
         "--profile",
@@ -12,6 +12,8 @@
         "editor.codeActionsOnSave": {
             "source.organizeImports": true
         },
+        "editor.formatOnSave": true,
         "editor.defaultFormatter": "ms-python.black-formatter"
-    }
+    },
+    "isort.check": true
 }

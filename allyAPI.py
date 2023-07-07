@@ -175,7 +175,16 @@ def ally_transaction(
                         ) + 0.01
                         # Run function again with limit order
                         ally_transaction(
-                            obj, action, stock, amount, new_price, time, DRY, ctx, loop, index
+                            obj,
+                            action,
+                            stock,
+                            amount,
+                            new_price,
+                            time,
+                            DRY,
+                            ctx,
+                            loop,
+                            index,
                         )
                     except Exception as e:
                         printAndDiscord(

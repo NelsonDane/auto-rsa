@@ -32,7 +32,10 @@ def tradier_init(TRADIER_EXTERNAL=None):
             response = requests.get(
                 "https://api.tradier.com/v1/user/profile",
                 params={},
-                headers={"Authorization": f"Bearer {account}", "Accept": "application/json"},
+                headers={
+                    "Authorization": f"Bearer {account}",
+                    "Accept": "application/json",
+                },
             )
             json_response = response.json()
             if json_response is None:
@@ -86,7 +89,9 @@ def tradier_holdings(tradier_o, ctx=None, loop=None):
                 json_response = response.json()
                 # Check if holdings is empty
                 if json_response["positions"] == "null":
-                    printAndDiscord(f"Tradier {account_number}: No holdings", ctx=ctx, loop=loop)
+                    printAndDiscord(
+                        f"Tradier {account_number}: No holdings", ctx=ctx, loop=loop
+                    )
                     continue
                 # Create list of holdings and amounts
                 stocks = []
@@ -124,7 +129,9 @@ def tradier_holdings(tradier_o, ctx=None, loop=None):
                     current_value[i] = round(current_value[i], 2)
                     current_price[i] = round(current_price[i], 2)
                 # Print and send them
-                printAndDiscord(f"Holdings on Tradier {account_number}", ctx=ctx, loop=loop)
+                printAndDiscord(
+                    f"Holdings on Tradier {account_number}", ctx=ctx, loop=loop
+                )
                 for position in stocks:
                     # Set index for easy use
                     i = stocks.index(position)
@@ -135,7 +142,9 @@ def tradier_holdings(tradier_o, ctx=None, loop=None):
                     )
             except Exception as e:
                 printAndDiscord(
-                    f"Tradier {account_number}: Error getting holdings: {e}", ctx=ctx, loop=loop
+                    f"Tradier {account_number}: Error getting holdings: {e}",
+                    ctx=ctx,
+                    loop=loop,
                 )
                 print(traceback.format_exc())
 
@@ -203,7 +212,9 @@ def tradier_transaction(
                     )
                 except Exception as e:
                     printAndDiscord(
-                        f"Tradier account {account_number}: Error: {e}", ctx=ctx, loop=loop
+                        f"Tradier account {account_number}: Error: {e}",
+                        ctx=ctx,
+                        loop=loop,
                     )
                     print(traceback.format_exc())
                     print(json_response)

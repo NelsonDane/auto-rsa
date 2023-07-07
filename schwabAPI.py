@@ -61,7 +61,9 @@ def schwab_holdings(schwab_o, ctx=None, loop=None):
         index = schwab.index(obj) + 1
         try:
             for account in list(obj.get_account_info().keys()):
-                printAndDiscord(f"Holdings in Schwab {index} Account: {account}", ctx, loop)
+                printAndDiscord(
+                    f"Holdings in Schwab {index} Account: {account}", ctx, loop
+                )
                 holdings = obj.get_account_info()[account]["positions"]
                 for item in holdings:
                     # Get symbol, market value, quantity, current price, and total holdings
@@ -75,9 +77,13 @@ def schwab_holdings(schwab_o, ctx=None, loop=None):
                         current_price = 0
                     else:
                         current_price = round(mv / qty, 2)
-                    printAndDiscord(f"{sym}: {qty} @ ${current_price} = ${mv}", ctx, loop)
+                    printAndDiscord(
+                        f"{sym}: {qty} @ ${current_price} = ${mv}", ctx, loop
+                    )
         except Exception as e:
-            printAndDiscord(f"Schwab {index} {account}: Error getting holdings: {e}", ctx, loop)
+            printAndDiscord(
+                f"Schwab {index} {account}: Error getting holdings: {e}", ctx, loop
+            )
 
 
 def schwab_transaction(
@@ -103,7 +109,9 @@ def schwab_transaction(
             print(f"Schwab {index} Account: {account}")
             # If DRY is True, don't actually make the transaction
             if DRY:
-                printAndDiscord("Running in DRY mode. No transactions will be made.", ctx, loop)
+                printAndDiscord(
+                    "Running in DRY mode. No transactions will be made.", ctx, loop
+                )
             try:
                 messages, success = obj.trade(
                     ticker=stock,
@@ -115,7 +123,8 @@ def schwab_transaction(
                 print("The order verification produced the following messages: ")
                 pprint.pprint(messages)
                 printAndDiscord(
-                    f"Schwab {index} account {account}: The order verification was " + "successful"
+                    f"Schwab {index} account {account}: The order verification was "
+                    + "successful"
                     if success
                     else "unsuccessful",
                     ctx,
