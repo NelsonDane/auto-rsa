@@ -58,6 +58,7 @@ def schwab_holdings(schwab_o, ctx=None, loop=None):
             for account in list(obj.get_account_info().keys()):
                 printAndDiscord(f"Holdings in Schwab {index} Account: {account}", ctx, loop)
                 holdings = obj.get_account_info()[account]["positions"]
+                print_string = ""
                 for item in holdings:
                     # Get symbol, market value, quantity, current price, and total holdings
                     sym = item["symbol"]
@@ -70,7 +71,9 @@ def schwab_holdings(schwab_o, ctx=None, loop=None):
                         current_price = 0
                     else:
                         current_price = round(mv / qty, 2)
-                    printAndDiscord(f"{sym}: {qty} @ ${current_price} = ${mv}", ctx, loop)
+                    # Add to print string
+                    print_string += f"{sym}: {qty} @ ${current_price} = ${mv}\n"
+                printAndDiscord(print_string, ctx, loop)
         except Exception as e:
             printAndDiscord(f"Schwab {index} {account}: Error getting holdings: {e}", ctx, loop)
 

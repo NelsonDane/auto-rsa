@@ -127,13 +127,11 @@ def tastytrade_holdings(tt_o, ctx, loop=None):
                 temp_value = round((float(amounts[i]) * float(current_price[i])), 2)
                 current_value.append(temp_value)
             printAndDiscord(f"Holdings on Tastytrade {index} {acct.account_number}")
+            print_string = ""
             for position in stocks:
                 i = stocks.index(position)
-                printAndDiscord(
-                    f"{position}: {amounts[i]} @ ${current_price[i]} = ${current_value[i]}",
-                    ctx,
-                    loop,
-                )
+                print_string += f"{position}: {amounts[i]} @ ${current_price[i]} = ${current_value[i]}\n"
+            printAndDiscord(print_string, ctx, loop)
             printAndDiscord(f"Account cash balance is ${round(float(cash_balance), 2)}.", ctx, loop)
         printAndDiscord(f"All accounts cash balance is ${round(float(all_account_balance), 2)}.", ctx, loop)
         print()

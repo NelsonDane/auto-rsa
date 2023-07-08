@@ -249,6 +249,16 @@ if __name__ == "__main__":
         print("Discord bot is started...")
         print()
 
+        # String of available commands
+        help_string = (
+            "Available commands:\n"
+            "!ping\n"
+            "!help\n"
+            "!rsa holdings [all|<broker1>,<broker2>,...]\n"
+            "!rsa [buy|sell] [amount] [stock] [all|<broker1>,<broker2>,...] [not <broker1>,<broker2>,...] [DRY: true|false]\n"
+            "!restart"
+        )
+
         # Bot event when bot is ready
         if DISCORD_CHANNEL:
 
@@ -256,6 +266,8 @@ if __name__ == "__main__":
             async def on_ready():
                 channel = bot.get_channel(DISCORD_CHANNEL)
                 await channel.send("Discord bot is started...")
+                # Temp warning message
+                await channel.send("Heads up! .env file format has changed, see .env.example for new format")
 
         # Bot ping-pong
         @bot.command(name="ping")
@@ -266,14 +278,7 @@ if __name__ == "__main__":
         # Help command
         @bot.command()
         async def help(ctx):
-            await ctx.send("Available commands:")
-            await ctx.send("!ping")
-            await ctx.send("!help")
-            await ctx.send("!holdings [all|ally|robinhood/rh|schwab|tradier]")
-            await ctx.send(
-                "!rsa [buy|sell] [amount] [stock] [all|ally|robinhood/rh|schwab|tradier] [DRY/true/false]"
-            )
-            await ctx.send("!restart")
+            await ctx.send(help_string)
 
         # Main RSA command
         @bot.command(name="rsa")
@@ -303,6 +308,14 @@ if __name__ == "__main__":
             await ctx.send("Restarting...")
             await bot.close()
             os._exit(0)
+
+        # Catch bad commands
+        @bot.event
+        async def on_command_error(ctx, error):
+            print(f"Error: {error}")
+            await ctx.send(f"Error: {error}")
+            # Print help command
+            await ctx.send(help_string)
 
         # Run Discord bot
         bot.run(DISCORD_TOKEN)

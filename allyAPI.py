@@ -75,15 +75,12 @@ def ally_holdings(ao, ctx=None, loop=None):
                 qty = (ah["qty"].values).tolist()
                 current_price = (ah["marketvalue"].values).tolist()
                 printAndDiscord(f"Ally {index} account symbols:", ctx, loop)
+                print_string = ""
                 for symbol in account_symbols:
                     # Set index for easy use
                     i = account_symbols.index(symbol)
-                    printAndDiscord(
-                        f"{symbol}: {float(qty[i])} @ ${round(float(current_price[i]), 2)} "
-                        + f"= ${round(float(qty[i]) * float(current_price[i]), 2)}",
-                        ctx,
-                        loop,
-                    )
+                    print_string += f"{symbol}: {float(qty[i])} @ ${round(float(current_price[i]), 2)} \n"
+                printAndDiscord(print_string, ctx, loop)
         except Exception as e:
             printAndDiscord(f"Ally {index}: Error getting account holdings: {e}", ctx, loop)
 

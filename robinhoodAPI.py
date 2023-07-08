@@ -56,6 +56,7 @@ def robinhood_holdings(rho, ctx=None, loop=None):
                 printAndDiscord(f"No holdings in Robinhood {index}", ctx, loop)
             else:
                 printAndDiscord(f"Holdings in Robinhood {index}:", ctx, loop)
+                print_string = ""
                 for item in positions:
                     # Get symbol, quantity, price, and total value
                     sym = item["symbol"] = obj.get_symbol_by_url(item["instrument"])
@@ -67,7 +68,8 @@ def robinhood_holdings(rho, ctx=None, loop=None):
                         if "NoneType" in str(e):
                             current_price = "N/A"
                             total_value = "N/A"
-                    printAndDiscord(f"{sym}: {qty} @ ${(current_price)} = ${total_value}", ctx, loop)
+                    print_string += f"{sym}: {qty} @ ${(current_price)} = ${total_value}\n"
+                printAndDiscord(print_string, ctx, loop)
         except Exception as e:
             printAndDiscord(f"Robinhood {index}: Error getting account holdings: {e}", ctx, loop)
             print(traceback.format_exc())

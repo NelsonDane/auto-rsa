@@ -120,14 +120,12 @@ def tradier_holdings(tradier_o, ctx=None, loop=None):
                     current_price[i] = round(current_price[i], 2)
                 # Print and send them
                 printAndDiscord(f"Holdings on Tradier {account_number}", ctx=ctx, loop=loop)
+                print_string = ""
                 for position in stocks:
                     # Set index for easy use
                     i = stocks.index(position)
-                    printAndDiscord(
-                        f"{position}: {amounts[i]} @ ${current_price[i]} = ${current_value[i]}",
-                        ctx=ctx,
-                        loop=loop,
-                    )
+                    print_string += f"{position}: {amounts[i]} @ ${current_price[i]} = ${current_value[i]}\n"
+                printAndDiscord(print_string, ctx=ctx, loop=loop)
             except Exception as e:
                 printAndDiscord(f"Tradier {account_number}: Error getting holdings: {e}", ctx=ctx, loop=loop)
                 print(traceback.format_exc())
