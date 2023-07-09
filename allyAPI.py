@@ -87,7 +87,7 @@ def ally_holdings(ao, ctx=None, loop=None):
 
 # Function to buy/sell stock on Ally
 def ally_transaction(
-    ao, action, stock, amount, price, time, DRY=True, ctx=None, loop=None, index=None
+    ao, action, stock, amount, price, time, DRY=True, ctx=None, loop=None, index=None, RETRY=False
 ):
     print()
     print("==============================")
@@ -101,15 +101,19 @@ def ally_transaction(
     if type(price) is str and price.lower() == "market":
         price = ally.Order.Market()
     elif type(price) is float or type(price) is int:
+        print(f"Limit order at: ${float(price)}")
         price = ally.Order.Limit(limpx=float(price))
     # If doing a retry, ao is a list
-    if type(ao) is not list:
+    if not RETRY:
         a = ao.loggedInObjects
     else:
-        a = ao
+        a = [ao]
     for obj in a:
         if index is None:
             index = a.index(obj) + 1
+        else:
+            index = index
+            RETRY = True
         try:
             # Create order
             o = ally.Order.Order(
@@ -144,7 +148,7 @@ def ally_transaction(
                 if action == "sell":
                     printAndDiscord(ally_call_error, ctx, loop)
                 # If the message comes up while buying, then try again with a limit order
-                elif action == "buy":
+                elif action == "buy" and not RETRY:
                     printAndDiscord(
                         f"Ally {index}: Error placing market buy, trying again with limit order...",
                         ctx,
@@ -161,18 +165,20 @@ def ally_transaction(
                         new_price = (
                             max(
                                 [
-                                    float(quotes["last"]),
-                                    float(quotes["bid"]),
-                                    float(quotes["ask"]),
+                                    float(quotes["last"][0]),
+                                    float(quotes["bid"][0]),
+                                    float(quotes["ask"][0]),
                                 ]
                             )
                         ) + 0.01
                         # Run function again with limit order
                         ally_transaction(
-                            obj, action, stock, amount, new_price, time, DRY, ctx, loop, index
+                            obj, action, stock, amount, new_price, time, DRY, ctx, loop, index, True
                         )
                     except Exception as e:
                         printAndDiscord(f"Ally {index}: Failed to place limit order: {e}", ctx, loop)
+                else:
+                    printAndDiscord(f"Ally {index}: Error placing limit order: {e}", ctx, loop)
             elif type(price) is not str:
                 printAndDiscord(f"Ally {index}: Error placing limit order: {e}", ctx, loop)
             else:
