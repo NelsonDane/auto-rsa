@@ -159,205 +159,207 @@ def fidelity_transaction(
     print("==============================")
     print()
     action = action.lower()
-    stock = stock.upper()
+    stock = [x.upper() for x in stock]
     amount = int(amount)
     drivers = driver_o.loggedInObjects
     for driver in drivers:
         index = drivers.index(driver) + 1
-        # Go to trade page
-        driver.get(
-            "https://digital.fidelity.com/ftgw/digital/trade-equity/index/orderEntry"
-        )
-        # Wait for page to load
-        WebDriverWait(driver, 20).until(check_if_page_loaded)
-        sleep(3)
-        # Get number of accounts
-        try:
-            accounts_dropdown = driver.find_element(
-                by=By.CSS_SELECTOR, value="#dest-acct-dropdown"
+        for s in stock:
+            printAndDiscord(f"Fidelity {index}: {action}ing {amount} of {s}", ctx, loop)
+            # Go to trade page
+            driver.get(
+                "https://digital.fidelity.com/ftgw/digital/trade-equity/index/orderEntry"
             )
-            driver.execute_script("arguments[0].click();", accounts_dropdown)
-            WebDriverWait(driver, 10).until(
-                expected_conditions.presence_of_element_located(
-                    (By.CSS_SELECTOR, "#ett-acct-sel-list")
-                )
-            )
-            test = driver.find_element(by=By.CSS_SELECTOR, value="#ett-acct-sel-list")
-            accounts_list = test.find_elements(by=By.CSS_SELECTOR, value="li")
-            print(f"Number of accounts: {len(accounts_list)}")
-            number_of_accounts = len(accounts_list)
-            # Click a second time to clear the account list
-            driver.execute_script("arguments[0].click();", accounts_dropdown)
-        except:
-            print("Error: No accounts foundin dropdown")
-            traceback.print_exc()
-            return
-        # Complete on each account
-        # Because of stale elements, we need to re-find the elements each time
-        for x in range(number_of_accounts):
+            # Wait for page to load
+            WebDriverWait(driver, 20).until(check_if_page_loaded)
+            sleep(3)
+            # Get number of accounts
             try:
-                # Select account
-                accounts_dropdown_in = driver.find_element(
-                    by=By.CSS_SELECTOR, value="#eq-ticket-account-label"
+                accounts_dropdown = driver.find_element(
+                    by=By.CSS_SELECTOR, value="#dest-acct-dropdown"
                 )
-                driver.execute_script("arguments[0].click();", accounts_dropdown_in)
+                driver.execute_script("arguments[0].click();", accounts_dropdown)
                 WebDriverWait(driver, 10).until(
                     expected_conditions.presence_of_element_located(
-                        (By.ID, "ett-acct-sel-list")
+                        (By.CSS_SELECTOR, "#ett-acct-sel-list")
                     )
                 )
-                test = driver.find_element(by=By.ID, value="ett-acct-sel-list")
-                accounts_dropdown_in = test.find_elements(by=By.CSS_SELECTOR, value="li")
-                account_label = accounts_dropdown_in[x].text
-                accounts_dropdown_in[x].click()
-                sleep(1)
-                # Type in ticker
-                ticker_box = driver.find_element(
-                    by=By.CSS_SELECTOR, value="#eq-ticket-dest-symbol"
-                )
-                WebDriverWait(driver, 10).until(
-                    expected_conditions.element_to_be_clickable(ticker_box)
-                )
-                ticker_box.send_keys(stock)
-                ticker_box.send_keys(Keys.RETURN)
-                sleep(1)
-                # Check if symbol not found is displayed
+                test = driver.find_element(by=By.CSS_SELECTOR, value="#ett-acct-sel-list")
+                accounts_list = test.find_elements(by=By.CSS_SELECTOR, value="li")
+                print(f"Number of accounts: {len(accounts_list)}")
+                number_of_accounts = len(accounts_list)
+                # Click a second time to clear the account list
+                driver.execute_script("arguments[0].click();", accounts_dropdown)
+            except:
+                print("Error: No accounts foundin dropdown")
+                traceback.print_exc()
+                return
+            # Complete on each account
+            # Because of stale elements, we need to re-find the elements each time
+            for x in range(number_of_accounts):
                 try:
-                    driver.find_element(
-                        by=By.CSS_SELECTOR,
-                        value="body > div.app-body > ap122489-ett-component > div > order-entry > div.eq-ticket.order-entry__container-height > div > div > form > div.order-entry__container-content.scroll > div:nth-child(2) > symbol-search > div > div.eq-ticket--border-top > div > div:nth-child(2) > div > div > div > pvd3-inline-alert > s-root > div > div.pvd-inline-alert__content > s-slot > s-assigned-wrapper",
+                    # Select account
+                    accounts_dropdown_in = driver.find_element(
+                        by=By.CSS_SELECTOR, value="#eq-ticket-account-label"
                     )
-                    print(f"Error: Symbol {stock} not found")
-                    return
-                except:
-                    pass
-                # Get ask/bid price
-                ask_price = (
-                    driver.find_element(
-                        by=By.CSS_SELECTOR,
-                        value="#quote-panel > div > div.eq-ticket__quote--blocks-container > div:nth-child(2) > div > span > span",
+                    driver.execute_script("arguments[0].click();", accounts_dropdown_in)
+                    WebDriverWait(driver, 10).until(
+                        expected_conditions.presence_of_element_located(
+                            (By.ID, "ett-acct-sel-list")
+                        )
                     )
-                ).text
-                bid_price = (
-                    driver.find_element(
-                        by=By.CSS_SELECTOR,
-                        value="#quote-panel > div > div.eq-ticket__quote--blocks-container > div:nth-child(1) > div > span > span",
+                    test = driver.find_element(by=By.ID, value="ett-acct-sel-list")
+                    accounts_dropdown_in = test.find_elements(by=By.CSS_SELECTOR, value="li")
+                    account_label = accounts_dropdown_in[x].text
+                    accounts_dropdown_in[x].click()
+                    sleep(1)
+                    # Type in ticker
+                    ticker_box = driver.find_element(
+                        by=By.CSS_SELECTOR, value="#eq-ticket-dest-symbol"
                     )
-                ).text
-                # If price is under $1, then we have to use a limit order
-                LIMIT = bool(float(ask_price) < 1 or float(bid_price) < 1)
-                # Set buy/sell
-                if action == "buy":
-                    buy_button = driver.find_element(
-                        by=By.CSS_SELECTOR,
-                        value="#action-buy > s-root > div > label > s-slot > s-assigned-wrapper",
+                    WebDriverWait(driver, 10).until(
+                        expected_conditions.element_to_be_clickable(ticker_box)
                     )
-                    buy_button.click()
-                elif action == "sell":
-                    sell_button = driver.find_element(
-                        by=By.CSS_SELECTOR,
-                        value="#action-sell > s-root > div > label > s-slot > s-assigned-wrapper",
-                    )
-                    sell_button.click()
-                else:
-                    print(f"Error: Invalid action {action}")
-                    return
-                # Set amount (and clear previous amount)
-                amount_box = driver.find_element(
-                    by=By.CSS_SELECTOR, value="#eqt-shared-quantity"
-                )
-                amount_box.clear()
-                amount_box.send_keys(amount)
-                # Set market/limit
-                if not LIMIT:
-                    market_button = driver.find_element(
-                        by=By.CSS_SELECTOR,
-                        value="#market-yes > s-root > div > label > s-slot > s-assigned-wrapper",
-                    )
-                    market_button.click()
-                else:
-                    limit_button = driver.find_element(
-                        by=By.CSS_SELECTOR,
-                        value="#market-no > s-root > div > label > s-slot > s-assigned-wrapper",
-                    )
-                    limit_button.click()
-                    # Set price
-                    if action == "buy":
-                        wanted_price = round(float(ask_price) + 0.01, 3)
-                    elif action == "sell":
-                        wanted_price = round(float(bid_price) - 0.01, 3)
-                    price_box = driver.find_element(
-                        by=By.CSS_SELECTOR, value="#eqt-ordsel-limit-price-field"
-                    )
-                    price_box.clear()
-                    price_box.send_keys(wanted_price)
-                # Preview order
-                WebDriverWait(driver, 10).until(check_if_page_loaded)
-                sleep(1)
-                preview_button = driver.find_element(
-                    by=By.CSS_SELECTOR, value="#previewOrderBtn"
-                )
-                preview_button.click()
-                # Wait for page to load
-                WebDriverWait(driver, 10).until(check_if_page_loaded)
-                sleep(3)
-                # Check for error popup and clear
-                try:
-                    error_dismiss = driver.find_element(
-                        by=By.XPATH,
-                        value="(//button[@class='pvd-modal__close-button'])[3]",
-                    )
-                    driver.execute_script("arguments[0].click();", error_dismiss)
-                except NoSuchElementException:
-                    pass
-                # Place order
-                if not DRY:
-                    # Check for error popup and clear it if the account cannot sell the stock for some reason.
+                    ticker_box.send_keys(s)
+                    ticker_box.send_keys(Keys.RETURN)
+                    sleep(1)
+                    # Check if symbol not found is displayed
                     try:
-                        place_button = driver.find_element(
-                            by=By.CSS_SELECTOR, value="#placeOrderBtn"
+                        driver.find_element(
+                            by=By.CSS_SELECTOR,
+                            value="body > div.app-body > ap122489-ett-component > div > order-entry > div.eq-ticket.order-entry__container-height > div > div > form > div.order-entry__container-content.scroll > div:nth-child(2) > symbol-search > div > div.eq-ticket--border-top > div > div:nth-child(2) > div > div > div > pvd3-inline-alert > s-root > div > div.pvd-inline-alert__content > s-slot > s-assigned-wrapper",
                         )
-                        place_button.click()
-
-                        # Wait for page to load
-                        WebDriverWait(driver, 10).until(check_if_page_loaded)
-                        sleep(1)
-                        # Send confirmation
-                        printAndDiscord(
-                            f"Fidelity {index} {account_label}: {action} {amount} shares of {stock}",
-                            ctx,
-                            loop,
+                        print(f"Error: Symbol {s} not found")
+                        return
+                    except:
+                        pass
+                    # Get ask/bid price
+                    ask_price = (
+                        driver.find_element(
+                            by=By.CSS_SELECTOR,
+                            value="#quote-panel > div > div.eq-ticket__quote--blocks-container > div:nth-child(2) > div > span > span",
                         )
-                    except NoSuchElementException:
-                        # Check for error
-                        WebDriverWait(driver, 10).until(
-                            expected_conditions.presence_of_element_located(
-                                (
-                                    By.XPATH,
-                                    "(//button[@class='pvd-modal__close-button'])[3]",
-                                )
-                            )
+                    ).text
+                    bid_price = (
+                        driver.find_element(
+                            by=By.CSS_SELECTOR,
+                            value="#quote-panel > div > div.eq-ticket__quote--blocks-container > div:nth-child(1) > div > span > span",
                         )
+                    ).text
+                    # If price is under $1, then we have to use a limit order
+                    LIMIT = bool(float(ask_price) < 1 or float(bid_price) < 1)
+                    # Set buy/sell
+                    if action == "buy":
+                        buy_button = driver.find_element(
+                            by=By.CSS_SELECTOR,
+                            value="#action-buy > s-root > div > label > s-slot > s-assigned-wrapper",
+                        )
+                        buy_button.click()
+                    elif action == "sell":
+                        sell_button = driver.find_element(
+                            by=By.CSS_SELECTOR,
+                            value="#action-sell > s-root > div > label > s-slot > s-assigned-wrapper",
+                        )
+                        sell_button.click()
+                    else:
+                        print(f"Error: Invalid action {action}")
+                        return
+                    # Set amount (and clear previous amount)
+                    amount_box = driver.find_element(
+                        by=By.CSS_SELECTOR, value="#eqt-shared-quantity"
+                    )
+                    amount_box.clear()
+                    amount_box.send_keys(amount)
+                    # Set market/limit
+                    if not LIMIT:
+                        market_button = driver.find_element(
+                            by=By.CSS_SELECTOR,
+                            value="#market-yes > s-root > div > label > s-slot > s-assigned-wrapper",
+                        )
+                        market_button.click()
+                    else:
+                        limit_button = driver.find_element(
+                            by=By.CSS_SELECTOR,
+                            value="#market-no > s-root > div > label > s-slot > s-assigned-wrapper",
+                        )
+                        limit_button.click()
+                        # Set price
+                        if action == "buy":
+                            wanted_price = round(float(ask_price) + 0.01, 3)
+                        elif action == "sell":
+                            wanted_price = round(float(bid_price) - 0.01, 3)
+                        price_box = driver.find_element(
+                            by=By.CSS_SELECTOR, value="#eqt-ordsel-limit-price-field"
+                        )
+                        price_box.clear()
+                        price_box.send_keys(wanted_price)
+                    # Preview order
+                    WebDriverWait(driver, 10).until(check_if_page_loaded)
+                    sleep(1)
+                    preview_button = driver.find_element(
+                        by=By.CSS_SELECTOR, value="#previewOrderBtn"
+                    )
+                    preview_button.click()
+                    # Wait for page to load
+                    WebDriverWait(driver, 10).until(check_if_page_loaded)
+                    sleep(3)
+                    # Check for error popup and clear
+                    try:
                         error_dismiss = driver.find_element(
                             by=By.XPATH,
                             value="(//button[@class='pvd-modal__close-button'])[3]",
                         )
                         driver.execute_script("arguments[0].click();", error_dismiss)
+                    except NoSuchElementException:
+                        pass
+                    # Place order
+                    if not DRY:
+                        # Check for error popup and clear it if the account cannot sell the stock for some reason.
+                        try:
+                            place_button = driver.find_element(
+                                by=By.CSS_SELECTOR, value="#placeOrderBtn"
+                            )
+                            place_button.click()
+
+                            # Wait for page to load
+                            WebDriverWait(driver, 10).until(check_if_page_loaded)
+                            sleep(1)
+                            # Send confirmation
+                            printAndDiscord(
+                                f"Fidelity {index} {account_label}: {action} {amount} shares of {s}",
+                                ctx,
+                                loop,
+                            )
+                        except NoSuchElementException:
+                            # Check for error
+                            WebDriverWait(driver, 10).until(
+                                expected_conditions.presence_of_element_located(
+                                    (
+                                        By.XPATH,
+                                        "(//button[@class='pvd-modal__close-button'])[3]",
+                                    )
+                                )
+                            )
+                            error_dismiss = driver.find_element(
+                                by=By.XPATH,
+                                value="(//button[@class='pvd-modal__close-button'])[3]",
+                            )
+                            driver.execute_script("arguments[0].click();", error_dismiss)
+                            printAndDiscord(
+                                f"Fidelity {index} {account_label}: {action} {amount} shares of {s}. DID NOT COMPLETE! \nEither this account does not have enough shares, or an order is already pending.",
+                                ctx,
+                                loop,
+                            )
+                        # Send confirmation
+                    else:
                         printAndDiscord(
-                            f"Fidelity {index} {account_label}: {action} {amount} shares of {stock}. DID NOT COMPLETE! \nEither this account does not have enough shares, or an order is already pending.",
+                            f"DRY: Fidelity {index} {account_label}: {action} {amount} shares of {s}",
                             ctx,
                             loop,
                         )
-                    # Send confirmation
-                else:
-                    printAndDiscord(
-                        f"DRY: Fidelity {index} {account_label}: {action} {amount} shares of {stock}",
-                        ctx,
-                        loop,
-                    )
-                sleep(3)
-            except Exception as e:
-                print(e)
-                traceback.print_exc()
-                driver.save_screenshot(f"fidelity-login-error-{datetime.datetime.now()}.png")
-                continue
+                    sleep(3)
+                except Exception as e:
+                    print(e)
+                    traceback.print_exc()
+                    driver.save_screenshot(f"fidelity-login-error-{datetime.datetime.now()}.png")
+                    continue

@@ -91,43 +91,45 @@ def schwab_transaction(
         action = "Buy"
     elif action.lower() == "sell":
         action = "Sell"
-    stock = stock.upper()
+    stock = [x.upper() for x in stock]
     amount = int(amount)
     # Buy on each account
     schwab = schwab_o.loggedInObjects
     for obj in schwab:
         index = schwab.index(obj) + 1
-        for account in list(obj.get_account_info().keys()):
-            print(f"Schwab {index} Account: {account}")
-            # If DRY is True, don't actually make the transaction
-            if DRY:
-                printAndDiscord("Running in DRY mode. No transactions will be made.", ctx, loop)
-            try:
-                messages, success = obj.trade(
-                    ticker=stock,
-                    side=action,
-                    qty=amount,
-                    account_id=account,  # Replace with your account number
-                    dry_run=DRY,  # If dry_run=True, we won't place the order, we'll just verify it.
-                )
-                print("The order verification produced the following messages: ")
-                pprint.pprint(messages)
-                printAndDiscord(
-                    f"Schwab {index} account {account}: The order verification was "
-                    + "successful"
-                    if success
-                    else "unsuccessful",
-                    ctx,
-                    loop,
-                )
-                if not success:
+        for s in stock:
+            printAndDiscord(f"Schwab {index} {action}ing {amount} {s} @ {price}", ctx, loop)
+            for account in list(obj.get_account_info().keys()):
+                print(f"Schwab {index} Account: {account}")
+                # If DRY is True, don't actually make the transaction
+                if DRY:
+                    printAndDiscord("Running in DRY mode. No transactions will be made.", ctx, loop)
+                try:
+                    messages, success = obj.trade(
+                        ticker=s,
+                        side=action,
+                        qty=amount,
+                        account_id=account,  # Replace with your account number
+                        dry_run=DRY,  # If dry_run=True, we won't place the order, we'll just verify it.
+                    )
+                    print("The order verification produced the following messages: ")
+                    pprint.pprint(messages)
                     printAndDiscord(
-                        f"Schwab {index} account {account}: The order verification produced the following messages: {messages}",
+                        f"Schwab {index} account {account}: The order verification was "
+                        + "successful"
+                        if success
+                        else "unsuccessful",
                         ctx,
                         loop,
                     )
-            except Exception as e:
-                printAndDiscord(f"Schwab {index} {account}: Error submitting order: {e}", ctx, loop)
-                continue
-            sleep(1)
-            print()
+                    if not success:
+                        printAndDiscord(
+                            f"Schwab {index} account {account}: The order verification produced the following messages: {messages}",
+                            ctx,
+                            loop,
+                        )
+                except Exception as e:
+                    printAndDiscord(f"Schwab {index} {account}: Error submitting order: {e}", ctx, loop)
+                    continue
+                sleep(1)
+                print()

@@ -59,7 +59,7 @@ class stockOrder:
     def __init__(self):
         self.action = None  # Buy or sell
         self.amount = None  # Amount of shares to buy/sell
-        self.stock = None  # Stock ticker
+        self.stock = []  # List of stock tickers to buy/sell
         self.time = "day"  # Only supports day for now
         self.price = "market"  # Only supports market for now
         self.brokers = []  # List of brokerages to use
@@ -168,15 +168,18 @@ def argParser(args):
                 orderObj.brokers = SUPPORTED_BROKERS
         elif arg == "holdings":
             orderObj.holdings = True
+        # If first item of list is a stock, it must be a list of stocks
         elif (
-            isStockTicker(arg.upper())
+            isStockTicker(arg.split(",")[0].upper())
             and arg.lower() != "dry"
-            and orderObj.stock is None
+            and orderObj.stock == []
         ):
-            orderObj.stock = arg.upper()
+            for stock in arg.split(","):
+                orderObj.stock.append(stock.upper())
     # Remove duplicates
     orderObj.brokers = list(dict.fromkeys(orderObj.brokers))
     orderObj.notbrokers = list(dict.fromkeys(orderObj.notbrokers))
+    orderObj.stock = list(dict.fromkeys(orderObj.stock))
     # Remove notbrokers from brokers
     for broker in orderObj.notbrokers:
         if broker in orderObj.brokers:

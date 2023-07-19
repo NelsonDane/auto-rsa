@@ -145,10 +145,8 @@ async def tastytrade_execute(
     print("Tastytrade")
     print("==============================")
     print()
-    # Streamer takes a list for an argument
-    stock_list = [stock]
     action = action.lower()
-    stock = stock.upper()
+    stock = [x.upper() for x in stock]
     if amount == "all" and action == "sell":
         all_amount = True
     elif amount < 1:
@@ -159,159 +157,162 @@ async def tastytrade_execute(
     tt = tt_o.loggedInObjects
     for obj in tt:
         index = tt.index(obj) + 1
-        accounts = Account.get_accounts(obj)
-        for i, acct in enumerate(accounts):
-            try:
-                if not DRY:
-                    balances = acct.get_balances(obj)
-                    cash_balance = float(balances["cash-balance"])
-                    day_trade_ok = day_trade_check(obj, acct, cash_balance)
-                    if day_trade_ok:
-                        if all_amount:
-                            results = accounts[i].get_positions(obj)
-                            for result in results:
-                                if stock == result.symbol:
-                                    amount = result.quantity
-                        if action == "buy":
-                            order_type = ["Market", "Debit", "Buy to Open"]
-                            stock_price = 0
-                            new_order = order_setup(
-                                obj, order_type, stock_price, stock, amount
-                            )
-                        elif action == "sell":
-                            order_type = ["Market", "Credit", "Sell to Close"]
-                            stock_price = 0
-                            new_order = order_setup(
-                                obj, order_type, stock_price, stock, amount
-                            )
-                        placed_order = accounts[i].place_order(
-                            obj, new_order, dry_run=DRY
-                        )
-                        if placed_order.order.status.value == "Routed":
-                            printAndDiscord(
-                                f"Tastytrade {index} {acct.account_number}: {action} {amount} of {stock}",
-                                ctx,
-                                loop,
-                            )
-                        elif placed_order.order.status.value == "Rejected":
-                            streamer = await DataStreamer.create(obj)
-                            stock_limit = await streamer.oneshot(
-                                EventType.PROFILE, stock_list
-                            )
-                            printAndDiscord(
-                                f"Tastytrade {index} {acct.account_number} Error: Order Rejected! Trying LIMIT order.",
-                                ctx,
-                                loop,
-                            )
+        for s in stock:
+            stock_list = [s]
+            printAndDiscord(f"Tastytrade {index}: {action}ing {amount} of {s}", ctx, loop)
+            accounts = Account.get_accounts(obj)
+            for i, acct in enumerate(accounts):
+                try:
+                    if not DRY:
+                        balances = acct.get_balances(obj)
+                        cash_balance = float(balances["cash-balance"])
+                        day_trade_ok = day_trade_check(obj, acct, cash_balance)
+                        if day_trade_ok:
                             if all_amount:
                                 results = accounts[i].get_positions(obj)
                                 for result in results:
-                                    if stock == result["symbol"]:
-                                        amount = float(result["quantity"])
+                                    if s == result.symbol:
+                                        amount = result.quantity
                             if action == "buy":
-                                stock_limit = D(stock_limit[0].highLimitPrice)
-                                if stock_limit.is_nan():
-                                    stock_quote = await streamer.oneshot(
-                                        EventType.QUOTE, stock_list
-                                    )
-                                    stock_price = D(stock_quote[0].askPrice)
-                                    print(
-                                        f"Tastytrade Ticker {stock} ask price is: ${round(stock_price, 2)}"
-                                    )
-                                else:
-                                    stock_price = stock_limit
-                                    print(
-                                        f"Tastytrade Ticker {stock} high limit price is: ${round(stock_price, 2)}"
-                                    )
                                 order_type = ["Market", "Debit", "Buy to Open"]
+                                stock_price = 0
                                 new_order = order_setup(
-                                    tt, order_type, stock_price, stock, amount
+                                    obj, order_type, stock_price, s, amount
                                 )
                             elif action == "sell":
-                                stock_limit = D(stock_limit[0].lowLimitPrice)
-                                if stock_limit.is_nan():
-                                    stock_quote = await streamer.oneshot(
-                                        EventType.QUOTE, stock_list
-                                    )
-                                    stock_price = D(stock_quote[0].bidPrice)
-                                    print(
-                                        f"Tastytrade Ticker {stock} low bid price is: ${round(stock_price, 2)}"
-                                    )
-                                else:
-                                    stock_price = stock_limit
-                                    print(
-                                        f"Tastytrade Ticker {stock} low limit price is: ${round(stock_price, 2)}"
-                                    )
                                 order_type = ["Market", "Credit", "Sell to Close"]
+                                stock_price = 0
                                 new_order = order_setup(
-                                    obj, order_type, stock_price, stock, amount
+                                    obj, order_type, stock_price, s, amount
                                 )
                             placed_order = accounts[i].place_order(
                                 obj, new_order, dry_run=DRY
                             )
                             if placed_order.order.status.value == "Routed":
                                 printAndDiscord(
-                                    f"Tastytrade {index} {acct.account_number}: {action} {amount} of {stock}",
+                                    f"Tastytrade {index} {acct.account_number}: {action} {amount} of {s}",
                                     ctx,
                                     loop,
                                 )
                             elif placed_order.order.status.value == "Rejected":
+                                streamer = await DataStreamer.create(obj)
+                                stock_limit = await streamer.oneshot(
+                                    EventType.PROFILE, stock_list
+                                )
                                 printAndDiscord(
-                                    f"Tastytrade {index} {acct.account_number} Error: Order Rejected! Skipping Account.",
+                                    f"Tastytrade {index} {acct.account_number} Error: Order Rejected! Trying LIMIT order.",
+                                    ctx,
+                                    loop,
+                                )
+                                if all_amount:
+                                    results = accounts[i].get_positions(obj)
+                                    for result in results:
+                                        if s == result["symbol"]:
+                                            amount = float(result["quantity"])
+                                if action == "buy":
+                                    stock_limit = D(stock_limit[0].highLimitPrice)
+                                    if stock_limit.is_nan():
+                                        stock_quote = await streamer.oneshot(
+                                            EventType.QUOTE, stock_list
+                                        )
+                                        stock_price = D(stock_quote[0].askPrice)
+                                        print(
+                                            f"Tastytrade Ticker {s} ask price is: ${round(stock_price, 2)}"
+                                        )
+                                    else:
+                                        stock_price = stock_limit
+                                        print(
+                                            f"Tastytrade Ticker {s} high limit price is: ${round(stock_price, 2)}"
+                                        )
+                                    order_type = ["Market", "Debit", "Buy to Open"]
+                                    new_order = order_setup(
+                                        tt, order_type, stock_price, s, amount
+                                    )
+                                elif action == "sell":
+                                    stock_limit = D(stock_limit[0].lowLimitPrice)
+                                    if stock_limit.is_nan():
+                                        stock_quote = await streamer.oneshot(
+                                            EventType.QUOTE, stock_list
+                                        )
+                                        stock_price = D(stock_quote[0].bidPrice)
+                                        print(
+                                            f"Tastytrade Ticker {s} low bid price is: ${round(stock_price, 2)}"
+                                        )
+                                    else:
+                                        stock_price = stock_limit
+                                        print(
+                                            f"Tastytrade Ticker {s} low limit price is: ${round(stock_price, 2)}"
+                                        )
+                                    order_type = ["Market", "Credit", "Sell to Close"]
+                                    new_order = order_setup(
+                                        obj, order_type, stock_price, s, amount
+                                    )
+                                placed_order = accounts[i].place_order(
+                                    obj, new_order, dry_run=DRY
+                                )
+                                if placed_order.order.status.value == "Routed":
+                                    printAndDiscord(
+                                        f"Tastytrade {index} {acct.account_number}: {action} {amount} of {s}",
+                                        ctx,
+                                        loop,
+                                    )
+                                elif placed_order.order.status.value == "Rejected":
+                                    printAndDiscord(
+                                        f"Tastytrade {index} {acct.account_number} Error: Order Rejected! Skipping Account.",
+                                        ctx,
+                                        loop,
+                                    )
+                            else:
+                                printAndDiscord(
+                                    f"Tastytrade {index} {acct.account_number}: Error occured placing order: {placed_order.id} on account {acct.account_number} with the following {action} {amount} of {s}",
+                                    ctx,
+                                    loop,
+                                )
+                                printAndDiscord(
+                                    f"Tastytrade {index} {acct.account_number}: Returned order status {placed_order.order.status.value}",
                                     ctx,
                                     loop,
                                 )
                         else:
                             printAndDiscord(
-                                f"Tastytrade {index} {acct.account_number}: Error occured placing order: {placed_order.id} on account {acct.account_number} with the following {action} {amount} of {stock}",
+                                f"Tastytrade {index} {acct.account_number}: day trade count is >= 3 skipping...",
                                 ctx,
                                 loop,
                             )
                             printAndDiscord(
-                                f"Tastytrade {index} {acct.account_number}: Returned order status {placed_order.order.status.value}",
+                                "More than 3 day trades will cause a strike on your account!",
                                 ctx,
                                 loop,
                             )
                     else:
-                        printAndDiscord(
-                            f"Tastytrade {index} {acct.account_number}: day trade count is >= 3 skipping...",
-                            ctx,
-                            loop,
-                        )
-                        printAndDiscord(
-                            "More than 3 day trades will cause a strike on your account!",
-                            ctx,
-                            loop,
-                        )
-                else:
-                    # DRY Run
-                    if action == "buy":
-                        order_type = ["Market", "Debit", "Buy to Open"]
-                    else:
-                        order_type = ["Market", "Credit", "Sell to Close"]
-                    streamer = await DataStreamer.create(obj)
-                    stock_quote = await streamer.oneshot(EventType.QUOTE, stock_list)
-                    stock_price = D(stock_quote[0].bidPrice)
-                    new_order = order_setup(obj, order_type, stock_price, stock, amount)
-                    placed_order = accounts[i].place_order(obj, new_order, dry_run=DRY)
-                    if placed_order.order.status.value == "Received":
-                        printAndDiscord(
-                            f"Tastytrade {index} {acct.account_number}: Running in DRY mode. Transaction would've been: {placed_order.order.order_type.value} {placed_order.order.size} of {placed_order.order.underlying_symbol}",
-                            ctx,
-                            loop,
-                        )
-                    else:
-                        printAndDiscord(
-                            f"Tastytrade {index} {acct.account_number}: Running in DRY mode. Transaction did not complete!",
-                            ctx,
-                            loop,
-                        )
-            except TE as te:
-                printAndDiscord(
-                    f"Tastytrade {index} {acct.account_number}: Error: {te}",
-                    ctx,
-                    loop,
-                )
+                        # DRY Run
+                        if action == "buy":
+                            order_type = ["Market", "Debit", "Buy to Open"]
+                        else:
+                            order_type = ["Market", "Credit", "Sell to Close"]
+                        streamer = await DataStreamer.create(obj)
+                        stock_quote = await streamer.oneshot(EventType.QUOTE, stock_list)
+                        stock_price = D(stock_quote[0].bidPrice)
+                        new_order = order_setup(obj, order_type, stock_price, s, amount)
+                        placed_order = accounts[i].place_order(obj, new_order, dry_run=DRY)
+                        if placed_order.order.status.value == "Received":
+                            printAndDiscord(
+                                f"Tastytrade {index} {acct.account_number}: Running in DRY mode. Transaction would've been: {placed_order.order.order_type.value} {placed_order.order.size} of {placed_order.order.underlying_symbol}",
+                                ctx,
+                                loop,
+                            )
+                        else:
+                            printAndDiscord(
+                                f"Tastytrade {index} {acct.account_number}: Running in DRY mode. Transaction did not complete!",
+                                ctx,
+                                loop,
+                            )
+                except TE as te:
+                    printAndDiscord(
+                        f"Tastytrade {index} {acct.account_number}: Error: {te}",
+                        ctx,
+                        loop,
+                    )
 
 
 def tastytrade_transaction(

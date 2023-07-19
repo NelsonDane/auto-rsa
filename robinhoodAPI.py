@@ -90,7 +90,7 @@ def robinhood_transaction(
     # )
     # return
     action = action.lower()
-    stock = stock.upper()
+    stock = [x.upper() for x in stock]
     if amount == "all" and action == "sell":
         all_amount = True
     elif amount < 1:
@@ -100,34 +100,36 @@ def robinhood_transaction(
         all_amount = False
     rh = rho.loggedInObjects
     for obj in rh:
-        if not DRY:
-            try:
-                index = rh.index(obj) + 1
-                # Buy Market order
-                if action == "buy":
-                    result = obj.order_buy_market(symbol=stock, quantity=amount)
-                    printAndDiscord(f"Robinhood {index}: Bought {amount} of {stock}", ctx, loop)
-                # Sell Market order
-                elif action == "sell":
-                    if all_amount:
-                        # Get account holdings
-                        positions = obj.get_open_stock_positions()
-                        for item in positions:
-                            sym = item["symbol"] = obj.get_symbol_by_url(item["instrument"])
-                            if sym.upper() == stock:
-                                amount = float(item["quantity"])
-                                break
-                    result = obj.order_sell_market(symbol=stock, quantity=amount)
-                    printAndDiscord(f"Robinhood {index}: Sold {amount} of {stock}: {result}", ctx, loop)
-                else:
-                    print("Error: Invalid action")
-                    return
-            except Exception as e:
-                printAndDiscord(f"Robinhood {index} Error submitting order: {e}", ctx, loop)
-        else:
-            printAndDiscord(
-                f"Robinhood {index} Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}",
-                ctx,
-                loop,
-            )
-            
+        index = rh.index(obj) + 1
+        for s in stock:
+            printAndDiscord(f"Robinhood {index}: {action}ing {amount} of {s}", ctx, loop)
+            if not DRY:
+                try:
+                    # Buy Market order
+                    if action == "buy":
+                        result = obj.order_buy_market(symbol=s, quantity=amount)
+                        printAndDiscord(f"Robinhood {index}: Bought {amount} of {s}", ctx, loop)
+                    # Sell Market order
+                    elif action == "sell":
+                        if all_amount:
+                            # Get account holdings
+                            positions = obj.get_open_stock_positions()
+                            for item in positions:
+                                sym = item["symbol"] = obj.get_symbol_by_url(item["instrument"])
+                                if sym.upper() == s:
+                                    amount = float(item["quantity"])
+                                    break
+                        result = obj.order_sell_market(symbol=s, quantity=amount)
+                        printAndDiscord(f"Robinhood {index}: Sold {amount} of {s}: {result}", ctx, loop)
+                    else:
+                        print("Error: Invalid action")
+                        return
+                except Exception as e:
+                    printAndDiscord(f"Robinhood {index} Error submitting order: {e}", ctx, loop)
+            else:
+                printAndDiscord(
+                    f"Robinhood {index} Running in DRY mode. Transaction would've been: {action} {amount} of {s}",
+                    ctx,
+                    loop,
+                )
+                

@@ -95,7 +95,7 @@ def ally_transaction(
     print("==============================")
     print()
     action = action.lower()
-    stock = stock.upper()
+    stock = [x.upper() for x in stock]
     amount = int(amount)
     # Set the action
     if type(price) is str and price.lower() == "market":
@@ -112,74 +112,76 @@ def ally_transaction(
         if index is None:
             index = a.index(obj) + 1
         else:
-            index = index
             RETRY = True
-        try:
-            # Create order
-            o = ally.Order.Order(
-                buysell=action, symbol=stock, price=price, time=time, qty=amount
-            )
-            # Print order preview
-            print(str(o))
-            # Submit order
-            o.orderid
-            if not DRY:
-                obj.submit(o, preview=False)
-            else:
-                printAndDiscord(
-                    f"Ally {index}: Running in DRY mode. "
-                    + f"Trasaction would've been: {action} {amount} of {stock}",
-                    ctx,
-                    loop,
+        # Loop through all stocks
+        for s in stock:
+            printAndDiscord(f"Ally {index}: {action}ing {amount} of {s}", ctx, loop)
+            try:
+                # Create order
+                o = ally.Order.Order(
+                    buysell=action, symbol=s, price=price, time=time, qty=amount
                 )
-            # Print order status
-            if o.orderid:
-                printAndDiscord(f"Ally {index}: Order {o.orderid} submitted", ctx, loop)
-            else:
-                printAndDiscord(f"Ally {index}: Order not submitted", ctx, loop)
-        except Exception as e:
-            ally_call_error = (
-                "Error: For your security, certain symbols may only be traded "
-                + "by speaking to an Ally Invest registered representative. "
-                + "Please call 1-855-880-2559 if you need further assistance with this order."
-            )
-            if "500 server error: internal server error for url:" in str(e).lower():
-                # If selling too soon, then an error is thrown
-                if action == "sell":
-                    printAndDiscord(ally_call_error, ctx, loop)
-                # If the message comes up while buying, then try again with a limit order
-                elif action == "buy" and not RETRY:
+                # Print order preview
+                print(str(o))
+                # Submit order
+                o.orderid
+                if not DRY:
+                    obj.submit(o, preview=False)
+                else:
                     printAndDiscord(
-                        f"Ally {index}: Error placing market buy, trying again with limit order...",
+                        f"Ally {index}: Running in DRY mode. "
+                        + f"Trasaction would've been: {action} {amount} of {s}",
                         ctx,
                         loop,
                     )
-                    # Need to get stock price (compare bid, ask, and last)
-                    try:
-                        # Get stock values
-                        quotes = obj.quote(
-                            stock,
-                            fields=["bid", "ask", "last"],
-                        )
-                        # Add 1 cent to the highest value of the 3 above
-                        new_price = (
-                            max(
-                                [
-                                    float(quotes["last"][0]),
-                                    float(quotes["bid"][0]),
-                                    float(quotes["ask"][0]),
-                                ]
-                            )
-                        ) + 0.01
-                        # Run function again with limit order
-                        ally_transaction(
-                            obj, action, stock, amount, new_price, time, DRY, ctx, loop, index, True
-                        )
-                    except Exception as e:
-                        printAndDiscord(f"Ally {index}: Failed to place limit order: {e}", ctx, loop)
+                # Print order status
+                if o.orderid:
+                    printAndDiscord(f"Ally {index}: Order {o.orderid} submitted", ctx, loop)
                 else:
+                    printAndDiscord(f"Ally {index}: Order not submitted", ctx, loop)
+            except Exception as e:
+                ally_call_error = (
+                    "Error: For your security, certain symbols may only be traded "
+                    + "by speaking to an Ally Invest registered representative. "
+                    + "Please call 1-855-880-2559 if you need further assistance with this order."
+                )
+                if "500 server error: internal server error for url:" in str(e).lower():
+                    # If selling too soon, then an error is thrown
+                    if action == "sell":
+                        printAndDiscord(ally_call_error, ctx, loop)
+                    # If the message comes up while buying, then try again with a limit order
+                    elif action == "buy" and not RETRY:
+                        printAndDiscord(
+                            f"Ally {index}: Error placing market buy, trying again with limit order...",
+                            ctx,
+                            loop,
+                        )
+                        # Need to get stock price (compare bid, ask, and last)
+                        try:
+                            # Get stock values
+                            quotes = obj.quote(
+                                s,
+                                fields=["bid", "ask", "last"],
+                            )
+                            # Add 1 cent to the highest value of the 3 above
+                            new_price = (
+                                max(
+                                    [
+                                        float(quotes["last"][0]),
+                                        float(quotes["bid"][0]),
+                                        float(quotes["ask"][0]),
+                                    ]
+                                )
+                            ) + 0.01
+                            # Run function again with limit order
+                            ally_transaction(
+                                obj, action, s, amount, new_price, time, DRY, ctx, loop, index, True
+                            )
+                        except Exception as e:
+                            printAndDiscord(f"Ally {index}: Failed to place limit order: {e}", ctx, loop)
+                    else:
+                        printAndDiscord(f"Ally {index}: Error placing limit order: {e}", ctx, loop)
+                elif type(price) is not str:
                     printAndDiscord(f"Ally {index}: Error placing limit order: {e}", ctx, loop)
-            elif type(price) is not str:
-                printAndDiscord(f"Ally {index}: Error placing limit order: {e}", ctx, loop)
-            else:
-                printAndDiscord(f"Ally {index}: Error submitting order: {e}", ctx, loop)
+                else:
+                    printAndDiscord(f"Ally {index}: Error submitting order: {e}", ctx, loop)
