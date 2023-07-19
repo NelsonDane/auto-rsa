@@ -151,7 +151,7 @@ def fidelity_account_numbers(driver, ctx=None, loop=None, index=1):
                 health_account_list = health_accounts[0].get_attribute("textContent").replace("\n", " ").split(" ")[27::9]
                 health_values = health_accounts[0].get_attribute("textContent").replace("\n", " ").split(" ")[31::5]
                 break
-            except (StaleElementReferenceException, WebDriverException):
+            except (WebDriverException, StaleElementReferenceException):
                 health_accounts = driver.find_elements(
                     by=By.CSS_SELECTOR, value=r"#Health\ Savings\ Accounts"
                 )
