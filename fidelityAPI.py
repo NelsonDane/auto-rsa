@@ -110,57 +110,42 @@ def fidelity_account_numbers(driver, ctx=None, loop=None, index=1):
         )
         printAndDiscord(f"Total Fidelity {index} account value: {total_value[0].text}", ctx, loop)
 
-        # Get value of individual and retirement accounts
+         # Get value of individual accounts
         ind_accounts = driver.find_elements(
             by=By.CSS_SELECTOR, value=r"#Investment\ Accounts"
         )
-        ret_accounts = driver.find_elements(
-            by=By.CSS_SELECTOR, value=r"#Retirement\ Accounts"
-        )
-        health_accounts = driver.find_elements(
-            by=By.CSS_SELECTOR, value=r"#Health\ Savings\ Accounts"
-        )
+        account_list = ind_accounts[0].text.replace("\n", " ").split(" ")[1::5]
+        values = ind_accounts[0].text.replace("\n", " ").split(" ")[2::5]
 
-        while True:
-            # Get text from elements
-            try:
-                account_list = ind_accounts[0].text.replace("\n", " ").split(" ")[1::5]
-                values = ind_accounts[0].text.replace("\n", " ").split(" ")[2::5]
-                break
-            except StaleElementReferenceException:
-                ind_accounts = driver.find_elements(
-                    by=By.CSS_SELECTOR, value=r"#Investment\ Accounts"
-                )
-        while True:
-            try:
-                ret_account_list = ret_accounts[0].text.replace("\n", " ").split(" ")[2::6]
-                ret_values = ret_accounts[0].text.replace("\n", " ").split(" ")[3::6]
-                break
-            except StaleElementReferenceException:
-                ret_accounts = driver.find_elements(
-                    by=By.CSS_SELECTOR, value=r"#Retirement\ Accounts"
-                )
-            except IndexError:
-                print("No retirement accounts found, skipping...")
-                ret_account_list = []
-                ret_values = 0
-                ret_acc = False
-                break
-        while True:
-            try:
-                health_account_list = health_accounts[0].get_attribute("textContent").replace("\n", " ").split(" ")[27::9]
-                health_values = health_accounts[0].get_attribute("textContent").replace("\n", " ").split(" ")[31::5]
-                break
-            except StaleElementReferenceException:
-                health_accounts = driver.find_elements(
-                    by=By.CSS_SELECTOR, value=r"#Health\ Savings\ Accounts"
-                )
-            except IndexError:
-                print("No health accounts found, skipping...")
-                health_account_list = []
-                health_values = 0
-                health_acc = False
-                break
+        try:
+            # Get value of retirement accounts
+            ret_accounts = driver.find_elements(
+                by=By.CSS_SELECTOR, value=r"#Retirement\ Accounts"
+            )
+            ret_account_list = ret_accounts[0].text.replace("\n", " ").split(" ")[2::6]
+            ret_values = ret_accounts[0].text.replace("\n", " ").split(" ")[3::6]
+            ret_accounts = driver.find_elements(
+                by=By.CSS_SELECTOR, value=r"#Retirement\ Accounts"
+            )
+        except IndexError:
+            print("No retirement accounts found, skipping...")
+            ret_account_list = []
+            ret_values = 0
+            ret_acc = False
+
+        try:
+            # Get value of health savings accounts
+            health_accounts = driver.find_elements(
+                by=By.CSS_SELECTOR, value=r"#Health\ Savings\ Accounts"
+            )
+            health_account_list = health_accounts[0].get_attribute("textContent").replace("\n", " ").split(" ")[27::9]
+            health_values = health_accounts[0].get_attribute("textContent").replace("\n", " ").split(" ")[31::5]
+        except IndexError:
+            print("No health accounts found, skipping...")
+            health_account_list = []
+            health_values = 0
+            health_acc = False
+
         # Print out account numbers and values
         printAndDiscord("Individual accounts:", ctx, loop)
         for x, item in enumerate(account_list):
