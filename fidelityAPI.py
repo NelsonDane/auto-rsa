@@ -110,7 +110,7 @@ def fidelity_account_numbers(driver, ctx=None, loop=None, index=1):
         )
         printAndDiscord(f"Total Fidelity {index} account value: {total_value[0].text}", ctx, loop)
 
-         # Get value of individual accounts
+        # Get value of individual accounts
         ind_accounts = driver.find_elements(
             by=By.CSS_SELECTOR, value=r"#Investment\ Accounts"
         )
