@@ -109,14 +109,12 @@ def fidelity_account_numbers(driver, ctx=None, loop=None, index=1):
             value="body > ap143528-portsum-dashboard-root > dashboard-root > div > div.account-selector__outer-box.account-selector__outer-box--expand-in-pc > accounts-selector > nav > div.acct-selector__acct-list > pvd3-link > s-root > span > a > span > s-slot > s-assigned-wrapper > div > div > div > span:nth-child(2)",
         )
         printAndDiscord(f"Total Fidelity {index} account value: {total_value[0].text}", ctx, loop)
-
         # Get value of individual accounts
         ind_accounts = driver.find_elements(
             by=By.CSS_SELECTOR, value=r"#Investment\ Accounts"
         )
         account_list = ind_accounts[0].text.replace("\n", " ").split(" ")[1::5]
         values = ind_accounts[0].text.replace("\n", " ").split(" ")[2::5]
-
         try:
             # Get value of retirement accounts
             ret_accounts = driver.find_elements(
@@ -132,7 +130,6 @@ def fidelity_account_numbers(driver, ctx=None, loop=None, index=1):
             ret_account_list = []
             ret_values = 0
             ret_acc = False
-
         try:
             # Get value of health savings accounts
             health_accounts = driver.find_elements(
@@ -145,7 +142,6 @@ def fidelity_account_numbers(driver, ctx=None, loop=None, index=1):
             health_account_list = []
             health_values = 0
             health_acc = False
-
         # Print out account numbers and values
         printAndDiscord("Individual accounts:", ctx, loop)
         for x, item in enumerate(account_list):
