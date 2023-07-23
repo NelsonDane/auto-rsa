@@ -76,14 +76,14 @@ class Brokerage:
     def get_holdings(self, parent_name=None, account_name=None):
         if parent_name is None:
             return self.__holdings
-        elif account_name is None:
+        if account_name is None:
             return self.__holdings.get(parent_name, {})
         return self.__holdings.get(parent_name, {}).get(account_name, {})
 
     def get_account_totals(self, parent_name=None, account_name=None):
         if parent_name is None:
             return self.__account_totals
-        elif account_name is None:
+        if account_name is None:
             return self.__account_totals.get(parent_name, {})
         return self.__account_totals.get(parent_name, {}).get(account_name, 0)
 

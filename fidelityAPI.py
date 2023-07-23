@@ -343,7 +343,7 @@ def fidelity_transaction(
                         pass
                     # Place order
                     if not DRY:
-                        # Check for error popup and clear it if the 
+                        # Check for error popup and clear it if the
                         # account cannot sell the stock for some reason
                         try:
                             place_button = driver.find_element(
