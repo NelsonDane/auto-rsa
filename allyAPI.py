@@ -6,7 +6,7 @@ import traceback
 
 import ally
 from dotenv import load_dotenv
-from helperAPI import Brokerage, printAndDiscord
+from helperAPI import Brokerage, printAndDiscord, printHoldings
 
 
 # Initialize Ally
@@ -39,9 +39,9 @@ def ally_init(ALLY_EXTERNAL=None):
             an = a.balances()
             account_numbers = an["account"].values
             print(f"Ally {index} account numbers: {account_numbers}")
-            ally_obj.loggedInObjects.append(a)
+            ally_obj.set_logged_in_object(f"Ally {index}", a)
             for an in account_numbers:
-                ally_obj.add_account_number(f"Ally {index}", an)
+                ally_obj.set_account_number(f"Ally {index}", an)
         except Exception as e:
             print(f"Ally {index}: Error logging in: {e}")
             traceback.print_exc()
@@ -56,33 +56,40 @@ def ally_holdings(ao, ctx=None, loop=None):
     print("Ally Holdings")
     print("==============================")
     print()
-    a = ao.loggedInObjects
-    for obj in a:
-        index = a.index(obj) + 1
-        try:
-            # Get account holdings
-            ab = obj.balances()
-            a_value = ab["accountvalue"].values
-            for value in a_value:
-                printAndDiscord(f"Ally {index} account value: ${value}", ctx, loop)
-            # Print account stock holdings
-            ah = obj.holdings()
-            # Test if holdings is empty. Supposedly len and index are faster than .empty
-            if len(ah.index) == 0:
-                printAndDiscord(f"Ally {index}: No holdings found", ctx, loop)
-            else:
-                account_symbols = (ah["sym"].values).tolist()
-                qty = (ah["qty"].values).tolist()
-                current_price = (ah["marketvalue"].values).tolist()
-                printAndDiscord(f"Ally {index} account symbols:", ctx, loop)
-                print_string = ""
-                for symbol in account_symbols:
-                    # Set index for easy use
-                    i = account_symbols.index(symbol)
-                    print_string += f"{symbol}: {float(qty[i])} @ ${round(float(current_price[i]), 2)} \n"
-                printAndDiscord(print_string, ctx, loop)
-        except Exception as e:
-            printAndDiscord(f"Ally {index}: Error getting account holdings: {e}", ctx, loop)
+    for key in ao.get_account_numbers():
+        account_numbers = ao.get_account_numbers(key)
+        for account in account_numbers:
+            obj = ao.get_logged_in_objects(key)
+            try:
+                # Get account holdings
+                ab = obj.balances()
+                print(ab)
+                a_value = ab["accountvalue"].values
+                for value in a_value:
+                    ao.set_account_totals(key, account, value)
+                # Print account stock holdings
+                ah = obj.holdings()
+                print(ah)
+                # Test if holdings is empty. Supposedly len and index are faster than .empty
+                if len(ah.index) == 0:
+                    printAndDiscord(f"{key}: No holdings found", ctx, loop)
+                else:
+                    account_symbols = (ah["sym"].values).tolist()
+                    qty = (ah["qty"].values).tolist()
+                    current_price = (ah["marketvalue"].values).tolist()
+                    # printAndDiscord(f"{key} account symbols:", ctx, loop)
+                    # print_string = ""
+                    for symbol in account_symbols:
+                        # Set index for easy use
+                        i = account_symbols.index(symbol)
+                        ao.set_holdings(key, account, symbol, qty[i], current_price[i])
+                        # print_string += f"{symbol}: {float(qty[i])} @ ${round(float(current_price[i]), 2)} \n"
+                        
+                    # printAndDiscord(print_string, ctx, loop)
+                    printHoldings(ao, ctx, loop)
+            except Exception as e:
+                printAndDiscord(f"{key}: Error getting account holdings: {e}", ctx, loop)
+                print(traceback.format_exc())
 
 
 # Function to buy/sell stock on Ally
@@ -105,7 +112,7 @@ def ally_transaction(
         price = ally.Order.Limit(limpx=float(price))
     # If doing a retry, ao is a list
     if not RETRY:
-        a = ao.loggedInObjects
+        a = ao.get_logged_in_objects()
     else:
         a = [ao]
     for obj in a:
@@ -114,7 +121,6 @@ def ally_transaction(
         else:
             RETRY = True
         # Loop through all stocks
-        for s in stock:
             printAndDiscord(f"Ally {index}: {action}ing {amount} of {s}", ctx, loop)
             try:
                 # Create order

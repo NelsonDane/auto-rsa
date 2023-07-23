@@ -29,10 +29,13 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
     # Init webdriver
     for account in accounts:
         index = accounts.index(account) + 1
+        name = f"Fidelity {index}"
         account = account.split(":")
         try:
             print("Logging in to Fidelity...")
             driver = getDriver(DOCKER)
+            if driver is None:
+                raise Exception("Error: Unable to get driver")
             # Log in to Fidelity account
             driver.get(
                 "https://login.fidelity.com/ftgw/Fas/Fidelity/RtlCust/Refresh/Init/df.chf.ra/?AuthRedUrl=https://digital.fidelity.com/ftgw/digital/portfolio/summary"
@@ -77,12 +80,16 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
                     "Failed to disable old view! This might cause issues but maybe not..."
                 )
             sleep(3)
-            fidelity_obj.loggedInObjects.append(driver)
-            ind, ret = fidelity_account_numbers(driver, index=index)[0:2]
+            fidelity_obj.set_logged_in_object(name, driver)
+            ind, ret, values, ret_values = fidelity_account_numbers(driver, name=name)
             for i in ind:
-                fidelity_obj.add_account_number(f"Fidelity {index} (Individual)", i)
+                fidelity_obj.set_account_number(name, i)
+                fidelity_obj.set_account_type(name, i, "Individual")
+                fidelity_obj.set_account_totals(name, i, values[ind.index(i)])
             for i in ret:
-                fidelity_obj.add_account_number(f"Fidelity {index} (Retirement)", i)
+                fidelity_obj.set_account_number(name, i)
+                fidelity_obj.set_account_type(name, i, "Retirement")
+                fidelity_obj.set_account_totals(name, i, ret_values[ret.index(i)])
             print("Logged in to Fidelity!")
         except Exception as e:
             print(f'Error logging in: "{e}"')
@@ -92,7 +99,7 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
     return fidelity_obj
 
 
-def fidelity_account_numbers(driver, ctx=None, loop=None, index=1):
+def fidelity_account_numbers(driver, ctx=None, loop=None, name="Fidelity"):
     ret_acc = True
     try:
         # Get account holdings
@@ -105,7 +112,7 @@ def fidelity_account_numbers(driver, ctx=None, loop=None, index=1):
             by=By.CSS_SELECTOR,
             value="body > ap143528-portsum-dashboard-root > dashboard-root > div > div.account-selector__outer-box.account-selector__outer-box--expand-in-pc > accounts-selector > nav > div.acct-selector__acct-list > pvd3-link > s-root > span > a > span > s-slot > s-assigned-wrapper > div > div > div > span:nth-child(2)",
         )
-        printAndDiscord(f"Total Fidelity {index} account value: {total_value[0].text}", ctx, loop)
+        printAndDiscord(f"Total {name} account value: {total_value[0].text}", ctx, loop)
         # Get value of individual and retirement accounts
         ind_accounts = driver.find_elements(
             by=By.CSS_SELECTOR, value=r"#Investment\ Accounts"
@@ -115,43 +122,44 @@ def fidelity_account_numbers(driver, ctx=None, loop=None, index=1):
         )
         # Get text from elements
         account_list = ind_accounts[0].text.replace("\n", " ").split(" ")[1::5]
-        values = ind_accounts[0].text.replace("\n", " ").split(" ")[2::5]
+        values = values = [x.replace("$", "") for x in ind_accounts[0].text.replace("\n", " ").split(" ")[2::5]]
         try:
             ret_account_list = ret_accounts[0].text.replace("\n", " ").split(" ")[2::6]
-            ret_values = ret_accounts[0].text.replace("\n", " ").split(" ")[3::6]
+            ret_values = [x.replace("$", "") for x in ret_accounts[0].text.replace("\n", " ").split(" ")[3::6]]
         except IndexError:
             print("No retirement accounts found, skipping...")
             ret_acc = False
         # Print out account numbers and values
         printAndDiscord("Individual accounts:", ctx, loop)
         for x, item in enumerate(account_list):
-            printAndDiscord(f"{item} value: {values[x]}", ctx, loop)
+            printAndDiscord(f"{item} value: ${values[x]}", ctx, loop)
         if ret_acc:
             printAndDiscord("Retirement accounts:", ctx, loop)
             for x, item in enumerate(ret_account_list):
-                printAndDiscord(f"{item} value: {ret_values[x]}", ctx, loop)
+                printAndDiscord(f"{item} value: ${ret_values[x]}", ctx, loop)
         return account_list, ret_account_list, values, ret_values
     except Exception as e:
-        print(f"Fidelity {index}: Error getting holdings: {e}")
+        print(f"{name}: Error getting holdings: {e}")
         driver.save_screenshot(f"fidelity-an-error-{datetime.datetime.now()}.png")
         print(traceback.format_exc())
         return None, None, None, None
 
 
-def fidelity_holdings(drivers, ctx=None, loop=None):
+def fidelity_holdings(fidelity_o, ctx=None, loop=None):
     print()
     print("==============================")
     print("Fidelity Holdings")
     print("==============================")
     print()
-    for driver in drivers.loggedInObjects:
-        index = drivers.loggedInObjects.index(driver) + 1
+    for key in fidelity_o.get_account_numbers():
+        # for account in fidelity_o.get_account_numbers(key):
+        driver = fidelity_o.get_logged_in_objects(key)
         # Get account holdings
-        fidelity_account_numbers(driver, ctx=ctx, loop=loop, index=index)
+        fidelity_account_numbers(driver, ctx=ctx, loop=loop, name=key)
 
 
 def fidelity_transaction(
-    driver_o, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
+    fidelity_o, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
 ):
     print()
     print("==============================")
@@ -161,11 +169,10 @@ def fidelity_transaction(
     action = action.lower()
     stock = [x.upper() for x in stock]
     amount = int(amount)
-    drivers = driver_o.loggedInObjects
-    for driver in drivers:
-        index = drivers.index(driver) + 1
-        for s in stock:
-            printAndDiscord(f"Fidelity {index}: {action}ing {amount} of {s}", ctx, loop)
+    for s in stock:
+        for key in fidelity_o.get_account_numbers():
+            printAndDiscord(f"{key}: {action}ing {amount} of {s}", ctx, loop)
+            driver = fidelity_o.get_logged_in_objects(key)
             # Go to trade page
             driver.get(
                 "https://digital.fidelity.com/ftgw/digital/trade-equity/index/orderEntry"
@@ -326,7 +333,7 @@ def fidelity_transaction(
                             sleep(1)
                             # Send confirmation
                             printAndDiscord(
-                                f"Fidelity {index} {account_label}: {action} {amount} shares of {s}",
+                                f"{key} {account_label}: {action} {amount} shares of {s}",
                                 ctx,
                                 loop,
                             )
@@ -346,14 +353,14 @@ def fidelity_transaction(
                             )
                             driver.execute_script("arguments[0].click();", error_dismiss)
                             printAndDiscord(
-                                f"Fidelity {index} {account_label}: {action} {amount} shares of {s}. DID NOT COMPLETE! \nEither this account does not have enough shares, or an order is already pending.",
+                                f"{key} {account_label}: {action} {amount} shares of {s}. DID NOT COMPLETE! \nEither this account does not have enough shares, or an order is already pending.",
                                 ctx,
                                 loop,
                             )
                         # Send confirmation
                     else:
                         printAndDiscord(
-                            f"DRY: Fidelity {index} {account_label}: {action} {amount} shares of {s}",
+                            f"DRY: {key} {account_label}: {action} {amount} shares of {s}",
                             ctx,
                             loop,
                         )
@@ -363,3 +370,4 @@ def fidelity_transaction(
                     traceback.print_exc()
                     driver.save_screenshot(f"fidelity-login-error-{datetime.datetime.now()}.png")
                     continue
+            print()

@@ -3,10 +3,11 @@
 
 import asyncio
 import os
+import traceback
 from decimal import Decimal as D
 
 from dotenv import load_dotenv
-from helperAPI import Brokerage, printAndDiscord
+from helperAPI import Brokerage, printAndDiscord, printHoldings
 from tastytrade.account import Account
 from tastytrade.dxfeed.event import EventType
 from tastytrade.instruments import Equity
@@ -73,6 +74,7 @@ def order_setup(tt, order_type, stock_price, stock, amount):
 
 
 def tastytrade_init(TASTYTRADE_EXTERNAL=None):
+    # Initialize .env file
     load_dotenv()
     # Import Tastytrade account
     if not os.getenv("TASTYTRADE") and TASTYTRADE_EXTERNAL is None:
@@ -83,58 +85,37 @@ def tastytrade_init(TASTYTRADE_EXTERNAL=None):
     # Log in to Tastytrade account
     print("Logging in to Tastytrade...")
     for account in accounts:
+        index = accounts.index(account) + 1
+        account = account.strip().split(":")
+        name = f"Tastytrade {index}"
         try:
-            index = accounts.index(account) + 1
-            account = account.strip().split(":")
             tasty = Session(account[0], account[1])
-            tasty_obj.loggedInObjects.append(tasty)
+            tasty_obj.set_logged_in_object(name, tasty)
             an = Account.get_accounts(tasty)
             for acct in an:
-                tasty_obj.add_account_number(f"TastyTrade {index}", acct.account_number)
-            print(f"Logged in to Tastytrade {index}!")
+                tasty_obj.set_account_number(name, acct.account_number)
+                tasty_obj.set_account_totals(name, acct.account_number, acct.get_balances(tasty)["cash-balance"])
+            print("Logged in to Tastytrade!")
         except Exception as e:
-            print(f"Error logging in to Tastytrade {index}: {e}")
+            print(f"Error logging in to {name}: {e}")
             return None
     return tasty_obj
 
 
-def tastytrade_holdings(tt_o, ctx, loop=None):
-    print()
-    print("==============================")
-    print("Tastytrade Holdings")
-    print("==============================")
-    print()
-    tt = tt_o.loggedInObjects
-    for obj in tt:
-        index = tt.index(obj) + 1
-        accounts = Account.get_accounts(obj)
-        all_account_balance = 0
-        for acct in accounts:
-            balances = acct.get_balances(obj)
-            cash_balance = balances["cash-balance"]
-            all_account_balance += D(cash_balance)
-            positions = acct.get_positions(obj)
-            stocks = []
-            amounts = []
-            current_price = []
-            for stock in positions:
-                stocks.append(stock.symbol)
-                amounts.append(stock.quantity)
-                current_price.append(stock.average_daily_market_close_price)
-            current_value = []
-            for value in stocks:
-                i = stocks.index(value)
-                temp_value = round((float(amounts[i]) * float(current_price[i])), 2)
-                current_value.append(temp_value)
-            printAndDiscord(f"Holdings on Tastytrade {index} {acct.account_number}")
-            print_string = ""
-            for position in stocks:
-                i = stocks.index(position)
-                print_string += f"{position}: {amounts[i]} @ ${current_price[i]} = ${current_value[i]}\n"
-            printAndDiscord(print_string, ctx, loop)
-            printAndDiscord(f"Account cash balance is ${round(float(cash_balance), 2)}.", ctx, loop)
-        printAndDiscord(f"All accounts cash balance is ${round(float(all_account_balance), 2)}.", ctx, loop)
-        print()
+def tastytrade_holdings(tt_o, ctx=None, loop=None):
+    for key in tt_o.get_account_numbers():
+        obj = tt_o.get_logged_in_objects(key)
+        for index, account in enumerate(Account.get_accounts(obj)):
+            try:
+                an = tt_o.get_account_numbers(key)[index]
+                positions = account.get_positions(obj)
+                for stock in positions:
+                    tt_o.set_holdings(key, an, stock.symbol, stock.quantity, stock.average_daily_market_close_price)
+            except Exception as e:
+                printAndDiscord(f"{key}: Error getting account holdings: {e}", ctx, loop)
+                print(traceback.format_exc())
+                continue
+        printHoldings(tt_o, ctx, loop)
 
 
 async def tastytrade_execute(
@@ -154,12 +135,11 @@ async def tastytrade_execute(
     else:
         amount = int(amount)
         all_amount = False
-    tt = tt_o.loggedInObjects
-    for obj in tt:
-        index = tt.index(obj) + 1
-        for s in stock:
+    for s in stock:
+        for key in tt_o.get_account_numbers():
+            obj = tt_o.get_logged_in_objects(key)
             stock_list = [s]
-            printAndDiscord(f"Tastytrade {index}: {action}ing {amount} of {s}", ctx, loop)
+            printAndDiscord(f"{key}: {action}ing {amount} of {s}", ctx, loop)
             accounts = Account.get_accounts(obj)
             for i, acct in enumerate(accounts):
                 try:
@@ -190,7 +170,7 @@ async def tastytrade_execute(
                             )
                             if placed_order.order.status.value == "Routed":
                                 printAndDiscord(
-                                    f"Tastytrade {index} {acct.account_number}: {action} {amount} of {s}",
+                                    f"{key} {acct.account_number}: {action} {amount} of {s}",
                                     ctx,
                                     loop,
                                 )
@@ -200,7 +180,7 @@ async def tastytrade_execute(
                                     EventType.PROFILE, stock_list
                                 )
                                 printAndDiscord(
-                                    f"Tastytrade {index} {acct.account_number} Error: Order Rejected! Trying LIMIT order.",
+                                    f"{key} {acct.account_number} Error: Order Rejected! Trying LIMIT order.",
                                     ctx,
                                     loop,
                                 )
@@ -226,7 +206,7 @@ async def tastytrade_execute(
                                         )
                                     order_type = ["Market", "Debit", "Buy to Open"]
                                     new_order = order_setup(
-                                        tt, order_type, stock_price, s, amount
+                                        obj, order_type, stock_price, s, amount
                                     )
                                 elif action == "sell":
                                     stock_limit = D(stock_limit[0].lowLimitPrice)
@@ -252,30 +232,30 @@ async def tastytrade_execute(
                                 )
                                 if placed_order.order.status.value == "Routed":
                                     printAndDiscord(
-                                        f"Tastytrade {index} {acct.account_number}: {action} {amount} of {s}",
+                                        f"{key} {acct.account_number}: {action} {amount} of {s}",
                                         ctx,
                                         loop,
                                     )
                                 elif placed_order.order.status.value == "Rejected":
                                     printAndDiscord(
-                                        f"Tastytrade {index} {acct.account_number} Error: Order Rejected! Skipping Account.",
+                                        f"{key} {acct.account_number} Error: Order Rejected! Skipping Account.",
                                         ctx,
                                         loop,
                                     )
                             else:
                                 printAndDiscord(
-                                    f"Tastytrade {index} {acct.account_number}: Error occured placing order: {placed_order.id} on account {acct.account_number} with the following {action} {amount} of {s}",
+                                    f"{key} {acct.account_number}: Error occured placing order: {placed_order.id} on account {acct.account_number} with the following {action} {amount} of {s}",
                                     ctx,
                                     loop,
                                 )
                                 printAndDiscord(
-                                    f"Tastytrade {index} {acct.account_number}: Returned order status {placed_order.order.status.value}",
+                                    f"{key} {acct.account_number}: Returned order status {placed_order.order.status.value}",
                                     ctx,
                                     loop,
                                 )
                         else:
                             printAndDiscord(
-                                f"Tastytrade {index} {acct.account_number}: day trade count is >= 3 skipping...",
+                                f"{key} {acct.account_number}: day trade count is >= 3 skipping...",
                                 ctx,
                                 loop,
                             )
@@ -297,19 +277,19 @@ async def tastytrade_execute(
                         placed_order = accounts[i].place_order(obj, new_order, dry_run=DRY)
                         if placed_order.order.status.value == "Received":
                             printAndDiscord(
-                                f"Tastytrade {index} {acct.account_number}: Running in DRY mode. Transaction would've been: {placed_order.order.order_type.value} {placed_order.order.size} of {placed_order.order.underlying_symbol}",
+                                f"{key} {acct.account_number}: Running in DRY mode. Transaction would've been: {placed_order.order.order_type.value} {placed_order.order.size} of {placed_order.order.underlying_symbol}",
                                 ctx,
                                 loop,
                             )
                         else:
                             printAndDiscord(
-                                f"Tastytrade {index} {acct.account_number}: Running in DRY mode. Transaction did not complete!",
+                                f"{key} {acct.account_number}: Running in DRY mode. Transaction did not complete!",
                                 ctx,
                                 loop,
                             )
                 except TE as te:
                     printAndDiscord(
-                        f"Tastytrade {index} {acct.account_number}: Error: {te}",
+                        f"{key} {acct.account_number}: Error: {te}",
                         ctx,
                         loop,
                     )

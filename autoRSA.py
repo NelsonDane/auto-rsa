@@ -230,7 +230,7 @@ if __name__ == "__main__":
             orderObj.broker_transaction()
         # Kill selenium drivers
         for obj in orderObj.logged_in:
-            if obj.name.lower() == "fidelity":
+            if obj.get_name().lower() == "fidelity":
                 killDriver(obj)
         sys.exit(0)
 
