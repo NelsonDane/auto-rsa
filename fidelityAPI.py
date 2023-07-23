@@ -117,7 +117,7 @@ def fidelity_account_numbers(driver, ctx=None, loop=None, name="Fidelity"):
             by=By.CSS_SELECTOR,
             value="body > ap143528-portsum-dashboard-root > dashboard-root > div > div.account-selector__outer-box.account-selector__outer-box--expand-in-pc > accounts-selector > nav > div.acct-selector__acct-list > pvd3-link > s-root > span > a > span > s-slot > s-assigned-wrapper > div > div > div > span:nth-child(2)",
         )
-        printAndDiscord(f"Total Fidelity {index} account value: {total_value[0].text}", ctx, loop)
+        printAndDiscord(f"Total {name} account value: {total_value[0].text}", ctx, loop)
         # Get value of individual accounts
         ind_accounts = driver.find_elements(
             by=By.CSS_SELECTOR, value=r"#Investment\ Accounts"
