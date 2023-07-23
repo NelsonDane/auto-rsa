@@ -46,6 +46,10 @@ For a real run on Ally and Robinhood, but not Schwab:
 
 `buy 1 STAF ally,robinhood not schwab false`
 
+For a real run on Ally and Robinhood but not Schwab buying both STAF and AREB:
+
+`buy 1 STAF,AREB ally,robinhood not schwab false`
+
 To check your account holdings:
 
 `holdings <accounts>`
@@ -61,9 +65,9 @@ For help:
 ### Parameters
 - `<action>`: string, "buy" or "sell"
 - `<amount>`: integer, Amount to buy or sell.
-- `<ticker>`: string, The stock ticker to buy or sell
-- `<accounts>`: string, What brokerage to run command in (robinhood, schwab, etc, or all). Separate multiple brokerages with commas.
-- `<not accounts>`: string proceeding `not`, What brokerages to exclude from command. Separate multiple brokerages with commas.
+- `<ticker>`: string, The stock ticker to buy or sell. Separate multiple tickers with commas and no spaces.
+- `<accounts>`: string, What brokerage to run command in (robinhood, schwab, etc, or all). Separate multiple brokerages with commas and no spaces.
+- `<not accounts>`: string proceeding `not`, What brokerages to exclude from command. Separate multiple brokerages with commas and no spaces.
 - `<dry>`: boolean, Whether to run in `dry` mode (in which no transactions are made. Useful for testing). Set to `True`, `False`, or just write `dry` for`True`. Defaults to `True`, so if you want to run a real transaction, you must set this explicitly.
 
 ### Testing your Login Credentials
@@ -89,6 +93,8 @@ DISCLAIMER: I am not a financial advisor and not affiliated with any of the brok
 ## Supported brokerages:
 
 All brokers: separate account credentials with a colon (":"). For example, `ALLY_USERNAME:ALLY_PASSWORD`. Separate multiple logins with the same broker with a comma (","). For example, `ALLY_USERNAME:ALLY_PASSWORD,ALLY_USERNAME2:ALLY_PASSWORD2`.
+
+For Selenium-based brokers, you can optionally set the webdriver version by setting `WEBDRIVER_VERSION` in your `.env` file. For example, `WEBDRIVER_VERSION=114.0.5735.90`. This only applies to the CLI tool, not the Discord bot.
 
 ### Ally
 Made using [PyAlly](https://github.com/alienbrett/PyAlly). Go give them a ⭐
