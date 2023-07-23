@@ -175,9 +175,8 @@ def fidelity_holdings(fidelity_o, ctx=None, loop=None):
     print("==============================")
     print()
     for key in fidelity_o.get_account_numbers():
-        # for account in fidelity_o.get_account_numbers(key):
         driver = fidelity_o.get_logged_in_objects(key)
-        # Get account holdings
+        # Get account holdings since holdings is not yet implemented
         fidelity_account_numbers(driver, ctx=ctx, loop=loop, name=key)
 
 

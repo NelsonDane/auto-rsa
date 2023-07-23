@@ -65,10 +65,8 @@ def ally_holdings(ao, ctx=None, loop=None):
                     ao.set_account_totals(key, account, value)
                 # Print account stock holdings
                 ah = obj.holdings()
-                # Test if holdings is empty. Supposedly len and index are faster than .empty
-                if len(ah.index) == 0:
-                    printAndDiscord(f"{key}: No holdings found", ctx, loop)
-                else:
+                # Test if holdings is empty
+                if len(ah.index) > 0:
                     account_symbols = (ah["sym"].values).tolist()
                     qty = (ah["qty"].values).tolist()
                     current_price = (ah["marketvalue"].values).tolist()
@@ -173,8 +171,8 @@ def ally_transaction(
                                 ally_transaction(
                                     obj, action, s, amount, new_price, time, DRY, ctx, loop, True, account
                                 )
-                            except Exception as e:
-                                printAndDiscord(f"{key}: Failed to place limit order: {e}", ctx, loop)
+                            except Exception as ex:
+                                printAndDiscord(f"{key}: Failed to place limit order: {ex}", ctx, loop)
                         else:
                             printAndDiscord(f"{key}: Error placing limit order: {e}", ctx, loop)
                     elif type(price) is not str:

@@ -13,6 +13,7 @@ from selenium.webdriver.chrome.service import Service as ChromiumService
 from webdriver_manager.chrome import ChromeDriverManager
 from webdriver_manager.core.os_manager import ChromeType
 
+
 class Brokerage:
     def __init__(self, name):
         self.__name = name  # Name of brokerage
@@ -65,14 +66,12 @@ class Brokerage:
     def get_account_numbers(self, parent_name=None):
         if parent_name is None:
             return self.__account_numbers
-        else:
-            return self.__account_numbers.get(parent_name, [])
+        return self.__account_numbers.get(parent_name, [])
 
     def get_logged_in_objects(self, parent_name=None):
         if parent_name is None:
             return self.__logged_in_objects
-        else:
-            return self.__logged_in_objects.get(parent_name, [])
+        return self.__logged_in_objects.get(parent_name, [])
 
     def get_holdings(self, parent_name=None, account_name=None):
         if parent_name is None:
@@ -93,8 +92,7 @@ class Brokerage:
     def get_account_types(self, parent_name, account_name=None):
         if account_name is None:
             return self.__account_types.get(parent_name, {})
-        else:
-            return self.__account_types.get(parent_name, {}).get(account_name, "")
+        return self.__account_types.get(parent_name, {}).get(account_name, "")
 
     def __str__(self):
         return textwrap.dedent(f"""
@@ -123,8 +121,8 @@ def check_if_page_loaded(driver):
 def getDriver(DOCKER=False):
     # Check for custom driver version else use latest
     load_dotenv()
-    if os.getenv("CHROMEDRIVER_VERSION"):
-        version = os.getenv("CHROMEDRIVER_VERSION", "latest")
+    if os.getenv("WEBDRIVER_VERSION"):
+        version = os.getenv("WEBDRIVER_VERSION", "latest")
         print(f"Using chromedriver version {version}")
     else:
         print("Using latest chromedriver version")
@@ -183,7 +181,7 @@ def printHoldings(brokerObj, ctx=None, loop=None):
             printAndDiscord(f"{key} ({account}):", ctx, loop)
             holdings = brokerObj.get_holdings(key, account)
             if holdings == {}:
-                printAndDiscord(f"No holdings found", ctx, loop)
+                printAndDiscord("No holdings found", ctx, loop)
             else:
                 print_string = ""
                 for stock in holdings:
@@ -193,4 +191,4 @@ def printHoldings(brokerObj, ctx=None, loop=None):
                     print_string += f"{stock}: {quantity} @ ${format(price, '0.2f')} = ${format(total, '0.2f')}\n"
                 printAndDiscord(print_string, ctx, loop)
             printAndDiscord(f"Total: ${format(brokerObj.get_account_totals(key, account), '0.2f')}\n", ctx, loop)
-    printAndDiscord(f"==============================", ctx, loop)
+    printAndDiscord("==============================", ctx, loop)

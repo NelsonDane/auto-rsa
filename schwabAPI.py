@@ -71,6 +71,7 @@ def schwab_holdings(schwab_o, ctx=None, loop=None):
                 continue
         printHoldings(schwab_o, ctx, loop)
 
+
 def schwab_transaction(
     schwab_o, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
 ):

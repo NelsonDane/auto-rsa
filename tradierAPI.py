@@ -63,7 +63,7 @@ def tradier_init(TRADIER_EXTERNAL=None):
                 tradier_obj.set_account_totals(name, an, 0)
         # Get balances
         tradier_obj.set_logged_in_object(name, account)
-    print(f"Logged in to Tradier!")
+    print("Logged in to Tradier!")
     return tradier_obj
 
 
