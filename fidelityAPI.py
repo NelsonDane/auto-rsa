@@ -80,7 +80,7 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
                     "Failed to disable old view! This might cause issues but maybe not..."
                 )
             sleep(3)
-            fidelity_obj.loggedInObjects.append(driver)
+            fidelity_obj.set_logged_in_object(name, driver)
             ind, ret, health, values, ret_values, health_values = fidelity_account_numbers(driver, name=name)
             for i in ind:
                 fidelity_obj.set_account_number(name, i)
@@ -134,7 +134,7 @@ def fidelity_account_numbers(driver, ctx=None, loop=None, name="Fidelity"):
         except IndexError:
             print("No retirement accounts found, skipping...")
             ret_account_list = []
-            ret_values = 0
+            ret_values = []
             ret_acc = False
         try:
             # Get value of health savings accounts
@@ -146,7 +146,7 @@ def fidelity_account_numbers(driver, ctx=None, loop=None, name="Fidelity"):
         except IndexError:
             print("No health accounts found, skipping...")
             health_account_list = []
-            health_values = 0
+            health_values = []
             health_acc = False
         # Print out account numbers and values
         printAndDiscord("Individual accounts:", ctx, loop)
