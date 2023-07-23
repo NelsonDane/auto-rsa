@@ -38,7 +38,7 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
                 raise Exception("Error: Unable to get driver")
             # Log in to Fidelity account
             driver.get(
-                "https://login.fidelity.com/ftgw/Fas/Fidelity/RtlCust/Refresh/Init/df.chf.ra/?AuthRedUrl=https://digital.fidelity.com/ftgw/digital/portfolio/summary"
+                "https://digital.fidelity.com/prgw/digital/login/full-page?AuthRedUrl=digital.fidelity.com/ftgw/digital/portfolio/summary"
             )
             # Wait for page load
             WebDriverWait(driver, 20).until(check_if_page_loaded)
@@ -80,8 +80,8 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
                     "Failed to disable old view! This might cause issues but maybe not..."
                 )
             sleep(3)
-            fidelity_obj.set_logged_in_object(name, driver)
-            ind, ret, values, ret_values = fidelity_account_numbers(driver, name=name)
+            fidelity_obj.loggedInObjects.append(driver)
+            ind, ret, health, values, ret_values, health_values = fidelity_account_numbers(driver, name=name)
             for i in ind:
                 fidelity_obj.set_account_number(name, i)
                 fidelity_obj.set_account_type(name, i, "Individual")
@@ -90,6 +90,10 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
                 fidelity_obj.set_account_number(name, i)
                 fidelity_obj.set_account_type(name, i, "Retirement")
                 fidelity_obj.set_account_totals(name, i, ret_values[ret.index(i)])
+            for i in health:
+                fidelity_obj.set_account_number(name, i)
+                fidelity_obj.set_account_type(name, i, "Health")
+                fidelity_obj.set_account_totals(name, i, health_values[health.index(i)])
             print("Logged in to Fidelity!")
         except Exception as e:
             print(f'Error logging in: "{e}"')
@@ -101,6 +105,7 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
 
 def fidelity_account_numbers(driver, ctx=None, loop=None, name="Fidelity"):
     ret_acc = True
+    health_acc = True
     try:
         # Get account holdings
         driver.get("https://digital.fidelity.com/ftgw/digital/portfolio/positions")
@@ -112,23 +117,37 @@ def fidelity_account_numbers(driver, ctx=None, loop=None, name="Fidelity"):
             by=By.CSS_SELECTOR,
             value="body > ap143528-portsum-dashboard-root > dashboard-root > div > div.account-selector__outer-box.account-selector__outer-box--expand-in-pc > accounts-selector > nav > div.acct-selector__acct-list > pvd3-link > s-root > span > a > span > s-slot > s-assigned-wrapper > div > div > div > span:nth-child(2)",
         )
-        printAndDiscord(f"Total {name} account value: {total_value[0].text}", ctx, loop)
-        # Get value of individual and retirement accounts
+        printAndDiscord(f"Total Fidelity {index} account value: {total_value[0].text}", ctx, loop)
+        # Get value of individual accounts
         ind_accounts = driver.find_elements(
             by=By.CSS_SELECTOR, value=r"#Investment\ Accounts"
         )
-        ret_accounts = driver.find_elements(
-            by=By.CSS_SELECTOR, value=r"#Retirement\ Accounts"
-        )
-        # Get text from elements
         account_list = ind_accounts[0].text.replace("\n", " ").split(" ")[1::5]
         values = values = [x.replace("$", "") for x in ind_accounts[0].text.replace("\n", " ").split(" ")[2::5]]
         try:
+            # Get value of retirement accounts
+            ret_accounts = driver.find_elements(
+                by=By.CSS_SELECTOR, value=r"#Retirement\ Accounts"
+            )
             ret_account_list = ret_accounts[0].text.replace("\n", " ").split(" ")[2::6]
             ret_values = [x.replace("$", "") for x in ret_accounts[0].text.replace("\n", " ").split(" ")[3::6]]
         except IndexError:
             print("No retirement accounts found, skipping...")
+            ret_account_list = []
+            ret_values = 0
             ret_acc = False
+        try:
+            # Get value of health savings accounts
+            health_accounts = driver.find_elements(
+                by=By.CSS_SELECTOR, value=r"#Health\ Savings\ Accounts"
+            )
+            health_account_list = health_accounts[0].get_attribute("textContent").replace("\n", " ").split(" ")[27::9]
+            health_values = [x.replace("$", "") for x in health_accounts[0].get_attribute("textContent").replace("\n", " ").split(" ")[31::5]]
+        except IndexError:
+            print("No health accounts found, skipping...")
+            health_account_list = []
+            health_values = 0
+            health_acc = False
         # Print out account numbers and values
         printAndDiscord("Individual accounts:", ctx, loop)
         for x, item in enumerate(account_list):
@@ -137,7 +156,11 @@ def fidelity_account_numbers(driver, ctx=None, loop=None, name="Fidelity"):
             printAndDiscord("Retirement accounts:", ctx, loop)
             for x, item in enumerate(ret_account_list):
                 printAndDiscord(f"{item} value: ${ret_values[x]}", ctx, loop)
-        return account_list, ret_account_list, values, ret_values
+        if health_acc:
+            printAndDiscord("Health Savings accounts:", ctx, loop)
+            for x, item in enumerate(health_account_list):
+                printAndDiscord(f"{item} value: {health_values[x]}", ctx, loop)
+        return account_list, ret_account_list, health_account_list, values, ret_values, health_values
     except Exception as e:
         print(f"{name}: Error getting holdings: {e}")
         driver.save_screenshot(f"fidelity-an-error-{datetime.datetime.now()}.png")
