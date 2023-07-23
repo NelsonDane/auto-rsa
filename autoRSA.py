@@ -235,7 +235,7 @@ if __name__ == "__main__":
         sys.exit(0)
 
     if DISCORD_BOT:
-        # Get discord token and channel from .env file, setting channel to None if not found
+        # Get discord token and channel from .env file
         if not os.environ["DISCORD_TOKEN"]:
             raise Exception("DISCORD_TOKEN not found in .env file, please add it")
         DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")

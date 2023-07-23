@@ -54,7 +54,6 @@ def schwab_holdings(schwab_o, ctx=None, loop=None):
             try:
                 holdings = obj.get_account_info()[account]["positions"]
                 for item in holdings:
-                    # Get symbol, market value, quantity, current price, and total holdings
                     sym = item["symbol"]
                     if sym == "":
                         sym = "Unknown"
@@ -102,8 +101,8 @@ def schwab_transaction(
                         ticker=s,
                         side=action,
                         qty=amount,
-                        account_id=account,  # Replace with your account number
-                        dry_run=DRY,  # If dry_run=True, we won't place the order, we'll just verify it.
+                        account_id=account,
+                        dry_run=DRY,
                     )
                     print("The order verification produced the following messages: ")
                     pprint.pprint(messages)

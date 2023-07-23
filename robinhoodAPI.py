@@ -121,4 +121,3 @@ def robinhood_transaction(
                         ctx,
                         loop,
                     )
-                

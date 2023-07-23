@@ -143,7 +143,8 @@ def ally_transaction(
                         # If selling too soon, then an error is thrown
                         if action == "sell":
                             printAndDiscord(ally_call_error, ctx, loop)
-                        # If the message comes up while buying, then try again with a limit order
+                        # If the message comes up while buying, then 
+                        # try again with a limit order
                         elif action == "buy" and not RETRY:
                             printAndDiscord(
                                 f"{key}: Error placing market buy, trying again with limit order...",
