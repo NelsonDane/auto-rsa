@@ -50,7 +50,7 @@ def schwab_holdings(schwab_o: Brokerage, ctx=None, loop=None):
     # Get holdings on each account
     for key in schwab_o.get_account_numbers():
         for account in schwab_o.get_account_numbers(key):
-            obj = schwab_o.get_logged_in_objects(key)
+            obj: Schwab = schwab_o.get_logged_in_objects(key)
             try:
                 holdings = obj.get_account_info()[account]["positions"]
                 for item in holdings:
@@ -91,7 +91,7 @@ def schwab_transaction(
         for key in schwab_o.get_account_numbers():
             printAndDiscord(f"{key} {action}ing {amount} {s} @ {price}", ctx, loop)
             for account in schwab_o.get_account_numbers(key):
-                obj = schwab_o.get_logged_in_objects(key)
+                obj: Schwab = schwab_o.get_logged_in_objects(key)
                 print(f"{key} Account: {account}")
                 # If DRY is True, don't actually make the transaction
                 if DRY:

@@ -105,7 +105,7 @@ def tastytrade_init(TASTYTRADE_EXTERNAL=None):
 
 def tastytrade_holdings(tt_o: Brokerage, ctx=None, loop=None):
     for key in tt_o.get_account_numbers():
-        obj = tt_o.get_logged_in_objects(key)
+        obj: Session = tt_o.get_logged_in_objects(key)
         for index, account in enumerate(Account.get_accounts(obj)):
             try:
                 an = tt_o.get_account_numbers(key)[index]
@@ -138,7 +138,7 @@ async def tastytrade_execute(
         all_amount = False
     for s in stock:
         for key in tt_o.get_account_numbers():
-            obj = tt_o.get_logged_in_objects(key)
+            obj: Session = tt_o.get_logged_in_objects(key)
             stock_list = [s]
             printAndDiscord(f"{key}: {action}ing {amount} of {s}", ctx, loop)
             accounts = Account.get_accounts(obj)

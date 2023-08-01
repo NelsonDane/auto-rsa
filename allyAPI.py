@@ -56,7 +56,7 @@ def ally_holdings(ao: Brokerage, ctx=None, loop=None):
     for key in ao.get_account_numbers():
         account_numbers = ao.get_account_numbers(key)
         for account in account_numbers:
-            obj = ao.get_logged_in_objects(key)
+            obj: ally.Ally = ao.get_logged_in_objects(key)
             try:
                 # Get account holdings
                 ab = obj.balances()
@@ -102,9 +102,9 @@ def ally_transaction(
             printAndDiscord(f"{key}: {action}ing {amount} of {s}", ctx, loop)
             for account in ao.get_account_numbers(key):
                 if not RETRY:
-                    obj = ao.get_logged_in_objects(key)
+                    obj: ally.Ally = ao.get_logged_in_objects(key)
                 else:
-                    obj = ao
+                    obj: ally.Ally = ao
                     account = account_retry
                 try:
                     # Create order

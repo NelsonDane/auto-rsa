@@ -71,7 +71,7 @@ def tradier_holdings(tradier_o: Brokerage, ctx=None, loop=None):
     # Loop through accounts
     for key in tradier_o.get_account_numbers():
         for account_number in tradier_o.get_account_numbers(key):
-            obj = tradier_o.get_logged_in_objects(key)
+            obj: str = tradier_o.get_logged_in_objects(key)
             try:
                 # Get holdings from API
                 response = requests.get(
@@ -139,7 +139,7 @@ def tradier_transaction(
         for key in tradier_o.get_account_numbers():
             printAndDiscord(f"{key}: {action}ing {amount} of {s}", ctx=ctx, loop=loop)
             for account in tradier_o.get_account_numbers(key):
-                obj = tradier_o.get_logged_in_objects(key)
+                obj: str = tradier_o.get_logged_in_objects(key)
                 if not DRY:
                     try:
                         response = requests.post(
