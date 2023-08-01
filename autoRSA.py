@@ -88,9 +88,9 @@ class stockOrder:
                             ctx,
                             loop,
                         )
-                except:
+                except Exception as ex:
                     print(traceback.format_exc())
-                    print(f"Error in {fun_name} with {broker}")
+                    print(f"Error in {fun_name} with {broker}: {ex}")
                     print(self)
                 print()
 

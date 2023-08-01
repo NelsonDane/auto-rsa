@@ -220,8 +220,8 @@ def fidelity_transaction(
                 number_of_accounts = len(accounts_list)
                 # Click a second time to clear the account list
                 driver.execute_script("arguments[0].click();", accounts_dropdown)
-            except:
-                print("Error: No accounts foundin dropdown")
+            except Exception as e:
+                print(f"Error: No accounts foundin dropdown: {e}")
                 traceback.print_exc()
                 return
             # Complete on each account
@@ -261,7 +261,7 @@ def fidelity_transaction(
                         )
                         print(f"Error: Symbol {s} not found")
                         return
-                    except:
+                    except Exception:
                         pass
                     # Get ask/bid price
                     ask_price = (
@@ -389,8 +389,8 @@ def fidelity_transaction(
                             loop,
                         )
                     sleep(3)
-                except Exception as e:
-                    print(e)
+                except Exception as err:
+                    print(err)
                     traceback.print_exc()
                     driver.save_screenshot(f"fidelity-login-error-{datetime.datetime.now()}.png")
                     continue
