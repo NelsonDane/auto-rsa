@@ -125,15 +125,11 @@ def isStockTicker(symbol):
 
 # Parse input arguments and update the order object
 def argParser(args):
-    docker = False
     orderObj = stockOrder()
     for arg in args:
         arg = arg.lower()
-        if arg == "docker":
-            docker = True
-            print("Running in docker mode")
         # Exclusions
-        elif arg == "not":
+        if arg == "not":
             next_arg = nicknames(args[args.index(arg) + 1]).split(",")
             for broker in next_arg:
                 if nicknames(broker) in SUPPORTED_BROKERS:
@@ -174,7 +170,7 @@ def argParser(args):
     for broker in orderObj.notbrokers:
         if broker in orderObj.brokers:
             orderObj.brokers.remove(broker)
-    return orderObj, docker
+    return orderObj
 
 
 if __name__ == "__main__":
@@ -208,16 +204,16 @@ if __name__ == "__main__":
         DISCORD_BOT = True
     else:  # If any other argument, run bot, no docker or discord bot
         print("Running bot from command line")
-        orderObj = argParser(sys.argv[1:])[0]
-        if not orderObj.holdings:
-            print(f"Action: {orderObj.action}")
-            print(f"Amount: {orderObj.amount}")
-            print(f"Stock: {orderObj.stock}")
-            print(f"Time: {orderObj.time}")
-            print(f"Price: {orderObj.price}")
-            print(f"Broker: {orderObj.brokers}")
-            print(f"Not Broker: {orderObj.notbrokers}")
-            print(f"DRY: {orderObj.dry}")
+        cliOrderObj = argParser(sys.argv[1:])
+        if not cliOrderObj.holdings:
+            print(f"Action: {cliOrderObj.action}")
+            print(f"Amount: {cliOrderObj.amount}")
+            print(f"Stock: {cliOrderObj.stock}")
+            print(f"Time: {cliOrderObj.time}")
+            print(f"Price: {cliOrderObj.price}")
+            print(f"Broker: {cliOrderObj.brokers}")
+            print(f"Not Broker: {cliOrderObj.notbrokers}")
+            print(f"DRY: {cliOrderObj.dry}")
             print()
             print("If correct, press enter to continue...")
             try:
@@ -227,13 +223,13 @@ if __name__ == "__main__":
                 print()
                 print("Exiting, no orders placed")
                 sys.exit(0)
-        orderObj.broker_login()
-        if orderObj.holdings:
-            orderObj.broker_holdings()
+        cliOrderObj.broker_login()
+        if cliOrderObj.holdings:
+            cliOrderObj.broker_holdings()
         else:
-            orderObj.broker_transaction()
+            cliOrderObj.broker_transaction()
         # Kill selenium drivers
-        for obj in orderObj.logged_in:
+        for obj in cliOrderObj.logged_in:
             if obj.get_name().lower() == "fidelity":
                 killDriver(obj)
         sys.exit(0)
@@ -292,22 +288,22 @@ if __name__ == "__main__":
         # Main RSA command
         @bot.command(name="rsa")
         async def rsa(ctx, *args):
-            orderObj = (await bot.loop.run_in_executor(None, argParser, args))[0]
+            discOrdObj = (await bot.loop.run_in_executor(None, argParser, args))
             loop = asyncio.get_event_loop()
             try:
-                await bot.loop.run_in_executor(None, orderObj.broker_login)
-                if orderObj.holdings:
+                await bot.loop.run_in_executor(None, discOrdObj.broker_login)
+                if discOrdObj.holdings:
                     await bot.loop.run_in_executor(
-                        None, orderObj.broker_holdings, ctx, loop
+                        None, discOrdObj.broker_holdings, ctx, loop
                     )
                 else:
                     await bot.loop.run_in_executor(
-                        None, orderObj.broker_transaction, ctx, loop
+                        None, discOrdObj.broker_transaction, ctx, loop
                     )
-            except Exception as e:
-                print(f"Error placing order on {orderObj.name}: {e}")
+            except Exception as err:
+                print(f"Error placing order on {discOrdObj.name}: {err}")
                 if ctx:
-                    await ctx.send(f"Error placing order on {orderObj.name}: {e}")
+                    await ctx.send(f"Error placing order on {discOrdObj.name}: {err}")
 
         # Restart command
         @bot.command(name="restart")
