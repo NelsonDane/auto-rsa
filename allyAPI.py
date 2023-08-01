@@ -5,6 +5,7 @@ import os
 import traceback
 
 import ally
+import requests
 from dotenv import load_dotenv
 from helperAPI import Brokerage, printAndDiscord, printHoldings
 
@@ -38,15 +39,14 @@ def ally_init(ALLY_EXTERNAL=None):
             a = ally.Ally(params_list[index - 1])
             print(f"Logging in to {name}...")
             an = a.balances()
-            account_numbers = an["account"].values
-            print(f"{name} account numbers: {account_numbers}")
-            ally_obj.set_logged_in_object(name, a)
-            for an in account_numbers:
-                ally_obj.set_account_number(name, an)
-        except Exception as e:
+        except requests.exceptions.HTTPError as e:
             print(f"{name}: Error logging in: {e}")
-            traceback.print_exc()
             return None
+        account_numbers = an["account"].values
+        print(f"{name} account numbers: {account_numbers}")
+        ally_obj.set_logged_in_object(name, a)
+        for an in account_numbers:
+            ally_obj.set_account_number(name, an)
         print("Logged in to Ally!")
     return ally_obj
 
