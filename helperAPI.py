@@ -179,7 +179,7 @@ def printHoldings(brokerObj, ctx=None, loop=None):
             printAndDiscord(f"{key} ({account}):", ctx, loop)
             holdings = brokerObj.get_holdings(key, account)
             if holdings == {}:
-                printAndDiscord("No holdings found", ctx, loop)
+                printAndDiscord("No holdings in Account", ctx, loop)
             else:
                 print_string = ""
                 for stock in holdings:

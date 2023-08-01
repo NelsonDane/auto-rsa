@@ -42,17 +42,14 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
     return rh_obj
 
 
-def robinhood_holdings(rho, ctx=None, loop=None):
+def robinhood_holdings(rho: Brokerage, ctx=None, loop=None):
     for key in rho.get_account_numbers():
         for account in rho.get_account_numbers(key):
-            obj = rho.get_logged_in_objects(key)
+            obj: rh = rho.get_logged_in_objects(key)
             try:
                 # Get account holdings
                 positions = obj.get_open_stock_positions(account_number=account)
-                rh_accounts = obj.account.load_account_profile(info="account_number")
-                if positions == []:
-                    printAndDiscord(f"No holdings in {key}", ctx, loop)
-                else:
+                if positions != []:
                     for item in positions:
                         # Get symbol, quantity, price, and total value
                         sym = item["symbol"] = obj.get_symbol_by_url(item["instrument"])
@@ -62,7 +59,7 @@ def robinhood_holdings(rho, ctx=None, loop=None):
                         except TypeError as e:
                             if "NoneType" in str(e):
                                 current_price = "N/A"
-                        rho.set_holdings(key, rh_accounts, sym, qty, current_price)
+                        rho.set_holdings(key, account, sym, qty, current_price)
             except Exception as e:
                 printAndDiscord(f"{key}: Error getting account holdings: {e}", ctx, loop)
                 print(traceback.format_exc())
@@ -71,7 +68,7 @@ def robinhood_holdings(rho, ctx=None, loop=None):
 
 
 def robinhood_transaction(
-    rho, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
+    rho: Brokerage, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
 ):
     print()
     print("==============================")
@@ -91,13 +88,29 @@ def robinhood_transaction(
         for key in rho.get_account_numbers():
             printAndDiscord(f"{key}: {action}ing {amount} of {s}", ctx, loop)
             for account in rho.get_account_numbers(key):
-                obj = rho.get_logged_in_objects(key)
+                obj: rh = rho.get_logged_in_objects(key)
                 if not DRY:
                     try:
-                        # Buy Market order
+                        # Buy order
+                        # All orders are limit orders since some fail when market
                         if action == "buy":
-                            result = obj.order_buy_market(symbol=s, quantity=amount, account_number=account)
-                            printAndDiscord(f"{key}: Bought {amount} of {s}", ctx, loop)
+                            market_buy = obj.order_buy_market(symbol=s, quantity=amount, account_number=account)
+                            if market_buy is None:
+                                printAndDiscord(f"{key}: Error buying {amount} of {s} in {account}, trying Limit Order", ctx, loop)
+                                ask = obj.get_latest_price(stock, priceType="ask_price")[0]
+                                bid = obj.get_latest_price(stock, priceType="bid_price")[0]
+                                if ask is not None and bid is not None:
+                                    # Get bigger and add 0.01
+                                    price = float(ask) if float(ask) > float(bid) else float(bid)
+                                    price = round(price + 0.01, 2)
+                                else:
+                                    printAndDiscord(f"{key}: Error getting price for {s}", ctx, loop)
+                                    continue
+                                buy_result = obj.order_buy_limit(symbol=s, quantity=amount, limitPrice=price, account_number=account)
+                                if buy_result is None:
+                                    printAndDiscord(f"{key}: Error buying {amount} of {s} in {account}", ctx, loop)
+                                    continue
+                            printAndDiscord(f"{key}: Bought {amount} of {s} in {account} @ {price}: {market_buy}", ctx, loop)
                         # Sell Market order
                         elif action == "sell":
                             if all_amount:
@@ -108,12 +121,28 @@ def robinhood_transaction(
                                     if sym.upper() == s:
                                         amount = float(item["quantity"])
                                         break
-                            result = obj.order_sell_market(symbol=s, quantity=amount)
+                            market_sell = obj.order_sell_market(symbol=s, quantity=amount, account_number=account)
+                            if market_sell is None:
+                                printAndDiscord(f"{key}: Error selling {amount} of {s} in {account}, trying Limit Order", ctx, loop)
+                            ask = obj.get_latest_price(stock, priceType="ask_price")[0]
+                            bid = obj.get_latest_price(stock, priceType="bid_price")[0]
+                            if ask is not None and bid is not None:
+                                # Get smaller and subtract 0.01
+                                price = float(ask) if float(ask) < float(bid) else float(bid)
+                                price = round(price - 0.01, 2)
+                            else:
+                                printAndDiscord(f"{key}: Error getting price for {s}", ctx, loop)
+                                continue
+                            result = obj.order_sell_limit(symbol=s, quantity=amount, limitPrice=price, account_number=account)
+                            if result is None:
+                                printAndDiscord(f"{key}: Error selling {amount} of {s} in {account}", ctx, loop)
+                                continue
                             printAndDiscord(f"{key}: Sold {amount} of {s}: {result}", ctx, loop)
                         else:
                             print("Error: Invalid action")
                             return
                     except Exception as e:
+                        print(traceback.format_exc())
                         printAndDiscord(f"{key} Error submitting order: {e}", ctx, loop)
                 else:
                     printAndDiscord(
