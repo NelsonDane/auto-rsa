@@ -74,6 +74,8 @@ class stockOrder:
                         else:
                             self.logged_in.append(globals()[fun_name]())
                     # Holdings and transaction
+                    elif self.logged_in[index] is None:
+                        print(f"Error: {broker} not logged in, skipping...")
                     elif command == "_holdings":
                         globals()[fun_name](self.logged_in[index], ctx, loop)
                     elif command == "_transaction":
@@ -230,7 +232,7 @@ if __name__ == "__main__":
             cliOrderObj.broker_transaction()
         # Kill selenium drivers
         for obj in cliOrderObj.logged_in:
-            if obj.get_name().lower() == "fidelity":
+            if obj is not None and obj.get_name().lower() == "fidelity":
                 killDriver(obj)
         sys.exit(0)
 
