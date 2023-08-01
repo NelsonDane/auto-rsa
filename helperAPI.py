@@ -37,13 +37,15 @@ class Brokerage:
         self.__logged_in_objects[parent_name] = logged_in_object
 
     def set_holdings(self, parent_name, account_name, stock, quantity, price):
+        quantity = 0 if quantity == "N/A" else quantity
+        price = 0 if price == "N/A" else price
         if parent_name not in self.__holdings:
             self.__holdings[parent_name] = {}
         if account_name not in self.__holdings[parent_name]:
             self.__holdings[parent_name][account_name] = {}
         self.__holdings[parent_name][account_name][stock] = {
             "quantity": round(float(quantity), 2),
-            "price": round(float(price), 2) if price != "N/A" else 0,
+            "price": round(float(price), 2),
             "total": round(float(quantity) * float(price), 2),
         }
 

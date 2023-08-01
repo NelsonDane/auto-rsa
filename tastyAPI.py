@@ -244,7 +244,7 @@ async def tastytrade_execute(
                                     )
                             else:
                                 printAndDiscord(
-                                    f"{key} {acct.account_number}: Error occured placing order: {placed_order.id} on account {acct.account_number} with the following {action} {amount} of {s}",
+                                    f"{key} {acct.account_number}: Error occured placing order: {placed_order.order.id} on account {acct.account_number} with the following {action} {amount} of {s}",
                                     ctx,
                                     loop,
                                 )
