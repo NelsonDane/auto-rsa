@@ -27,22 +27,12 @@ except Exception as e:
 # Initialize .env file
 load_dotenv()
 
-# Check for legacy .env file format
-# This should be removed in a future release
-if re.search(r"(_USERNAME|_PASSWORD)", str(os.environ)):
-    print("Legacy .env file found. Please update to new format.")
-    print("See .env.example for details.")
-    # Print troublesome variables
-    print("Please update/remove the following variables:")
-    for key in os.environ:
-        if re.search(r"(_USERNAME|_PASSWORD)", key):
-            print(f"{key}={os.environ[key]}")
-    sys.exit(1)
 
 # Global variables
 SUPPORTED_BROKERS = ["ally", "fidelity", "robinhood", "schwab", "tastytrade", "tradier"]
 DISCORD_BOT = False
 DOCKER_MODE = False
+SUPRESS_OLD_WARN = False
 
 
 # Account nicknames
@@ -188,6 +178,20 @@ def argParser(args):
 
 
 if __name__ == "__main__":
+    # Check for legacy .env file format
+    # This should be removed in a future release
+    if os.getenv("SUPRESS_OLD_WARN", "").lower() == "true":
+        SUPRESS_OLD_WARN = True
+    if re.search(r"(_USERNAME|_PASSWORD)", str(os.environ)) and not SUPRESS_OLD_WARN:
+        print("Legacy .env file found. Please update to new format.")
+        print("See .env.example for details.")
+        print("To supress this warning, set SUPRESS_OLD_WARN=True in .env")
+        # Print troublesome variables
+        print("Please update/remove the following variables:")
+        for key in os.environ:
+            if re.search(r"(_USERNAME|_PASSWORD)", key):
+                print(f"{key}={os.environ[key]}")
+        sys.exit(1)
     # Determine if ran from command line
     if len(sys.argv) == 1:  # If no arguments, do nothing
         print("No arguments given, see README for usage")
@@ -269,8 +273,10 @@ if __name__ == "__main__":
             async def on_ready():
                 channel = bot.get_channel(DISCORD_CHANNEL)
                 await channel.send("Discord bot is started...")
-                # Temp warning message
-                await channel.send("Heads up! .env file format has changed, see .env.example for new format")
+                # Old .env file format warning
+                if not SUPRESS_OLD_WARN:
+                    await channel.send("Heads up! .env file format has changed, see .env.example for new format")
+                    await channel.send("To supress this message, set SUPRESS_OLD_WARN to True in your .env file")
 
         # Bot ping-pong
         @bot.command(name="ping")
