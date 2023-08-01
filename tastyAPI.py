@@ -93,7 +93,6 @@ def tastytrade_init(TASTYTRADE_EXTERNAL=None):
             tasty_obj.set_logged_in_object(name, tasty)
             an = Account.get_accounts(tasty)
             for acct in an:
-                print(type(acct))
                 tasty_obj.set_account_number(name, acct.account_number)
                 tasty_obj.set_account_totals(name, acct.account_number, acct.get_balances(tasty)["cash-balance"])
             print("Logged in to Tastytrade!")
