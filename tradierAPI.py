@@ -67,7 +67,7 @@ def tradier_init(TRADIER_EXTERNAL=None):
     return tradier_obj
 
 
-def tradier_holdings(tradier_o, ctx=None, loop=None):
+def tradier_holdings(tradier_o: Brokerage, ctx=None, loop=None):
     # Loop through accounts
     for key in tradier_o.get_account_numbers():
         for account_number in tradier_o.get_account_numbers(key):
@@ -124,7 +124,7 @@ def tradier_holdings(tradier_o, ctx=None, loop=None):
 
 
 def tradier_transaction(
-    tradier_o, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
+    tradier_o: Brokerage, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
 ):
     print()
     print("==============================")

@@ -8,6 +8,7 @@ import traceback
 from time import sleep
 
 from dotenv import load_dotenv
+from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver import Keys
 from selenium.webdriver.common.by import By
@@ -103,7 +104,7 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
     return fidelity_obj
 
 
-def fidelity_account_numbers(driver, ctx=None, loop=None, name="Fidelity"):
+def fidelity_account_numbers(driver: webdriver, ctx=None, loop=None, name="Fidelity"):
     ret_acc = True
     health_acc = True
     try:
@@ -168,7 +169,7 @@ def fidelity_account_numbers(driver, ctx=None, loop=None, name="Fidelity"):
         return None, None, None, None
 
 
-def fidelity_holdings(fidelity_o, ctx=None, loop=None):
+def fidelity_holdings(fidelity_o: Brokerage, ctx=None, loop=None):
     print()
     print("==============================")
     print("Fidelity Holdings")
@@ -181,7 +182,7 @@ def fidelity_holdings(fidelity_o, ctx=None, loop=None):
 
 
 def fidelity_transaction(
-    fidelity_o, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
+    fidelity_o: Brokerage, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
 ):
     print()
     print("==============================")

@@ -46,7 +46,7 @@ def schwab_init(SCHWAB_EXTERNAL=None):
     return schwab_obj
 
 
-def schwab_holdings(schwab_o, ctx=None, loop=None):
+def schwab_holdings(schwab_o: Brokerage, ctx=None, loop=None):
     # Get holdings on each account
     for key in schwab_o.get_account_numbers():
         for account in schwab_o.get_account_numbers(key):
@@ -72,7 +72,7 @@ def schwab_holdings(schwab_o, ctx=None, loop=None):
 
 
 def schwab_transaction(
-    schwab_o, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
+    schwab_o: Brokerage, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
 ):
     print()
     print("==============================")

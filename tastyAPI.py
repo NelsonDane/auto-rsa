@@ -23,7 +23,7 @@ from tastytrade.streamer import DataStreamer
 from tastytrade.utils import TastytradeError as TE
 
 
-def day_trade_check(tt, acct, cash_balance):
+def day_trade_check(tt: Session, acct: Account, cash_balance):
     trading_status = acct.get_trading_status(tt)
     day_trade_count = trading_status.day_trade_count
     if acct.margin_or_cash == "Margin" and cash_balance <= 25000:
@@ -34,7 +34,7 @@ def day_trade_check(tt, acct, cash_balance):
     return True
 
 
-def order_setup(tt, order_type, stock_price, stock, amount):
+def order_setup(tt: Session, order_type, stock_price, stock, amount):
     symbol = Equity.get_equity(tt, stock)
     if order_type == ["Market", "Debit", "Buy to Open"]:
         leg = symbol.build_leg(D(amount), OrderAction.BUY_TO_OPEN)
@@ -93,6 +93,7 @@ def tastytrade_init(TASTYTRADE_EXTERNAL=None):
             tasty_obj.set_logged_in_object(name, tasty)
             an = Account.get_accounts(tasty)
             for acct in an:
+                print(type(acct))
                 tasty_obj.set_account_number(name, acct.account_number)
                 tasty_obj.set_account_totals(name, acct.account_number, acct.get_balances(tasty)["cash-balance"])
             print("Logged in to Tastytrade!")
@@ -102,7 +103,7 @@ def tastytrade_init(TASTYTRADE_EXTERNAL=None):
     return tasty_obj
 
 
-def tastytrade_holdings(tt_o, ctx=None, loop=None):
+def tastytrade_holdings(tt_o: Brokerage, ctx=None, loop=None):
     for key in tt_o.get_account_numbers():
         obj = tt_o.get_logged_in_objects(key)
         for index, account in enumerate(Account.get_accounts(obj)):
@@ -119,7 +120,7 @@ def tastytrade_holdings(tt_o, ctx=None, loop=None):
 
 
 async def tastytrade_execute(
-        tt_o, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
+        tt_o: Brokerage, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
 ):
     print()
     print("==============================")
@@ -296,7 +297,7 @@ async def tastytrade_execute(
 
 
 def tastytrade_transaction(
-    tt, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
+    tt: Brokerage, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
 ):
     asyncio.run(
         tastytrade_execute(tt, action, stock, amount, price, time, DRY, ctx, loop)

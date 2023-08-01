@@ -52,7 +52,7 @@ def ally_init(ALLY_EXTERNAL=None):
 
 
 # Function to get the current account holdings
-def ally_holdings(ao, ctx=None, loop=None):
+def ally_holdings(ao: Brokerage, ctx=None, loop=None):
     for key in ao.get_account_numbers():
         account_numbers = ao.get_account_numbers(key)
         for account in account_numbers:
@@ -70,9 +70,7 @@ def ally_holdings(ao, ctx=None, loop=None):
                     account_symbols = (ah["sym"].values).tolist()
                     qty = (ah["qty"].values).tolist()
                     current_price = (ah["marketvalue"].values).tolist()
-                    for symbol in account_symbols:
-                        # Set index for easy use
-                        i = account_symbols.index(symbol)
+                    for i, symbol in enumerate(account_symbols):
                         ao.set_holdings(key, account, symbol, qty[i], current_price[i])
             except Exception as e:
                 printAndDiscord(f"{key}: Error getting account holdings: {e}", ctx, loop)
@@ -83,7 +81,7 @@ def ally_holdings(ao, ctx=None, loop=None):
 
 # Function to buy/sell stock on Ally
 def ally_transaction(
-    ao, action, stock, amount, price, time, DRY=True, ctx=None, loop=None, RETRY=False, account_retry=None
+    ao: Brokerage, action, stock, amount, price, time, DRY=True, ctx=None, loop=None, RETRY=False, account_retry=None
 ):
     print()
     print("==============================")
@@ -170,7 +168,7 @@ def ally_transaction(
                                 ) + 0.01
                                 # Run function again with limit order
                                 ally_transaction(
-                                    obj, action, s, amount, new_price, time, DRY, ctx, loop, True, account
+                                    ao, action, s, amount, new_price, time, DRY, ctx, loop, True, account
                                 )
                             except Exception as ex:
                                 printAndDiscord(f"{key}: Failed to place limit order: {ex}", ctx, loop)
