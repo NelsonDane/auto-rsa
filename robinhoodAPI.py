@@ -119,9 +119,9 @@ def robinhood_transaction(
                             if limit_order is None:
                                 printAndDiscord(f"{key}: Error {action}ing {amount} of {s} in {account}", ctx, loop)
                                 continue
-                            printAndDiscord(f"{key}: {action} {amount} of {s} in {account} @ {price}: {limit_order}", ctx, loop)
+                            printAndDiscord(f"{key}: {action} {amount} of {s} in {account} @ {price}: Success", ctx, loop)
                         else:
-                            printAndDiscord(f"{key}: {action} {amount} of {s} in {account}: {market_order}", ctx, loop)
+                            printAndDiscord(f"{key}: {action} {amount} of {s} in {account}: Success", ctx, loop)
                     except Exception as e:
                         print(traceback.format_exc())
                         printAndDiscord(f"{key} Error submitting order: {e}", ctx, loop)
