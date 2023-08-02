@@ -7,11 +7,16 @@ import asyncio
 import textwrap
 from dotenv import load_dotenv
 from time import sleep
+from queue import Queue
 
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromiumService
 from webdriver_manager.chrome import ChromeDriverManager
 from webdriver_manager.core.os_manager import ChromeType
+
+
+# Create task queue
+task_queue = Queue()
 
 
 class Brokerage:
@@ -169,15 +174,29 @@ def killDriver(brokerObj):
     print(f"Killed {count} {brokerObj.get_name()} drivers")
 
 
+async def processTasks(message, ctx):
+    # Send message to discord
+    await ctx.send(message)
+
+
 def printAndDiscord(message, ctx=None, loop=None):
     # Print message
     print(message)
-    # Send message to Discord
+    # Add message to discord queue
     if ctx is not None and loop is not None:
-        sleep(0.5)
-        asyncio.run_coroutine_threadsafe(ctx.send(message), loop)
+        task_queue.put((message, ctx))
+        if task_queue.qsize() == 1:
+            asyncio.run_coroutine_threadsafe(processQueue(), loop)
 
 
+async def processQueue():
+    # Process discord queue
+    while not task_queue.empty():
+        message, ctx = task_queue.get()
+        await processTasks(message, ctx)
+        task_queue.task_done()
+
+        
 def printHoldings(brokerObj, ctx=None, loop=None):
     # Helper function for holdings formatting
     printAndDiscord(f"==============================\n{brokerObj.get_name()} Holdings\n==============================", ctx, loop)
