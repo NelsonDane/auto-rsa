@@ -2,7 +2,7 @@ version: "3.3"
 services:
     auto-rsa:
         container_name: auto-rsa
-        image: docker.io/nelsondane/auto-rsa:latest
+        image: docker.io/nelsondane/auto-rsa:latest # change to develop for latest development version
         # build: . # uncomment this line if you want to build the image locally with docker-compose up -d --build
         restart: unless-stopped
         env_file:
@@ -14,7 +14,7 @@ services:
     watchtower:
         image: containrrr/watchtower
         command: --cleanup --label-enable --interval 3600
-        container_name: Watchtower
+        container_name: watchtower
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock
         labels:

@@ -7,7 +7,7 @@ import traceback
 import pyotp
 import robin_stocks.robinhood as rh
 from dotenv import load_dotenv
-from helperAPI import Brokerage, printAndDiscord
+from helperAPI import Brokerage, printAndDiscord, printHoldings
 
 
 def robinhood_init(ROBINHOOD_EXTERNAL=None):
@@ -23,16 +23,18 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
     for account in RH:
         print("Logging in to Robinhood...")
         index = RH.index(account) + 1
+        name = f"Robinhood {index}"
         try:
             account = account.split(":")
             rh.login(
                 username=account[0],
                 password=account[1],
-                mfa_code=None if account[2] == "NA" else pyotp.TOTP(account[2]).now(),
+                mfa_code=None if account[2].upper() == "NA" else pyotp.TOTP(account[2]).now(),
                 store_session=False,
             )
-            rh_obj.loggedInObjects.append(rh)
-            rh_obj.add_account_number(f"Robinhood {index}", rh.account.load_account_profile(info="account_number"))
+            rh_obj.set_logged_in_object(name, rh)
+            rh_obj.set_account_number(name, rh.account.load_account_profile(info="account_number"))
+            rh_obj.set_account_totals(name, rh.account.load_account_profile(info="account_number"), rh.account.load_account_profile(info="portfolio_cash"))
         except Exception as e:
             print(f"Error: Unable to log in to Robinhood: {e}")
             return None
@@ -40,94 +42,92 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
     return rh_obj
 
 
-def robinhood_holdings(rho, ctx=None, loop=None):
-    print()
-    print("==============================")
-    print("Robinhood Holdings")
-    print("==============================")
-    print()
-    rh = rho.loggedInObjects
-    for obj in rh:
-        try:
-            # Get account holdings
-            index = rh.index(obj) + 1
-            positions = obj.get_open_stock_positions()
-            if positions == []:
-                printAndDiscord(f"No holdings in Robinhood {index}", ctx, loop)
-            else:
-                printAndDiscord(f"Holdings in Robinhood {index}:", ctx, loop)
-                print_string = ""
-                for item in positions:
-                    # Get symbol, quantity, price, and total value
-                    sym = item["symbol"] = obj.get_symbol_by_url(item["instrument"])
-                    qty = float(item["quantity"])
-                    try:
-                        current_price = round(float(obj.stocks.get_latest_price(sym)[0]), 2)
-                        total_value = round(qty * current_price, 2)
-                    except TypeError as e:
-                        if "NoneType" in str(e):
-                            current_price = "N/A"
-                            total_value = "N/A"
-                    print_string += f"{sym}: {qty} @ ${(current_price)} = ${total_value}\n"
-                printAndDiscord(print_string, ctx, loop)
-        except Exception as e:
-            printAndDiscord(f"Robinhood {index}: Error getting account holdings: {e}", ctx, loop)
-            print(traceback.format_exc())
+def robinhood_holdings(rho: Brokerage, ctx=None, loop=None):
+    for key in rho.get_account_numbers():
+        for account in rho.get_account_numbers(key):
+            obj: rh = rho.get_logged_in_objects(key)
+            try:
+                # Get account holdings
+                positions = obj.get_open_stock_positions(account_number=account)
+                if positions != []:
+                    for item in positions:
+                        # Get symbol, quantity, price, and total value
+                        sym = item["symbol"] = obj.get_symbol_by_url(item["instrument"])
+                        qty = float(item["quantity"])
+                        try:
+                            current_price = round(float(obj.stocks.get_latest_price(sym)[0]), 2)
+                        except TypeError as e:
+                            if "NoneType" in str(e):
+                                current_price = "N/A"
+                        rho.set_holdings(key, account, sym, qty, current_price)
+            except Exception as e:
+                printAndDiscord(f"{key}: Error getting account holdings: {e}", ctx, loop)
+                print(traceback.format_exc())
+                continue
+        printHoldings(rho, ctx, loop)
 
 
 def robinhood_transaction(
-    rho, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
+    rho: Brokerage, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
 ):
     print()
     print("==============================")
     print("Robinhood")
     print("==============================")
     print()
-    # printAndDiscord(
-    #     "Robinhood transactions are temporarily disabled due to API issues. Please see https://github.com/jmfernandes/robin_stocks/pull/403 and https://github.com/jmfernandes/robin_stocks/issues/401 for more details.",
-    #     ctx,
-    #     loop,   
-    # )
-    # return
     action = action.lower()
-    stock = stock.upper()
-    if amount == "all" and action == "sell":
-        all_amount = True
-    elif amount < 1:
-        amount = float(amount)
-    else:
-        amount = int(amount)
-        all_amount = False
-    rh = rho.loggedInObjects
-    for obj in rh:
-        if not DRY:
-            try:
-                index = rh.index(obj) + 1
-                # Buy Market order
-                if action == "buy":
-                    result = obj.order_buy_market(symbol=stock, quantity=amount)
-                    printAndDiscord(f"Robinhood {index}: Bought {amount} of {stock}", ctx, loop)
-                # Sell Market order
-                elif action == "sell":
-                    if all_amount:
-                        # Get account holdings
-                        positions = obj.get_open_stock_positions()
-                        for item in positions:
-                            sym = item["symbol"] = obj.get_symbol_by_url(item["instrument"])
-                            if sym.upper() == stock:
-                                amount = float(item["quantity"])
-                                break
-                    result = obj.order_sell_market(symbol=stock, quantity=amount)
-                    printAndDiscord(f"Robinhood {index}: Sold {amount} of {stock}: {result}", ctx, loop)
+    stock = [x.upper() for x in stock]
+    amount = int(amount)
+    for s in stock:
+        for key in rho.get_account_numbers():
+            printAndDiscord(f"{key}: {action}ing {amount} of {s}", ctx, loop)
+            for account in rho.get_account_numbers(key):
+                obj: rh = rho.get_logged_in_objects(key)
+                if not DRY:
+                    try:
+                        # Market order
+                        market_order = obj.order(
+                            symbol=s,
+                            quantity=amount,
+                            side=action,
+                            account_number=account,
+                        )
+                        # Limit order fallback
+                        if market_order is None:
+                            printAndDiscord(f"{key}: Error {action}ing {amount} of {s} in {account}, trying Limit Order", ctx, loop)
+                            ask = obj.get_latest_price(stock, priceType="ask_price")[0]
+                            bid = obj.get_latest_price(stock, priceType="bid_price")[0]
+                            if ask is not None and bid is not None:
+                                print(f"Ask: {ask}, Bid: {bid}")
+                                # Add or subtract 1 cent to ask or bid
+                                if action == "buy":
+                                    price = float(ask) if float(ask) > float(bid) else float(bid)
+                                    price = round(price + 0.01, 2)
+                                else:
+                                    price = float(ask) if float(ask) < float(bid) else float(bid)
+                                    price = round(price - 0.01, 2)
+                            else:
+                                printAndDiscord(f"{key}: Error getting price for {s}", ctx, loop)
+                                continue
+                            limit_order = obj.order(
+                                symbol=s,
+                                quantity=amount,
+                                side=action,
+                                limitPrice=price,
+                                account_number=account,
+                            )
+                            if limit_order is None:
+                                printAndDiscord(f"{key}: Error {action}ing {amount} of {s} in {account}", ctx, loop)
+                                continue
+                            printAndDiscord(f"{key}: {action} {amount} of {s} in {account} @ {price}: Success", ctx, loop)
+                        else:
+                            printAndDiscord(f"{key}: {action} {amount} of {s} in {account}: Success", ctx, loop)
+                    except Exception as e:
+                        print(traceback.format_exc())
+                        printAndDiscord(f"{key} Error submitting order: {e}", ctx, loop)
                 else:
-                    print("Error: Invalid action")
-                    return
-            except Exception as e:
-                printAndDiscord(f"Robinhood {index} Error submitting order: {e}", ctx, loop)
-        else:
-            printAndDiscord(
-                f"Robinhood {index} Running in DRY mode. Trasaction would've been: {action} {amount} of {stock}",
-                ctx,
-                loop,
-            )
-            
+                    printAndDiscord(
+                        f"{key} Running in DRY mode. Transaction would've been: {action} {amount} of {s}",
+                        ctx,
+                        loop,
+                    )

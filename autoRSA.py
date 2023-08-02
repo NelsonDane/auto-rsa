@@ -27,22 +27,12 @@ except Exception as e:
 # Initialize .env file
 load_dotenv()
 
-# Check for legacy .env file format
-# This should be removed in a future release
-if re.search(r"(_USERNAME|_PASSWORD)", str(os.environ)):
-    print("Legacy .env file found. Please update to new format.")
-    print("See .env.example for details.")
-    # Print troublesome variables
-    print("Please update/remove the following variables:")
-    for key in os.environ:
-        if re.search(r"(_USERNAME|_PASSWORD)", key):
-            print(f"{key}={os.environ[key]}")
-    sys.exit(1)
 
 # Global variables
 SUPPORTED_BROKERS = ["ally", "fidelity", "robinhood", "schwab", "tastytrade", "tradier"]
 DISCORD_BOT = False
 DOCKER_MODE = False
+SUPRESS_OLD_WARN = False
 
 
 # Account nicknames
@@ -59,7 +49,7 @@ class stockOrder:
     def __init__(self):
         self.action = None  # Buy or sell
         self.amount = None  # Amount of shares to buy/sell
-        self.stock = None  # Stock ticker
+        self.stock = []  # List of stock tickers to buy/sell
         self.time = "day"  # Only supports day for now
         self.price = "market"  # Only supports market for now
         self.brokers = []  # List of brokerages to use
@@ -84,6 +74,8 @@ class stockOrder:
                         else:
                             self.logged_in.append(globals()[fun_name]())
                     # Holdings and transaction
+                    elif self.logged_in[index] is None:
+                        print(f"Error: {broker} not logged in, skipping...")
                     elif command == "_holdings":
                         globals()[fun_name](self.logged_in[index], ctx, loop)
                     elif command == "_transaction":
@@ -98,9 +90,9 @@ class stockOrder:
                             ctx,
                             loop,
                         )
-                except:
+                except Exception as ex:
                     print(traceback.format_exc())
-                    print(f"Error in {fun_name} with {broker}")
+                    print(f"Error in {fun_name} with {broker}: {ex}")
                     print(self)
                 print()
 
@@ -135,15 +127,11 @@ def isStockTicker(symbol):
 
 # Parse input arguments and update the order object
 def argParser(args):
-    docker = False
     orderObj = stockOrder()
     for arg in args:
         arg = arg.lower()
-        if arg == "docker":
-            docker = True
-            print("Running in docker mode")
         # Exclusions
-        elif arg == "not":
+        if arg == "not":
             next_arg = nicknames(args[args.index(arg) + 1]).split(",")
             for broker in next_arg:
                 if nicknames(broker) in SUPPORTED_BROKERS:
@@ -168,23 +156,40 @@ def argParser(args):
                 orderObj.brokers = SUPPORTED_BROKERS
         elif arg == "holdings":
             orderObj.holdings = True
+        # If first item of list is a stock, it must be a list of stocks
         elif (
-            isStockTicker(arg.upper())
+            isStockTicker(arg.split(",")[0].upper())
             and arg.lower() != "dry"
-            and orderObj.stock is None
+            and orderObj.stock == []
         ):
-            orderObj.stock = arg.upper()
+            for stock in arg.split(","):
+                orderObj.stock.append(stock.upper())
     # Remove duplicates
     orderObj.brokers = list(dict.fromkeys(orderObj.brokers))
     orderObj.notbrokers = list(dict.fromkeys(orderObj.notbrokers))
+    orderObj.stock = list(dict.fromkeys(orderObj.stock))
     # Remove notbrokers from brokers
     for broker in orderObj.notbrokers:
         if broker in orderObj.brokers:
             orderObj.brokers.remove(broker)
-    return orderObj, docker
+    return orderObj
 
 
 if __name__ == "__main__":
+    # Check for legacy .env file format
+    # This should be removed in a future release
+    if os.getenv("SUPRESS_OLD_WARN", "").lower() == "true":
+        SUPRESS_OLD_WARN = True
+    if re.search(r"(_USERNAME|_PASSWORD)", str(os.environ)) and not SUPRESS_OLD_WARN:
+        print("Legacy .env file found. Please update to new format.")
+        print("See .env.example for details.")
+        print("To supress this warning, set SUPRESS_OLD_WARN=True in .env")
+        # Print troublesome variables
+        print("Please update/remove the following variables:")
+        for key in os.environ:
+            if re.search(r"(_USERNAME|_PASSWORD)", key):
+                print(f"{key}={os.environ[key]}")
+        sys.exit(1)
     # Determine if ran from command line
     if len(sys.argv) == 1:  # If no arguments, do nothing
         print("No arguments given, see README for usage")
@@ -201,16 +206,16 @@ if __name__ == "__main__":
         DISCORD_BOT = True
     else:  # If any other argument, run bot, no docker or discord bot
         print("Running bot from command line")
-        orderObj = argParser(sys.argv[1:])[0]
-        if not orderObj.holdings:
-            print(f"Action: {orderObj.action}")
-            print(f"Amount: {orderObj.amount}")
-            print(f"Stock: {orderObj.stock}")
-            print(f"Time: {orderObj.time}")
-            print(f"Price: {orderObj.price}")
-            print(f"Broker: {orderObj.brokers}")
-            print(f"Not Broker: {orderObj.notbrokers}")
-            print(f"DRY: {orderObj.dry}")
+        cliOrderObj = argParser(sys.argv[1:])
+        if not cliOrderObj.holdings:
+            print(f"Action: {cliOrderObj.action}")
+            print(f"Amount: {cliOrderObj.amount}")
+            print(f"Stock: {cliOrderObj.stock}")
+            print(f"Time: {cliOrderObj.time}")
+            print(f"Price: {cliOrderObj.price}")
+            print(f"Broker: {cliOrderObj.brokers}")
+            print(f"Not Broker: {cliOrderObj.notbrokers}")
+            print(f"DRY: {cliOrderObj.dry}")
             print()
             print("If correct, press enter to continue...")
             try:
@@ -220,19 +225,19 @@ if __name__ == "__main__":
                 print()
                 print("Exiting, no orders placed")
                 sys.exit(0)
-        orderObj.broker_login()
-        if orderObj.holdings:
-            orderObj.broker_holdings()
+        cliOrderObj.broker_login()
+        if cliOrderObj.holdings:
+            cliOrderObj.broker_holdings()
         else:
-            orderObj.broker_transaction()
+            cliOrderObj.broker_transaction()
         # Kill selenium drivers
-        for obj in orderObj.logged_in:
-            if obj.name.lower() == "fidelity":
+        for obj in cliOrderObj.logged_in:
+            if obj is not None and obj.get_name().lower() == "fidelity":
                 killDriver(obj)
         sys.exit(0)
 
     if DISCORD_BOT:
-        # Get discord token and channel from .env file, setting channel to None if not found
+        # Get discord token and channel from .env file
         if not os.environ["DISCORD_TOKEN"]:
             raise Exception("DISCORD_TOKEN not found in .env file, please add it")
         DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
@@ -266,8 +271,10 @@ if __name__ == "__main__":
             async def on_ready():
                 channel = bot.get_channel(DISCORD_CHANNEL)
                 await channel.send("Discord bot is started...")
-                # Temp warning message
-                await channel.send("Heads up! .env file format has changed, see .env.example for new format")
+                # Old .env file format warning
+                if not SUPRESS_OLD_WARN:
+                    await channel.send("Heads up! .env file format has changed, see .env.example for new format")
+                    await channel.send("To supress this message, set SUPRESS_OLD_WARN to True in your .env file")
 
         # Bot ping-pong
         @bot.command(name="ping")
@@ -283,22 +290,22 @@ if __name__ == "__main__":
         # Main RSA command
         @bot.command(name="rsa")
         async def rsa(ctx, *args):
-            orderObj = (await bot.loop.run_in_executor(None, argParser, args))[0]
+            discOrdObj = (await bot.loop.run_in_executor(None, argParser, args))
             loop = asyncio.get_event_loop()
             try:
-                await bot.loop.run_in_executor(None, orderObj.broker_login)
-                if orderObj.holdings:
+                await bot.loop.run_in_executor(None, discOrdObj.broker_login)
+                if discOrdObj.holdings:
                     await bot.loop.run_in_executor(
-                        None, orderObj.broker_holdings, ctx, loop
+                        None, discOrdObj.broker_holdings, ctx, loop
                     )
                 else:
                     await bot.loop.run_in_executor(
-                        None, orderObj.broker_transaction, ctx, loop
+                        None, discOrdObj.broker_transaction, ctx, loop
                     )
-            except Exception as e:
-                print(f"Error placing order on {orderObj.name}: {e}")
+            except Exception as err:
+                print(f"Error placing order on {discOrdObj.name}: {err}")
                 if ctx:
-                    await ctx.send(f"Error placing order on {orderObj.name}: {e}")
+                    await ctx.send(f"Error placing order on {discOrdObj.name}: {err}")
 
         # Restart command
         @bot.command(name="restart")
