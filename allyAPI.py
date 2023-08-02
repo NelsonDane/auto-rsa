@@ -25,6 +25,9 @@ def ally_init(ALLY_EXTERNAL=None, ALLY_ACCOUNT_NUMBERS_EXTERNAL=None):
         account = account.split(":")
         for nbr in account_nbrs_list:
             for num in nbr.split(":"):
+                if len(account) != 4:
+                    print(f"{name}: Too many parameters for Ally account, please see README.md and .env.example, skipping...")
+                    return None
                 params = {
                     "ALLY_CONSUMER_KEY": account[0],
                     "ALLY_CONSUMER_SECRET": account[1],
