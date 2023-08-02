@@ -113,10 +113,10 @@ def ally_transaction(
                 try:
                     # Create order
                     o = ally.Order.Order(
-                        buysell=action, symbol=s, price=price, time=time, qty=amount
+                        buysell=action, symbol=s, price=price, time=time, qty=amount, account=account
                     )
                     # Print order preview
-                    print(str(o))
+                    print(f"{key} {account}: {str(o)}")
                     # Submit order
                     o.orderid
                     if not DRY:
