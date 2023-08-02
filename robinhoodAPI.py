@@ -29,12 +29,12 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
             rh.login(
                 username=account[0],
                 password=account[1],
-                mfa_code=None if account[2] == "NA" else pyotp.TOTP(account[2]).now(),
+                mfa_code=None if account[2].upper() == "NA" else pyotp.TOTP(account[2]).now(),
                 store_session=False,
             )
             rh_obj.set_logged_in_object(name, rh)
-            rh_obj.set_account_number(f"{name}", rh.account.load_account_profile(info="account_number"))
-            rh_obj.set_account_totals(f"{name}", rh.account.load_account_profile(info="account_number"), rh.account.load_account_profile(info="portfolio_cash"))
+            rh_obj.set_account_number(name, rh.account.load_account_profile(info="account_number"))
+            rh_obj.set_account_totals(name, rh.account.load_account_profile(info="account_number"), rh.account.load_account_profile(info="portfolio_cash"))
         except Exception as e:
             print(f"Error: Unable to log in to Robinhood: {e}")
             return None
@@ -77,13 +77,7 @@ def robinhood_transaction(
     print()
     action = action.lower()
     stock = [x.upper() for x in stock]
-    if amount == "all" and action == "sell":
-        all_amount = True
-    elif amount < 1:
-        amount = float(amount)
-    else:
-        amount = int(amount)
-        all_amount = False
+    amount = int(amount)
     for s in stock:
         for key in rho.get_account_numbers():
             printAndDiscord(f"{key}: {action}ing {amount} of {s}", ctx, loop)
@@ -91,56 +85,43 @@ def robinhood_transaction(
                 obj: rh = rho.get_logged_in_objects(key)
                 if not DRY:
                     try:
-                        # Buy order
-                        # All orders are limit orders since some fail when market
-                        if action == "buy":
-                            market_buy = obj.order_buy_market(symbol=s, quantity=amount, account_number=account)
-                            if market_buy is None:
-                                printAndDiscord(f"{key}: Error buying {amount} of {s} in {account}, trying Limit Order", ctx, loop)
-                                ask = obj.get_latest_price(stock, priceType="ask_price")[0]
-                                bid = obj.get_latest_price(stock, priceType="bid_price")[0]
-                                if ask is not None and bid is not None:
-                                    # Get bigger and add 0.01
-                                    price = float(ask) if float(ask) > float(bid) else float(bid)
-                                    price = round(price + 0.01, 2)
-                                else:
-                                    printAndDiscord(f"{key}: Error getting price for {s}", ctx, loop)
-                                    continue
-                                buy_result = obj.order_buy_limit(symbol=s, quantity=amount, limitPrice=price, account_number=account)
-                                if buy_result is None:
-                                    printAndDiscord(f"{key}: Error buying {amount} of {s} in {account}", ctx, loop)
-                                    continue
-                            printAndDiscord(f"{key}: Bought {amount} of {s} in {account} @ {price}: {market_buy}", ctx, loop)
-                        # Sell Market order
-                        elif action == "sell":
-                            if all_amount:
-                                # Get account holdings
-                                positions = obj.get_open_stock_positions(account_number=account)
-                                for item in positions:
-                                    sym = item["symbol"] = obj.get_symbol_by_url(item["instrument"])
-                                    if sym.upper() == s:
-                                        amount = float(item["quantity"])
-                                        break
-                            market_sell = obj.order_sell_market(symbol=s, quantity=amount, account_number=account)
-                            if market_sell is None:
-                                printAndDiscord(f"{key}: Error selling {amount} of {s} in {account}, trying Limit Order", ctx, loop)
+                        # Market order
+                        market_order = obj.order(
+                            symbol=s, 
+                            quantity=amount, 
+                            side=action,
+                            account_number=account,
+                        )
+                        # Limit order fallback
+                        if market_order is None:
+                            printAndDiscord(f"{key}: Error {action}ing {amount} of {s} in {account}, trying Limit Order", ctx, loop)
                             ask = obj.get_latest_price(stock, priceType="ask_price")[0]
                             bid = obj.get_latest_price(stock, priceType="bid_price")[0]
                             if ask is not None and bid is not None:
-                                # Get smaller and subtract 0.01
-                                price = float(ask) if float(ask) < float(bid) else float(bid)
-                                price = round(price - 0.01, 2)
+                                print(f"Ask: {ask}, Bid: {bid}")
+                                # Add or subtract 1 cent to ask or bid
+                                if action == "buy":
+                                    price = float(ask) if float(ask) > float(bid) else float(bid)
+                                    price = round(price + 0.01, 2)
+                                else:
+                                    price = float(ask) if float(ask) < float(bid) else float(bid)
+                                    price = round(price - 0.01, 2)
                             else:
                                 printAndDiscord(f"{key}: Error getting price for {s}", ctx, loop)
                                 continue
-                            result = obj.order_sell_limit(symbol=s, quantity=amount, limitPrice=price, account_number=account)
-                            if result is None:
-                                printAndDiscord(f"{key}: Error selling {amount} of {s} in {account}", ctx, loop)
+                            limit_order = obj.order(
+                                symbol=s, 
+                                quantity=amount, 
+                                side=action,
+                                limitPrice=price, 
+                                account_number=account,
+                            )
+                            if limit_order is None:
+                                printAndDiscord(f"{key}: Error {action}ing {amount} of {s} in {account}", ctx, loop)
                                 continue
-                            printAndDiscord(f"{key}: Sold {amount} of {s}: {result}", ctx, loop)
+                            printAndDiscord(f"{key}: {action} {amount} of {s} in {account} @ {price}: {limit_order}", ctx, loop)
                         else:
-                            print("Error: Invalid action")
-                            return
+                            printAndDiscord(f"{key}: {action} {amount} of {s} in {account}: {market_order}", ctx, loop)  
                     except Exception as e:
                         print(traceback.format_exc())
                         printAndDiscord(f"{key} Error submitting order: {e}", ctx, loop)

@@ -134,7 +134,6 @@ def ally_transaction(
                     if RETRY:
                         return
                 except Exception as e:
-                    print(traceback.format_exc())
                     ally_call_error = (
                         "Error: For your security, certain symbols may only be traded "
                         + "by speaking to an Ally Invest registered representative. "
