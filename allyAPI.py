@@ -25,7 +25,6 @@ def ally_init(ALLY_EXTERNAL=None, ALLY_ACCOUNT_NUMBERS_EXTERNAL=None):
         account = account.split(":")
         for nbr in account_nbrs_list:
             for num in nbr.split(":"):
-                # print(f"Ally account number: {num}")
                 params = {
                     "ALLY_CONSUMER_KEY": account[0],
                     "ALLY_CONSUMER_SECRET": account[1],

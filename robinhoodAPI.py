@@ -87,8 +87,8 @@ def robinhood_transaction(
                     try:
                         # Market order
                         market_order = obj.order(
-                            symbol=s, 
-                            quantity=amount, 
+                            symbol=s,
+                            quantity=amount,
                             side=action,
                             account_number=account,
                         )
@@ -110,10 +110,10 @@ def robinhood_transaction(
                                 printAndDiscord(f"{key}: Error getting price for {s}", ctx, loop)
                                 continue
                             limit_order = obj.order(
-                                symbol=s, 
-                                quantity=amount, 
+                                symbol=s,
+                                quantity=amount,
                                 side=action,
-                                limitPrice=price, 
+                                limitPrice=price,
                                 account_number=account,
                             )
                             if limit_order is None:
@@ -121,7 +121,7 @@ def robinhood_transaction(
                                 continue
                             printAndDiscord(f"{key}: {action} {amount} of {s} in {account} @ {price}: {limit_order}", ctx, loop)
                         else:
-                            printAndDiscord(f"{key}: {action} {amount} of {s} in {account}: {market_order}", ctx, loop)  
+                            printAndDiscord(f"{key}: {action} {amount} of {s} in {account}: {market_order}", ctx, loop)
                     except Exception as e:
                         print(traceback.format_exc())
                         printAndDiscord(f"{key} Error submitting order: {e}", ctx, loop)
