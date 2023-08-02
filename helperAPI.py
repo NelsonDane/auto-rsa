@@ -31,10 +31,13 @@ class Brokerage:
             self.__account_numbers[parent_name] = []
         self.__account_numbers[parent_name].append(account_number)
 
-    def set_logged_in_object(self, parent_name, logged_in_object):
+    def set_logged_in_object(self, parent_name, logged_in_object, account_name=None):
         if parent_name not in self.__logged_in_objects:
-            self.__logged_in_objects[parent_name] = []
-        self.__logged_in_objects[parent_name] = logged_in_object
+            self.__logged_in_objects[parent_name] = {}
+        if account_name is None:
+            self.__logged_in_objects[parent_name] = logged_in_object
+        else:
+            self.__logged_in_objects[parent_name][account_name] = logged_in_object
 
     def set_holdings(self, parent_name, account_name, stock, quantity, price):
         quantity = 0 if quantity == "N/A" else quantity
@@ -70,10 +73,12 @@ class Brokerage:
             return self.__account_numbers
         return self.__account_numbers.get(parent_name, [])
 
-    def get_logged_in_objects(self, parent_name=None):
+    def get_logged_in_objects(self, parent_name=None, account_name=None):
         if parent_name is None:
             return self.__logged_in_objects
-        return self.__logged_in_objects.get(parent_name, [])
+        if account_name is None:
+            return self.__logged_in_objects.get(parent_name, {})
+        return self.__logged_in_objects.get(parent_name, {}).get(account_name, {})
 
     def get_holdings(self, parent_name=None, account_name=None):
         if parent_name is None:

@@ -11,42 +11,44 @@ from helperAPI import Brokerage, printAndDiscord, printHoldings
 
 
 # Initialize Ally
-def ally_init(ALLY_EXTERNAL=None):
+def ally_init(ALLY_EXTERNAL=None, ALLY_ACCOUNT_NUMBERS_EXTERNAL=None):
     # Initialize .env file
     load_dotenv()
     # Import Ally account
-    if not os.getenv("ALLY") and ALLY_EXTERNAL is None:
+    if not os.getenv("ALLY") or not os.getenv("ALLY_ACCOUNT_NUMBERS") and ALLY_EXTERNAL is None and ALLY_ACCOUNT_NUMBERS_EXTERNAL is None:
         print("Ally not found, skipping...")
         return None
     accounts = os.environ["ALLY"].strip().split(",") if ALLY_EXTERNAL is None else ALLY_EXTERNAL.strip().split(",")
+    account_nbrs_list = os.environ["ALLY_ACCOUNT_NUMBERS"].strip().split(",") if ALLY_ACCOUNT_NUMBERS_EXTERNAL is None else ALLY_ACCOUNT_NUMBERS_EXTERNAL.strip().split(",")
     params_list = []
     for account in accounts:
         account = account.split(":")
-        params = {
-            "ALLY_CONSUMER_KEY": account[0],
-            "ALLY_CONSUMER_SECRET": account[1],
-            "ALLY_OAUTH_TOKEN": account[2],
-            "ALLY_OAUTH_SECRET": account[3],
-            "ALLY_ACCOUNT_NBR": account[4],
-        }
-        params_list.append(params)
+        for nbr in account_nbrs_list:
+            for num in nbr.split(":"):
+                # print(f"Ally account number: {num}")
+                params = {
+                    "ALLY_CONSUMER_KEY": account[0],
+                    "ALLY_CONSUMER_SECRET": account[1],
+                    "ALLY_OAUTH_TOKEN": account[2],
+                    "ALLY_OAUTH_SECRET": account[3],
+                    "ALLY_ACCOUNT_NBR": num,
+                }
+                params_list.append(params)
     # Initialize Ally account
     ally_obj = Brokerage("Ally")
     for account in accounts:
         index = accounts.index(account) + 1
         name = f"Ally {index}"
-        try:
-            a = ally.Ally(params_list[index - 1])
-            print(f"Logging in to {name}...")
-            an = a.balances()
-        except requests.exceptions.HTTPError as e:
-            print(f"{name}: Error logging in: {e}")
-            return None
-        account_numbers = an["account"].values
-        print(f"{name} account numbers: {account_numbers}")
-        ally_obj.set_logged_in_object(name, a)
-        for an in account_numbers:
-            ally_obj.set_account_number(name, an)
+        print(f"Logging in to {name}...")
+        for nbr in account_nbrs_list:
+            for index, num in enumerate(nbr.split(":")):
+                try:
+                    a = ally.Ally(params=params_list[index])
+                except requests.exceptions.HTTPError as e:
+                    print(f"{name}: Error logging in: {e}")
+                    return None
+                ally_obj.set_logged_in_object(name, a, num)
+                ally_obj.set_account_number(name, num)
         print("Logged in to Ally!")
     return ally_obj
 
@@ -56,7 +58,7 @@ def ally_holdings(ao: Brokerage, ctx=None, loop=None):
     for key in ao.get_account_numbers():
         account_numbers = ao.get_account_numbers(key)
         for account in account_numbers:
-            obj: ally.Ally = ao.get_logged_in_objects(key)
+            obj: ally.Ally = ao.get_logged_in_objects(key, account)
             try:
                 # Get account holdings
                 ab = obj.balances()
@@ -102,14 +104,14 @@ def ally_transaction(
             printAndDiscord(f"{key}: {action}ing {amount} of {s}", ctx, loop)
             for account in ao.get_account_numbers(key):
                 if not RETRY:
-                    obj: ally.Ally = ao.get_logged_in_objects(key)
+                    obj: ally.Ally = ao.get_logged_in_objects(key, account)
                 else:
                     obj: ally.Ally = ao
                     account = account_retry
                 try:
                     # Create order
                     o = ally.Order.Order(
-                        buysell=action, symbol=s, price=price, time=time, qty=amount, account=account
+                        buysell=action, symbol=s, price=price, time=time, qty=amount
                     )
                     # Print order preview
                     print(str(o))
@@ -119,19 +121,20 @@ def ally_transaction(
                         obj.submit(o, preview=False)
                     else:
                         printAndDiscord(
-                            f"{key}: Running in DRY mode. "
+                            f"{key} {account}: Running in DRY mode. "
                             + f"Trasaction would've been: {action} {amount} of {s}",
                             ctx,
                             loop,
                         )
                     # Print order status
                     if o.orderid:
-                        printAndDiscord(f"{key}: Order {o.orderid} submitted", ctx, loop)
+                        printAndDiscord(f"{key} {account}: Order {o.orderid} submitted", ctx, loop)
                     else:
-                        printAndDiscord(f"{key}: Order not submitted", ctx, loop)
+                        printAndDiscord(f"{key} {account}: Order not submitted", ctx, loop)
                     if RETRY:
                         return
                 except Exception as e:
+                    print(traceback.format_exc())
                     ally_call_error = (
                         "Error: For your security, certain symbols may only be traded "
                         + "by speaking to an Ally Invest registered representative. "
@@ -145,7 +148,7 @@ def ally_transaction(
                         # try again with a limit order
                         elif action == "buy" and not RETRY:
                             printAndDiscord(
-                                f"{key}: Error placing market buy, trying again with limit order...",
+                                f"{key} {account}: Error placing market buy, trying again with limit order...",
                                 ctx,
                                 loop,
                             )
@@ -171,10 +174,10 @@ def ally_transaction(
                                     ao, action, s, amount, new_price, time, DRY, ctx, loop, True, account
                                 )
                             except Exception as ex:
-                                printAndDiscord(f"{key}: Failed to place limit order: {ex}", ctx, loop)
+                                printAndDiscord(f"{key} {account}: Failed to place limit order: {ex}", ctx, loop)
                         else:
-                            printAndDiscord(f"{key}: Error placing limit order: {e}", ctx, loop)
+                            printAndDiscord(f"{key} {account}: Error placing limit order: {e}", ctx, loop)
                     elif type(price) is not str:
-                        printAndDiscord(f"{key}: Error placing limit order: {e}", ctx, loop)
+                        printAndDiscord(f"{key} {account}: Error placing limit order: {e}", ctx, loop)
                     else:
-                        printAndDiscord(f"{key}: Error submitting order: {e}", ctx, loop)
+                        printAndDiscord(f"{key} {account}: Error submitting order: {e}", ctx, loop)
