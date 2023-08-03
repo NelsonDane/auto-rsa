@@ -176,6 +176,7 @@ def killDriver(brokerObj):
 
 async def processTasks(message, ctx):
     # Send message to discord
+    await asyncio.sleep(0.5)
     await ctx.send(message)
 
 
