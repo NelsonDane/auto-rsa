@@ -162,7 +162,7 @@ def getDriver(DOCKER=False):
     return driver
 
 
-def killDriver(brokerObj):
+def killDriver(brokerObj: Brokerage):
     # Kill all drivers
     count = 0
     for key in brokerObj.get_account_numbers():
@@ -198,7 +198,7 @@ async def processQueue():
         task_queue.task_done()
 
         
-def printHoldings(brokerObj, ctx=None, loop=None):
+def printHoldings(brokerObj: Brokerage, ctx=None, loop=None):
     # Helper function for holdings formatting
     printAndDiscord(f"==============================\n{brokerObj.get_name()} Holdings\n==============================", ctx, loop)
     for key in brokerObj.get_account_numbers():
