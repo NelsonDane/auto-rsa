@@ -98,7 +98,8 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
             print("Logged in to Fidelity!")
         except Exception as e:
             print(f'Error logging in: "{e}"')
-            driver.save_screenshot(f"fidelity-login-error-{datetime.datetime.now()}.png")
+            if driver is not None:
+                driver.save_screenshot(f"fidelity-login-error-{datetime.datetime.now()}.png")
             traceback.print_exc()
             return None
     return fidelity_obj

@@ -131,10 +131,11 @@ def check_if_page_loaded(driver):
 def getDriver(DOCKER=False):
     # Check for custom driver version else use latest
     load_dotenv()
-    if os.getenv("WEBDRIVER_VERSION"):
-        version = os.getenv("WEBDRIVER_VERSION", "latest")
+    if os.getenv("WEBDRIVER_VERSION") and os.getenv("WEBDRIVER_VERSION") != "":
+        version = os.getenv("WEBDRIVER_VERSION")
         print(f"Using chromedriver version {version}")
     else:
+        version = None
         print("Using latest chromedriver version")
     # Init webdriver options
     try:
@@ -156,7 +157,14 @@ def getDriver(DOCKER=False):
                 options=options,
             )
     except Exception as e:
-        print(f"Error: Unable to initialize chromedriver: {e}")
+        if ("unable to get driver" in str(e).lower()) or ("no such driver" in str(e).lower()):
+            if version is None:
+                print(f"Unable to find latest chromedriver version: {e}")
+            else:
+                print(f"Unable to find chromedriver version {version}: {e}")
+            print("Please go to https://chromedriver.chromium.org/downloads and pass the latest version to WEBDRIVER_VERSION in .env")
+        else:
+            print(f"Error: Unable to initialize chromedriver: {e}")
         return None
     driver.maximize_window()
     return driver
