@@ -7,11 +7,16 @@ import asyncio
 import textwrap
 from dotenv import load_dotenv
 from time import sleep
+from queue import Queue
 
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromiumService
 from webdriver_manager.chrome import ChromeDriverManager
 from webdriver_manager.core.os_manager import ChromeType
+
+
+# Create task queue
+task_queue = Queue()
 
 
 class Brokerage:
@@ -126,10 +131,11 @@ def check_if_page_loaded(driver):
 def getDriver(DOCKER=False):
     # Check for custom driver version else use latest
     load_dotenv()
-    if os.getenv("WEBDRIVER_VERSION"):
-        version = os.getenv("WEBDRIVER_VERSION", "latest")
+    if os.getenv("WEBDRIVER_VERSION") and os.getenv("WEBDRIVER_VERSION") != "":
+        version = os.getenv("WEBDRIVER_VERSION")
         print(f"Using chromedriver version {version}")
     else:
+        version = None
         print("Using latest chromedriver version")
     # Init webdriver options
     try:
@@ -151,13 +157,20 @@ def getDriver(DOCKER=False):
                 options=options,
             )
     except Exception as e:
-        print(f"Error: Unable to initialize chromedriver: {e}")
+        if ("unable to get driver" in str(e).lower()) or ("no such driver" in str(e).lower()):
+            if version is None:
+                print(f"Unable to find latest chromedriver version: {e}")
+            else:
+                print(f"Unable to find chromedriver version {version}: {e}")
+            print("Please go to https://chromedriver.chromium.org/downloads and pass the latest version to WEBDRIVER_VERSION in .env")
+        else:
+            print(f"Error: Unable to initialize chromedriver: {e}")
         return None
     driver.maximize_window()
     return driver
 
 
-def killDriver(brokerObj):
+def killDriver(brokerObj: Brokerage):
     # Kill all drivers
     count = 0
     for key in brokerObj.get_account_numbers():
@@ -169,16 +182,31 @@ def killDriver(brokerObj):
     print(f"Killed {count} {brokerObj.get_name()} drivers")
 
 
+async def processTasks(message, ctx):
+    # Send message to discord
+    await asyncio.sleep(0.5)
+    await ctx.send(message)
+
+
 def printAndDiscord(message, ctx=None, loop=None):
     # Print message
     print(message)
-    # Send message to Discord
+    # Add message to discord queue
     if ctx is not None and loop is not None:
-        sleep(0.5)
-        asyncio.run_coroutine_threadsafe(ctx.send(message), loop)
+        task_queue.put((message, ctx))
+        if task_queue.qsize() == 1:
+            asyncio.run_coroutine_threadsafe(processQueue(), loop)
 
 
-def printHoldings(brokerObj, ctx=None, loop=None):
+async def processQueue():
+    # Process discord queue
+    while not task_queue.empty():
+        message, ctx = task_queue.get()
+        await processTasks(message, ctx)
+        task_queue.task_done()
+
+        
+def printHoldings(brokerObj: Brokerage, ctx=None, loop=None):
     # Helper function for holdings formatting
     printAndDiscord(f"==============================\n{brokerObj.get_name()} Holdings\n==============================", ctx, loop)
     for key in brokerObj.get_account_numbers():
