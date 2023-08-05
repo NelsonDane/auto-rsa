@@ -49,6 +49,7 @@ def ally_init(ALLY_EXTERNAL=None, ALLY_ACCOUNT_NUMBERS_EXTERNAL=None):
                 except requests.exceptions.HTTPError as e:
                     print(f"{name}: Error logging in: {e}")
                     return None
+                # Ally needs a different object for each account number
                 ally_obj.set_logged_in_object(name, a, num)
                 ally_obj.set_account_number(name, num)
         print("Logged in to Ally!")
@@ -113,7 +114,7 @@ def ally_transaction(
                 try:
                     # Create order
                     o = ally.Order.Order(
-                        buysell=action, symbol=s, price=price, time=time, qty=amount, account=account
+                        buysell=action, symbol=s, price=price, time=time, qty=amount #account=account # This fails if account is not an integer
                     )
                     # Print order preview
                     print(f"{key} {account}: {str(o)}")
