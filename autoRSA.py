@@ -115,7 +115,7 @@ def argParser(args: str):
                     orderObj.set_brokers(nicknames(broker))
         elif arg == "all":
             if "all" not in orderObj.get_brokers() and orderObj.get_brokers() == []:
-                orderObj.set_brokers = SUPPORTED_BROKERS
+                orderObj.set_brokers(SUPPORTED_BROKERS)
         elif arg == "holdings":
             orderObj.set_holdings(True)
         # If first item of list is a stock, it must be a list of stocks

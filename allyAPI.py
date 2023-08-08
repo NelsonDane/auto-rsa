@@ -37,6 +37,7 @@ def ally_init(ALLY_EXTERNAL=None, ALLY_ACCOUNT_NUMBERS_EXTERNAL=None):
     params_list = []
     for account in accounts:
         account = account.split(":")
+        name = f"Ally {accounts.index(account) + 1}"
         for nbr in account_nbrs_list:
             for num in nbr.split(":"):
                 if len(account) != 4:
@@ -55,8 +56,6 @@ def ally_init(ALLY_EXTERNAL=None, ALLY_ACCOUNT_NUMBERS_EXTERNAL=None):
     # Initialize Ally account
     ally_obj = Brokerage("Ally")
     for account in accounts:
-        index = accounts.index(account) + 1
-        name = f"Ally {index}"
         print(f"Logging in to {name}...")
         for nbr in account_nbrs_list:
             for index, num in enumerate(nbr.split(":")):

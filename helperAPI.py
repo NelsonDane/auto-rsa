@@ -60,7 +60,7 @@ class stockOrder:
 
     def set_brokers(self, brokers):
         # Only allow strings or lists
-        if not isinstance(brokers, str) and not isinstance(brokers, list):
+        if not isinstance(brokers, (str, list)):
             raise ValueError("Brokers must be a string or list")
         if isinstance(brokers, list):
             for b in brokers:
