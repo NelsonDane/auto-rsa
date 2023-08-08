@@ -53,10 +53,10 @@ if os.environ.get("TRADIER") is None:
 else:
     print(f"TRADIER found {os.environ.get('TRADIER')}")
 # Tastytrade
-if os.environ.get("TASTY") is None:
-    print("TASTY not found")
+if os.environ.get("TASTYTRADE") is None:
+    print("TASTYTRADE not found")
 else:
-    print(f"TASTY found {os.environ.get('TASTY')}")
+    print(f"TASTYTRADE found {os.environ.get('TASTYTRADE')}")
 print()
 
 # Check each account

@@ -36,8 +36,8 @@ def ally_init(ALLY_EXTERNAL=None, ALLY_ACCOUNT_NUMBERS_EXTERNAL=None):
     )
     params_list = []
     for account in accounts:
-        account = account.split(":")
         name = f"Ally {accounts.index(account) + 1}"
+        account = account.split(":")
         for nbr in account_nbrs_list:
             for num in nbr.split(":"):
                 if len(account) != 4:
