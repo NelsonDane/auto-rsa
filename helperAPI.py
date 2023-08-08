@@ -114,7 +114,7 @@ class stockOrder:
         if broker is None:
             return self.__logged_in
         return self.__logged_in[broker]
-    
+
     def deDupe(self):
         self.__stock = list(dict.fromkeys(self.__stock))
         self.__brokers = list(dict.fromkeys(self.__brokers))
