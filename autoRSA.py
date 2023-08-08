@@ -183,13 +183,14 @@ if __name__ == "__main__":
                 sys.exit(0)
         # Login to brokers
         fun_run(cliOrderObj, "_init")
+        # Validate order object
+        cliOrderObj.order_validate()
+        # Get holdings or complete transaction
         if cliOrderObj.get_holdings():
-            # Get holdings
             fun_run(cliOrderObj, "_holdings")
         else:
-            # Complete transaction
             fun_run(cliOrderObj, "_transaction")
-        # Kill selenium drivers
+        # Kill Selenium drivers
         for obj in cliOrderObj.get_logged_in():
             if obj is not None and obj.get_name().lower() == "fidelity":
                 killDriver(obj)
@@ -260,13 +261,14 @@ if __name__ == "__main__":
             try:
                 # Login to brokers
                 await bot.loop.run_until_complete(None, fun_run(discOrdObj, "_init"))
+                # Validate order object
+                discOrdObj.order_validate()
+                # Get holdings or complete transaction
                 if discOrdObj.get_holdings():
-                    # Get holdings
                     await bot.loop.run_in_executor(
                         None, fun_run(discOrdObj, "_holdings", ctx, loop)
                     )
                 else:
-                    # Complete transaction
                     await bot.loop.run_in_executor(
                         None, fun_run(discOrdObj, "_transaction", ctx, loop)
                     )
