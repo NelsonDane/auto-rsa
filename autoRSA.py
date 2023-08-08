@@ -54,20 +54,23 @@ def fun_run(orderObj: stockOrder, command, ctx=None, loop=None):
                 continue
             fun_name = broker + command
             try:
+                orderObj.order_validate(preLogin=True)
                 if command == "_init":
                     if nicknames(broker) == "fidelity":
                         # Fidelity requires docker mode argument
-                        orderObj.set_logged_in(globals()[fun_name](DOCKER=DOCKER_MODE))
+                        orderObj.set_logged_in(globals()[fun_name](DOCKER=DOCKER_MODE), nicknames(broker))
                     else:
-                        orderObj.set_logged_in(globals()[fun_name]())
+                        orderObj.set_logged_in(globals()[fun_name](), nicknames(broker))
                 # Holdings and transaction
-                elif orderObj.get_logged_in()[index] is None:
+                elif orderObj.get_logged_in(nicknames(broker)) is None:
                     print(f"Error: {broker} not logged in, skipping...")
                 elif command == "_holdings":
-                    globals()[fun_name](orderObj.get_logged_in()[index], ctx, loop)
+                    orderObj.order_validate(preLogin=False)
+                    globals()[fun_name](orderObj.get_logged_in(nicknames(broker)), ctx, loop)
                 elif command == "_transaction":
+                    orderObj.order_validate(preLogin=False)
                     globals()[fun_name](
-                        orderObj.get_logged_in()[index],
+                        orderObj.get_logged_in(nicknames(broker)),
                         orderObj,
                         ctx,
                         loop,
@@ -191,9 +194,9 @@ if __name__ == "__main__":
         else:
             fun_run(cliOrderObj, "_transaction")
         # Kill Selenium drivers
-        for obj in cliOrderObj.get_logged_in():
-            if obj is not None and obj.get_name().lower() == "fidelity":
-                killDriver(obj)
+        for broker in cliOrderObj.get_logged_in():
+            if broker.lower() == "fidelity":
+                killDriver(cliOrderObj.get_logged_in(broker))
         sys.exit(0)
 
     if DISCORD_BOT:

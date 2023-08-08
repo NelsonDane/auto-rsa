@@ -29,7 +29,7 @@ class stockOrder:
         self.__notbrokers = []  # List of brokerages to not use !ally
         self.__dry = True  # Dry run mode
         self.__holdings = False  # Get holdings from enabled brokerages
-        self.__logged_in = []  # List of Brokerage objects
+        self.__logged_in = {}  # Dict of logged in brokerage objects
 
     def set_action(self, action):
         if action.lower() not in ["buy", "sell"]:
@@ -80,8 +80,8 @@ class stockOrder:
     def set_holdings(self, holdings):
         self.__holdings = holdings
 
-    def set_logged_in(self, logged_in):
-        self.__logged_in.append(logged_in)
+    def set_logged_in(self, logged_in, broker):
+        self.__logged_in[broker] = logged_in
 
     def get_action(self):
         return self.__action
@@ -110,20 +110,20 @@ class stockOrder:
     def get_holdings(self):
         return self.__holdings
 
-    def get_logged_in(self):
-        return self.__logged_in
-
+    def get_logged_in(self, broker=None):
+        if broker is None:
+            return self.__logged_in
+        return self.__logged_in[broker]
+    
     def deDupe(self):
         self.__stock = list(dict.fromkeys(self.__stock))
         self.__brokers = list(dict.fromkeys(self.__brokers))
         self.__notbrokers = list(dict.fromkeys(self.__notbrokers))
-        self.__logged_in = list(dict.fromkeys(self.__logged_in))
 
     def alphabetize(self):
         self.__stock.sort()
         self.__brokers.sort()
         self.__notbrokers.sort()
-        self.__logged_in.sort()
 
     def order_validate(self, preLogin=False):
         # Check for required fields (doesn't apply to holdings)
@@ -201,6 +201,8 @@ class Brokerage:
         }
 
     def set_account_totals(self, parent_name, account_name, total):
+        if isinstance(total, str):
+            total = total.replace(",", "").replace("$", "").strip()
         if parent_name not in self.__account_totals:
             self.__account_totals[parent_name] = {}
         self.__account_totals[parent_name][account_name] = round(float(total), 2)
@@ -328,10 +330,11 @@ def killDriver(brokerObj: Brokerage):
     count = 0
     for key in brokerObj.get_account_numbers():
         driver = brokerObj.get_logged_in_objects(key)
-        print(f"Killing {brokerObj.get_name()} drivers...")
-        driver.close()
-        driver.quit()
-        count += 1
+        if driver is not None:
+            print(f"Killing {brokerObj.get_name()} drivers...")
+            driver.close()
+            driver.quit()
+            count += 1
     print(f"Killed {count} {brokerObj.get_name()} drivers")
 
 
