@@ -58,7 +58,9 @@ def fun_run(orderObj: stockOrder, command, ctx=None, loop=None):
                 if command == "_init":
                     if nicknames(broker) == "fidelity":
                         # Fidelity requires docker mode argument
-                        orderObj.set_logged_in(globals()[fun_name](DOCKER=DOCKER_MODE), nicknames(broker))
+                        orderObj.set_logged_in(
+                            globals()[fun_name](DOCKER=DOCKER_MODE), nicknames(broker)
+                        )
                     else:
                         orderObj.set_logged_in(globals()[fun_name](), nicknames(broker))
                 # Holdings and transaction
@@ -66,7 +68,9 @@ def fun_run(orderObj: stockOrder, command, ctx=None, loop=None):
                     print(f"Error: {broker} not logged in, skipping...")
                 elif command == "_holdings":
                     orderObj.order_validate(preLogin=False)
-                    globals()[fun_name](orderObj.get_logged_in(nicknames(broker)), ctx, loop)
+                    globals()[fun_name](
+                        orderObj.get_logged_in(nicknames(broker)), ctx, loop
+                    )
                 elif command == "_transaction":
                     orderObj.order_validate(preLogin=False)
                     globals()[fun_name](
