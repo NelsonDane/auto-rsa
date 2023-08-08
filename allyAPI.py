@@ -7,7 +7,8 @@ import traceback
 import ally
 import requests
 from dotenv import load_dotenv
-from helperAPI import Brokerage, stockOrder, printAndDiscord, printHoldings
+
+from helperAPI import Brokerage, printAndDiscord, printHoldings, stockOrder
 
 
 # Initialize Ally
@@ -15,18 +16,33 @@ def ally_init(ALLY_EXTERNAL=None, ALLY_ACCOUNT_NUMBERS_EXTERNAL=None):
     # Initialize .env file
     load_dotenv()
     # Import Ally account
-    if not os.getenv("ALLY") or not os.getenv("ALLY_ACCOUNT_NUMBERS") and ALLY_EXTERNAL is None and ALLY_ACCOUNT_NUMBERS_EXTERNAL is None:
+    if (
+        not os.getenv("ALLY")
+        or not os.getenv("ALLY_ACCOUNT_NUMBERS")
+        and ALLY_EXTERNAL is None
+        and ALLY_ACCOUNT_NUMBERS_EXTERNAL is None
+    ):
         print("Ally not found, skipping...")
         return None
-    accounts = os.environ["ALLY"].strip().split(",") if ALLY_EXTERNAL is None else ALLY_EXTERNAL.strip().split(",")
-    account_nbrs_list = os.environ["ALLY_ACCOUNT_NUMBERS"].strip().split(",") if ALLY_ACCOUNT_NUMBERS_EXTERNAL is None else ALLY_ACCOUNT_NUMBERS_EXTERNAL.strip().split(",")
+    accounts = (
+        os.environ["ALLY"].strip().split(",")
+        if ALLY_EXTERNAL is None
+        else ALLY_EXTERNAL.strip().split(",")
+    )
+    account_nbrs_list = (
+        os.environ["ALLY_ACCOUNT_NUMBERS"].strip().split(",")
+        if ALLY_ACCOUNT_NUMBERS_EXTERNAL is None
+        else ALLY_ACCOUNT_NUMBERS_EXTERNAL.strip().split(",")
+    )
     params_list = []
     for account in accounts:
         account = account.split(":")
         for nbr in account_nbrs_list:
             for num in nbr.split(":"):
                 if len(account) != 4:
-                    print(f"{name}: Too many parameters for Ally account, please see README.md and .env.example, skipping...")
+                    print(
+                        f"{name}: Too many parameters for Ally account, please see README.md and .env.example, skipping..."
+                    )
                     return None
                 params = {
                     "ALLY_CONSUMER_KEY": account[0],
@@ -78,7 +94,9 @@ def ally_holdings(ao: Brokerage, ctx=None, loop=None):
                     for i, symbol in enumerate(account_symbols):
                         ao.set_holdings(key, account, symbol, qty[i], current_price[i])
             except Exception as e:
-                printAndDiscord(f"{key}: Error getting account holdings: {e}", ctx, loop)
+                printAndDiscord(
+                    f"{key}: Error getting account holdings: {e}", ctx, loop
+                )
                 print(traceback.format_exc())
                 continue
     printHoldings(ao, ctx, loop)
@@ -86,7 +104,12 @@ def ally_holdings(ao: Brokerage, ctx=None, loop=None):
 
 # Function to buy/sell stock on Ally
 def ally_transaction(
-    ao: Brokerage, orderObj: stockOrder, ctx=None, loop=None, RETRY=False, account_retry=None
+    ao: Brokerage,
+    orderObj: stockOrder,
+    ctx=None,
+    loop=None,
+    RETRY=False,
+    account_retry=None,
 ):
     print()
     print("==============================")
@@ -100,7 +123,11 @@ def ally_transaction(
         price = ally.Order.Limit(limpx=float(orderObj.get_price()))
     for s in orderObj.get_stocks():
         for key in ao.get_account_numbers():
-            printAndDiscord(f"{key}: {orderObj.get_action()}ing {orderObj.get_amount} of {s}", ctx, loop)
+            printAndDiscord(
+                f"{key}: {orderObj.get_action()}ing {orderObj.get_amount} of {s}",
+                ctx,
+                loop,
+            )
             for account in ao.get_account_numbers(key):
                 if not RETRY:
                     obj: ally.Ally = ao.get_logged_in_objects(key, account)
@@ -114,8 +141,8 @@ def ally_transaction(
                         symbol=s,
                         price=price,
                         time=orderObj.get_time(),
-                        qty=orderObj.get_amount(), 
-                        #account=account # This fails if account is not an integer
+                        qty=orderObj.get_amount(),
+                        # account=account # This fails if account is not an integer
                     )
                     # Print order preview
                     print(f"{key} {account}: {str(o)}")
@@ -132,9 +159,13 @@ def ally_transaction(
                         )
                     # Print order status
                     if o.orderid:
-                        printAndDiscord(f"{key} {account}: Order {o.orderid} submitted", ctx, loop)
+                        printAndDiscord(
+                            f"{key} {account}: Order {o.orderid} submitted", ctx, loop
+                        )
                     else:
-                        printAndDiscord(f"{key} {account}: Order not submitted", ctx, loop)
+                        printAndDiscord(
+                            f"{key} {account}: Order not submitted", ctx, loop
+                        )
                     if RETRY:
                         return
                 except Exception as e:
@@ -143,7 +174,10 @@ def ally_transaction(
                         + "by speaking to an Ally Invest registered representative. "
                         + "Please call 1-855-880-2559 if you need further assistance with this order."
                     )
-                    if "500 server error: internal server error for url:" in str(e).lower():
+                    if (
+                        "500 server error: internal server error for url:"
+                        in str(e).lower()
+                    ):
                         # If selling too soon, then an error is thrown
                         if orderObj.get_action() == "sell":
                             printAndDiscord(ally_call_error, ctx, loop)
@@ -176,14 +210,33 @@ def ally_transaction(
                                 orderObj.set_price(new_price)
                                 # Run function again with limit order
                                 ally_transaction(
-                                    ao, orderObj, ctx, loop, RETRY=True, account_retry=account
+                                    ao,
+                                    orderObj,
+                                    ctx,
+                                    loop,
+                                    RETRY=True,
+                                    account_retry=account,
                                 )
                             except Exception as ex:
-                                printAndDiscord(f"{key} {account}: Failed to place limit order: {ex}", ctx, loop)
+                                printAndDiscord(
+                                    f"{key} {account}: Failed to place limit order: {ex}",
+                                    ctx,
+                                    loop,
+                                )
                         else:
-                            printAndDiscord(f"{key} {account}: Error placing limit order: {e}", ctx, loop)
+                            printAndDiscord(
+                                f"{key} {account}: Error placing limit order: {e}",
+                                ctx,
+                                loop,
+                            )
                     # If price is not a string then it must've failed a limit order
                     elif not isinstance(orderObj.get_price(), str):
-                        printAndDiscord(f"{key} {account}: Error placing limit order: {e}", ctx, loop)
+                        printAndDiscord(
+                            f"{key} {account}: Error placing limit order: {e}",
+                            ctx,
+                            loop,
+                        )
                     else:
-                        printAndDiscord(f"{key} {account}: Error submitting order: {e}", ctx, loop)
+                        printAndDiscord(
+                            f"{key} {account}: Error submitting order: {e}", ctx, loop
+                        )

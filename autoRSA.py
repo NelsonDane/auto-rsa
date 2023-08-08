@@ -15,7 +15,7 @@ try:
     # Custom API libraries
     from allyAPI import *
     from fidelityAPI import *
-    from helperAPI import stockOrder, killDriver
+    from helperAPI import killDriver, stockOrder
     from robinhoodAPI import *
     from schwabAPI import *
     from tastyAPI import *
@@ -232,8 +232,12 @@ if __name__ == "__main__":
                 await channel.send("Discord bot is started...")
                 # Old .env file format warning
                 if not SUPRESS_OLD_WARN:
-                    await channel.send("Heads up! .env file format has changed, see .env.example for new format")
-                    await channel.send("To supress this message, set SUPRESS_OLD_WARN to True in your .env file")
+                    await channel.send(
+                        "Heads up! .env file format has changed, see .env.example for new format"
+                    )
+                    await channel.send(
+                        "To supress this message, set SUPRESS_OLD_WARN to True in your .env file"
+                    )
 
         # Bot ping-pong
         @bot.command(name="ping")
@@ -249,7 +253,9 @@ if __name__ == "__main__":
         # Main RSA command
         @bot.command(name="rsa")
         async def rsa(ctx, *args):
-            discOrdObj: stockOrder = (await bot.loop.run_in_executor(None, argParser, args))
+            discOrdObj: stockOrder = await bot.loop.run_in_executor(
+                None, argParser, args
+            )
             loop = asyncio.get_event_loop()
             try:
                 # Login to brokers
