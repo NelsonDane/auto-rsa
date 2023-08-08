@@ -2,8 +2,8 @@
 # API to Interface with Fidelity
 # Uses headless Selenium
 
-import os
 import datetime
+import os
 import traceback
 from time import sleep
 
@@ -15,7 +15,13 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.wait import WebDriverWait
 
-from helperAPI import Brokerage, getDriver, type_slowly, check_if_page_loaded, printAndDiscord
+from helperAPI import (
+    Brokerage,
+    check_if_page_loaded,
+    getDriver,
+    printAndDiscord,
+    type_slowly,
+)
 
 
 def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
@@ -25,7 +31,11 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
     if not os.getenv("FIDELITY") and FIDELITY_EXTERNAL is None:
         print("Fidelity not found, skipping...")
         return None
-    accounts = os.environ["FIDELITY"].strip().split(",") if FIDELITY_EXTERNAL is None else FIDELITY_EXTERNAL.strip().split(",")
+    accounts = (
+        os.environ["FIDELITY"].strip().split(",")
+        if FIDELITY_EXTERNAL is None
+        else FIDELITY_EXTERNAL.strip().split(",")
+    )
     fidelity_obj = Brokerage("Fidelity")
     # Init webdriver
     for account in accounts:
@@ -49,10 +59,14 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
                     (By.CSS_SELECTOR, "#userId-input")
                 )
             )
-            username_field = driver.find_element(by=By.CSS_SELECTOR, value="#userId-input")
+            username_field = driver.find_element(
+                by=By.CSS_SELECTOR, value="#userId-input"
+            )
             type_slowly(username_field, account[0])
             WebDriverWait(driver, 10).until(
-                expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, "#password"))
+                expected_conditions.element_to_be_clickable(
+                    (By.CSS_SELECTOR, "#password")
+                )
             )
             password_field = driver.find_element(by=By.CSS_SELECTOR, value="#password")
             type_slowly(password_field, account[1])
@@ -62,9 +76,13 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
             # Wait for page to load to summary page
             if "summary" not in driver.current_url:
                 if "errorpage" in driver.current_url.lower():
-                    raise Exception(f"{name}: Login Failed. Got Error Page: Current URL: {driver.current_url}")
+                    raise Exception(
+                        f"{name}: Login Failed. Got Error Page: Current URL: {driver.current_url}"
+                    )
                 print("Waiting for portfolio page to load...")
-                WebDriverWait(driver, 30).until(expected_conditions.url_contains("summary"))
+                WebDriverWait(driver, 30).until(
+                    expected_conditions.url_contains("summary")
+                )
             # Make sure fidelity site is not in old view
             try:
                 if "digital" not in driver.current_url:
@@ -84,7 +102,14 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
                 )
             sleep(3)
             fidelity_obj.set_logged_in_object(name, driver)
-            ind, ret, health, values, ret_values, health_values = fidelity_account_numbers(driver, name=name)
+            (
+                ind,
+                ret,
+                health,
+                values,
+                ret_values,
+                health_values,
+            ) = fidelity_account_numbers(driver, name=name)
             for i in ind:
                 fidelity_obj.set_account_number(name, i)
                 fidelity_obj.set_account_type(name, i, "Individual")
@@ -131,14 +156,20 @@ def fidelity_account_numbers(driver: webdriver, ctx=None, loop=None, name="Fidel
             by=By.CSS_SELECTOR, value=r"#Investment\ Accounts"
         )
         account_list = ind_accounts[0].text.replace("\n", " ").split(" ")[1::5]
-        values = values = [x.replace("$", "") for x in ind_accounts[0].text.replace("\n", " ").split(" ")[2::5]]
+        values = values = [
+            x.replace("$", "")
+            for x in ind_accounts[0].text.replace("\n", " ").split(" ")[2::5]
+        ]
         try:
             # Get value of retirement accounts
             ret_accounts = driver.find_elements(
                 by=By.CSS_SELECTOR, value=r"#Retirement\ Accounts"
             )
             ret_account_list = ret_accounts[0].text.replace("\n", " ").split(" ")[2::6]
-            ret_values = [x.replace("$", "") for x in ret_accounts[0].text.replace("\n", " ").split(" ")[3::6]]
+            ret_values = [
+                x.replace("$", "")
+                for x in ret_accounts[0].text.replace("\n", " ").split(" ")[3::6]
+            ]
         except IndexError:
             print("No retirement accounts found, skipping...")
             ret_account_list = []
@@ -149,8 +180,19 @@ def fidelity_account_numbers(driver: webdriver, ctx=None, loop=None, name="Fidel
             health_accounts = driver.find_elements(
                 by=By.CSS_SELECTOR, value=r"#Health\ Savings\ Accounts"
             )
-            health_account_list = health_accounts[0].get_attribute("textContent").replace("\n", " ").split(" ")[27::9]
-            health_values = [x.replace("$", "") for x in health_accounts[0].get_attribute("textContent").replace("\n", " ").split(" ")[31::5]]
+            health_account_list = (
+                health_accounts[0]
+                .get_attribute("textContent")
+                .replace("\n", " ")
+                .split(" ")[27::9]
+            )
+            health_values = [
+                x.replace("$", "")
+                for x in health_accounts[0]
+                .get_attribute("textContent")
+                .replace("\n", " ")
+                .split(" ")[31::5]
+            ]
         except IndexError:
             print("No health accounts found, skipping...")
             health_account_list = []
@@ -168,7 +210,14 @@ def fidelity_account_numbers(driver: webdriver, ctx=None, loop=None, name="Fidel
             printAndDiscord("Health Savings accounts:", ctx, loop)
             for x, item in enumerate(health_account_list):
                 printAndDiscord(f"{item} value: {health_values[x]}", ctx, loop)
-        return account_list, ret_account_list, health_account_list, values, ret_values, health_values
+        return (
+            account_list,
+            ret_account_list,
+            health_account_list,
+            values,
+            ret_values,
+            health_values,
+        )
     except Exception as e:
         print(f"{name}: Error getting holdings: {e}")
         driver.save_screenshot(f"fidelity-an-error-{datetime.datetime.now()}.png")
@@ -189,7 +238,15 @@ def fidelity_holdings(fidelity_o: Brokerage, ctx=None, loop=None):
 
 
 def fidelity_transaction(
-    fidelity_o: Brokerage, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
+    fidelity_o: Brokerage,
+    action,
+    stock,
+    amount,
+    price,
+    time,
+    DRY=True,
+    ctx=None,
+    loop=None,
 ):
     print()
     print("==============================")
@@ -221,7 +278,9 @@ def fidelity_transaction(
                         (By.CSS_SELECTOR, "#ett-acct-sel-list")
                     )
                 )
-                test = driver.find_element(by=By.CSS_SELECTOR, value="#ett-acct-sel-list")
+                test = driver.find_element(
+                    by=By.CSS_SELECTOR, value="#ett-acct-sel-list"
+                )
                 accounts_list = test.find_elements(by=By.CSS_SELECTOR, value="li")
                 print(f"Number of accounts: {len(accounts_list)}")
                 number_of_accounts = len(accounts_list)
@@ -246,7 +305,9 @@ def fidelity_transaction(
                         )
                     )
                     test = driver.find_element(by=By.ID, value="ett-acct-sel-list")
-                    accounts_dropdown_in = test.find_elements(by=By.CSS_SELECTOR, value="li")
+                    accounts_dropdown_in = test.find_elements(
+                        by=By.CSS_SELECTOR, value="li"
+                    )
                     account_label = accounts_dropdown_in[x].text
                     accounts_dropdown_in[x].click()
                     sleep(1)
@@ -382,7 +443,9 @@ def fidelity_transaction(
                                 by=By.XPATH,
                                 value="(//button[@class='pvd-modal__close-button'])[3]",
                             )
-                            driver.execute_script("arguments[0].click();", error_dismiss)
+                            driver.execute_script(
+                                "arguments[0].click();", error_dismiss
+                            )
                             printAndDiscord(
                                 f"{key} {account_label}: {action} {amount} shares of {s}. DID NOT COMPLETE! \nEither this account does not have enough shares, or an order is already pending.",
                                 ctx,
@@ -399,6 +462,8 @@ def fidelity_transaction(
                 except Exception as err:
                     print(err)
                     traceback.print_exc()
-                    driver.save_screenshot(f"fidelity-login-error-{datetime.datetime.now()}.png")
+                    driver.save_screenshot(
+                        f"fidelity-login-error-{datetime.datetime.now()}.png"
+                    )
                     continue
             print()

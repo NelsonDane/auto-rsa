@@ -2,18 +2,17 @@
 # Helper functions and classes
 # to share between scripts
 
-import os
 import asyncio
+import os
 import textwrap
-from dotenv import load_dotenv
-from time import sleep
 from queue import Queue
+from time import sleep
 
+from dotenv import load_dotenv
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromiumService
 from webdriver_manager.chrome import ChromeDriverManager
 from webdriver_manager.core.os_manager import ChromeType
-
 
 # Create task queue
 task_queue = Queue()
@@ -22,7 +21,9 @@ task_queue = Queue()
 class Brokerage:
     def __init__(self, name):
         self.__name = name  # Name of brokerage
-        self.__account_numbers = {}  # Dictionary of account names and numbers under parent
+        self.__account_numbers = (
+            {}
+        )  # Dictionary of account names and numbers under parent
         self.__logged_in_objects = {}  # Dictionary of logged in objects under parent
         self.__holdings = {}  # Dictionary of holdings under parent
         self.__account_totals = {}  # Dictionary of account totals
@@ -105,14 +106,16 @@ class Brokerage:
         return self.__account_types.get(parent_name, {}).get(account_name, "")
 
     def __str__(self):
-        return textwrap.dedent(f"""
+        return textwrap.dedent(
+            f"""
             Brokerage: {self.__name}
             Account Numbers: {self.__account_numbers}
             Logged In Objects: {self.__logged_in_objects}
             Holdings: {self.__holdings}
             Account Totals: {self.__account_totals}
             Account Types: {self.__account_types}
-        """)
+        """
+        )
 
 
 def type_slowly(element, string, delay=0.3):
@@ -153,16 +156,22 @@ def getDriver(DOCKER=False):
             )
         else:
             driver = webdriver.Chrome(
-                service=ChromiumService(ChromeDriverManager(driver_version=version).install()),
+                service=ChromiumService(
+                    ChromeDriverManager(driver_version=version).install()
+                ),
                 options=options,
             )
     except Exception as e:
-        if ("unable to get driver" in str(e).lower()) or ("no such driver" in str(e).lower()):
+        if ("unable to get driver" in str(e).lower()) or (
+            "no such driver" in str(e).lower()
+        ):
             if version is None:
                 print(f"Unable to find latest chromedriver version: {e}")
             else:
                 print(f"Unable to find chromedriver version {version}: {e}")
-            print("Please go to https://chromedriver.chromium.org/downloads and pass the latest version to WEBDRIVER_VERSION in .env")
+            print(
+                "Please go to https://chromedriver.chromium.org/downloads and pass the latest version to WEBDRIVER_VERSION in .env"
+            )
         else:
             print(f"Error: Unable to initialize chromedriver: {e}")
         return None
@@ -205,10 +214,14 @@ async def processQueue():
         await processTasks(message, ctx)
         task_queue.task_done()
 
-        
+
 def printHoldings(brokerObj: Brokerage, ctx=None, loop=None):
     # Helper function for holdings formatting
-    printAndDiscord(f"==============================\n{brokerObj.get_name()} Holdings\n==============================", ctx, loop)
+    printAndDiscord(
+        f"==============================\n{brokerObj.get_name()} Holdings\n==============================",
+        ctx,
+        loop,
+    )
     for key in brokerObj.get_account_numbers():
         for account in brokerObj.get_account_numbers(key):
             printAndDiscord(f"{key} ({account}):", ctx, loop)
@@ -223,5 +236,9 @@ def printHoldings(brokerObj: Brokerage, ctx=None, loop=None):
                     total = holdings[stock]["total"]
                     print_string += f"{stock}: {quantity} @ ${format(price, '0.2f')} = ${format(total, '0.2f')}\n"
                 printAndDiscord(print_string, ctx, loop)
-            printAndDiscord(f"Total: ${format(brokerObj.get_account_totals(key, account), '0.2f')}\n", ctx, loop)
+            printAndDiscord(
+                f"Total: ${format(brokerObj.get_account_totals(key, account), '0.2f')}\n",
+                ctx,
+                loop,
+            )
     printAndDiscord("==============================", ctx, loop)
