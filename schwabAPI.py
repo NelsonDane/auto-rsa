@@ -7,7 +7,8 @@ from time import sleep
 
 from dotenv import load_dotenv
 from schwab_api import Schwab
-from helperAPI import Brokerage, stockOrder, printAndDiscord, printHoldings
+
+from helperAPI import Brokerage, printAndDiscord, printHoldings, stockOrder
 
 
 def schwab_init(SCHWAB_EXTERNAL=None):
@@ -17,7 +18,11 @@ def schwab_init(SCHWAB_EXTERNAL=None):
     if not os.getenv("SCHWAB") and SCHWAB_EXTERNAL is None:
         print("Schwab not found, skipping...")
         return None
-    accounts = os.environ["SCHWAB"].strip().split(",") if SCHWAB_EXTERNAL is None else SCHWAB_EXTERNAL.strip().split(",")
+    accounts = (
+        os.environ["SCHWAB"].strip().split(",")
+        if SCHWAB_EXTERNAL is None
+        else SCHWAB_EXTERNAL.strip().split(",")
+    )
     # Log in to Schwab account
     print("Logging in to Schwab...")
     schwab_obj = Brokerage("Schwab")
@@ -39,7 +44,9 @@ def schwab_init(SCHWAB_EXTERNAL=None):
             schwab_obj.set_logged_in_object(name, schwab)
             for account in account_list:
                 schwab_obj.set_account_number(name, account)
-                schwab_obj.set_account_totals(name, account, account_info[account]["account_value"])
+                schwab_obj.set_account_totals(
+                    name, account, account_info[account]["account_value"]
+                )
         except Exception as e:
             print(f"Error logging in to Schwab: {e}")
             return None
@@ -66,14 +73,14 @@ def schwab_holdings(schwab_o: Brokerage, ctx=None, loop=None):
                         current_price = round(mv / qty, 2)
                     schwab_o.set_holdings(key, account, sym, qty, current_price)
             except Exception as e:
-                printAndDiscord(f"{key} {account}: Error getting holdings: {e}", ctx, loop)
+                printAndDiscord(
+                    f"{key} {account}: Error getting holdings: {e}", ctx, loop
+                )
                 continue
         printHoldings(schwab_o, ctx, loop)
 
 
-def schwab_transaction(
-    schwab_o: Brokerage, orderObj: stockOrder, ctx=None, loop=None
-):
+def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, ctx=None, loop=None):
     print()
     print("==============================")
     print("Schwab")
@@ -82,13 +89,19 @@ def schwab_transaction(
     # Buy on each account
     for s in orderObj.get_stocks():
         for key in schwab_o.get_account_numbers():
-            printAndDiscord(f"{key} {orderObj.get_action()}ing {orderObj.get_amount()} {s} @ {orderObj.get_price()}", ctx, loop)
+            printAndDiscord(
+                f"{key} {orderObj.get_action()}ing {orderObj.get_amount()} {s} @ {orderObj.get_price()}",
+                ctx,
+                loop,
+            )
             for account in schwab_o.get_account_numbers(key):
                 obj: Schwab = schwab_o.get_logged_in_objects(key)
                 print(f"{key} Account: {account}")
                 # If DRY is True, don't actually make the transaction
                 if orderObj.get_dry():
-                    printAndDiscord("Running in DRY mode. No transactions will be made.", ctx, loop)
+                    printAndDiscord(
+                        "Running in DRY mode. No transactions will be made.", ctx, loop
+                    )
                 try:
                     messages, success = obj.trade(
                         ticker=s,
@@ -114,7 +127,9 @@ def schwab_transaction(
                             loop,
                         )
                 except Exception as e:
-                    printAndDiscord(f"{key} {account}: Error submitting order: {e}", ctx, loop)
+                    printAndDiscord(
+                        f"{key} {account}: Error submitting order: {e}", ctx, loop
+                    )
                     continue
                 sleep(1)
                 print()
