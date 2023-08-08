@@ -198,9 +198,9 @@ if __name__ == "__main__":
         else:
             fun_run(cliOrderObj, "_transaction")
         # Kill Selenium drivers
-        for broker in cliOrderObj.get_logged_in():
-            if broker.lower() == "fidelity":
-                killDriver(cliOrderObj.get_logged_in(broker))
+        for b in cliOrderObj.get_logged_in():
+            if b.lower() == "fidelity":
+                killDriver(cliOrderObj.get_logged_in(b))
         sys.exit(0)
 
     if DISCORD_BOT:
