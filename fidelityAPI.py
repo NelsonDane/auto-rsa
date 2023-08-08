@@ -15,7 +15,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.wait import WebDriverWait
 
-from helperAPI import Brokerage, getDriver, type_slowly, check_if_page_loaded, printAndDiscord
+from helperAPI import Brokerage, stockOrder, getDriver, type_slowly, check_if_page_loaded, printAndDiscord
 
 
 def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
@@ -183,19 +183,16 @@ def fidelity_holdings(fidelity_o: Brokerage, ctx=None, loop=None):
 
 
 def fidelity_transaction(
-    fidelity_o: Brokerage, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
+    fidelity_o: Brokerage, orderObj: stockOrder, ctx=None, loop=None
 ):
     print()
     print("==============================")
     print("Fidelity")
     print("==============================")
     print()
-    action = action.lower()
-    stock = [x.upper() for x in stock]
-    amount = int(amount)
-    for s in stock:
+    for s in orderObj.get_stocks():
         for key in fidelity_o.get_account_numbers():
-            printAndDiscord(f"{key}: {action}ing {amount} of {s}", ctx, loop)
+            printAndDiscord(f"{key}: {orderObj.get_action()}ing {orderObj.get_amount()} of {s}", ctx, loop)
             driver = fidelity_o.get_logged_in_objects(key)
             # Go to trade page
             driver.get(
@@ -280,27 +277,24 @@ def fidelity_transaction(
                     # If price is under $1, then we have to use a limit order
                     LIMIT = bool(float(ask_price) < 1 or float(bid_price) < 1)
                     # Set buy/sell
-                    if action == "buy":
+                    if orderObj.get_action() == "buy":
                         buy_button = driver.find_element(
                             by=By.CSS_SELECTOR,
                             value="#action-buy > s-root > div > label > s-slot > s-assigned-wrapper",
                         )
                         buy_button.click()
-                    elif action == "sell":
+                    else:
                         sell_button = driver.find_element(
                             by=By.CSS_SELECTOR,
                             value="#action-sell > s-root > div > label > s-slot > s-assigned-wrapper",
                         )
                         sell_button.click()
-                    else:
-                        print(f"Error: Invalid action {action}")
-                        return
                     # Set amount (and clear previous amount)
                     amount_box = driver.find_element(
                         by=By.CSS_SELECTOR, value="#eqt-shared-quantity"
                     )
                     amount_box.clear()
-                    amount_box.send_keys(amount)
+                    amount_box.send_keys(str(orderObj.get_amount()))
                     # Set market/limit
                     if not LIMIT:
                         market_button = driver.find_element(
@@ -315,9 +309,9 @@ def fidelity_transaction(
                         )
                         limit_button.click()
                         # Set price
-                        if action == "buy":
+                        if orderObj.get_action() == "buy":
                             wanted_price = round(float(ask_price) + 0.01, 3)
-                        elif action == "sell":
+                        else:
                             wanted_price = round(float(bid_price) - 0.01, 3)
                         price_box = driver.find_element(
                             by=By.CSS_SELECTOR, value="#eqt-ordsel-limit-price-field"
@@ -344,7 +338,7 @@ def fidelity_transaction(
                     except NoSuchElementException:
                         pass
                     # Place order
-                    if not DRY:
+                    if not orderObj.get_dry():
                         # Check for error popup and clear it if the
                         # account cannot sell the stock for some reason
                         try:
@@ -358,7 +352,7 @@ def fidelity_transaction(
                             sleep(1)
                             # Send confirmation
                             printAndDiscord(
-                                f"{key} {account_label}: {action} {amount} shares of {s}",
+                                f"{key} {account_label}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}",
                                 ctx,
                                 loop,
                             )
@@ -378,14 +372,14 @@ def fidelity_transaction(
                             )
                             driver.execute_script("arguments[0].click();", error_dismiss)
                             printAndDiscord(
-                                f"{key} {account_label}: {action} {amount} shares of {s}. DID NOT COMPLETE! \nEither this account does not have enough shares, or an order is already pending.",
+                                f"{key} {account_label}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}. DID NOT COMPLETE! \nEither this account does not have enough shares, or an order is already pending.",
                                 ctx,
                                 loop,
                             )
                         # Send confirmation
                     else:
                         printAndDiscord(
-                            f"DRY: {key} {account_label}: {action} {amount} shares of {s}",
+                            f"DRY: {key} {account_label}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}",
                             ctx,
                             loop,
                         )

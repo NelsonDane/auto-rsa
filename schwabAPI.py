@@ -7,7 +7,7 @@ from time import sleep
 
 from dotenv import load_dotenv
 from schwab_api import Schwab
-from helperAPI import Brokerage, printAndDiscord, printHoldings
+from helperAPI import Brokerage, stockOrder, printAndDiscord, printHoldings
 
 
 def schwab_init(SCHWAB_EXTERNAL=None):
@@ -72,37 +72,30 @@ def schwab_holdings(schwab_o: Brokerage, ctx=None, loop=None):
 
 
 def schwab_transaction(
-    schwab_o: Brokerage, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
+    schwab_o: Brokerage, orderObj: stockOrder, ctx=None, loop=None
 ):
     print()
     print("==============================")
     print("Schwab")
     print("==============================")
     print()
-    # Get correct capitalization for action
-    if action.lower() == "buy":
-        action = "Buy"
-    elif action.lower() == "sell":
-        action = "Sell"
-    stock = [x.upper() for x in stock]
-    amount = int(amount)
     # Buy on each account
-    for s in stock:
+    for s in orderObj.get_stocks():
         for key in schwab_o.get_account_numbers():
-            printAndDiscord(f"{key} {action}ing {amount} {s} @ {price}", ctx, loop)
+            printAndDiscord(f"{key} {orderObj.get_action()}ing {orderObj.get_amount()} {s} @ {orderObj.get_price()}", ctx, loop)
             for account in schwab_o.get_account_numbers(key):
                 obj: Schwab = schwab_o.get_logged_in_objects(key)
                 print(f"{key} Account: {account}")
                 # If DRY is True, don't actually make the transaction
-                if DRY:
+                if orderObj.get_dry():
                     printAndDiscord("Running in DRY mode. No transactions will be made.", ctx, loop)
                 try:
                     messages, success = obj.trade(
                         ticker=s,
-                        side=action,
-                        qty=amount,
+                        side=orderObj.get_action().capitalize(),
+                        qty=orderObj.get_amount(),
                         account_id=account,
-                        dry_run=DRY,
+                        dry_run=orderObj.get_dry(),
                     )
                     print("The order verification produced the following messages: ")
                     pprint.pprint(messages)

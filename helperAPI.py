@@ -19,6 +19,148 @@ from webdriver_manager.core.os_manager import ChromeType
 task_queue = Queue()
 
 
+class stockOrder:
+    def __init__(self):
+        self.__action = None  # Buy or sell
+        self.__amount = None  # Amount of shares to buy/sell
+        self.__stock = []  # List of stock tickers to buy/sell
+        self.__time = "day"  # Only supports day for now
+        self.__price = "market"  # Default to market price
+        self.__brokers = []  # List of brokerages to use
+        self.__notbrokers = []  # List of brokerages to not use !ally
+        self.__dry = True  # Dry run mode
+        self.__holdings = False  # Get holdings from enabled brokerages
+        self.__logged_in = []  # List of Brokerage objects
+
+    def set_action(self, action):
+        if action.lower() not in ["buy", "sell"]:
+            raise ValueError("Action must be buy or sell")
+        self.__action = action.lower()
+
+    def set_amount(self, amount):
+        # Only allow ints for now
+        try:
+            amount = int(amount)
+        except ValueError:
+            raise ValueError("Amount must be an integer")
+        if int(amount) < 1:
+            raise ValueError("Amount must be greater than 0")
+        self.__amount = int(amount)
+
+    def set_stock(self, stock):
+        # Only allow strings for now
+        if not isinstance(stock, str):
+            raise ValueError("Stock must be a string")
+        self.__stock.append(stock.upper())
+
+    def set_time(self, time):
+        raise NotImplementedError
+    
+    def set_price(self, price):
+        self.__price = float(price)
+
+    def set_brokers(self, brokers):
+        # Only allow strings or lists
+        if not isinstance(brokers, str) and not isinstance(brokers, list):
+            raise ValueError("Brokers must be a string or list")
+        if isinstance(brokers, list):
+            for b in brokers:
+                self.__brokers.append(b.lower())
+        else:
+            self.__brokers.append(brokers.lower())
+
+    def set_notbrokers(self, notbrokers):
+        # Only allow strings for now
+        if not isinstance(notbrokers, str):
+            raise ValueError("Not Brokers must be a string")
+        self.__notbrokers.append(notbrokers.lower())
+
+    def set_dry(self, dry):
+        self.__dry = dry
+
+    def set_holdings(self, holdings):
+        self.__holdings = holdings
+
+    def set_logged_in(self, logged_in):
+        self.__logged_in.append(logged_in)
+
+    def get_action(self):
+        return self.__action
+    
+    def get_amount(self):
+        return self.__amount
+    
+    def get_stocks(self):
+        return self.__stock
+    
+    def get_time(self):
+        return self.__time
+    
+    def get_price(self):
+        return self.__price
+    
+    def get_brokers(self):
+        return self.__brokers
+    
+    def get_notbrokers(self):
+        return self.__notbrokers
+    
+    def get_dry(self):
+        return self.__dry
+    
+    def get_holdings(self):
+        return self.__holdings
+    
+    def get_logged_in(self):
+        return self.__logged_in        
+    
+    def deDupe(self):
+        self.__stock = list(dict.fromkeys(self.__stock))
+        self.__brokers = list(dict.fromkeys(self.__brokers))
+        self.__notbrokers = list(dict.fromkeys(self.__notbrokers))
+        self.__logged_in = list(dict.fromkeys(self.__logged_in))
+
+    def alphabetize(self):
+        self.__stock.sort()
+        self.__brokers.sort()
+        self.__notbrokers.sort()
+        self.__logged_in.sort()
+
+    def order_validate(self, preLogin=False):
+        # Check for required fields (doesn't apply to holdings)
+        if not self.__holdings:
+            if self.__action is None:
+                raise ValueError("Action must be set")
+            if self.__amount is None:
+                raise ValueError("Amount must be set")
+            if len(self.__stock) == 0:
+                raise ValueError("Stock must be set")
+        if len(self.__brokers) == 0:
+            raise ValueError("Brokers must be set")
+        if len(self.__logged_in) == 0 and not preLogin:
+            raise ValueError("Logged In must be set")
+        # Clean up lists
+        self.deDupe()
+        self.alphabetize()
+        # Remove notbrokers from brokers
+        for b in self.__notbrokers:
+            if b in self.__brokers:
+                self.__brokers.remove(b)
+
+    def __str__(self) -> str:
+        return f"Self: \n \
+                Action: {self.__action}\n \
+                Amount: {self.__amount}\n \
+                Stock: {self.__stock}\n \
+                Time: {self.__time}\n \
+                Price: {self.__price}\n \
+                Brokers: {self.__brokers}\n \
+                Not Brokers: {self.__notbrokers}\n \
+                Dry: {self.__dry}\n \
+                Holdings: {self.__holdings}\n \
+                Logged In: {self.__logged_in}"
+
+
 class Brokerage:
     def __init__(self, name):
         self.__name = name  # Name of brokerage

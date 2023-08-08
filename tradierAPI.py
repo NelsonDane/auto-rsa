@@ -6,7 +6,7 @@ import traceback
 
 import requests
 from dotenv import load_dotenv
-from helperAPI import Brokerage, printAndDiscord, printHoldings
+from helperAPI import Brokerage, stockOrder, printAndDiscord, printHoldings
 
 
 def tradier_init(TRADIER_EXTERNAL=None):
@@ -124,31 +124,28 @@ def tradier_holdings(tradier_o: Brokerage, ctx=None, loop=None):
 
 
 def tradier_transaction(
-    tradier_o: Brokerage, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
+    tradier_o: Brokerage, orderObj: stockOrder, ctx=None, loop=None
 ):
     print()
     print("==============================")
     print("Tradier")
     print("==============================")
     print()
-    action = action.lower()
-    stock = [x.upper() for x in stock]
-    amount = int(amount)
     # Loop through accounts
-    for s in stock:
+    for s in orderObj.get_stocks():
         for key in tradier_o.get_account_numbers():
-            printAndDiscord(f"{key}: {action}ing {amount} of {s}", ctx=ctx, loop=loop)
+            printAndDiscord(f"{key}: {orderObj.get_action()}ing {orderObj.get_amount()} of {s}", ctx=ctx, loop=loop)
             for account in tradier_o.get_account_numbers(key):
                 obj: str = tradier_o.get_logged_in_objects(key)
-                if not DRY:
+                if not orderObj.get_dry():
                     try:
                         response = requests.post(
                             f"https://api.tradier.com/v1/accounts/{account}/orders",
                             data={
                                 "class": "equity",
                                 "symbol": s,
-                                "side": action,
-                                "quantity": amount,
+                                "side": orderObj.get_action(),
+                                "quantity": orderObj.get_amount(),
                                 "type": "market",
                                 "duration": "day",
                             },
@@ -168,7 +165,7 @@ def tradier_transaction(
                             continue
                         if json_response["order"]["status"] == "ok":
                             printAndDiscord(
-                                f"Tradier account {account}: {action} {amount} of {s}",
+                                f"Tradier account {account}: {orderObj.get_action()} {orderObj.get_amount()} of {s}",
                                 ctx=ctx,
                                 loop=loop,
                             )
@@ -191,7 +188,7 @@ def tradier_transaction(
                         print(json_response)
                 else:
                     printAndDiscord(
-                        f"Tradier account {account}: Running in DRY mode. Trasaction would've been: {action} {amount} of {s}",
+                        f"Tradier account {account}: Running in DRY mode. Trasaction would've been: {orderObj.get_action()} {orderObj.get_amount()} of {s}",
                         ctx=ctx,
                         loop=loop,
                     )

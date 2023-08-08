@@ -5,6 +5,7 @@
 import os
 import re
 import sys
+import traceback
 
 try:
     import discord
@@ -14,7 +15,7 @@ try:
     # Custom API libraries
     from allyAPI import *
     from fidelityAPI import *
-    from helperAPI import *
+    from helperAPI import stockOrder, killDriver
     from robinhoodAPI import *
     from schwabAPI import *
     from tastyAPI import *
@@ -44,79 +45,40 @@ def nicknames(broker):
     return broker
 
 
-# Class to hold stock order information and login objects
-class stockOrder:
-    def __init__(self):
-        self.action = None  # Buy or sell
-        self.amount = None  # Amount of shares to buy/sell
-        self.stock = []  # List of stock tickers to buy/sell
-        self.time = "day"  # Only supports day for now
-        self.price = "market"  # Only supports market for now
-        self.brokers = []  # List of brokerages to use
-        self.notbrokers = []  # List of brokerages to not use !ally
-        self.dry = True  # Dry run mode
-        self.holdings = False  # Get holdings from enabled brokerages
-        self.logged_in = []  # List of Brokerage objects
-
-    # Runs the specified function for each broker in the list
-    # broker name + type of function
-    def fun_run(self, command, ctx=None, loop=None):
-        if command in ["_init", "_holdings", "_transaction"]:
-            for index, broker in enumerate(self.brokers):
-                if broker in self.notbrokers:
-                    continue
-                fun_name = broker + command
-                try:
-                    if command == "_init":
-                        if nicknames(broker) == "fidelity":
-                            # Fidelity requires docker mode argument
-                            self.logged_in.append(globals()[fun_name](DOCKER=DOCKER_MODE))
-                        else:
-                            self.logged_in.append(globals()[fun_name]())
-                    # Holdings and transaction
-                    elif self.logged_in[index] is None:
-                        print(f"Error: {broker} not logged in, skipping...")
-                    elif command == "_holdings":
-                        globals()[fun_name](self.logged_in[index], ctx, loop)
-                    elif command == "_transaction":
-                        globals()[fun_name](
-                            self.logged_in[index],
-                            self.action,
-                            self.stock,
-                            self.amount,
-                            self.price,
-                            self.time,
-                            self.dry,
-                            ctx,
-                            loop,
-                        )
-                except Exception as ex:
-                    print(traceback.format_exc())
-                    print(f"Error in {fun_name} with {broker}: {ex}")
-                    print(self)
-                print()
-
-    def broker_login(self):
-        self.fun_run("_init")
-
-    def broker_holdings(self, ctx=None, loop=None):
-        self.fun_run("_holdings", ctx, loop)
-
-    def broker_transaction(self, ctx=None, loop=None):
-        self.fun_run("_transaction", ctx, loop)
-
-    def __str__(self) -> str:
-        return f"Self: \n \
-                Action: {self.action}\n \
-                Amount: {self.amount}\n \
-                Stock: {self.stock}\n \
-                Time: {self.time}\n \
-                Price: {self.price}\n \
-                Brokers: {self.brokers}\n \
-                Not Brokers: {self.notbrokers}\n \
-                Dry: {self.dry}\n \
-                Holdings: {self.holdings}\n \
-                Logged In: {self.logged_in}"
+# Runs the specified function for each broker in the list
+# broker name + type of function
+def fun_run(orderObj: stockOrder, command, ctx=None, loop=None):
+    if command in ["_init", "_holdings", "_transaction"]:
+        for index, broker in enumerate(orderObj.get_brokers()):
+            if broker in orderObj.get_notbrokers():
+                continue
+            fun_name = broker + command
+            try:
+                if command == "_init":
+                    if nicknames(broker) == "fidelity":
+                        # Fidelity requires docker mode argument
+                        orderObj.set_logged_in(globals()[fun_name](DOCKER=DOCKER_MODE))
+                    else:
+                        orderObj.set_logged_in(globals()[fun_name]())
+                # Holdings and transaction
+                elif orderObj.get_logged_in()[index] is None:
+                    print(f"Error: {broker} not logged in, skipping...")
+                elif command == "_holdings":
+                    globals()[fun_name](orderObj.get_logged_in()[index], ctx, loop)
+                elif command == "_transaction":
+                    globals()[fun_name](
+                        orderObj.get_logged_in()[index],
+                        orderObj,
+                        ctx,
+                        loop,
+                    )
+            except Exception as ex:
+                print(traceback.format_exc())
+                print(f"Error in {fun_name} with {broker}: {ex}")
+                print(orderObj)
+            print()
+    else:
+        print(f"Error: {command} is not a valid command")
 
 
 # Regex function to check if stock ticker is valid
@@ -126,7 +88,7 @@ def isStockTicker(symbol):
 
 
 # Parse input arguments and update the order object
-def argParser(args):
+def argParser(args: str):
     orderObj = stockOrder()
     for arg in args:
         arg = arg.lower()
@@ -135,43 +97,37 @@ def argParser(args):
             next_arg = nicknames(args[args.index(arg) + 1]).split(",")
             for broker in next_arg:
                 if nicknames(broker) in SUPPORTED_BROKERS:
-                    orderObj.notbrokers.append(nicknames(broker))
+                    orderObj.set_notbrokers(nicknames(broker))
         elif arg in ["buy", "sell"]:
-            orderObj.action = arg
+            orderObj.set_action(arg)
         elif arg.isnumeric():
-            orderObj.amount = int(arg)
+            orderObj.set_amount(arg)
         elif arg == "false":
-            orderObj.dry = False
+            orderObj.set_dry(False)
         # If first item of list is a broker, it must be a list of brokers
         elif nicknames(arg.split(",")[0]) in SUPPORTED_BROKERS:
             for broker in arg.split(","):
                 # Add broker if it is valid and not in notbrokers
                 if (
                     nicknames(broker) in SUPPORTED_BROKERS
-                    and nicknames(broker) not in orderObj.notbrokers
+                    and nicknames(broker) not in orderObj.get_notbrokers()
                 ):
-                    orderObj.brokers.append(nicknames(broker))
+                    orderObj.set_brokers(nicknames(broker))
         elif arg == "all":
-            if "all" not in orderObj.brokers and orderObj.brokers == []:
-                orderObj.brokers = SUPPORTED_BROKERS
+            if "all" not in orderObj.get_brokers() and orderObj.get_brokers() == []:
+                orderObj.set_brokers = SUPPORTED_BROKERS
         elif arg == "holdings":
-            orderObj.holdings = True
+            orderObj.set_holdings(True)
         # If first item of list is a stock, it must be a list of stocks
         elif (
             isStockTicker(arg.split(",")[0].upper())
             and arg.lower() != "dry"
-            and orderObj.stock == []
+            and orderObj.get_stocks() == []
         ):
             for stock in arg.split(","):
-                orderObj.stock.append(stock.upper())
-    # Remove duplicates
-    orderObj.brokers = list(dict.fromkeys(orderObj.brokers))
-    orderObj.notbrokers = list(dict.fromkeys(orderObj.notbrokers))
-    orderObj.stock = list(dict.fromkeys(orderObj.stock))
-    # Remove notbrokers from brokers
-    for broker in orderObj.notbrokers:
-        if broker in orderObj.brokers:
-            orderObj.brokers.remove(broker)
+                orderObj.set_stock(stock.upper())
+    # Validate order object
+    orderObj.order_validate(preLogin=True)
     return orderObj
 
 
@@ -206,16 +162,16 @@ if __name__ == "__main__":
         DISCORD_BOT = True
     else:  # If any other argument, run bot, no docker or discord bot
         print("Running bot from command line")
-        cliOrderObj = argParser(sys.argv[1:])
-        if not cliOrderObj.holdings:
-            print(f"Action: {cliOrderObj.action}")
-            print(f"Amount: {cliOrderObj.amount}")
-            print(f"Stock: {cliOrderObj.stock}")
-            print(f"Time: {cliOrderObj.time}")
-            print(f"Price: {cliOrderObj.price}")
-            print(f"Broker: {cliOrderObj.brokers}")
-            print(f"Not Broker: {cliOrderObj.notbrokers}")
-            print(f"DRY: {cliOrderObj.dry}")
+        cliOrderObj: stockOrder = argParser(sys.argv[1:])
+        if not cliOrderObj.get_holdings():
+            print(f"Action: {cliOrderObj.get_action()}")
+            print(f"Amount: {cliOrderObj.get_amount()}")
+            print(f"Stock: {cliOrderObj.get_stocks()}")
+            print(f"Time: {cliOrderObj.get_time()}")
+            print(f"Price: {cliOrderObj.get_price()}")
+            print(f"Broker: {cliOrderObj.get_brokers()}")
+            print(f"Not Broker: {cliOrderObj.get_notbrokers()}")
+            print(f"DRY: {cliOrderObj.get_dry()}")
             print()
             print("If correct, press enter to continue...")
             try:
@@ -225,13 +181,16 @@ if __name__ == "__main__":
                 print()
                 print("Exiting, no orders placed")
                 sys.exit(0)
-        cliOrderObj.broker_login()
-        if cliOrderObj.holdings:
-            cliOrderObj.broker_holdings()
+        # Login to brokers
+        fun_run(cliOrderObj, "_init")
+        if cliOrderObj.get_holdings():
+            # Get holdings
+            fun_run(cliOrderObj, "_holdings")
         else:
-            cliOrderObj.broker_transaction()
+            # Complete transaction
+            fun_run(cliOrderObj, "_transaction")
         # Kill selenium drivers
-        for obj in cliOrderObj.logged_in:
+        for obj in cliOrderObj.get_logged_in():
             if obj is not None and obj.get_name().lower() == "fidelity":
                 killDriver(obj)
         sys.exit(0)
@@ -290,22 +249,25 @@ if __name__ == "__main__":
         # Main RSA command
         @bot.command(name="rsa")
         async def rsa(ctx, *args):
-            discOrdObj = (await bot.loop.run_in_executor(None, argParser, args))
+            discOrdObj: stockOrder = (await bot.loop.run_in_executor(None, argParser, args))
             loop = asyncio.get_event_loop()
             try:
-                await bot.loop.run_in_executor(None, discOrdObj.broker_login)
-                if discOrdObj.holdings:
+                # Login to brokers
+                await bot.loop.run_until_complete(None, fun_run(discOrdObj, "_init"))
+                if discOrdObj.get_holdings():
+                    # Get holdings
                     await bot.loop.run_in_executor(
-                        None, discOrdObj.broker_holdings, ctx, loop
+                        None, fun_run(discOrdObj, "_holdings", ctx, loop)
                     )
                 else:
+                    # Complete transaction
                     await bot.loop.run_in_executor(
-                        None, discOrdObj.broker_transaction, ctx, loop
+                        None, fun_run(discOrdObj, "_transaction", ctx, loop)
                     )
             except Exception as err:
-                print(f"Error placing order on {discOrdObj.name}: {err}")
+                print(f"Error placing order: {err}")
                 if ctx:
-                    await ctx.send(f"Error placing order on {discOrdObj.name}: {err}")
+                    await ctx.send(f"Error placing order: {err}")
 
         # Restart command
         @bot.command(name="restart")
