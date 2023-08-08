@@ -4,6 +4,7 @@
 
 # Standard libraries
 import os
+
 from dotenv import load_dotenv
 
 # Custom API libraries
