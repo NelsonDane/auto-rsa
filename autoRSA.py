@@ -260,19 +260,20 @@ if __name__ == "__main__":
             loop = asyncio.get_event_loop()
             try:
                 # Login to brokers
-                await bot.loop.run_until_complete(None, fun_run(discOrdObj, "_init"))
+                await bot.loop.run_in_executor(None, fun_run, discOrdObj, "_init")
                 # Validate order object
                 discOrdObj.order_validate()
                 # Get holdings or complete transaction
                 if discOrdObj.get_holdings():
                     await bot.loop.run_in_executor(
-                        None, fun_run(discOrdObj, "_holdings", ctx, loop)
+                        None, fun_run, discOrdObj, "_holdings", ctx, loop
                     )
                 else:
                     await bot.loop.run_in_executor(
-                        None, fun_run(discOrdObj, "_transaction", ctx, loop)
+                        None, fun_run, discOrdObj, "_transaction", ctx, loop
                     )
             except Exception as err:
+                print(traceback.format_exc())
                 print(f"Error placing order: {err}")
                 if ctx:
                     await ctx.send(f"Error placing order: {err}")
