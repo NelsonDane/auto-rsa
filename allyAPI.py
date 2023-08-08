@@ -118,7 +118,7 @@ def ally_transaction(
     print()
     # Set the action
     price = ally.Order.Market()
-    if isinstance(orderObj.get_price(), float) or isinstance(orderObj.get_price(), int):
+    if isinstance(orderObj.get_price(), (int, float)):
         print(f"Limit order at: ${float(orderObj.get_price())}")
         price = ally.Order.Limit(limpx=float(orderObj.get_price()))
     for s in orderObj.get_stocks():
@@ -142,7 +142,6 @@ def ally_transaction(
                         price=price,
                         time=orderObj.get_time(),
                         qty=orderObj.get_amount(),
-                        # account=account # This fails if account is not an integer
                     )
                     # Print order preview
                     print(f"{key} {account}: {str(o)}")
