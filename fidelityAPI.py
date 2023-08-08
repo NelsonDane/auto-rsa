@@ -76,6 +76,8 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
             sleep(3)
             # Wait for page to load to summary page
             if "summary" not in driver.current_url:
+                if "errorpage" in driver.current_url.lower():
+                    raise Exception(f"{name}: Login Failed. Got Error Page: Current URL: {driver.current_url}")
                 print("Waiting for portfolio page to load...")
                 WebDriverWait(driver, 30).until(
                     expected_conditions.url_contains("summary")
@@ -126,6 +128,8 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
                 driver.save_screenshot(
                     f"fidelity-login-error-{datetime.datetime.now()}.png"
                 )
+                driver.close()
+                driver.quit()
             traceback.print_exc()
             return None
     return fidelity_obj

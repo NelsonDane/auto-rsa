@@ -300,11 +300,7 @@ def getDriver(DOCKER=False):
             )
         else:
             driver = webdriver.Chrome(
-                service=ChromiumService(
-                    ChromeDriverManager(
-                        chrome_type=ChromeType.CHROMIUM, driver_version=version
-                    ).install()
-                ),
+                service=ChromiumService(ChromeDriverManager(driver_version=version).install()),
                 options=options,
             )
     except Exception as e:
