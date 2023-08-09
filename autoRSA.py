@@ -49,7 +49,7 @@ def nicknames(broker):
 # broker name + type of function
 def fun_run(orderObj: stockOrder, command, ctx=None, loop=None):
     if command in ["_init", "_holdings", "_transaction"]:
-        for index, broker in enumerate(orderObj.get_brokers()):
+        for broker in orderObj.get_brokers():
             if broker in orderObj.get_notbrokers():
                 continue
             fun_name = broker + command
