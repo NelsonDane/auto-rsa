@@ -2,8 +2,8 @@
 # Script to Update or Initialize Project
 
 import os
-import sys
 import subprocess
+import sys
 
 
 def update_project(branch=None):
@@ -30,7 +30,7 @@ def update_project(branch=None):
         print("Cloning repository...")
         repo_url = "https://github.com/NelsonDane/auto-rsa"
         subprocess.run(["git", "clone", repo_url, f"{project_dir}/temp"])
-        
+
         # Move .git folder to initialize repository
         print("Moving .git folder...")
         subprocess.run(["mv", f"{project_dir}/temp/.git", project_dir])

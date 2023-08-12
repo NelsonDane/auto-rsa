@@ -104,9 +104,7 @@ def robinhood_holdings(rho: Brokerage, loop=None):
                                 current_price = "N/A"
                         rho.set_holdings(key, account, sym, qty, current_price)
             except Exception as e:
-                printAndDiscord(
-                    f"{key}: Error getting account holdings: {e}", loop
-                )
+                printAndDiscord(f"{key}: Error getting account holdings: {e}", loop)
                 print(traceback.format_exc())
                 continue
         printHoldings(rho, loop)
