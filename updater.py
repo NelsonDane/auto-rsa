@@ -11,7 +11,9 @@ def update_project(branch=None):
     try:
         subprocess.run(["git", "--version"], stdout=subprocess.DEVNULL, check=True)
     except FileNotFoundError:
-        print("Git is not installed, please install Git so the project can auto update. Exiting...")
+        print(
+            "Git is not installed, please install Git so the project can auto update. Exiting..."
+        )
         sys.exit(1)
     # Check if .git folder exists
     project_dir = os.path.dirname(os.path.realpath(__file__))
