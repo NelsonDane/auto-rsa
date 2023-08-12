@@ -52,10 +52,21 @@ class stockOrder:
         self.__stock.append(stock.upper())
 
     def set_time(self, time):
-        raise NotImplementedError
+        # Only allow strings for now
+        if not isinstance(time, str):
+            raise ValueError("Time must be a string")
+        if time.lower() not in ["day", "gtc"]:
+            raise ValueError("Time must be day or gtc")
+        self.__time = time.lower()
 
     def set_price(self, price):
-        self.__price = float(price)
+        # Check if it's market
+        if isinstance(price, str):
+            self.__price = price.lower()
+        elif isinstance(price, (int, float)):
+            self.__price = float(price)
+        else:
+            raise ValueError("Price must be a string or float")
 
     def set_brokers(self, brokers):
         # Only allow strings or lists
