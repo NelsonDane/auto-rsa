@@ -20,6 +20,7 @@ try:
     from schwabAPI import *
     from tastyAPI import *
     from tradierAPI import *
+    from webullAPI import *
 except Exception as e:
     print(f"Error importing libraries: {e}")
     print("Please run 'pip install -r requirements.txt'")
@@ -30,7 +31,7 @@ load_dotenv()
 
 
 # Global variables
-SUPPORTED_BROKERS = ["ally", "fidelity", "robinhood", "schwab", "tastytrade", "tradier"]
+SUPPORTED_BROKERS = ["ally", "fidelity", "robinhood", "schwab", "tastytrade", "tradier", "webull"]
 DISCORD_BOT = False
 DOCKER_MODE = False
 SUPRESS_OLD_WARN = False
