@@ -73,9 +73,7 @@ def schwab_holdings(schwab_o: Brokerage, loop=None):
                         current_price = round(mv / qty, 2)
                     schwab_o.set_holdings(key, account, sym, qty, current_price)
             except Exception as e:
-                printAndDiscord(
-                    f"{key} {account}: Error getting holdings: {e}", loop
-                )
+                printAndDiscord(f"{key} {account}: Error getting holdings: {e}", loop)
                 continue
         printHoldings(schwab_o, loop)
 

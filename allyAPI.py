@@ -93,10 +93,7 @@ def ally_holdings(ao: Brokerage, loop=None):
                     for i, symbol in enumerate(account_symbols):
                         ao.set_holdings(key, account, symbol, qty[i], current_price[i])
             except Exception as e:
-                printAndDiscord(
-                    f"{key}: Error getting account holdings: {e}",
-                    loop
-                )
+                printAndDiscord(f"{key}: Error getting account holdings: {e}", loop)
                 print(traceback.format_exc())
                 continue
     printHoldings(ao, loop)
@@ -159,9 +156,7 @@ def ally_transaction(
                             f"{key} {account}: Order {o.orderid} submitted", loop
                         )
                     else:
-                        printAndDiscord(
-                            f"{key} {account}: Order not submitted", loop
-                        )
+                        printAndDiscord(f"{key} {account}: Order not submitted", loop)
                     if RETRY:
                         return
                 except Exception as e:

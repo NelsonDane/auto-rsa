@@ -134,17 +134,13 @@ def tradier_holdings(tradier_o: Brokerage, loop=None):
                         key, account_number, position, amounts[i], current_price[i]
                     )
             except Exception as e:
-                printAndDiscord(
-                    f"{key}: Error getting holdings: {e}", loop=loop
-                )
+                printAndDiscord(f"{key}: Error getting holdings: {e}", loop=loop)
                 print(traceback.format_exc())
                 continue
     printHoldings(tradier_o, loop=loop)
 
 
-def tradier_transaction(
-    tradier_o: Brokerage, orderObj: stockOrder, loop=None
-):
+def tradier_transaction(tradier_o: Brokerage, orderObj: stockOrder, loop=None):
     print()
     print("==============================")
     print("Tradier")
