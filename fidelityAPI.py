@@ -238,9 +238,7 @@ def fidelity_holdings(fidelity_o: Brokerage, loop=None):
         fidelity_account_numbers(driver, loop=loop, name=key)
 
 
-def fidelity_transaction(
-    fidelity_o: Brokerage, orderObj: stockOrder, loop=None
-):
+def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None):
     print()
     print("==============================")
     print("Fidelity")

@@ -114,17 +114,13 @@ def tastytrade_holdings(tt_o: Brokerage, loop=None):
                         pos.average_daily_market_close_price,
                     )
             except Exception as e:
-                printAndDiscord(
-                    f"{key}: Error getting account holdings: {e}", loop
-                )
+                printAndDiscord(f"{key}: Error getting account holdings: {e}", loop)
                 print(traceback.format_exc())
                 continue
         printHoldings(tt_o, loop=loop)
 
 
-async def tastytrade_execute(
-    tt_o: Brokerage, orderObj: stockOrder, loop=None
-):
+async def tastytrade_execute(tt_o: Brokerage, orderObj: stockOrder, loop=None):
     print()
     print("==============================")
     print("Tastytrade")

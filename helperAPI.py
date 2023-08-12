@@ -4,11 +4,11 @@
 
 import asyncio
 import os
-import requests
 import textwrap
 from queue import Queue
 from time import sleep
 
+import requests
 from dotenv import load_dotenv
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromiumService
@@ -339,16 +339,16 @@ def killDriver(brokerObj: Brokerage):
 async def processTasks(message):
     # Get details from env (they are used prior so we know they exist)
     load_dotenv()
-    BOT_TOKEN = os.getenv('BOT_TOKEN')
-    CHANNEL_ID = os.getenv('CHANNEL_ID')
+    BOT_TOKEN = os.getenv("BOT_TOKEN")
+    CHANNEL_ID = os.getenv("CHANNEL_ID")
     # Send message to discord via request post
-    BASE_URL = f'https://discord.com/api/v10/channels/{CHANNEL_ID}/messages'
+    BASE_URL = f"https://discord.com/api/v10/channels/{CHANNEL_ID}/messages"
     HEADERS = {
-        'Authorization': f'Bot {BOT_TOKEN}',
-        'Content-Type': 'application/json',
+        "Authorization": f"Bot {BOT_TOKEN}",
+        "Content-Type": "application/json",
     }
     PAYLOAD = {
-        'content': message,
+        "content": message,
     }
     # Keep trying until success
     success = False
@@ -360,17 +360,19 @@ async def processTasks(message):
                 case 200:
                     success = True
                 case 401:
-                    print('Error 401 Unauthorized: Invalid Channel ID')
+                    print("Error 401 Unauthorized: Invalid Channel ID")
                     break
                 case 429:
-                    rate_limit = response.json()['retry_after'] * 2
-                    print(f'We are being rate limited. Retrying in {rate_limit} seconds')
+                    rate_limit = response.json()["retry_after"] * 2
+                    print(
+                        f"We are being rate limited. Retrying in {rate_limit} seconds"
+                    )
                     await asyncio.sleep(rate_limit)
                 case _:
-                    print(f'Error: {response.status_code}: {response.text}')
+                    print(f"Error: {response.status_code}: {response.text}")
                     break
         except Exception as e:
-            print(f'Error Sending Message: {e}')
+            print(f"Error Sending Message: {e}")
             break
 
 

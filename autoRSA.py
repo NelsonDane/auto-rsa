@@ -69,9 +69,7 @@ def fun_run(orderObj: stockOrder, command, loop=None):
                     print(f"Error: {broker} not logged in, skipping...")
                 elif command == "_holdings":
                     orderObj.order_validate(preLogin=False)
-                    globals()[fun_name](
-                        orderObj.get_logged_in(nicknames(broker)), loop
-                    )
+                    globals()[fun_name](orderObj.get_logged_in(nicknames(broker)), loop)
                 elif command == "_transaction":
                     orderObj.order_validate(preLogin=False)
                     globals()[fun_name](
