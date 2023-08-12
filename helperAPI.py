@@ -4,6 +4,7 @@
 
 import asyncio
 import os
+import requests
 import textwrap
 from queue import Queue
 from time import sleep
@@ -335,18 +336,50 @@ def killDriver(brokerObj: Brokerage):
     print(f"Killed {count} {brokerObj.get_name()} drivers")
 
 
-async def processTasks(message, ctx):
-    # Send message to discord
-    await asyncio.sleep(0.5)
-    await ctx.send(message)
+async def processTasks(message):
+    # Get details from env (they are used prior so we know they exist)
+    load_dotenv()
+    BOT_TOKEN = os.getenv('BOT_TOKEN')
+    CHANNEL_ID = os.getenv('CHANNEL_ID')
+    # Send message to discord via request post
+    BASE_URL = f'https://discord.com/api/v10/channels/{CHANNEL_ID}/messages'
+    HEADERS = {
+        'Authorization': f'Bot {BOT_TOKEN}',
+        'Content-Type': 'application/json',
+    }
+    PAYLOAD = {
+        'content': message,
+    }
+    # Keep trying until success
+    success = False
+    while success is False:
+        try:
+            response = requests.post(BASE_URL, headers=HEADERS, json=PAYLOAD)
+            # Process response
+            match response.status_code:
+                case 200:
+                    success = True
+                case 401:
+                    print('Error 401 Unauthorized: Invalid Channel ID')
+                    break
+                case 429:
+                    rate_limit = response.json()['retry_after'] * 2
+                    print(f'We are being rate limited. Retrying in {rate_limit} seconds')
+                    await asyncio.sleep(rate_limit)
+                case _:
+                    print(f'Error: {response.status_code}: {response.text}')
+                    break
+        except Exception as e:
+            print(f'Error Sending Message: {e}')
+            break
 
 
-def printAndDiscord(message, ctx=None, loop=None):
+def printAndDiscord(message, loop=None):
     # Print message
     print(message)
     # Add message to discord queue
-    if ctx is not None and loop is not None:
-        task_queue.put((message, ctx))
+    if loop is not None:
+        task_queue.put((message))
         if task_queue.qsize() == 1:
             asyncio.run_coroutine_threadsafe(processQueue(), loop)
 

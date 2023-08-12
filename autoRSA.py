@@ -210,10 +210,10 @@ if __name__ == "__main__":
         # Get discord token and channel from .env file
         if not os.environ["DISCORD_TOKEN"]:
             raise Exception("DISCORD_TOKEN not found in .env file, please add it")
+        if not os.environ["DISCORD_CHANNEL"]:
+            raise Exception("DISCORD_CHANNEL not found in .env file, please add it")
         DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-        DISCORD_CHANNEL = os.getenv("DISCORD_CHANNEL", None)
-        if DISCORD_CHANNEL:
-            DISCORD_CHANNEL = int(DISCORD_CHANNEL)
+        DISCORD_CHANNEL = int(os.getenv("DISCORD_CHANNEL"))
         # Initialize discord bot
         intents = discord.Intents.default()
         intents.message_content = True
@@ -235,20 +235,23 @@ if __name__ == "__main__":
         )
 
         # Bot event when bot is ready
-        if DISCORD_CHANNEL:
-
-            @bot.event
-            async def on_ready():
-                channel = bot.get_channel(DISCORD_CHANNEL)
-                await channel.send("Discord bot is started...")
-                # Old .env file format warning
-                if not SUPRESS_OLD_WARN:
-                    await channel.send(
-                        "Heads up! .env file format has changed, see .env.example for new format"
-                    )
-                    await channel.send(
-                        "To supress this message, set SUPRESS_OLD_WARN to True in your .env file"
-                    )
+        @bot.event
+        async def on_ready():
+            channel = bot.get_channel(DISCORD_CHANNEL)
+            if channel is None:
+                print(
+                    "ERROR: Invalid channel ID, please check your DISCORD_CHANNEL in your .env file and try again"
+                )
+                os._exit(1)
+            await channel.send("Discord bot is started...")
+            # Old .env file format warning
+            if not SUPRESS_OLD_WARN:
+                await channel.send(
+                    "Heads up! .env file format has changed, see .env.example for new format"
+                )
+                await channel.send(
+                    "To supress this message, set SUPRESS_OLD_WARN to True in your .env file"
+                )
 
         # Bot ping-pong
         @bot.command(name="ping")
