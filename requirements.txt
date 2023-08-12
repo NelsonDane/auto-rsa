@@ -12,5 +12,6 @@ schwab-api==0.2.3
 selenium==4.10.0
 tastytrade==5.4
 tastyworks-aiocometd==1.0
+webull==0.6.1
 webdriver-manager==3.9.1
 wheel==0.37.1
