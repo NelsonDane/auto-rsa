@@ -6,7 +6,8 @@ import traceback
 
 import requests
 from dotenv import load_dotenv
-from helperAPI import Brokerage, printAndDiscord, printHoldings
+
+from helperAPI import Brokerage, printAndDiscord, printHoldings, stockOrder
 
 
 def tradier_init(TRADIER_EXTERNAL=None):
@@ -17,7 +18,11 @@ def tradier_init(TRADIER_EXTERNAL=None):
         print("Tradier not found, skipping...")
         return None
     # Get access token and split into list
-    accounts = os.environ["TRADIER"].strip().split(",") if TRADIER_EXTERNAL is None else TRADIER_EXTERNAL.strip().split(",")
+    accounts = (
+        os.environ["TRADIER"].strip().split(",")
+        if TRADIER_EXTERNAL is None
+        else TRADIER_EXTERNAL.strip().split(",")
+    )
     # Login to each account
     tradier_obj = Brokerage("Tradier")
     print("Logging in to Tradier...")
@@ -27,7 +32,10 @@ def tradier_init(TRADIER_EXTERNAL=None):
             response = requests.get(
                 "https://api.tradier.com/v1/user/profile",
                 params={},
-                headers={"Authorization": f"Bearer {account}", "Accept": "application/json"},
+                headers={
+                    "Authorization": f"Bearer {account}",
+                    "Accept": "application/json",
+                },
             )
             json_response = response.json()
             if json_response is None:
@@ -48,16 +56,23 @@ def tradier_init(TRADIER_EXTERNAL=None):
                 an = json_response["profile"]["account"][x]["account_number"]
             print(an)
             tradier_obj.set_account_number(name, an)
-            tradier_obj.set_account_type(name, an, json_response["profile"]["account"][x]["type"])
+            tradier_obj.set_account_type(
+                name, an, json_response["profile"]["account"][x]["type"]
+            )
             # Get balances
             try:
                 balances = requests.get(
                     f"https://api.tradier.com/v1/accounts/{an}/balances",
                     params={},
-                    headers={"Authorization": f"Bearer {account}", "Accept": "application/json"},
+                    headers={
+                        "Authorization": f"Bearer {account}",
+                        "Accept": "application/json",
+                    },
                 )
                 json_balances = balances.json()
-                tradier_obj.set_account_totals(name, an, json_balances["balances"]["total_equity"])
+                tradier_obj.set_account_totals(
+                    name, an, json_balances["balances"]["total_equity"]
+                )
             except Exception as e:
                 print(f"Error getting balances for {an}: {e}")
                 tradier_obj.set_account_totals(name, an, 0)
@@ -115,40 +130,45 @@ def tradier_holdings(tradier_o: Brokerage, ctx=None, loop=None):
                 for position in stocks:
                     # Set index for easy use
                     i = stocks.index(position)
-                    tradier_o.set_holdings(key, account_number, position, amounts[i], current_price[i])
+                    tradier_o.set_holdings(
+                        key, account_number, position, amounts[i], current_price[i]
+                    )
             except Exception as e:
-                printAndDiscord(f"{key}: Error getting holdings: {e}", ctx=ctx, loop=loop)
+                printAndDiscord(
+                    f"{key}: Error getting holdings: {e}", ctx=ctx, loop=loop
+                )
                 print(traceback.format_exc())
                 continue
     printHoldings(tradier_o, ctx=ctx, loop=loop)
 
 
 def tradier_transaction(
-    tradier_o: Brokerage, action, stock, amount, price, time, DRY=True, ctx=None, loop=None
+    tradier_o: Brokerage, orderObj: stockOrder, ctx=None, loop=None
 ):
     print()
     print("==============================")
     print("Tradier")
     print("==============================")
     print()
-    action = action.lower()
-    stock = [x.upper() for x in stock]
-    amount = int(amount)
     # Loop through accounts
-    for s in stock:
+    for s in orderObj.get_stocks():
         for key in tradier_o.get_account_numbers():
-            printAndDiscord(f"{key}: {action}ing {amount} of {s}", ctx=ctx, loop=loop)
+            printAndDiscord(
+                f"{key}: {orderObj.get_action()}ing {orderObj.get_amount()} of {s}",
+                ctx=ctx,
+                loop=loop,
+            )
             for account in tradier_o.get_account_numbers(key):
                 obj: str = tradier_o.get_logged_in_objects(key)
-                if not DRY:
+                if not orderObj.get_dry():
                     try:
                         response = requests.post(
                             f"https://api.tradier.com/v1/accounts/{account}/orders",
                             data={
                                 "class": "equity",
                                 "symbol": s,
-                                "side": action,
-                                "quantity": amount,
+                                "side": orderObj.get_action(),
+                                "quantity": orderObj.get_amount(),
                                 "type": "market",
                                 "duration": "day",
                             },
@@ -168,7 +188,7 @@ def tradier_transaction(
                             continue
                         if json_response["order"]["status"] == "ok":
                             printAndDiscord(
-                                f"Tradier account {account}: {action} {amount} of {s}",
+                                f"Tradier account {account}: {orderObj.get_action()} {orderObj.get_amount()} of {s}",
                                 ctx=ctx,
                                 loop=loop,
                             )
@@ -186,12 +206,14 @@ def tradier_transaction(
                             loop=loop,
                         )
                     except Exception as e:
-                        printAndDiscord(f"Tradier account {account}: Error: {e}", ctx=ctx, loop=loop)
+                        printAndDiscord(
+                            f"Tradier account {account}: Error: {e}", ctx=ctx, loop=loop
+                        )
                         print(traceback.format_exc())
                         print(json_response)
                 else:
                     printAndDiscord(
-                        f"Tradier account {account}: Running in DRY mode. Trasaction would've been: {action} {amount} of {s}",
+                        f"Tradier account {account}: Running in DRY mode. Trasaction would've been: {orderObj.get_action()} {orderObj.get_amount()} of {s}",
                         ctx=ctx,
                         loop=loop,
                     )
