@@ -40,14 +40,18 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
                 store_session=False,
             )
             rh_obj.set_logged_in_object(name, rh)
-            rh_obj.set_account_number(
-                name, rh.account.load_account_profile(info="account_number")
-            )
-            rh_obj.set_account_totals(
-                name,
-                rh.account.load_account_profile(info="account_number"),
-                rh.account.load_account_profile(info="portfolio_cash"),
-            )
+            # Check for IRA accounts
+            if (len(account) > 3) and (account[3].upper() != "NA"):
+                for ira in account[3].split(","):
+                    ira_num = rh.account.load_account_profile(info="account_number", account_number=ira)
+                    rh_obj.set_account_number(name, ira_num)
+                    rh_obj.set_account_totals(name, ira_num, rh.account.load_account_profile(info="portfolio_cash", account_number=ira_num))
+                    rh_obj.set_account_type(name, ira_num, rh.account.load_account_profile(info="type", account_number=ira_num))
+            # Normal account
+            an = rh.account.load_account_profile(info="account_number")
+            rh_obj.set_account_number(name, an)
+            rh_obj.set_account_totals(name, an, rh.account.load_account_profile(info="portfolio_cash", account_number=an))
+            rh_obj.set_account_type(name, an, rh.account.load_account_profile(info="type", account_number=an))
         except Exception as e:
             print(f"Error: Unable to log in to Robinhood: {e}")
             return None

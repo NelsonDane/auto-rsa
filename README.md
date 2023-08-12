@@ -129,12 +129,15 @@ Required `.env` variables:
 - `ROBINHOOD_USERNAME`
 - `ROBINHOOD_PASSWORD`
 - `ROBINHOOD_TOTP` (If 2fa enabled, else NA)
+- `ROBINHOOD_IRA_NUMBERS` (If you want to use your IRA account, else NA. Separate multiple IRA numbers with commas)
 
 `.env` file format:
-- With 2fa: `ROBINHOOD=ROBINHOOD_USERNAME:ROBINHOOD_PASSWORD:ROBINHOOD_TOTP`
-- Without 2fa: `ROBINHOOD=ROBINHOOD_USERNAME:ROBINHOOD_PASSWORD:NA`
+- With 2fa: `ROBINHOOD=ROBINHOOD_USERNAME:ROBINHOOD_PASSWORD:ROBINHOOD_TOTP:ROBINHOOD_IRA_NUMBERS`
+- Without 2fa: `ROBINHOOD=ROBINHOOD_USERNAME:ROBINHOOD_PASSWORD:NA:ROBINHOOD_IRA_NUMBERS`
 
 Configuring 2fa can be tricky, read the TOTP section [here](https://github.com/jmfernandes/robin_stocks/blob/master/Robinhood.rst).
+
+To get your IRA numbers, check your monthly statement.
 
 ### Schwab
 Made using the [schwab-api](https://github.com/itsjafer/schwab-api). Go give them a ⭐
