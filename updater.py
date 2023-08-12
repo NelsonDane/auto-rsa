@@ -35,7 +35,9 @@ def update_project(branch=None):
             print("Auto update disabled, skipping...")
             return
         else:
-            print("Starting auto update. To disable, set DISABLE_AUTO_UPDATE to true in .env")
+            print(
+                "Starting auto update. To disable, set DISABLE_AUTO_UPDATE to true in .env"
+            )
         # Check if git is installed
         try:
             subprocess.run(["git", "--version"], stdout=subprocess.DEVNULL, check=True)
@@ -82,7 +84,8 @@ def update_project(branch=None):
             print("Cloning repository...")
             repo_url = "https://github.com/NelsonDane/auto-rsa"
             subprocess.run(
-                ["git", "clone", repo_url, f"{project_dir}/temp", "--branch", branch], check=True
+                ["git", "clone", repo_url, f"{project_dir}/temp", "--branch", branch],
+                check=True,
             )
             # Move .git folder to initialize repository and remove temp folder
             print("Moving .git folder...")
