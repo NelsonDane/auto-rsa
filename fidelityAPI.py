@@ -137,7 +137,7 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
     return fidelity_obj
 
 
-def fidelity_account_numbers(driver: webdriver, ctx=None, loop=None, name="Fidelity"):
+def fidelity_account_numbers(driver: webdriver, loop=None, name="Fidelity"):
     ret_acc = True
     health_acc = True
     try:
@@ -151,7 +151,7 @@ def fidelity_account_numbers(driver: webdriver, ctx=None, loop=None, name="Fidel
             by=By.CSS_SELECTOR,
             value="body > ap143528-portsum-dashboard-root > dashboard-root > div > div.account-selector__outer-box.account-selector__outer-box--expand-in-pc > accounts-selector > nav > div.acct-selector__acct-list > pvd3-link > s-root > span > a > span > s-slot > s-assigned-wrapper > div > div > div > span:nth-child(2)",
         )
-        printAndDiscord(f"Total {name} account value: {total_value[0].text}", ctx, loop)
+        printAndDiscord(f"Total {name} account value: {total_value[0].text}", loop)
         # Get value of individual accounts
         ind_accounts = driver.find_elements(
             by=By.CSS_SELECTOR, value=r"#Investment\ Accounts"
@@ -200,17 +200,17 @@ def fidelity_account_numbers(driver: webdriver, ctx=None, loop=None, name="Fidel
             health_values = []
             health_acc = False
         # Print out account numbers and values
-        printAndDiscord("Individual accounts:", ctx, loop)
+        printAndDiscord("Individual accounts:", loop)
         for x, item in enumerate(account_list):
-            printAndDiscord(f"{item} value: ${values[x]}", ctx, loop)
+            printAndDiscord(f"{item} value: ${values[x]}", loop)
         if ret_acc:
-            printAndDiscord("Retirement accounts:", ctx, loop)
+            printAndDiscord("Retirement accounts:", loop)
             for x, item in enumerate(ret_account_list):
-                printAndDiscord(f"{item} value: ${ret_values[x]}", ctx, loop)
+                printAndDiscord(f"{item} value: ${ret_values[x]}", loop)
         if health_acc:
-            printAndDiscord("Health Savings accounts:", ctx, loop)
+            printAndDiscord("Health Savings accounts:", loop)
             for x, item in enumerate(health_account_list):
-                printAndDiscord(f"{item} value: {health_values[x]}", ctx, loop)
+                printAndDiscord(f"{item} value: {health_values[x]}", loop)
         return (
             account_list,
             ret_account_list,
@@ -226,7 +226,7 @@ def fidelity_account_numbers(driver: webdriver, ctx=None, loop=None, name="Fidel
         return None, None, None, None
 
 
-def fidelity_holdings(fidelity_o: Brokerage, ctx=None, loop=None):
+def fidelity_holdings(fidelity_o: Brokerage, loop=None):
     print()
     print("==============================")
     print("Fidelity Holdings")
@@ -235,11 +235,11 @@ def fidelity_holdings(fidelity_o: Brokerage, ctx=None, loop=None):
     for key in fidelity_o.get_account_numbers():
         driver = fidelity_o.get_logged_in_objects(key)
         # Get account holdings since holdings is not yet implemented
-        fidelity_account_numbers(driver, ctx=ctx, loop=loop, name=key)
+        fidelity_account_numbers(driver, loop=loop, name=key)
 
 
 def fidelity_transaction(
-    fidelity_o: Brokerage, orderObj: stockOrder, ctx=None, loop=None
+    fidelity_o: Brokerage, orderObj: stockOrder, loop=None
 ):
     print()
     print("==============================")
@@ -250,7 +250,6 @@ def fidelity_transaction(
         for key in fidelity_o.get_account_numbers():
             printAndDiscord(
                 f"{key}: {orderObj.get_action()}ing {orderObj.get_amount()} of {s}",
-                ctx,
                 loop,
             )
             driver = fidelity_o.get_logged_in_objects(key)
@@ -417,7 +416,6 @@ def fidelity_transaction(
                             # Send confirmation
                             printAndDiscord(
                                 f"{key} {account_label}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}",
-                                ctx,
                                 loop,
                             )
                         except NoSuchElementException:
@@ -439,14 +437,12 @@ def fidelity_transaction(
                             )
                             printAndDiscord(
                                 f"{key} {account_label}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}. DID NOT COMPLETE! \nEither this account does not have enough shares, or an order is already pending.",
-                                ctx,
                                 loop,
                             )
                         # Send confirmation
                     else:
                         printAndDiscord(
                             f"DRY: {key} {account_label}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}",
-                            ctx,
                             loop,
                         )
                     sleep(3)

@@ -48,7 +48,7 @@ def nicknames(broker):
 
 # Runs the specified function for each broker in the list
 # broker name + type of function
-def fun_run(orderObj: stockOrder, command, ctx=None, loop=None):
+def fun_run(orderObj: stockOrder, command, loop=None):
     if command in ["_init", "_holdings", "_transaction"]:
         for broker in orderObj.get_brokers():
             if broker in orderObj.get_notbrokers():
@@ -70,14 +70,13 @@ def fun_run(orderObj: stockOrder, command, ctx=None, loop=None):
                 elif command == "_holdings":
                     orderObj.order_validate(preLogin=False)
                     globals()[fun_name](
-                        orderObj.get_logged_in(nicknames(broker)), ctx, loop
+                        orderObj.get_logged_in(nicknames(broker)), loop
                     )
                 elif command == "_transaction":
                     orderObj.order_validate(preLogin=False)
                     globals()[fun_name](
                         orderObj.get_logged_in(nicknames(broker)),
                         orderObj,
-                        ctx,
                         loop,
                     )
             except Exception as ex:
@@ -279,11 +278,11 @@ if __name__ == "__main__":
                 # Get holdings or complete transaction
                 if discOrdObj.get_holdings():
                     await bot.loop.run_in_executor(
-                        None, fun_run, discOrdObj, "_holdings", ctx, loop
+                        None, fun_run, discOrdObj, "_holdings", loop
                     )
                 else:
                     await bot.loop.run_in_executor(
-                        None, fun_run, discOrdObj, "_transaction", ctx, loop
+                        None, fun_run, discOrdObj, "_transaction", loop
                     )
             except Exception as err:
                 print(traceback.format_exc())

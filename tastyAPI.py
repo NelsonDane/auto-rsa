@@ -23,7 +23,7 @@ from tastytrade.streamer import DataStreamer
 from helperAPI import Brokerage, printAndDiscord, printHoldings, stockOrder
 
 
-def day_trade_check(tt: Session, acct: Account, cash_balance, ctx=None, loop=None):
+def day_trade_check(tt: Session, acct: Account, cash_balance, loop=None):
     trading_status = acct.get_trading_status(tt)
     day_trade_count = trading_status.day_trade_count
     if (
@@ -33,7 +33,6 @@ def day_trade_check(tt: Session, acct: Account, cash_balance, ctx=None, loop=Non
     ):
         printAndDiscord(
             f"Tastytrade account {acct.account_number}: day trade count is {day_trade_count}. More than 3 day trades will cause a strike on your account!",
-            ctx=ctx,
             loop=loop,
         )
         return False
@@ -99,7 +98,7 @@ def tastytrade_init(TASTYTRADE_EXTERNAL=None):
     return tasty_obj
 
 
-def tastytrade_holdings(tt_o: Brokerage, ctx=None, loop=None):
+def tastytrade_holdings(tt_o: Brokerage, loop=None):
     for key in tt_o.get_account_numbers():
         obj: Session = tt_o.get_logged_in_objects(key, "session")
         for index, account in enumerate(tt_o.get_logged_in_objects(key, "accounts")):
@@ -116,15 +115,15 @@ def tastytrade_holdings(tt_o: Brokerage, ctx=None, loop=None):
                     )
             except Exception as e:
                 printAndDiscord(
-                    f"{key}: Error getting account holdings: {e}", ctx, loop
+                    f"{key}: Error getting account holdings: {e}", loop
                 )
                 print(traceback.format_exc())
                 continue
-        printHoldings(tt_o, ctx=ctx, loop=loop)
+        printHoldings(tt_o, loop=loop)
 
 
 async def tastytrade_execute(
-    tt_o: Brokerage, orderObj: stockOrder, ctx=None, loop=None
+    tt_o: Brokerage, orderObj: stockOrder, loop=None
 ):
     print()
     print("==============================")
@@ -137,7 +136,6 @@ async def tastytrade_execute(
             accounts: Account = tt_o.get_logged_in_objects(key, "accounts")
             printAndDiscord(
                 f"{key}: {orderObj.get_action()}ing {orderObj.get_amount()} of {s}",
-                ctx=ctx,
                 loop=loop,
             )
             for i, acct in enumerate(tt_o.get_account_numbers(key)):
@@ -165,7 +163,7 @@ async def tastytrade_execute(
                             message = f"{key} {acct.account_number}: {orderObj.get_action()} {orderObj.get_amount()} of {s}"
                             if orderObj.get_dry():
                                 message = f"{key} Running in DRY mode. Transaction would've been: {orderObj.get_action()} {orderObj.get_amount()} of {s}"
-                            printAndDiscord(message, ctx=ctx, loop=loop)
+                            printAndDiscord(message, loop=loop)
                         elif placed_order.order.status.value == "Rejected":
                             # Retry with limit order
                             streamer = await DataStreamer.create(obj)
@@ -173,7 +171,6 @@ async def tastytrade_execute(
                             stock_quote = await streamer.oneshot(EventType.QUOTE, [s])
                             printAndDiscord(
                                 f"{key} {acct.account_number} Error: Order Rejected! Trying Limit order...",
-                                ctx=ctx,
                                 loop=loop,
                             )
                             # Get limit price
@@ -206,23 +203,21 @@ async def tastytrade_execute(
                                 message = f"{key} {acct.account_number}: {orderObj.get_action()} {orderObj.get_amount()} of {s}"
                                 if orderObj.get_dry():
                                     message = f"{key} Running in DRY mode. Transaction would've been: {orderObj.get_action()} {orderObj.get_amount()} of {s}"
-                                printAndDiscord(message, ctx=ctx, loop=loop)
+                                printAndDiscord(message, loop=loop)
                             elif placed_order.order.status.value == "Rejected":
                                 printAndDiscord(
                                     f"{key} {acct.account_number}: Error: Limit Order Rejected! Skipping Account...",
-                                    ctx=ctx,
                                     loop=loop,
                                 )
                         printAndDiscord(
                             f"{key} {acct.account_number}: Error placing order: {placed_order.order.id} on account {acct.account_number}: {placed_order.order.status.value}",
-                            ctx=ctx,
                             loop=loop,
                         )
                 except Exception as te:
                     printAndDiscord(
-                        f"{key} {acct.account_number}: Error: {te}", ctx=ctx, loop=loop
+                        f"{key} {acct.account_number}: Error: {te}", loop=loop
                     )
 
 
-def tastytrade_transaction(tt: Brokerage, orderObj: stockOrder, ctx=None, loop=None):
-    asyncio.run(tastytrade_execute(tt_o=tt, orderObj=orderObj, ctx=ctx, loop=loop))
+def tastytrade_transaction(tt: Brokerage, orderObj: stockOrder, loop=None):
+    asyncio.run(tastytrade_execute(tt_o=tt, orderObj=orderObj, loop=loop))

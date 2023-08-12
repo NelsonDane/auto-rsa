@@ -82,7 +82,7 @@ def tradier_init(TRADIER_EXTERNAL=None):
     return tradier_obj
 
 
-def tradier_holdings(tradier_o: Brokerage, ctx=None, loop=None):
+def tradier_holdings(tradier_o: Brokerage, loop=None):
     # Loop through accounts
     for key in tradier_o.get_account_numbers():
         for account_number in tradier_o.get_account_numbers(key):
@@ -135,15 +135,15 @@ def tradier_holdings(tradier_o: Brokerage, ctx=None, loop=None):
                     )
             except Exception as e:
                 printAndDiscord(
-                    f"{key}: Error getting holdings: {e}", ctx=ctx, loop=loop
+                    f"{key}: Error getting holdings: {e}", loop=loop
                 )
                 print(traceback.format_exc())
                 continue
-    printHoldings(tradier_o, ctx=ctx, loop=loop)
+    printHoldings(tradier_o, loop=loop)
 
 
 def tradier_transaction(
-    tradier_o: Brokerage, orderObj: stockOrder, ctx=None, loop=None
+    tradier_o: Brokerage, orderObj: stockOrder, loop=None
 ):
     print()
     print("==============================")
@@ -155,7 +155,6 @@ def tradier_transaction(
         for key in tradier_o.get_account_numbers():
             printAndDiscord(
                 f"{key}: {orderObj.get_action()}ing {orderObj.get_amount()} of {s}",
-                ctx=ctx,
                 loop=loop,
             )
             for account in tradier_o.get_account_numbers(key):
@@ -182,38 +181,33 @@ def tradier_transaction(
                         except requests.exceptions.JSONDecodeError as e:
                             printAndDiscord(
                                 f"Tradier account {account} Error: {e} JSON response: {response}",
-                                ctx=ctx,
                                 loop=loop,
                             )
                             continue
                         if json_response["order"]["status"] == "ok":
                             printAndDiscord(
                                 f"Tradier account {account}: {orderObj.get_action()} {orderObj.get_amount()} of {s}",
-                                ctx=ctx,
                                 loop=loop,
                             )
                         else:
                             printAndDiscord(
                                 f"Tradier account {account} Error: {json_response['order']['status']}",
-                                ctx=ctx,
                                 loop=loop,
                             )
                             continue
                     except KeyError:
                         printAndDiscord(
                             f"Tradier account {account} Error: This order did not route. JSON response: {json_response}",
-                            ctx=ctx,
                             loop=loop,
                         )
                     except Exception as e:
                         printAndDiscord(
-                            f"Tradier account {account}: Error: {e}", ctx=ctx, loop=loop
+                            f"Tradier account {account}: Error: {e}", loop=loop
                         )
                         print(traceback.format_exc())
                         print(json_response)
                 else:
                     printAndDiscord(
                         f"Tradier account {account}: Running in DRY mode. Trasaction would've been: {orderObj.get_action()} {orderObj.get_amount()} of {s}",
-                        ctx=ctx,
                         loop=loop,
                     )

@@ -83,7 +83,7 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
     return rh_obj
 
 
-def robinhood_holdings(rho: Brokerage, ctx=None, loop=None):
+def robinhood_holdings(rho: Brokerage, loop=None):
     for key in rho.get_account_numbers():
         for account in rho.get_account_numbers(key):
             obj: rh = rho.get_logged_in_objects(key)
@@ -105,14 +105,14 @@ def robinhood_holdings(rho: Brokerage, ctx=None, loop=None):
                         rho.set_holdings(key, account, sym, qty, current_price)
             except Exception as e:
                 printAndDiscord(
-                    f"{key}: Error getting account holdings: {e}", ctx, loop
+                    f"{key}: Error getting account holdings: {e}", loop
                 )
                 print(traceback.format_exc())
                 continue
-        printHoldings(rho, ctx, loop)
+        printHoldings(rho, loop)
 
 
-def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, ctx=None, loop=None):
+def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, loop=None):
     print()
     print("==============================")
     print("Robinhood")
@@ -122,7 +122,6 @@ def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, ctx=None, loop=N
         for key in rho.get_account_numbers():
             printAndDiscord(
                 f"{key}: {orderObj.get_action()}ing {orderObj.get_amount()} of {s}",
-                ctx,
                 loop,
             )
             for account in rho.get_account_numbers(key):
@@ -140,7 +139,6 @@ def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, ctx=None, loop=N
                         if market_order is None:
                             printAndDiscord(
                                 f"{key}: Error {orderObj.get_action()}ing {orderObj.get_amount()} of {s} in {account}, trying Limit Order",
-                                ctx,
                                 loop,
                             )
                             ask = obj.get_latest_price(s, priceType="ask_price")[0]
@@ -164,7 +162,7 @@ def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, ctx=None, loop=N
                                     price = round(price - 0.01, 2)
                             else:
                                 printAndDiscord(
-                                    f"{key}: Error getting price for {s}", ctx, loop
+                                    f"{key}: Error getting price for {s}", loop
                                 )
                                 continue
                             limit_order = obj.order(
@@ -177,27 +175,23 @@ def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, ctx=None, loop=N
                             if limit_order is None:
                                 printAndDiscord(
                                     f"{key}: Error {orderObj.get_action()}ing {orderObj.get_amount()} of {s} in {account}",
-                                    ctx,
                                     loop,
                                 )
                                 continue
                             printAndDiscord(
                                 f"{key}: {orderObj.get_action()} {orderObj.get_amount()} of {s} in {account} @ {price}: Success",
-                                ctx,
                                 loop,
                             )
                         else:
                             printAndDiscord(
                                 f"{key}: {orderObj.get_action()} {orderObj.get_amount()} of {s} in {account}: Success",
-                                ctx,
                                 loop,
                             )
                     except Exception as e:
                         print(traceback.format_exc())
-                        printAndDiscord(f"{key} Error submitting order: {e}", ctx, loop)
+                        printAndDiscord(f"{key} Error submitting order: {e}", loop)
                 else:
                     printAndDiscord(
                         f"{key} Running in DRY mode. Transaction would've been: {orderObj.get_action()} {orderObj.get_amount()} of {s}",
-                        ctx,
                         loop,
                     )

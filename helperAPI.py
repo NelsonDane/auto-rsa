@@ -387,24 +387,23 @@ def printAndDiscord(message, loop=None):
 async def processQueue():
     # Process discord queue
     while not task_queue.empty():
-        message, ctx = task_queue.get()
-        await processTasks(message, ctx)
+        message = task_queue.get()
+        await processTasks(message)
         task_queue.task_done()
 
 
-def printHoldings(brokerObj: Brokerage, ctx=None, loop=None):
+def printHoldings(brokerObj: Brokerage, loop=None):
     # Helper function for holdings formatting
     printAndDiscord(
         f"==============================\n{brokerObj.get_name()} Holdings\n==============================",
-        ctx,
         loop,
     )
     for key in brokerObj.get_account_numbers():
         for account in brokerObj.get_account_numbers(key):
-            printAndDiscord(f"{key} ({account}):", ctx, loop)
+            printAndDiscord(f"{key} ({account}):", loop)
             holdings = brokerObj.get_holdings(key, account)
             if holdings == {}:
-                printAndDiscord("No holdings in Account\n", ctx, loop)
+                printAndDiscord("No holdings in Account\n", loop)
             else:
                 print_string = ""
                 for stock in holdings:
@@ -412,10 +411,9 @@ def printHoldings(brokerObj: Brokerage, ctx=None, loop=None):
                     price = holdings[stock]["price"]
                     total = holdings[stock]["total"]
                     print_string += f"{stock}: {quantity} @ ${format(price, '0.2f')} = ${format(total, '0.2f')}\n"
-                printAndDiscord(print_string, ctx, loop)
+                printAndDiscord(print_string, loop)
             printAndDiscord(
                 f"Total: ${format(brokerObj.get_account_totals(key, account), '0.2f')}\n",
-                ctx,
                 loop,
             )
-    printAndDiscord("==============================", ctx, loop)
+    printAndDiscord("==============================", loop)
