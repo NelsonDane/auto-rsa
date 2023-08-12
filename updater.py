@@ -4,23 +4,38 @@
 import os
 import platform
 import shutil
-import stat
 import subprocess
 import sys
 
 
-def delete_temp(path):
+def setPermsRW(path):
     # Loop through all files and folders in temp and set permissions to allow deletion
     for root, dirs, files in os.walk(path):
         for d in dirs:
-            os.chmod(os.path.join(root, d), stat.S_IWRITE)
+            os.chmod(os.path.join(root, d), 0o777)
         for f in files:
-            os.chmod(os.path.join(root, f), stat.S_IWRITE)
-    shutil.rmtree(os.path.join(path))
+            os.chmod(os.path.join(root, f), 0o777)
+
+
+def deleteFolder(path):
+    # Loop through all files and folders in temp and delete
+    for root, dirs, files in os.walk(path, topdown=False):
+        for f in files:
+            print(f)
+            os.remove(os.path.join(root, f))
+        for d in dirs:
+            print(d)
+            os.rmdir(os.path.join(root, d))
 
 
 def update_project(branch=None):
     try:
+        # Check if disabled
+        if os.getenv("DISABLE_AUTO_UPDATE", "").lower() == "true":
+            print("Auto update disabled, skipping...")
+            return
+        else:
+            print("Starting auto update. To disable, set DISABLE_AUTO_UPDATE to true in .env")
         # Check if git is installed
         try:
             subprocess.run(["git", "--version"], stdout=subprocess.DEVNULL, check=True)
@@ -28,9 +43,8 @@ def update_project(branch=None):
             print("Git is not installed, please install so the project can auto update")
             return
         # Get current OS
-        WINDOWS = True if platform.system() == "Windows" else False
-        if WINDOWS:
-            print("Running on Windows")
+        os_name = platform.system()
+        print(f"Running on {os_name}...")
         # Check if .git folder exists
         project_dir = os.path.dirname(os.path.realpath(__file__))
         if os.path.exists(os.path.join(project_dir, ".git")):
@@ -45,6 +59,8 @@ def update_project(branch=None):
                 )
             else:
                 branch = branch.strip()
+                # Stash all changes before switching branches
+                subprocess.run(["git", "add", "."], cwd=project_dir, check=True)
                 subprocess.run(["git", "stash"], cwd=project_dir, check=True)
                 subprocess.run(["git", "checkout", branch], cwd=project_dir, check=True)
             print(f"Current branch: {branch}")
@@ -53,22 +69,26 @@ def update_project(branch=None):
             subprocess.run(
                 ["git", "pull", "origin", branch], cwd=project_dir, check=True
             )
-            print("Update completed!")
+            # Restore changes
+            print("Restoring changes...")
+            subprocess.run(["git", "stash", "pop"], cwd=project_dir, check=True)
+            print("Update complete!")
         else:
             # Check if project directory exists and is empty, remove if not
             if os.path.exists(os.path.join(project_dir, "temp")):
-                delete_temp(os.path.join(project_dir, "temp"))
+                setPermsRW(os.path.join(project_dir, "temp"))
+                deleteFolder(os.path.join(project_dir, "temp"))
             # Clone the repository
             print("Cloning repository...")
             repo_url = "https://github.com/NelsonDane/auto-rsa"
             subprocess.run(
-                ["git", "clone", repo_url, f"{project_dir}/temp"], check=True
+                ["git", "clone", repo_url, f"{project_dir}/temp", "--branch", branch], check=True
             )
-
             # Move .git folder to initialize repository and remove temp folder
             print("Moving .git folder...")
+            setPermsRW(os.path.join(project_dir, "temp"))
             shutil.move(f"{project_dir}/temp/.git", project_dir)
-            delete_temp(os.path.join(project_dir, "temp"))
+            deleteFolder(os.path.join(project_dir, "temp"))
             print("Repository initialized!")
             # Update the project
             update_project(branch)
