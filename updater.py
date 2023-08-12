@@ -4,9 +4,9 @@
 import os
 import platform
 import shutil
+import stat
 import subprocess
 import sys
-import stat
 
 
 def delete_temp(path):
@@ -37,7 +37,9 @@ def update_project(branch=None):
             # Get current branch
             if branch is None:
                 branch = (
-                    subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"])
+                    subprocess.check_output(
+                        ["git", "rev-parse", "--abbrev-ref", "HEAD"]
+                    )
                     .decode("utf-8")
                     .strip()
                 )
@@ -48,7 +50,9 @@ def update_project(branch=None):
             print(f"Current branch: {branch}")
             # Update the project
             print("Updating project...")
-            subprocess.run(["git", "pull", "origin", branch], cwd=project_dir, check=True)
+            subprocess.run(
+                ["git", "pull", "origin", branch], cwd=project_dir, check=True
+            )
             print("Update completed!")
         else:
             # Check if project directory exists and is empty, remove if not
@@ -57,7 +61,9 @@ def update_project(branch=None):
             # Clone the repository
             print("Cloning repository...")
             repo_url = "https://github.com/NelsonDane/auto-rsa"
-            subprocess.run(["git", "clone", repo_url, f"{project_dir}/temp"], check=True)
+            subprocess.run(
+                ["git", "clone", repo_url, f"{project_dir}/temp"], check=True
+            )
 
             # Move .git folder to initialize repository and remove temp folder
             print("Moving .git folder...")
