@@ -275,7 +275,9 @@ def updater():
     repo = Repo(".")
     if repo.is_dirty():
         # Print warning and let users take care of changes themselves
-        print("ERROR: Conflicting changes found. Please commit, stash, or remove your changes before updating.")
+        print(
+            "ERROR: Conflicting changes found. Please commit, stash, or remove your changes before updating."
+        )
         return
     if not repo.bare:
         repo.remotes.origin.pull()
@@ -308,7 +310,11 @@ def check_if_page_loaded(driver):
 def getDriver(DOCKER=False):
     # Check for custom driver version else use latest
     load_dotenv()
-    if os.getenv("WEBDRIVER_VERSION") and os.getenv("WEBDRIVER_VERSION") != "" and os.getenv("WEBDRIVER_VERSION") != "latest":
+    if (
+        os.getenv("WEBDRIVER_VERSION")
+        and os.getenv("WEBDRIVER_VERSION") != ""
+        and os.getenv("WEBDRIVER_VERSION") != "latest"
+    ):
         version = os.getenv("WEBDRIVER_VERSION")
         print(f"Using chromedriver version {version}")
     else:
