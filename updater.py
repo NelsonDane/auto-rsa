@@ -31,12 +31,12 @@ def deleteFolder(path):
 def update_project(branch=None):
     try:
         # Check if disabled
-        if os.getenv("DISABLE_AUTO_UPDATE", "").lower() == "true":
+        if os.getenv("ENABLE_AUTO_UPDATE", "").lower() != "true":
             print("Auto update disabled, skipping...")
             return
         else:
             print(
-                "Starting auto update. To disable, set DISABLE_AUTO_UPDATE to true in .env"
+                "Starting auto update. To disable, set ENABLE_AUTO_UPDATE to true in .env"
             )
         # Check if git is installed
         try:
