@@ -308,7 +308,7 @@ def check_if_page_loaded(driver):
 def getDriver(DOCKER=False):
     # Check for custom driver version else use latest
     load_dotenv()
-    if os.getenv("WEBDRIVER_VERSION") and os.getenv("WEBDRIVER_VERSION") != "":
+    if os.getenv("WEBDRIVER_VERSION") and os.getenv("WEBDRIVER_VERSION") != "" and os.getenv("WEBDRIVER_VERSION") != "latest":
         version = os.getenv("WEBDRIVER_VERSION")
         print(f"Using chromedriver version {version}")
     else:
