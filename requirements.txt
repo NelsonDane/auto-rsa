@@ -1,6 +1,7 @@
 apprise==1.4.0
 asyncio==3.4.3
 discord.py==2.2.3
+GitPython==3.1.32
 pandas==2.0.2
 pyally==1.1.2
 pydantic==1.10.11

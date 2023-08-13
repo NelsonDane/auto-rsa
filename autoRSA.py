@@ -15,7 +15,7 @@ try:
     # Custom API libraries
     from allyAPI import *
     from fidelityAPI import *
-    from helperAPI import killDriver, stockOrder
+    from helperAPI import killDriver, stockOrder, updater
     from robinhoodAPI import *
     from schwabAPI import *
     from tastyAPI import *
@@ -48,7 +48,7 @@ def nicknames(broker):
 
 # Runs the specified function for each broker in the list
 # broker name + type of function
-def fun_run(orderObj: stockOrder, command, ctx=None, loop=None):
+def fun_run(orderObj: stockOrder, command, loop=None):
     if command in ["_init", "_holdings", "_transaction"]:
         for broker in orderObj.get_brokers():
             if broker in orderObj.get_notbrokers():
@@ -69,15 +69,12 @@ def fun_run(orderObj: stockOrder, command, ctx=None, loop=None):
                     print(f"Error: {broker} not logged in, skipping...")
                 elif command == "_holdings":
                     orderObj.order_validate(preLogin=False)
-                    globals()[fun_name](
-                        orderObj.get_logged_in(nicknames(broker)), ctx, loop
-                    )
+                    globals()[fun_name](orderObj.get_logged_in(nicknames(broker)), loop)
                 elif command == "_transaction":
                     orderObj.order_validate(preLogin=False)
                     globals()[fun_name](
                         orderObj.get_logged_in(nicknames(broker)),
                         orderObj,
-                        ctx,
                         loop,
                     )
             except Exception as ex:
@@ -166,9 +163,11 @@ if __name__ == "__main__":
     elif (
         len(sys.argv) == 2 and sys.argv[1].lower() == "discord"
     ):  # If discord argument, run discord bot, no docker, no prompt
+        updater()
         print("Running Discord bot from command line")
         DISCORD_BOT = True
     else:  # If any other argument, run bot, no docker or discord bot
+        updater()
         print("Running bot from command line")
         cliOrderObj: stockOrder = argParser(sys.argv[1:])
         if not cliOrderObj.get_holdings():
@@ -208,10 +207,10 @@ if __name__ == "__main__":
         # Get discord token and channel from .env file
         if not os.environ["DISCORD_TOKEN"]:
             raise Exception("DISCORD_TOKEN not found in .env file, please add it")
+        if not os.environ["DISCORD_CHANNEL"]:
+            raise Exception("DISCORD_CHANNEL not found in .env file, please add it")
         DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-        DISCORD_CHANNEL = os.getenv("DISCORD_CHANNEL", None)
-        if DISCORD_CHANNEL:
-            DISCORD_CHANNEL = int(DISCORD_CHANNEL)
+        DISCORD_CHANNEL = int(os.getenv("DISCORD_CHANNEL"))
         # Initialize discord bot
         intents = discord.Intents.default()
         intents.message_content = True
@@ -233,20 +232,23 @@ if __name__ == "__main__":
         )
 
         # Bot event when bot is ready
-        if DISCORD_CHANNEL:
-
-            @bot.event
-            async def on_ready():
-                channel = bot.get_channel(DISCORD_CHANNEL)
-                await channel.send("Discord bot is started...")
-                # Old .env file format warning
-                if not SUPRESS_OLD_WARN:
-                    await channel.send(
-                        "Heads up! .env file format has changed, see .env.example for new format"
-                    )
-                    await channel.send(
-                        "To supress this message, set SUPRESS_OLD_WARN to True in your .env file"
-                    )
+        @bot.event
+        async def on_ready():
+            channel = bot.get_channel(DISCORD_CHANNEL)
+            if channel is None:
+                print(
+                    "ERROR: Invalid channel ID, please check your DISCORD_CHANNEL in your .env file and try again"
+                )
+                os._exit(1)
+            await channel.send("Discord bot is started...")
+            # Old .env file format warning
+            if not SUPRESS_OLD_WARN:
+                await channel.send(
+                    "Heads up! .env file format has changed, see .env.example for new format"
+                )
+                await channel.send(
+                    "To supress this message, set SUPRESS_OLD_WARN to True in your .env file"
+                )
 
         # Bot ping-pong
         @bot.command(name="ping")
@@ -274,11 +276,11 @@ if __name__ == "__main__":
                 # Get holdings or complete transaction
                 if discOrdObj.get_holdings():
                     await bot.loop.run_in_executor(
-                        None, fun_run, discOrdObj, "_holdings", ctx, loop
+                        None, fun_run, discOrdObj, "_holdings", loop
                     )
                 else:
                     await bot.loop.run_in_executor(
-                        None, fun_run, discOrdObj, "_transaction", ctx, loop
+                        None, fun_run, discOrdObj, "_transaction", loop
                     )
             except Exception as err:
                 print(traceback.format_exc())

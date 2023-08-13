@@ -72,7 +72,7 @@ def ally_init(ALLY_EXTERNAL=None, ALLY_ACCOUNT_NUMBERS_EXTERNAL=None):
 
 
 # Function to get the current account holdings
-def ally_holdings(ao: Brokerage, ctx=None, loop=None):
+def ally_holdings(ao: Brokerage, loop=None):
     for key in ao.get_account_numbers():
         account_numbers = ao.get_account_numbers(key)
         for account in account_numbers:
@@ -93,19 +93,16 @@ def ally_holdings(ao: Brokerage, ctx=None, loop=None):
                     for i, symbol in enumerate(account_symbols):
                         ao.set_holdings(key, account, symbol, qty[i], current_price[i])
             except Exception as e:
-                printAndDiscord(
-                    f"{key}: Error getting account holdings: {e}", ctx, loop
-                )
+                printAndDiscord(f"{key}: Error getting account holdings: {e}", loop)
                 print(traceback.format_exc())
                 continue
-    printHoldings(ao, ctx, loop)
+    printHoldings(ao, loop)
 
 
 # Function to buy/sell stock on Ally
 def ally_transaction(
     ao: Brokerage,
     orderObj: stockOrder,
-    ctx=None,
     loop=None,
     RETRY=False,
     account_retry=None,
@@ -124,7 +121,6 @@ def ally_transaction(
         for key in ao.get_account_numbers():
             printAndDiscord(
                 f"{key}: {orderObj.get_action()}ing {orderObj.get_amount} of {s}",
-                ctx,
                 loop,
             )
             for account in ao.get_account_numbers(key):
@@ -152,18 +148,15 @@ def ally_transaction(
                         printAndDiscord(
                             f"{key} {account}: Running in DRY mode. "
                             + f"Trasaction would've been: {orderObj.get_action()} {orderObj.get_amount()} of {s}",
-                            ctx,
                             loop,
                         )
                     # Print order status
                     if o.orderid:
                         printAndDiscord(
-                            f"{key} {account}: Order {o.orderid} submitted", ctx, loop
+                            f"{key} {account}: Order {o.orderid} submitted", loop
                         )
                     else:
-                        printAndDiscord(
-                            f"{key} {account}: Order not submitted", ctx, loop
-                        )
+                        printAndDiscord(f"{key} {account}: Order not submitted", loop)
                     if RETRY:
                         return
                 except Exception as e:
@@ -178,13 +171,12 @@ def ally_transaction(
                     ):
                         # If selling too soon, then an error is thrown
                         if orderObj.get_action() == "sell":
-                            printAndDiscord(ally_call_error, ctx, loop)
+                            printAndDiscord(ally_call_error, loop)
                         # If the message comes up while buying, then
                         # try again with a limit order
                         elif orderObj.get_action() == "buy" and not RETRY:
                             printAndDiscord(
                                 f"{key} {account}: Error placing market buy, trying again with limit order...",
-                                ctx,
                                 loop,
                             )
                             # Need to get stock price (compare bid, ask, and last)
@@ -210,7 +202,6 @@ def ally_transaction(
                                 ally_transaction(
                                     ao,
                                     orderObj,
-                                    ctx,
                                     loop,
                                     RETRY=True,
                                     account_retry=account,
@@ -218,23 +209,20 @@ def ally_transaction(
                             except Exception as ex:
                                 printAndDiscord(
                                     f"{key} {account}: Failed to place limit order: {ex}",
-                                    ctx,
                                     loop,
                                 )
                         else:
                             printAndDiscord(
                                 f"{key} {account}: Error placing limit order: {e}",
-                                ctx,
                                 loop,
                             )
                     # If price is not a string then it must've failed a limit order
                     elif not isinstance(orderObj.get_price(), str):
                         printAndDiscord(
                             f"{key} {account}: Error placing limit order: {e}",
-                            ctx,
                             loop,
                         )
                     else:
                         printAndDiscord(
-                            f"{key} {account}: Error submitting order: {e}", ctx, loop
+                            f"{key} {account}: Error submitting order: {e}", loop
                         )

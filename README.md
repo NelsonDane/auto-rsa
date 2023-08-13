@@ -129,12 +129,17 @@ Required `.env` variables:
 - `ROBINHOOD_USERNAME`
 - `ROBINHOOD_PASSWORD`
 - `ROBINHOOD_TOTP` (If 2fa enabled, else NA)
+- `ROBINHOOD_IRA_NUMBERS` (If you want to use your IRA account, else NA. Separate multiple IRA numbers with commas)
 
 `.env` file format:
-- With 2fa: `ROBINHOOD=ROBINHOOD_USERNAME:ROBINHOOD_PASSWORD:ROBINHOOD_TOTP`
-- Without 2fa: `ROBINHOOD=ROBINHOOD_USERNAME:ROBINHOOD_PASSWORD:NA`
+- With 2fa: `ROBINHOOD=ROBINHOOD_USERNAME:ROBINHOOD_PASSWORD:ROBINHOOD_TOTP:ROBINHOOD_IRA_1:ROBINHOOD_IRA_2`
+- Without 2fa: `ROBINHOOD=ROBINHOOD_USERNAME:ROBINHOOD_PASSWORD:NA:ROBINHOOD_IRA_1:ROBINHOOD_IRA_2`
+
+If you don't have an IRA account or only have one, then you can omit the last field or set it to NA.
 
 Configuring 2fa can be tricky, read the TOTP section [here](https://github.com/jmfernandes/robin_stocks/blob/master/Robinhood.rst).
+
+To get your IRA numbers, check your monthly statement, or tap the menu button in the Robinhood app and go to `Investing`.
 
 ### Schwab
 Made using the [schwab-api](https://github.com/itsjafer/schwab-api). Go give them a ⭐
