@@ -39,8 +39,11 @@ def webull_init(WEBULL_EXTERNAL=None):
             wb_obj = Brokerage("Webull")
             wb_obj.set_logged_in_object(name, wb, "wb")
             wb_obj.set_logged_in_object(name, account[3], "access_token")
-            # TODO: Get other accounts (Roth, IRA, Margin, etc.)
+            wb_obj.set_logged_in_object(name, wb._account_id, "account_id")
+            # TODO: Get other accounts (Roth, IRA, Margin, etc.)``
             ac = wb.get_account()
+            print(ac)
+            print(len(ac))
             wb_obj.set_account_number(name, ac["brokerAccountId"])
             wb_obj.set_account_type(name, ac["brokerAccountId"], ac["accountType"])
             wb_obj.set_account_totals(name, ac["brokerAccountId"], ac["netLiquidation"])
@@ -62,6 +65,7 @@ def webull_holdings(wbo: Brokerage, loop=None):
                     printAndDiscord(f"{key} {account}: Not logged in", loop)
                     continue
                 # Get account holdings
+                obj._account_id = wbo.get_logged_in_objects(key, "account_id")
                 positions = obj.get_positions()
                 # List of holdings dictionaries
                 if positions != []:
@@ -113,6 +117,7 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
                         else:
                             # Place normal order
                             obj.get_trade_token(wbo.get_logged_in_objects(key, "access_token"))
+                            obj._account_id = wbo.get_logged_in_objects(key, "account_id")
                             order = obj.place_order(
                                 stock=s,
                                 action=orderObj.get_action(),
