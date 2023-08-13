@@ -55,8 +55,12 @@ def webull_init(WEBULL_EXTERNAL=None):
 def webull_holdings(wbo: Brokerage, loop=None):
     for key in wbo.get_account_numbers():
         for account in wbo.get_account_numbers(key):
-            obj: webull = wbo.get_logged_in_objects(key)
+            obj: webull = wbo.get_logged_in_objects(key, "wb")
             try:
+                # Make sure we're logged in
+                if not obj.is_logged_in():
+                    printAndDiscord(f"{key} {account}: Not logged in", loop)
+                    continue
                 # Get account holdings
                 positions = obj.get_positions()
                 # List of holdings dictionaries
@@ -89,6 +93,10 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
             )
             for account in wbo.get_account_numbers(key):
                 obj: webull = wbo.get_logged_in_objects(key, "wb")
+                # Make sure we're logged in
+                if not obj.is_logged_in():
+                    printAndDiscord(f"{key} {account}: Not logged in", loop)
+                    continue
                 if not orderObj.get_dry():
                     try:
                         if orderObj.get_price() == "market":
