@@ -41,8 +41,11 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
             )
             rh_obj.set_logged_in_object(name, rh)
             # Check for IRA accounts
-            if (len(account) > 3) and (account[3].upper() != "NA"):
-                for ira in account[3].split(","):
+            if (len(account) > 3) and (account[3] != "NA"):
+                iras = [account[3]]
+                if len(account) > 4 and account[4] != "NA":
+                    iras.append(account[4])
+                for ira in iras:
                     ira_num = rh.account.load_account_profile(
                         info="account_number", account_number=ira
                     )
@@ -78,6 +81,7 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
             )
         except Exception as e:
             print(f"Error: Unable to log in to Robinhood: {e}")
+            traceback.format_exc()
             return None
         print("Logged in to Robinhood!")
     return rh_obj
@@ -105,7 +109,7 @@ def robinhood_holdings(rho: Brokerage, loop=None):
                         rho.set_holdings(key, account, sym, qty, current_price)
             except Exception as e:
                 printAndDiscord(f"{key}: Error getting account holdings: {e}", loop)
-                print(traceback.format_exc())
+                traceback.format_exc()
                 continue
         printHoldings(rho, loop)
 
@@ -186,7 +190,7 @@ def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, loop=None):
                                 loop,
                             )
                     except Exception as e:
-                        print(traceback.format_exc())
+                        traceback.format_exc()
                         printAndDiscord(f"{key} Error submitting order: {e}", loop)
                 else:
                     printAndDiscord(
