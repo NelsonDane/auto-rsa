@@ -268,9 +268,7 @@ def updater():
     if os.getenv("ENABLE_AUTO_UPDATE", "").lower() != "true":
         print("Auto update disabled, skipping...")
         return
-    print(
-        "Starting auto update. To disable, set ENABLE_AUTO_UPDATE to true in .env"
-    )
+    print("Starting auto update. To disable, set ENABLE_AUTO_UPDATE to true in .env")
     repo = Repo(".")
     if repo.is_dirty():
         # Print warning and let users take care of changes themselves
