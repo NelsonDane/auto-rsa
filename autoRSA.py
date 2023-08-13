@@ -15,12 +15,11 @@ try:
     # Custom API libraries
     from allyAPI import *
     from fidelityAPI import *
-    from helperAPI import killDriver, stockOrder
+    from helperAPI import killDriver, updater, stockOrder
     from robinhoodAPI import *
     from schwabAPI import *
     from tastyAPI import *
     from tradierAPI import *
-    from updater import update_project
 except Exception as e:
     print(f"Error importing libraries: {e}")
     print("Please run 'pip install -r requirements.txt'")
@@ -163,11 +162,11 @@ if __name__ == "__main__":
     elif (
         len(sys.argv) == 2 and sys.argv[1].lower() == "discord"
     ):  # If discord argument, run discord bot, no docker, no prompt
-        update_project()
+        updater()
         print("Running Discord bot from command line")
         DISCORD_BOT = True
     else:  # If any other argument, run bot, no docker or discord bot
-        update_project()
+        updater()
         print("Running bot from command line")
         cliOrderObj: stockOrder = argParser(sys.argv[1:])
         if not cliOrderObj.get_holdings():

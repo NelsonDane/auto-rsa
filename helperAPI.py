@@ -10,6 +10,7 @@ from time import sleep
 
 import requests
 from dotenv import load_dotenv
+from git import Repo
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromiumService
 from webdriver_manager.chrome import ChromeDriverManager
@@ -260,6 +261,35 @@ class Brokerage:
             Account Types: {self.__account_types}
         """
         )
+
+
+def updater():
+    # Check if disabled
+    if os.getenv("ENABLE_AUTO_UPDATE", "").lower() != "true":
+        print("Auto update disabled, skipping...")
+        return
+    else:
+        print(
+            "Starting auto update. To disable, set ENABLE_AUTO_UPDATE to true in .env"
+        )
+    repo = Repo(".")
+    if repo.is_dirty():
+        # Print warning and let users take care of changes themselves
+        print("ERROR: Conflicting changes found. Please commit, stash, or remove your changes before updating.")
+        return
+    if not repo.bare:
+        repo.remotes.origin.pull()
+        print(f"Pulled lates changes from {repo.active_branch}.")
+    else:
+        repo.init()
+        repo.create_remote("origin", "https://github.com/NelsonDane/auto-rsa")
+        repo.remotes.origin.fetch()
+        repo.create_head("main", repo.remotes.origin.refs.main)
+        repo.heads.main.set_tracking_branch(repo.remotes.origin.refs.main)
+        repo.heads.main.checkout(True)
+        print(f"Cloned repo from {repo.active_branch}.")
+    print("Update complete.")
+    return
 
 
 def type_slowly(element, string, delay=0.3):
