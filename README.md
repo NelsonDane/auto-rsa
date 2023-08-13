@@ -176,15 +176,29 @@ Required `.env` variables:
 `.env` file format:
 - `TASTYTRADE=TASTYTRADE_USERNAME:TASTYTRADE_PASSWORD`
 
+### Webull
+Made using the [webull](https://github.com/tedchou12/webull) library. Go give them a ⭐
+
+Required `.env` variables:
+- `WEBULL_USERNAME`
+- `WEBULL_PASSWORD`
+- `WEBULL_ACCESS_TOKEN`
+- `WEBULL_TRADING_PIN`
+
+`.env` file format:
+- `WEBULL=WEBULL_USERNAME:WEBULL_PASSWORD:WEBULL_ACCESS_TOKEN:WEBULL_TRADING_PIN`
+
+To get your access token, follow this [guide](guides/webullSetup.md).
+
 ### Maybe future brokerages
 #### Chase
 I will be signing up for a Chase account soon, and I have heard that it is possible, so I will be looking into it soon.
-#### Vanguard
-Will be added using Selenium just like Fidelity. I found this [vanguard-api](https://github.com/rikonor/vanguard-api), but it failed when I ran it.
+#### Firstrade
+In progress, coming soon.
 #### SoFi
 Login requires SMS 2fa, and I'm not sure how to do that automatically.
-#### Webull
-Not currently working since login is broken in [webull](https://github.com/tedchou12/webull). They also use SMS 2fa, so I'm not sure how to do that automatically.
+#### Vanguard
+Will be added using Selenium just like Fidelity. I found this [vanguard-api](https://github.com/rikonor/vanguard-api), but it failed when I ran it.
 #### Public
 Same as Webull and SoFi.
 ### Never working brokerages
