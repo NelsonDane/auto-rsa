@@ -15,7 +15,7 @@ try:
     # Custom API libraries
     from allyAPI import *
     from fidelityAPI import *
-    from helperAPI import killDriver, updater, stockOrder
+    from helperAPI import killDriver, stockOrder, updater
     from robinhoodAPI import *
     from schwabAPI import *
     from tastyAPI import *
