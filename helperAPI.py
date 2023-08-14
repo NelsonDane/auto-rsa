@@ -10,7 +10,6 @@ from time import sleep
 
 import requests
 from dotenv import load_dotenv
-from git import Repo
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromiumService
 from webdriver_manager.chrome import ChromeDriverManager
@@ -267,6 +266,12 @@ def updater():
     # Check if disabled
     if os.getenv("ENABLE_AUTO_UPDATE", "").lower() != "true":
         print("Auto update disabled, skipping...")
+        return
+    # Check if git is installed
+    try:
+        from git import Repo
+    except ImportError:
+        print("GitPython not installed. Please install Git and then run pip install -r requirements.txt")
         return
     print("Starting auto update. To disable, set ENABLE_AUTO_UPDATE to true in .env")
     repo = Repo(".")
