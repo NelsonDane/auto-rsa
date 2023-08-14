@@ -38,12 +38,13 @@ def webull_init(WEBULL_EXTERNAL=None):
             # Initialize Webull account
             wb_obj = Brokerage("Webull")
             wb_obj.set_logged_in_object(name, wb, "wb")
-            wb_obj.set_logged_in_object(name, account[3], "access_token")
+            wb_obj.set_logged_in_object(name, account[2], "access_token")
+            wb_obj.set_logged_in_object(name, account[3], "trading_pin")
             wb_obj.set_logged_in_object(name, wb._account_id, "account_id")
             # TODO: Get other accounts (Roth, IRA, Margin, etc.)``
+            print(wb.get_account_id())
             ac = wb.get_account()
             print(ac)
-            print(len(ac))
             wb_obj.set_account_number(name, ac["brokerAccountId"])
             wb_obj.set_account_type(name, ac["brokerAccountId"], ac["accountType"])
             wb_obj.set_account_totals(name, ac["brokerAccountId"], ac["netLiquidation"])
@@ -106,9 +107,14 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
                         if orderObj.get_price() == "market":
                             orderObj.set_price("MKT")
                         # If stock price < $1 and buy, buy 100 shares and sell 100 - amount
-                        price = float(obj.get_quote(s)["pPrice"])
-                        if price < 1 and orderObj.get_action() == "buy":
-                            old_amount = orderObj.get_amount() 
+                        askList = obj.get_quote(s)["askList"]
+                        bidList = obj.get_quote(s)["bidList"]
+                        if askList == [] and bidList == []:
+                            printAndDiscord(f"{key} {account}: {s} not found", loop)
+                        askPrice = float(askList[0]["price"]) if askList != [] else 0
+                        bidPrice = float(bidList[0]["price"]) if bidList != [] else 0
+                        if (askPrice < 1 or bidPrice < 1) and orderObj.get_action() == "buy":
+                            old_amount = orderObj.get_amount()
                             orderObj.set_amount(100)
                             webull_transaction(wbo, orderObj, loop)
                             orderObj.set_amount(100 - old_amount)
@@ -116,14 +122,16 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
                             webull_transaction(wbo, orderObj, loop)
                         else:
                             # Place normal order
-                            obj.get_trade_token(wbo.get_logged_in_objects(key, "access_token"))
+                            obj.get_trade_token(wbo.get_logged_in_objects(key, "trading_pin"))
                             obj._account_id = wbo.get_logged_in_objects(key, "account_id")
+                            obj._access_token = wbo.get_logged_in_objects(key, "access_token")
                             order = obj.place_order(
                                 stock=s,
                                 action=orderObj.get_action(),
                                 orderType=orderObj.get_price(),
                                 quant=orderObj.get_amount(),
                                 enforce=orderObj.get_time().upper(),
+                                outsideRegularTradingHour=False,
                             )
                             if order["code"] != "200" or order["success"] == False:
                                 raise Exception(f"{order['msg']} Code {order['code']}") 
