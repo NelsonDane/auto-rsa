@@ -40,6 +40,19 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
                 store_session=False,
             )
             rh_obj.set_logged_in_object(name, rh)
+            # Normal account
+            an = rh.account.load_account_profile(info="account_number")
+            rh_obj.set_account_number(name, an)
+            rh_obj.set_account_totals(
+                name,
+                an,
+                rh.account.load_account_profile(
+                    info="portfolio_cash", account_number=an
+                ),
+            )
+            type = rh.account.load_account_profile(info="type", account_number=an)
+            rh_obj.set_account_type(name, an, type)
+            print(f"Found {type} account {an}")
             # Check for IRA accounts
             if (len(account) > 3) and (account[3] != "NA"):
                 iras = [account[3]]
@@ -68,21 +81,6 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
                             info="type", account_number=ira_num
                         ),
                     )
-            # Normal account
-            an = rh.account.load_account_profile(info="account_number")
-            rh_obj.set_account_number(name, an)
-            rh_obj.set_account_totals(
-                name,
-                an,
-                rh.account.load_account_profile(
-                    info="portfolio_cash", account_number=an
-                ),
-            )
-            rh_obj.set_account_type(
-                name,
-                an,
-                rh.account.load_account_profile(info="type", account_number=an),
-            )
         except Exception as e:
             print(f"Error: Unable to log in to Robinhood: {e}")
             traceback.format_exc()
@@ -198,6 +196,6 @@ def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, loop=None):
                         printAndDiscord(f"{key} Error submitting order: {e}", loop)
                 else:
                     printAndDiscord(
-                        f"{key} Running in DRY mode. Transaction would've been: {orderObj.get_action()} {orderObj.get_amount()} of {s}",
+                        f"{key} {account} Running in DRY mode. Transaction would've been: {orderObj.get_action()} {orderObj.get_amount()} of {s}",
                         loop,
                     )
