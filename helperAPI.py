@@ -275,37 +275,44 @@ class Brokerage:
 
 def updater():
     # Check if disabled
-    if os.getenv("ENABLE_AUTO_UPDATE", "").lower() != "true":
+    if os.getenv("ENABLE_AUTO_UPDATE", "").lower() == "false":
         print("Auto update disabled, skipping...")
+        print()
         return
     # Check if git is installed
     try:
+        import git
         from git import Repo
     except ImportError:
         print(
-            "GitPython not installed. Please install Git and then run pip install -r requirements.txt"
+            "UPDATE ERROR: GitPython not installed. Please install Git and then run pip install -r requirements.txt"
         )
+        print()
         return
-    print("Starting auto update. To disable, set ENABLE_AUTO_UPDATE to true in .env")
-    repo = Repo(".")
-    if repo.is_dirty():
-        # Print warning and let users take care of changes themselves
-        print(
-            "ERROR: Conflicting changes found. Please commit, stash, or remove your changes before updating."
-        )
-        return
-    if not repo.bare:
-        repo.remotes.origin.pull()
-        print(f"Pulled lates changes from {repo.active_branch}.")
-    else:
-        repo.init()
+    print("Starting auto update. To disable, set ENABLE_AUTO_UPDATE to false in .env")
+    try:
+        repo = Repo(".")
+    except git.exc.InvalidGitRepositoryError:
+        # If downloaded as zip, repo won't exist, so clone it
+        repo = Repo.init(".")
         repo.create_remote("origin", "https://github.com/NelsonDane/auto-rsa")
         repo.remotes.origin.fetch()
         repo.create_head("main", repo.remotes.origin.refs.main)
         repo.heads.main.set_tracking_branch(repo.remotes.origin.refs.main)
         repo.heads.main.checkout(True)
         print(f"Cloned repo from {repo.active_branch}.")
-    print("Update complete.")
+    if repo.is_dirty():
+        # Print warning and let users take care of changes themselves
+        print(
+            "UPDATE ERROR: Conflicting changes found. Please commit, stash, or remove your changes before updating."
+        )
+        print()
+        return
+    if not repo.bare:
+        repo.remotes.origin.pull()
+        print(f"Pulled lates changes from {repo.active_branch}.")
+    print("Update complete!")
+    print()
     return
 
 

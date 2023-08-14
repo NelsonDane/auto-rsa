@@ -120,7 +120,7 @@ def ally_transaction(
     for s in orderObj.get_stocks():
         for key in ao.get_account_numbers():
             printAndDiscord(
-                f"{key}: {orderObj.get_action()}ing {orderObj.get_amount} of {s}",
+                f"{key}: {orderObj.get_action()}ing {orderObj.get_amount()} of {s}",
                 loop,
             )
             for account in ao.get_account_numbers(key):
