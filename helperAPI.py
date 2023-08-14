@@ -264,8 +264,9 @@ class Brokerage:
 
 def updater():
     # Check if disabled
-    if os.getenv("ENABLE_AUTO_UPDATE", "").lower() != "true":
+    if os.getenv("ENABLE_AUTO_UPDATE", "").lower() == "false":
         print("Auto update disabled, skipping...")
+        print()
         return
     # Check if git is installed
     try:
@@ -273,10 +274,11 @@ def updater():
         from git import Repo
     except ImportError:
         print(
-            "GitPython not installed. Please install Git and then run pip install -r requirements.txt"
+            "UPDATE ERROR: GitPython not installed. Please install Git and then run pip install -r requirements.txt"
         )
+        print()
         return
-    print("Starting auto update. To disable, set ENABLE_AUTO_UPDATE to true in .env")
+    print("Starting auto update. To disable, set ENABLE_AUTO_UPDATE to false in .env")
     try:
         repo = Repo(".")
     except git.exc.InvalidGitRepositoryError:
@@ -291,13 +293,15 @@ def updater():
     if repo.is_dirty():
         # Print warning and let users take care of changes themselves
         print(
-            "ERROR: Conflicting changes found. Please commit, stash, or remove your changes before updating."
+            "UPDATE ERROR: Conflicting changes found. Please commit, stash, or remove your changes before updating."
         )
+        print()
         return
     if not repo.bare:
         repo.remotes.origin.pull()
         print(f"Pulled lates changes from {repo.active_branch}.")
-    print("Update complete.")
+    print("Update complete!")
+    print()
     return
 
 
