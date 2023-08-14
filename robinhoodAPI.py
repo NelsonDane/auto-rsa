@@ -50,9 +50,9 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
                     info="portfolio_cash", account_number=an
                 ),
             )
-            type = rh.account.load_account_profile(info="type", account_number=an)
-            rh_obj.set_account_type(name, an, type)
-            print(f"Found {type} account {an}")
+            atype = rh.account.load_account_profile(info="type", account_number=an)
+            rh_obj.set_account_type(name, an, atype)
+            print(f"Found {atype} account {an}")
             # Check for IRA accounts
             if (len(account) > 3) and (account[3] != "NA"):
                 iras = [account[3]]
