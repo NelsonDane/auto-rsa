@@ -271,7 +271,9 @@ def updater():
     try:
         from git import Repo
     except ImportError:
-        print("GitPython not installed. Please install Git and then run pip install -r requirements.txt")
+        print(
+            "GitPython not installed. Please install Git and then run pip install -r requirements.txt"
+        )
         return
     print("Starting auto update. To disable, set ENABLE_AUTO_UPDATE to true in .env")
     repo = Repo(".")
