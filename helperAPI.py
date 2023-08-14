@@ -269,6 +269,7 @@ def updater():
         return
     # Check if git is installed
     try:
+        import git
         from git import Repo
     except ImportError:
         print(
@@ -276,7 +277,17 @@ def updater():
         )
         return
     print("Starting auto update. To disable, set ENABLE_AUTO_UPDATE to true in .env")
-    repo = Repo(".")
+    try:
+        repo = Repo(".")
+    except git.exc.InvalidGitRepositoryError:
+        # If downloaded as zip, repo won't exist, so clone it
+        repo = Repo.init(".")
+        repo.create_remote("origin", "https://github.com/NelsonDane/auto-rsa")
+        repo.remotes.origin.fetch()
+        repo.create_head("main", repo.remotes.origin.refs.main)
+        repo.heads.main.set_tracking_branch(repo.remotes.origin.refs.main)
+        repo.heads.main.checkout(True)
+        print(f"Cloned repo from {repo.active_branch}.")
     if repo.is_dirty():
         # Print warning and let users take care of changes themselves
         print(
@@ -286,14 +297,6 @@ def updater():
     if not repo.bare:
         repo.remotes.origin.pull()
         print(f"Pulled lates changes from {repo.active_branch}.")
-    else:
-        repo.init()
-        repo.create_remote("origin", "https://github.com/NelsonDane/auto-rsa")
-        repo.remotes.origin.fetch()
-        repo.create_head("main", repo.remotes.origin.refs.main)
-        repo.heads.main.set_tracking_branch(repo.remotes.origin.refs.main)
-        repo.heads.main.checkout(True)
-        print(f"Cloned repo from {repo.active_branch}.")
     print("Update complete.")
     return
 
