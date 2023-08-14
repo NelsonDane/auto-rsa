@@ -49,6 +49,10 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
                     ira_num = rh.account.load_account_profile(
                         info="account_number", account_number=ira
                     )
+                    if ira_num is None:
+                        print(f"Unable to find IRA account {ira}")
+                        continue
+                    print(f"Found IRA account {ira_num}")
                     rh_obj.set_account_number(name, ira_num)
                     rh_obj.set_account_totals(
                         name,
