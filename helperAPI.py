@@ -386,12 +386,12 @@ def killDriver(brokerObj: Brokerage):
 async def processTasks(message):
     # Get details from env (they are used prior so we know they exist)
     load_dotenv()
-    BOT_TOKEN = os.getenv("BOT_TOKEN")
-    CHANNEL_ID = os.getenv("CHANNEL_ID")
+    DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+    DISCORD_CHANNEL = os.getenv("DISCORD_CHANNEL")
     # Send message to discord via request post
-    BASE_URL = f"https://discord.com/api/v10/channels/{CHANNEL_ID}/messages"
+    BASE_URL = f"https://discord.com/api/v10/channels/{DISCORD_CHANNEL}/messages"
     HEADERS = {
-        "Authorization": f"Bot {BOT_TOKEN}",
+        "Authorization": f"Bot {DISCORD_TOKEN}",
         "Content-Type": "application/json",
     }
     PAYLOAD = {
@@ -403,21 +403,14 @@ async def processTasks(message):
         try:
             response = requests.post(BASE_URL, headers=HEADERS, json=PAYLOAD)
             # Process response
-            match response.status_code:
-                case 200:
-                    success = True
-                case 401:
-                    print("Error 401 Unauthorized: Invalid Channel ID")
-                    break
-                case 429:
-                    rate_limit = response.json()["retry_after"] * 2
-                    print(
-                        f"We are being rate limited. Retrying in {rate_limit} seconds"
-                    )
-                    await asyncio.sleep(rate_limit)
-                case _:
-                    print(f"Error: {response.status_code}: {response.text}")
-                    break
+            if response.status_code == 200:
+                success = True
+            elif response.status_code == 429:
+                rate_limit = response.json()["retry_after"] * 2
+                await asyncio.sleep(rate_limit)
+            else:
+                print(f"Error: {response.status_code}: {response.text}")
+                break
         except Exception as e:
             print(f"Error Sending Message: {e}")
             break
