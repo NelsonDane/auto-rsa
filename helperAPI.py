@@ -8,6 +8,7 @@ import textwrap
 from queue import Queue
 from time import sleep
 
+import requests
 from dotenv import load_dotenv
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromiumService
@@ -261,6 +262,49 @@ class Brokerage:
         )
 
 
+def updater():
+    # Check if disabled
+    if os.getenv("ENABLE_AUTO_UPDATE", "").lower() == "false":
+        print("Auto update disabled, skipping...")
+        print()
+        return
+    # Check if git is installed
+    try:
+        import git
+        from git import Repo
+    except ImportError:
+        print(
+            "UPDATE ERROR: GitPython not installed. Please install Git and then run pip install -r requirements.txt"
+        )
+        print()
+        return
+    print("Starting auto update. To disable, set ENABLE_AUTO_UPDATE to false in .env")
+    try:
+        repo = Repo(".")
+    except git.exc.InvalidGitRepositoryError:
+        # If downloaded as zip, repo won't exist, so clone it
+        repo = Repo.init(".")
+        repo.create_remote("origin", "https://github.com/NelsonDane/auto-rsa")
+        repo.remotes.origin.fetch()
+        repo.create_head("main", repo.remotes.origin.refs.main)
+        repo.heads.main.set_tracking_branch(repo.remotes.origin.refs.main)
+        repo.heads.main.checkout(True)
+        print(f"Cloned repo from {repo.active_branch}.")
+    if repo.is_dirty():
+        # Print warning and let users take care of changes themselves
+        print(
+            "UPDATE ERROR: Conflicting changes found. Please commit, stash, or remove your changes before updating."
+        )
+        print()
+        return
+    if not repo.bare:
+        repo.remotes.origin.pull()
+        print(f"Pulled lates changes from {repo.active_branch}.")
+    print("Update complete!")
+    print()
+    return
+
+
 def type_slowly(element, string, delay=0.3):
     # Type slower
     for character in string:
@@ -277,7 +321,11 @@ def check_if_page_loaded(driver):
 def getDriver(DOCKER=False):
     # Check for custom driver version else use latest
     load_dotenv()
-    if os.getenv("WEBDRIVER_VERSION") and os.getenv("WEBDRIVER_VERSION") != "":
+    if (
+        os.getenv("WEBDRIVER_VERSION")
+        and os.getenv("WEBDRIVER_VERSION") != ""
+        and os.getenv("WEBDRIVER_VERSION") != "latest"
+    ):
         version = os.getenv("WEBDRIVER_VERSION")
         print(f"Using chromedriver version {version}")
     else:
@@ -335,18 +383,45 @@ def killDriver(brokerObj: Brokerage):
     print(f"Killed {count} {brokerObj.get_name()} drivers")
 
 
-async def processTasks(message, ctx):
-    # Send message to discord
-    await asyncio.sleep(0.5)
-    await ctx.send(message)
+async def processTasks(message):
+    # Get details from env (they are used prior so we know they exist)
+    load_dotenv()
+    DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+    DISCORD_CHANNEL = os.getenv("DISCORD_CHANNEL")
+    # Send message to discord via request post
+    BASE_URL = f"https://discord.com/api/v10/channels/{DISCORD_CHANNEL}/messages"
+    HEADERS = {
+        "Authorization": f"Bot {DISCORD_TOKEN}",
+        "Content-Type": "application/json",
+    }
+    PAYLOAD = {
+        "content": message,
+    }
+    # Keep trying until success
+    success = False
+    while success is False:
+        try:
+            response = requests.post(BASE_URL, headers=HEADERS, json=PAYLOAD)
+            # Process response
+            if response.status_code == 200:
+                success = True
+            elif response.status_code == 429:
+                rate_limit = response.json()["retry_after"] * 2
+                await asyncio.sleep(rate_limit)
+            else:
+                print(f"Error: {response.status_code}: {response.text}")
+                break
+        except Exception as e:
+            print(f"Error Sending Message: {e}")
+            break
 
 
-def printAndDiscord(message, ctx=None, loop=None):
+def printAndDiscord(message, loop=None):
     # Print message
     print(message)
     # Add message to discord queue
-    if ctx is not None and loop is not None:
-        task_queue.put((message, ctx))
+    if loop is not None:
+        task_queue.put((message))
         if task_queue.qsize() == 1:
             asyncio.run_coroutine_threadsafe(processQueue(), loop)
 
@@ -354,24 +429,23 @@ def printAndDiscord(message, ctx=None, loop=None):
 async def processQueue():
     # Process discord queue
     while not task_queue.empty():
-        message, ctx = task_queue.get()
-        await processTasks(message, ctx)
+        message = task_queue.get()
+        await processTasks(message)
         task_queue.task_done()
 
 
-def printHoldings(brokerObj: Brokerage, ctx=None, loop=None):
+def printHoldings(brokerObj: Brokerage, loop=None):
     # Helper function for holdings formatting
     printAndDiscord(
         f"==============================\n{brokerObj.get_name()} Holdings\n==============================",
-        ctx,
         loop,
     )
     for key in brokerObj.get_account_numbers():
         for account in brokerObj.get_account_numbers(key):
-            printAndDiscord(f"{key} ({account}):", ctx, loop)
+            printAndDiscord(f"{key} ({account}):", loop)
             holdings = brokerObj.get_holdings(key, account)
             if holdings == {}:
-                printAndDiscord("No holdings in Account\n", ctx, loop)
+                printAndDiscord("No holdings in Account\n", loop)
             else:
                 print_string = ""
                 for stock in holdings:
@@ -379,10 +453,9 @@ def printHoldings(brokerObj: Brokerage, ctx=None, loop=None):
                     price = holdings[stock]["price"]
                     total = holdings[stock]["total"]
                     print_string += f"{stock}: {quantity} @ ${format(price, '0.2f')} = ${format(total, '0.2f')}\n"
-                printAndDiscord(print_string, ctx, loop)
+                printAndDiscord(print_string, loop)
             printAndDiscord(
                 f"Total: ${format(brokerObj.get_account_totals(key, account), '0.2f')}\n",
-                ctx,
                 loop,
             )
-    printAndDiscord("==============================", ctx, loop)
+    printAndDiscord("==============================", loop)

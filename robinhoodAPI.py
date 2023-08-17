@@ -40,22 +40,56 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
                 store_session=False,
             )
             rh_obj.set_logged_in_object(name, rh)
-            rh_obj.set_account_number(
-                name, rh.account.load_account_profile(info="account_number")
-            )
+            # Normal account
+            an = rh.account.load_account_profile(info="account_number")
+            rh_obj.set_account_number(name, an)
             rh_obj.set_account_totals(
                 name,
-                rh.account.load_account_profile(info="account_number"),
-                rh.account.load_account_profile(info="portfolio_cash"),
+                an,
+                rh.account.load_account_profile(
+                    info="portfolio_cash", account_number=an
+                ),
             )
+            atype = rh.account.load_account_profile(info="type", account_number=an)
+            rh_obj.set_account_type(name, an, atype)
+            print(f"Found {atype} account {an}")
+            # Check for IRA accounts
+            if (len(account) > 3) and (account[3] != "NA"):
+                iras = [account[3]]
+                if len(account) > 4 and account[4] != "NA":
+                    iras.append(account[4])
+                for ira in iras:
+                    ira_num = rh.account.load_account_profile(
+                        info="account_number", account_number=ira
+                    )
+                    if ira_num is None:
+                        print(f"Unable to find IRA account {ira}")
+                        continue
+                    print(f"Found IRA account {ira_num}")
+                    rh_obj.set_account_number(name, ira_num)
+                    rh_obj.set_account_totals(
+                        name,
+                        ira_num,
+                        rh.account.load_account_profile(
+                            info="portfolio_cash", account_number=ira_num
+                        ),
+                    )
+                    rh_obj.set_account_type(
+                        name,
+                        ira_num,
+                        rh.account.load_account_profile(
+                            info="type", account_number=ira_num
+                        ),
+                    )
         except Exception as e:
             print(f"Error: Unable to log in to Robinhood: {e}")
+            traceback.format_exc()
             return None
         print("Logged in to Robinhood!")
     return rh_obj
 
 
-def robinhood_holdings(rho: Brokerage, ctx=None, loop=None):
+def robinhood_holdings(rho: Brokerage, loop=None):
     for key in rho.get_account_numbers():
         for account in rho.get_account_numbers(key):
             obj: rh = rho.get_logged_in_objects(key)
@@ -76,15 +110,13 @@ def robinhood_holdings(rho: Brokerage, ctx=None, loop=None):
                                 current_price = "N/A"
                         rho.set_holdings(key, account, sym, qty, current_price)
             except Exception as e:
-                printAndDiscord(
-                    f"{key}: Error getting account holdings: {e}", ctx, loop
-                )
-                print(traceback.format_exc())
+                printAndDiscord(f"{key}: Error getting account holdings: {e}", loop)
+                traceback.format_exc()
                 continue
-        printHoldings(rho, ctx, loop)
+        printHoldings(rho, loop)
 
 
-def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, ctx=None, loop=None):
+def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, loop=None):
     print()
     print("==============================")
     print("Robinhood")
@@ -94,7 +126,6 @@ def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, ctx=None, loop=N
         for key in rho.get_account_numbers():
             printAndDiscord(
                 f"{key}: {orderObj.get_action()}ing {orderObj.get_amount()} of {s}",
-                ctx,
                 loop,
             )
             for account in rho.get_account_numbers(key):
@@ -112,7 +143,6 @@ def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, ctx=None, loop=N
                         if market_order is None:
                             printAndDiscord(
                                 f"{key}: Error {orderObj.get_action()}ing {orderObj.get_amount()} of {s} in {account}, trying Limit Order",
-                                ctx,
                                 loop,
                             )
                             ask = obj.get_latest_price(s, priceType="ask_price")[0]
@@ -136,7 +166,7 @@ def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, ctx=None, loop=N
                                     price = round(price - 0.01, 2)
                             else:
                                 printAndDiscord(
-                                    f"{key}: Error getting price for {s}", ctx, loop
+                                    f"{key}: Error getting price for {s}", loop
                                 )
                                 continue
                             limit_order = obj.order(
@@ -149,27 +179,23 @@ def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, ctx=None, loop=N
                             if limit_order is None:
                                 printAndDiscord(
                                     f"{key}: Error {orderObj.get_action()}ing {orderObj.get_amount()} of {s} in {account}",
-                                    ctx,
                                     loop,
                                 )
                                 continue
                             printAndDiscord(
                                 f"{key}: {orderObj.get_action()} {orderObj.get_amount()} of {s} in {account} @ {price}: Success",
-                                ctx,
                                 loop,
                             )
                         else:
                             printAndDiscord(
                                 f"{key}: {orderObj.get_action()} {orderObj.get_amount()} of {s} in {account}: Success",
-                                ctx,
                                 loop,
                             )
                     except Exception as e:
-                        print(traceback.format_exc())
-                        printAndDiscord(f"{key} Error submitting order: {e}", ctx, loop)
+                        traceback.format_exc()
+                        printAndDiscord(f"{key} Error submitting order: {e}", loop)
                 else:
                     printAndDiscord(
-                        f"{key} Running in DRY mode. Transaction would've been: {orderObj.get_action()} {orderObj.get_amount()} of {s}",
-                        ctx,
+                        f"{key} {account} Running in DRY mode. Transaction would've been: {orderObj.get_action()} {orderObj.get_amount()} of {s}",
                         loop,
                     )
