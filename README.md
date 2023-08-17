@@ -184,7 +184,7 @@ Will be added using Selenium just like Fidelity. I found this [vanguard-api](htt
 #### SoFi
 Login requires SMS 2fa, and I'm not sure how to do that automatically.
 #### Webull
-Not currently working since login is broken in [webull](https://github.com/tedchou12/webull). They also use SMS 2fa, so I'm not sure how to do that automatically.
+In progress on [develop-webull](https://github.com/NelsonDane/auto-rsa/pull/61). Stay tuned.
 #### Public
 Same as Webull and SoFi.
 ### Never working brokerages
