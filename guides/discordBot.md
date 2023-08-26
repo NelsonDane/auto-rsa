@@ -7,7 +7,7 @@ In order to use this bot in Discord, you have to create a bot account and invite
 4. Disable `Public Bot`.
 5. Under `Privileged Gateway Intents`, enable `Message Content Intent`.
 4. Scroll down to `Bot Permissions` and select `Send Messages`.
-5. Click on `OAuth2` in the left sidebar, then scroll down to `Scopes` and select `bot`.
+5. Click on `OAuth2` in the left sidebar, select 'In-app Authorization', scroll down to `Scopes` and select `bot`.
 6. Scroll down to `Bot Permissions` and select `Send Messages`.
 7. Copy the link in the `Scopes` section and paste it into your browser. Select the server you want to add the bot to and click `Authorize`.
 8. Click on `Bot` in the left sidebar. Under `Token`, click `Reset Token`. Copy the new token and paste it into your `.env` file as `DISCORD_TOKEN`.
