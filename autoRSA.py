@@ -55,6 +55,11 @@ def fun_run(orderObj: stockOrder, command, loop=None):
             fun_name = broker + command
             try:
                 orderObj.order_validate(preLogin=True)
+                if nicknames(broker) == "ally":
+                    printAndDiscord(
+                        "Ally has disabled their API, so Ally is currently unavailable. Skipping...",
+                        loop,
+                    )
                 if command == "_init":
                     if nicknames(broker) == "fidelity":
                         # Fidelity requires docker mode argument

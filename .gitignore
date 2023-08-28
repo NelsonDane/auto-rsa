@@ -5,3 +5,4 @@ did.bin
 test.py
 *.png
 .vscode/
+.venv/

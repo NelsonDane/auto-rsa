@@ -97,6 +97,8 @@ All brokers: separate account credentials with a colon (":"). For example, `ALLY
 For Selenium-based brokers, you can optionally set the webdriver version by setting `WEBDRIVER_VERSION` in your `.env` file. For example, `WEBDRIVER_VERSION=114.0.5735.90`. This only applies to the CLI tool, not the Discord bot.
 
 ### Ally
+**Ally has disabled their API, so Ally is currently unsupported.**
+
 Made using [PyAlly](https://github.com/alienbrett/PyAlly). Go give them a ⭐
 
 Required `.env` variables:

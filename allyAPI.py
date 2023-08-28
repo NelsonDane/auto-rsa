@@ -13,6 +13,9 @@ from helperAPI import Brokerage, printAndDiscord, printHoldings, stockOrder
 
 # Initialize Ally
 def ally_init(ALLY_EXTERNAL=None, ALLY_ACCOUNT_NUMBERS_EXTERNAL=None):
+    # Disable Ally API
+    print("Ally has disabled their API, so Ally is currently unavailable.")
+    return None
     # Initialize .env file
     load_dotenv()
     # Import Ally account
@@ -73,6 +76,9 @@ def ally_init(ALLY_EXTERNAL=None, ALLY_ACCOUNT_NUMBERS_EXTERNAL=None):
 
 # Function to get the current account holdings
 def ally_holdings(ao: Brokerage, loop=None):
+    # Disable Ally API
+    printAndDiscord("Ally has disabled their API, so Ally is currently unavailable.", loop)
+    return
     for key in ao.get_account_numbers():
         account_numbers = ao.get_account_numbers(key)
         for account in account_numbers:
@@ -112,6 +118,9 @@ def ally_transaction(
     print("Ally")
     print("==============================")
     print()
+    # Disable Ally API
+    printAndDiscord("Ally has disabled their API, so Ally is currently unavailable.", loop)
+    return
     # Set the action
     price = ally.Order.Market()
     if isinstance(orderObj.get_price(), (int, float)):
