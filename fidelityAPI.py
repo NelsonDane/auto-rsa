@@ -223,7 +223,7 @@ def fidelity_account_numbers(driver: webdriver, loop=None, name="Fidelity"):
         print(f"{name}: Error getting holdings: {e}")
         driver.save_screenshot(f"fidelity-an-error-{datetime.datetime.now()}.png")
         print(traceback.format_exc())
-        return None, None, None, None
+        return None, None, None, None, None, None
 
 
 def fidelity_holdings(fidelity_o: Brokerage, loop=None):
