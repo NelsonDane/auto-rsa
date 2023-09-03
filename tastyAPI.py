@@ -7,6 +7,7 @@ import traceback
 from decimal import Decimal as D
 
 from dotenv import load_dotenv
+from tastytrade import ProductionSession
 from tastytrade.account import Account
 from tastytrade.dxfeed.event import EventType
 from tastytrade.instruments import Equity
@@ -17,7 +18,6 @@ from tastytrade.order import (
     OrderType,
     PriceEffect,
 )
-from tastytrade import ProductionSession
 from tastytrade.streamer import DataStreamer
 
 from helperAPI import Brokerage, printAndDiscord, printHoldings, stockOrder
