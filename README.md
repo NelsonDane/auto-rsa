@@ -10,7 +10,7 @@ This project will allow you to maximize your profits by being able to easily man
 To create your Discord bot and get your `DISCORD_TOKEN`, follow this [guide](guides/discordBot.md).
 ### Docker
 1. Create a `.env` file for your brokerage variables using [.env.example](.env.example) as a template, and add your bot using `DISCORD_TOKEN` and `DISCORD_CHANNEL`
-2. Using the provided [docker-compose.yml](docker-compose.yml) file, run `docker compose up -d`
+2. Using the provided [docker-compose.yml](docker-compose.yml) file, run the command `docker compose up -d` inside the project directory.
 3. The bot should appear online (You can also do `!ping` to check). 
 
 ### Always Running Python Script
