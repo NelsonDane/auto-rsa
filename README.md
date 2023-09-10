@@ -94,8 +94,6 @@ DISCLAIMER: I am not a financial advisor and not affiliated with any of the brok
 
 All brokers: separate account credentials with a colon (":"). For example, `ALLY_USERNAME:ALLY_PASSWORD`. Separate multiple logins with the same broker with a comma (","). For example, `ALLY_USERNAME:ALLY_PASSWORD,ALLY_USERNAME2:ALLY_PASSWORD2`.
 
-For Selenium-based brokers, you can optionally set the webdriver version by setting `WEBDRIVER_VERSION` in your `.env` file. For example, `WEBDRIVER_VERSION=114.0.5735.90`. This only applies to the CLI tool, not the Discord bot.
-
 ### Ally
 **Ally has disabled their API, so Ally is currently unsupported.**
 

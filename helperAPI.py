@@ -12,7 +12,8 @@ import requests
 from dotenv import load_dotenv
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromiumService
-from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.edge.service import Service as EdgeService
+from webdriver_manager.microsoft import EdgeChromiumDriverManager
 
 # Create task queue
 task_queue = Queue()
@@ -319,24 +320,13 @@ def check_if_page_loaded(driver):
 
 
 def getDriver(DOCKER=False):
-    # Check for custom driver version else use latest
-    load_dotenv()
-    if (
-        os.getenv("WEBDRIVER_VERSION")
-        and os.getenv("WEBDRIVER_VERSION") != ""
-        and os.getenv("WEBDRIVER_VERSION") != "latest"
-    ):
-        version = os.getenv("WEBDRIVER_VERSION")
-        print(f"Using chromedriver version {version}")
-    else:
-        version = None
-        print("Using latest chromedriver version")
     # Init webdriver options
     try:
-        options = webdriver.ChromeOptions()
-        options.add_argument("--disable-blink-features=AutomationControlled")
-        options.add_argument("--disable-notifications")
         if DOCKER:
+            # Docker uses Chromium
+            options = webdriver.ChromeOptions()
+            options.add_argument("--disable-blink-features=AutomationControlled")
+            options.add_argument("--disable-notifications")
             options.add_argument("--disable-dev-shm-usage")
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-gpu")
@@ -346,25 +336,16 @@ def getDriver(DOCKER=False):
                 options=options,
             )
         else:
-            driver = webdriver.Chrome(
-                service=ChromiumService(
-                    ChromeDriverManager(driver_version=version).install()
-                ),
+            # Otherwise use Edge
+            options = webdriver.EdgeOptions()
+            options.add_argument("--disable-blink-features=AutomationControlled")
+            options.add_argument("--disable-notifications")
+            driver = webdriver.Edge(
+                service=EdgeService(EdgeChromiumDriverManager().install()),
                 options=options,
             )
     except Exception as e:
-        if ("unable to get driver" in str(e).lower()) or (
-            "no such driver" in str(e).lower()
-        ):
-            if version is None:
-                print(f"Unable to find latest chromedriver version: {e}")
-            else:
-                print(f"Unable to find chromedriver version {version}: {e}")
-            print(
-                "Please go to https://chromedriver.chromium.org/downloads and pass the latest version to WEBDRIVER_VERSION in .env"
-            )
-        else:
-            print(f"Error: Unable to initialize chromedriver: {e}")
+        print(f"Error getting Driver: {e}")
         return None
     driver.maximize_window()
     return driver
