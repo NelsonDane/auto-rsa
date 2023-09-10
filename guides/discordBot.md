@@ -11,6 +11,6 @@ In order to use this bot in Discord, you have to create a bot account and invite
 6. Scroll down to `Bot Permissions` and select `Send Messages`.
 7. Copy the link in the `Scopes` section and paste it into your browser. Select the server you want to add the bot to and click `Authorize`.
 8. Click on `Bot` in the left sidebar. Under `Token`, click `Reset Token`. Copy the new token and paste it into your `.env` file as `DISCORD_TOKEN`.
-9. To get the Channel ID, turn on `Developer Mode` in Discord's settings, then right click on the channel and click `Copy ID`. Paste the ID into your `.env` file as `DISCORD_CHANNEL`.
+9. To get the Channel ID, go to `Advanced` in Discord settings, then turn on `Developer Mode`. Then right click on the channel for the bot and click `Copy ID`. Paste the ID into your `.env` file as `DISCORD_CHANNEL`. If you want to turn off `Developer Mode`, you can do so, but it isn't necessary.
 
 If you need a more visual guide, one user found this [guide](https://www.writebots.com/discord-bot-token/) helpful.

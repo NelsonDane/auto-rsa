@@ -7,6 +7,7 @@ import traceback
 from decimal import Decimal as D
 
 from dotenv import load_dotenv
+from tastytrade import ProductionSession
 from tastytrade.account import Account
 from tastytrade.dxfeed.event import EventType
 from tastytrade.instruments import Equity
@@ -17,13 +18,12 @@ from tastytrade.order import (
     OrderType,
     PriceEffect,
 )
-from tastytrade.session import Session
 from tastytrade.streamer import DataStreamer
 
 from helperAPI import Brokerage, printAndDiscord, printHoldings, stockOrder
 
 
-def day_trade_check(tt: Session, acct: Account, cash_balance, loop=None):
+def day_trade_check(tt: ProductionSession, acct: Account, cash_balance, loop=None):
     trading_status = acct.get_trading_status(tt)
     day_trade_count = trading_status.day_trade_count
     if (
@@ -39,7 +39,7 @@ def day_trade_check(tt: Session, acct: Account, cash_balance, loop=None):
     return True
 
 
-def order_setup(tt: Session, order_type, stock_price, stock, amount):
+def order_setup(tt: ProductionSession, order_type, stock_price, stock, amount):
     symbol = Equity.get_equity(tt, stock)
     if order_type[2] == "Buy to Open":
         leg = symbol.build_leg(D(amount), OrderAction.BUY_TO_OPEN)
@@ -82,17 +82,18 @@ def tastytrade_init(TASTYTRADE_EXTERNAL=None):
         account = account.strip().split(":")
         name = f"Tastytrade {index}"
         try:
-            tasty = Session(account[0], account[1])
+            tasty = ProductionSession(account[0], account[1])
             tasty_obj.set_logged_in_object(name, tasty, "session")
             an = Account.get_accounts(tasty)
             tasty_obj.set_logged_in_object(name, an, "accounts")
             for acct in an:
                 tasty_obj.set_account_number(name, acct.account_number)
                 tasty_obj.set_account_totals(
-                    name, acct.account_number, acct.get_balances(tasty)["cash-balance"]
+                    name, acct.account_number, acct.get_balances(tasty).cash_balance
                 )
             print("Logged in to Tastytrade!")
         except Exception as e:
+            traceback.print_exc()
             print(f"Error logging in to {name}: {e}")
             return None
     return tasty_obj
@@ -100,7 +101,7 @@ def tastytrade_init(TASTYTRADE_EXTERNAL=None):
 
 def tastytrade_holdings(tt_o: Brokerage, loop=None):
     for key in tt_o.get_account_numbers():
-        obj: Session = tt_o.get_logged_in_objects(key, "session")
+        obj: ProductionSession = tt_o.get_logged_in_objects(key, "session")
         for index, account in enumerate(tt_o.get_logged_in_objects(key, "accounts")):
             try:
                 an = tt_o.get_account_numbers(key)[index]
@@ -128,7 +129,7 @@ async def tastytrade_execute(tt_o: Brokerage, orderObj: stockOrder, loop=None):
     print()
     for s in orderObj.get_stocks():
         for key in tt_o.get_account_numbers():
-            obj: Session = tt_o.get_logged_in_objects(key, "session")
+            obj: ProductionSession = tt_o.get_logged_in_objects(key, "session")
             accounts: Account = tt_o.get_logged_in_objects(key, "accounts")
             printAndDiscord(
                 f"{key}: {orderObj.get_action()}ing {orderObj.get_amount()} of {s}",
@@ -145,8 +146,7 @@ async def tastytrade_execute(tt_o: Brokerage, orderObj: stockOrder, loop=None):
                     # Set stock price
                     stock_price = 0
                     # Day trade check
-                    balances = acct.get_balances(obj)
-                    cash_balance = float(balances["cash-balance"])
+                    cash_balance = float(acct.get_balances(obj).cash_balance)
                     if day_trade_check(obj, acct, cash_balance):
                         # Place order
                         new_order = order_setup(
