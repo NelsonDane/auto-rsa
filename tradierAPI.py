@@ -44,6 +44,7 @@ def tradier_init(TRADIER_EXTERNAL=None):
             print(f"Error logging in to Tradier: {e}")
             return None
         # Multiple accounts have different JSON structure
+        print(f"Response: {json_response}")
         if "'account': {'" in str(json_response):
             account_num = 1
         else:
