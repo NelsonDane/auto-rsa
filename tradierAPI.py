@@ -113,7 +113,9 @@ def tradier_holdings(tradier_o: Brokerage, loop=None):
                 current_price = []
                 for sym in stocks:
                     price_response = make_request(
-                        "markets/quotes", obj, params={"symbols": sym, "greeks": "false"}
+                        "markets/quotes",
+                        obj,
+                        params={"symbols": sym, "greeks": "false"},
                     )
                     if price_response is None:
                         current_price.append(0)
@@ -148,20 +150,23 @@ def tradier_transaction(tradier_o: Brokerage, orderObj: stockOrder, loop=None):
             for account in tradier_o.get_account_numbers(key):
                 obj: str = tradier_o.get_logged_in_objects(key)
                 if not orderObj.get_dry():
-                    data={
+                    data = {
                         "class": "equity",
                         "symbol": s,
                         "side": orderObj.get_action(),
                         "quantity": orderObj.get_amount(),
                         "type": "market",
                         "duration": "day",
-                        }
+                    }
                     json_response = make_request(
                         f"accounts/{account}/orders", obj, data=data
                     )
                     if json_response is None:
                         continue
-                    if json_response.get("order") is not None and json_response["order"].get("status") is not None:
+                    if (
+                        json_response.get("order") is not None
+                        and json_response["order"].get("status") is not None
+                    ):
                         if json_response["order"]["status"] == "ok":
                             printAndDiscord(
                                 f"Tradier account {account}: {orderObj.get_action()} {orderObj.get_amount()} of {s}",

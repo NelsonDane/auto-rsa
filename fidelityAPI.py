@@ -119,7 +119,9 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
                     WebDriverWait(driver, 10).until(check_if_page_loaded)
                     print("Disabled old view!")
             except (TimeoutException, NoSuchElementException):
-                print("Failed to disable old view! This might cause issues but maybe not...")
+                print(
+                    "Failed to disable old view! This might cause issues but maybe not..."
+                )
             sleep(3)
             fidelity_obj.set_logged_in_object(name, driver)
             # Get account numbers, types, and balances
@@ -172,7 +174,13 @@ def fidelity_account_info(driver: webdriver, name="Fidelity") -> dict or None:
         # Construct dictionary of account numbers and balances
         account_dict = {}
         for i in range(len(account_numbers)):
-            av = account_values[i].replace(" ", "").replace("$", "").replace(",", "").replace("balance:", "")
+            av = (
+                account_values[i]
+                .replace(" ", "")
+                .replace("$", "")
+                .replace(",", "")
+                .replace("balance:", "")
+            )
             account_dict[account_numbers[i]] = {
                 "balance": float(av),
                 "type": account_types[i],
@@ -191,9 +199,11 @@ def fidelity_holdings(fidelity_o: Brokerage, loop=None):
     print()
     for key in fidelity_o.get_account_numbers():
         for account in fidelity_o.get_account_numbers(key):
-            driver:webdriver = fidelity_o.get_logged_in_objects(key)
+            driver: webdriver = fidelity_o.get_logged_in_objects(key)
             try:
-                driver.get(f"https://digital.fidelity.com/ftgw/digital/portfolio/positions#{account}")
+                driver.get(
+                    f"https://digital.fidelity.com/ftgw/digital/portfolio/positions#{account}"
+                )
                 # Wait for page load
                 WebDriverWait(driver, 10).until(check_if_page_loaded)
                 # Get holdings via javascript
@@ -202,13 +212,19 @@ def fidelity_holdings(fidelity_o: Brokerage, loop=None):
                         (By.CLASS_NAME, "ag-pinned-left-cols-container")
                     )
                 )
-                stocks_list = javascript_get_classname(driver, "ag-pinned-left-cols-container")
+                stocks_list = javascript_get_classname(
+                    driver, "ag-pinned-left-cols-container"
+                )
                 # Find 3 or 4 letter words surrounded by 2 spaces on each side
                 for i in range(len(stocks_list)):
                     stocks_list[i].replace(" \n ", "")
-                    stocks_list[i] = re.findall(r'(?<=\s{2})[a-zA-Z]{3,4}(?=\s{2})', stocks_list[i])
+                    stocks_list[i] = re.findall(
+                        r"(?<=\s{2})[a-zA-Z]{3,4}(?=\s{2})", stocks_list[i]
+                    )
                 print(f"Stocks: {stocks_list}")
-                holdings_info = javascript_get_classname(driver, "ag-center-cols-container")
+                holdings_info = javascript_get_classname(
+                    driver, "ag-center-cols-container"
+                )
                 print(f"Holdings Info: {holdings_info}")
             except Exception as e:
                 fidelity_error(driver, e)
