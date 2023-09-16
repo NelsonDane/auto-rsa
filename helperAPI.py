@@ -354,14 +354,15 @@ def getDriver(DOCKER=False):
 def killDriver(brokerObj: Brokerage):
     # Kill all drivers
     count = 0
-    for key in brokerObj.get_account_numbers():
-        driver = brokerObj.get_logged_in_objects(key)
-        if driver is not None:
-            print(f"Killing {brokerObj.get_name()} drivers...")
-            driver.close()
-            driver.quit()
-            count += 1
-    print(f"Killed {count} {brokerObj.get_name()} drivers")
+    if brokerObj is not None:
+        for key in brokerObj.get_account_numbers():
+            driver = brokerObj.get_logged_in_objects(key)
+            if driver is not None:
+                print(f"Killing {brokerObj.get_name()} drivers...")
+                driver.close()
+                driver.quit()
+                count += 1
+        print(f"Killed {count} {brokerObj.get_name()} drivers")
 
 
 async def processTasks(message):

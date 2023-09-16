@@ -168,9 +168,16 @@ def fidelity_account_info(driver: webdriver, name="Fidelity") -> dict or None:
             len(account_numbers) == len(account_values)
             and len(account_numbers) == len(account_types)
         ):
-            raise Exception(
-                f"{name}: Error getting account info: Lists are not the same length"
+            shortest = min(
+                len(account_numbers), len(account_values), len(account_types)
             )
+            account_numbers = account_numbers[:shortest]
+            account_values = account_values[:shortest]
+            account_types = account_types[:shortest]
+            print(
+                f"Warning: Account numbers, values, and types are not the same length! Using shortest length: {shortest}"
+            )
+            input()
         # Construct dictionary of account numbers and balances
         account_dict = {}
         for i in range(len(account_numbers)):
@@ -217,7 +224,7 @@ def fidelity_holdings(fidelity_o: Brokerage, loop=None):
                 )
                 # Find 3 or 4 letter words surrounded by 2 spaces on each side
                 for i in range(len(stocks_list)):
-                    stocks_list[i].replace(" \n ", "")
+                    stocks_list[i].replace(" \n ", "").replace("*", "")
                     stocks_list[i] = re.findall(
                         r"(?<=\s{2})[a-zA-Z]{3,4}(?=\s{2})", stocks_list[i]
                     )
