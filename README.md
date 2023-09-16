@@ -24,7 +24,7 @@ Make sure python3-pip is installed
 1. Clone this repository and cd into it
 2. Run `pip install -r requirements.txt`
 3. Create a `.env` file for your brokerage variables using [.env.example](.env.example) as a template.
-4. Run the script using `python pythonRSA.py` plus the command you want to run (See below for more command explanations)
+4. Run the script using `python autoRSA.py` plus the command you want to run (See below for more command explanations)
 
 ## Usage
 If running as a Discord bot, append `!rsa` to the beginning of each command.
