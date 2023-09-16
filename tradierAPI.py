@@ -1,10 +1,10 @@
 # Nelson Dane
 # Tradier API
 
+import json
 import os
 import traceback
 
-import json
 import requests
 from dotenv import load_dotenv
 
