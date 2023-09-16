@@ -4,6 +4,7 @@
 import os
 import traceback
 
+import json
 import requests
 from dotenv import load_dotenv
 
@@ -175,7 +176,7 @@ def tradier_transaction(tradier_o: Brokerage, orderObj: stockOrder, loop=None):
                         continue
                     else:
                         printAndDiscord(
-                            f"Tradier account {account} Error: This order did not route. JSON response: {json_response}",
+                            f"Tradier account {account} Error: This order did not route. JSON response: {json.dumps(json_response, indent=2)}",
                             loop=loop,
                         )
                 else:

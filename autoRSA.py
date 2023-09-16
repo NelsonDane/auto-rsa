@@ -225,16 +225,6 @@ if __name__ == "__main__":
         print("Discord bot is started...")
         print()
 
-        # String of available commands
-        help_string = (
-            "Available commands:\n"
-            "!ping\n"
-            "!help\n"
-            "!rsa holdings [all|<broker1>,<broker2>,...]\n"
-            "!rsa [buy|sell] [amount] [stock] [all|<broker1>,<broker2>,...] [not <broker1>,<broker2>,...] [DRY: true|false]\n"
-            "!restart"
-        )
-
         # Bot event when bot is ready
         @bot.event
         async def on_ready():
@@ -263,7 +253,15 @@ if __name__ == "__main__":
         # Help command
         @bot.command()
         async def help(ctx):
-            await ctx.send(help_string)
+            # String of available commands
+            await ctx.send(
+                "Available RSA commands:\n"
+                "!ping\n"
+                "!help\n"
+                "!rsa holdings [all|<broker1>,<broker2>,...]\n"
+                "!rsa [buy|sell] [amount] [stock1|stock1,stock2] [all|<broker1>,<broker2>,...] [not broker1,broker2,...] [DRY: true|false]\n"
+                "!restart"
+            )
 
         # Main RSA command
         @bot.command(name="rsa")
@@ -304,10 +302,11 @@ if __name__ == "__main__":
         # Catch bad commands
         @bot.event
         async def on_command_error(ctx, error):
-            print(f"Error: {error}")
-            await ctx.send(f"Error: {error}")
+            print(f"Command Error: {error}")
+            await ctx.send(f"Command Error: {error}")
             # Print help command
-            await ctx.send(help_string)
+            print("Type '!help' for a list of commands")
+            await ctx.send("Type '!help' for a list of commands")
 
         # Run Discord bot
         bot.run(DISCORD_TOKEN)
