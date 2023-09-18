@@ -137,7 +137,7 @@ Required `.env` variables:
 
 If you don't have an IRA account or only have one, then you can omit the last field or set it to NA.
 
-Configuring 2fa can be tricky, read the TOTP section [here](https://github.com/jmfernandes/robin_stocks/blob/master/Robinhood.rst).
+Configuring 2fa can be tricky, read the TOTP section [here](https://github.com/jmfernandes/robin_stocks/blob/master/Robinhood.rst#with-mfa-entered-programmatically-from-time-based-one-time-password-totp).
 
 To get your IRA numbers, check your monthly statement, or tap the menu button in the Robinhood app and go to `Investing`. Or click the `Retirement` tab on the desktop website, then the `settings` button on the top right of the graph. Then click `Account numbers`.
 
