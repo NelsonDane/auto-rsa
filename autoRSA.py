@@ -34,6 +34,7 @@ SUPPORTED_BROKERS = ["ally", "fidelity", "robinhood", "schwab", "tastytrade", "t
 DISCORD_BOT = False
 DOCKER_MODE = False
 SUPRESS_OLD_WARN = False
+DANGER_MODE = False
 
 
 # Account nicknames
@@ -141,20 +142,11 @@ def argParser(args: str):
 
 
 if __name__ == "__main__":
-    # Check for legacy .env file format
-    # This should be removed in a future release
-    if os.getenv("SUPRESS_OLD_WARN", "").lower() == "true":
-        SUPRESS_OLD_WARN = True
-    if re.search(r"(_USERNAME|_PASSWORD)", str(os.environ)) and not SUPRESS_OLD_WARN:
-        print("Legacy .env file found. Please update to new format.")
-        print("See .env.example for details.")
-        print("To supress this warning, set SUPRESS_OLD_WARN=True in .env")
-        # Print troublesome variables
-        print("Please update/remove the following variables:")
-        for key in os.environ:
-            if re.search(r"(_USERNAME|_PASSWORD)", key):
-                print(f"{key}={os.environ[key]}")
-        sys.exit(1)
+    # Check if danger mode is enabled
+    if os.getenv("DANGER_MODE", "").lower() == "true":
+        DANGER_MODE = True
+        print("DANGER MODE ENABLED")
+        print()
     # Determine if ran from command line
     if len(sys.argv) == 1:  # If no arguments, do nothing
         print("No arguments given, see README for usage")
@@ -186,8 +178,9 @@ if __name__ == "__main__":
             print()
             print("If correct, press enter to continue...")
             try:
-                input("Otherwise, press ctrl+c to exit")
-                print()
+                if not DANGER_MODE:
+                    input("Otherwise, press ctrl+c to exit")
+                    print()
             except KeyboardInterrupt:
                 print()
                 print("Exiting, no orders placed")
