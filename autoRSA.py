@@ -33,7 +33,6 @@ load_dotenv()
 SUPPORTED_BROKERS = ["ally", "fidelity", "robinhood", "schwab", "tastytrade", "tradier"]
 DISCORD_BOT = False
 DOCKER_MODE = False
-SUPRESS_OLD_WARN = False
 DANGER_MODE = False
 
 
@@ -228,14 +227,6 @@ if __name__ == "__main__":
                 )
                 os._exit(1)
             await channel.send("Discord bot is started...")
-            # Old .env file format warning
-            if not SUPRESS_OLD_WARN:
-                await channel.send(
-                    "Heads up! .env file format has changed, see .env.example for new format"
-                )
-                await channel.send(
-                    "To supress this message, set SUPRESS_OLD_WARN to True in your .env file"
-                )
 
         # Bot ping-pong
         @bot.command(name="ping")
