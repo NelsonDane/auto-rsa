@@ -23,6 +23,7 @@ from helperAPI import (
     printAndDiscord,
     stockOrder,
     type_slowly,
+    printHoldings,
 )
 
 
@@ -177,7 +178,6 @@ def fidelity_account_info(driver: webdriver, name="Fidelity") -> dict or None:
             print(
                 f"Warning: Account numbers, values, and types are not the same length! Using shortest length: {shortest}"
             )
-            input()
         # Construct dictionary of account numbers and balances
         account_dict = {}
         for i in range(len(account_numbers)):
@@ -229,11 +229,15 @@ def fidelity_holdings(fidelity_o: Brokerage, loop=None):
                     stocks_list[i] = re.findall(
                         r"(?<=\s{2})[a-zA-Z]{3,4}(?=\s{2})", stocks_list[i]
                     )
+                stocks_list = stocks_list[0]
                 print(f"Stocks: {stocks_list}")
                 holdings_info = javascript_get_classname(
                     driver, "ag-center-cols-container"
                 )
                 print(f"Holdings Info: {holdings_info}")
+                for stock in stocks_list:
+                    fidelity_o.set_holdings(key, account, stock, "N/A", "N/A")
+                printHoldings(fidelity_o, key, account, loop)
             except Exception as e:
                 fidelity_error(driver, e)
                 return None
