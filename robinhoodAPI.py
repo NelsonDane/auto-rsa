@@ -59,11 +59,17 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
                 if len(account) > 4 and account[4] != "NA":
                     iras.append(account[4])
                 for ira in iras:
+                    # Make sure it's different from the normal account number
+                    if ira == an:
+                        print(
+                            f"ERROR: IRA account {ira} is the same as margin account. Please remove {an} from your .env file."
+                        )
+                        continue
                     ira_num = rh.account.load_account_profile(
                         info="account_number", account_number=ira
                     )
                     if ira_num is None:
-                        print(f"Unable to find IRA account {ira}")
+                        print(f"Unable to lookup IRA account {ira}")
                         continue
                     print(f"Found IRA account {ira_num}")
                     rh_obj.set_account_number(name, ira_num)
@@ -182,13 +188,21 @@ def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, loop=None):
                                     loop,
                                 )
                                 continue
+                            print(limit_order)
+                            message = "Success"
+                            if limit_order.get("non_field_errors") is not None:
+                                message = limit_order["non_field_errors"]
                             printAndDiscord(
-                                f"{key}: {orderObj.get_action()} {orderObj.get_amount()} of {s} in {account} @ {price}: Success",
+                                f"{key}: {orderObj.get_action()} {orderObj.get_amount()} of {s} in {account} @ {price}: {message}",
                                 loop,
                             )
                         else:
+                            print(market_order)
+                            message = "Success"
+                            if market_order.get("non_field_errors") is not None:
+                                message = market_order["non_field_errors"]
                             printAndDiscord(
-                                f"{key}: {orderObj.get_action()} {orderObj.get_amount()} of {s} in {account}: Success",
+                                f"{key}: {orderObj.get_action()} {orderObj.get_amount()} of {s} in {account}: {message}",
                                 loop,
                             )
                     except Exception as e:
