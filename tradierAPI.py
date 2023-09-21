@@ -163,6 +163,10 @@ def tradier_transaction(tradier_o: Brokerage, orderObj: stockOrder, loop=None):
                         f"accounts/{account}/orders", obj, data=data
                     )
                     if json_response is None:
+                        printAndDiscord(
+                            f"Tradier account {account} Error: JSON response is None",
+                            loop=loop,
+                        )
                         continue
                     if (
                         json_response.get("order") is not None
@@ -173,12 +177,11 @@ def tradier_transaction(tradier_o: Brokerage, orderObj: stockOrder, loop=None):
                                 f"Tradier account {account}: {orderObj.get_action()} {orderObj.get_amount()} of {s}",
                                 loop=loop,
                             )
-                        continue
-                    else:
-                        printAndDiscord(
-                            f"Tradier account {account} Error: This order did not route. JSON response: {json.dumps(json_response, indent=2)}",
-                            loop=loop,
-                        )
+                        else:
+                            printAndDiscord(
+                                f"Tradier account {account} Error: This order did not route. JSON response: {json.dumps(json_response, indent=2)}",
+                                loop=loop,
+                            )
                 else:
                     printAndDiscord(
                         f"Tradier account {account}: Running in DRY mode. Trasaction would've been: {orderObj.get_action()} {orderObj.get_amount()} of {s}",

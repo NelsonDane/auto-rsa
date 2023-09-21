@@ -126,7 +126,7 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
             sleep(3)
             fidelity_obj.set_logged_in_object(name, driver)
             # Get account numbers, types, and balances
-            account_dict = fidelity_account_info(driver, name=name)
+            account_dict = fidelity_account_info(driver)
             if account_dict is None:
                 raise Exception(f"{name}: Error getting account info")
             for acct in account_dict:
@@ -144,7 +144,7 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
     return fidelity_obj
 
 
-def fidelity_account_info(driver: webdriver, name="Fidelity") -> dict or None:
+def fidelity_account_info(driver: webdriver) -> dict or None:
     try:
         # Get account holdings
         driver.get("https://digital.fidelity.com/ftgw/digital/portfolio/positions")
@@ -180,7 +180,7 @@ def fidelity_account_info(driver: webdriver, name="Fidelity") -> dict or None:
             )
         # Construct dictionary of account numbers and balances
         account_dict = {}
-        for i in range(len(account_numbers)):
+        for i, account in enumerate(account_numbers):
             av = (
                 account_values[i]
                 .replace(" ", "")
@@ -189,7 +189,7 @@ def fidelity_account_info(driver: webdriver, name="Fidelity") -> dict or None:
                 .replace("»", "")
                 .replace("balance:", "")
             )
-            account_dict[account_numbers[i]] = {
+            account_dict[account] = {
                 "balance": float(av),
                 "type": account_types[i],
             }
@@ -237,10 +237,10 @@ def fidelity_holdings(fidelity_o: Brokerage, loop=None):
                 print(f"Holdings Info: {holdings_info}")
                 for stock in stocks_list:
                     fidelity_o.set_holdings(key, account, stock, "N/A", "N/A")
-                printHoldings(fidelity_o, key, account, loop)
             except Exception as e:
                 fidelity_error(driver, e)
-                return None
+                continue
+        printHoldings(fidelity_o, loop)
 
 
 def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None):
