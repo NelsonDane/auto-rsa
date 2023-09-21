@@ -21,9 +21,9 @@ from helperAPI import (
     check_if_page_loaded,
     getDriver,
     printAndDiscord,
+    printHoldings,
     stockOrder,
     type_slowly,
-    printHoldings,
 )
 
 
