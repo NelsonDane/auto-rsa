@@ -77,23 +77,32 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
             # Wait for page load
             WebDriverWait(driver, 20).until(check_if_page_loaded)
             # Type in username and password and click login
+            # Fidelity has different login views, so check for both
+            try:
+                WebDriverWait(driver, 10).until(
+                    expected_conditions.element_to_be_clickable(
+                        (By.CSS_SELECTOR, "#userId-input")
+                    )
+                )
+                username_selector = "#userId-input"
+                password_selector = "#password"
+                login_btn_selector = "#fs-login-button"
+            except TimeoutException:
+                username_selector = "#dom-username-input"
+                password_selector = "#dom-pswd-input"
+                login_btn_selector = "#dom-login-button > div"
             WebDriverWait(driver, 10).until(
                 expected_conditions.element_to_be_clickable(
-                    (By.CSS_SELECTOR, "#userId-input")
+                    (By.CSS_SELECTOR, username_selector)
                 )
             )
             username_field = driver.find_element(
-                by=By.CSS_SELECTOR, value="#userId-input"
+                by=By.CSS_SELECTOR, value=username_selector
             )
             type_slowly(username_field, account[0])
-            WebDriverWait(driver, 10).until(
-                expected_conditions.element_to_be_clickable(
-                    (By.CSS_SELECTOR, "#password")
-                )
-            )
-            password_field = driver.find_element(by=By.CSS_SELECTOR, value="#password")
+            password_field = driver.find_element(by=By.CSS_SELECTOR, value=password_selector)
             type_slowly(password_field, account[1])
-            driver.find_element(by=By.CSS_SELECTOR, value="#fs-login-button").click()
+            driver.find_element(by=By.CSS_SELECTOR, value=login_btn_selector).click()
             WebDriverWait(driver, 10).until(check_if_page_loaded)
             sleep(3)
             # Wait for page to load to summary page
@@ -249,6 +258,7 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
     print("Fidelity")
     print("==============================")
     print()
+    new_style = False
     for s in orderObj.get_stocks():
         for key in fidelity_o.get_account_numbers():
             printAndDiscord(
@@ -342,19 +352,50 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                     ).text
                     # If price is under $1, then we have to use a limit order
                     LIMIT = bool(float(ask_price) < 1 or float(bid_price) < 1)
+                    # Figure out whether page is in old or new style
+                    try:
+                        action_dropdown = driver.find_element(
+                            by=By.CSS_SELECTOR,
+                            value="#dest-dropdownlist-button-action",
+                        )
+                        new_style = True
+                    except NoSuchElementException:
+                        pass
                     # Set buy/sell
                     if orderObj.get_action() == "buy":
-                        buy_button = driver.find_element(
-                            by=By.CSS_SELECTOR,
-                            value="#action-buy > s-root > div > label > s-slot > s-assigned-wrapper",
-                        )
-                        buy_button.click()
+                        # buy is default in dropdowns so do not need to click
+                        if new_style:
+                            driver.find_element(
+                                by=By.CSS_SELECTOR,
+                                value="#dest-dropdownlist-button-action",
+                            ).click()
+                            driver.find_element(
+                                by=By.CSS_SELECTOR,
+                                value="#order-action-container-id > dropdownlist-ett-ap122489 > div > div > div.dropdownlist_items.ett-tabkey-idx-sel-cls > div > div.dropdownlist_items--item.dropdownlist_items--item_hover"
+                            ).click()
+                        else:
+                            buy_button = driver.find_element(
+                                by=By.CSS_SELECTOR,
+                                value="#action-buy > s-root > div > label > s-slot > s-assigned-wrapper",
+                            )
+                            buy_button.click()
                     else:
-                        sell_button = driver.find_element(
-                            by=By.CSS_SELECTOR,
-                            value="#action-sell > s-root > div > label > s-slot > s-assigned-wrapper",
-                        )
-                        sell_button.click()
+                        if new_style:
+                            action_dropdown = driver.find_element(
+                                by=By.CSS_SELECTOR,
+                                value="#dest-dropdownlist-button-action",
+                            )
+                            action_dropdown.click()
+                            driver.find_element(
+                                by=By.CSS_SELECTOR,
+                                value="#order-action-container-id > dropdownlist-ett-ap122489 > div > div > div.dropdownlist_items.ett-tabkey-idx-sel-cls > div > div:nth-child(2)"
+                            ).click()
+                        else:
+                            sell_button = driver.find_element(
+                                by=By.CSS_SELECTOR,
+                                value="#action-sell > s-root > div > label > s-slot > s-assigned-wrapper",
+                            )
+                            sell_button.click()
                     # Set amount (and clear previous amount)
                     amount_box = driver.find_element(
                         by=By.CSS_SELECTOR, value="#eqt-shared-quantity"
@@ -363,25 +404,50 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                     amount_box.send_keys(str(orderObj.get_amount()))
                     # Set market/limit
                     if not LIMIT:
-                        market_button = driver.find_element(
-                            by=By.CSS_SELECTOR,
-                            value="#market-yes > s-root > div > label > s-slot > s-assigned-wrapper",
-                        )
-                        market_button.click()
+                        if new_style:
+                            driver.find_element(
+                                by=By.CSS_SELECTOR,
+                                value="#dest-dropdownlist-button-ordertype",
+                            ).click()
+                            driver.find_element(
+                                by=By.CSS_SELECTOR,
+                                value="#order-type-container-id > dropdownlist-ett-ap122489 > div > div > div.dropdownlist_items.ett-tabkey-idx-sel-cls > div.dropdownlist_items--results-container > div:nth-child(1)",
+                            ).click()
+                        else:
+                            market_button = driver.find_element(
+                                by=By.CSS_SELECTOR,
+                                value="#market-yes > s-root > div > label > s-slot > s-assigned-wrapper",
+                            )
+                            market_button.click()
                     else:
-                        limit_button = driver.find_element(
-                            by=By.CSS_SELECTOR,
-                            value="#market-no > s-root > div > label > s-slot > s-assigned-wrapper",
-                        )
-                        limit_button.click()
-                        # Set price
+                        if new_style:
+                            driver.find_element(
+                                by=By.CSS_SELECTOR,
+                                value="#dest-dropdownlist-button-ordertype",
+                            ).click()
+                            driver.find_element(
+                                by=By.CSS_SELECTOR,
+                                value="#order-type-container-id > dropdownlist-ett-ap122489 > div > div > div.dropdownlist_items.ett-tabkey-idx-sel-cls > div.dropdownlist_items--results-container > div:nth-child(2)",
+                            ).click()
+                        else:
+                            limit_button = driver.find_element(
+                                by=By.CSS_SELECTOR,
+                                value="#market-no > s-root > div > label > s-slot > s-assigned-wrapper",
+                            )
+                            limit_button.click()
+                            # Set price
                         if orderObj.get_action() == "buy":
                             wanted_price = round(float(ask_price) + 0.01, 3)
                         else:
                             wanted_price = round(float(bid_price) - 0.01, 3)
-                        price_box = driver.find_element(
-                            by=By.CSS_SELECTOR, value="#eqt-ordsel-limit-price-field"
-                        )
+                        if new_style:
+                            price_box = driver.find_element(
+                                by=By.CSS_SELECTOR, value="#eqt-mts-limit-price"
+                            )
+                        else:
+                            price_box = driver.find_element(
+                                by=By.CSS_SELECTOR, value="#eqt-ordsel-limit-price-field"
+                            )
                         price_box.clear()
                         price_box.send_keys(wanted_price)
                     # Preview order
