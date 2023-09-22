@@ -190,7 +190,6 @@ def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, loop=None):
                                     loop,
                                 )
                                 continue
-                            print(limit_order)
                             message = "Success"
                             if limit_order.get("non_field_errors") is not None:
                                 message = limit_order["non_field_errors"]
@@ -199,7 +198,6 @@ def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, loop=None):
                                 loop,
                             )
                         else:
-                            print(market_order)
                             message = "Success"
                             if market_order.get("non_field_errors") is not None:
                                 message = market_order["non_field_errors"]
