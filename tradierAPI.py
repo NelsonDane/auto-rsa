@@ -31,7 +31,7 @@ def make_request(endpoint, BEARER_TOKEN, data=None, params=None, method="GET"):
                 headers={
                     "Authorization": f"Bearer {BEARER_TOKEN}",
                     "Accept": "application/json",
-                }
+                },
             )
         else:
             raise Exception(f"Invalid method: {method}")
