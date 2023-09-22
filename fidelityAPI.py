@@ -4,6 +4,7 @@
 
 import datetime
 import os
+import re
 import traceback
 from time import sleep
 
@@ -20,9 +21,30 @@ from helperAPI import (
     check_if_page_loaded,
     getDriver,
     printAndDiscord,
+    printHoldings,
     stockOrder,
     type_slowly,
 )
+
+
+def fidelity_error(driver: webdriver, error: str):
+    print(f"Fidelity Error: {error}")
+    driver.save_screenshot(f"fidelity-error-{datetime.datetime.now()}.png")
+    print(traceback.format_exc())
+
+
+def javascript_get_classname(driver: webdriver, className) -> list:
+    script = f"""
+    var accounts = document.getElementsByClassName("{className}");
+    var account_list = [];
+    for (var i = 0; i < accounts.length; i++) {{
+        account_list.push(accounts[i].textContent.trim());
+    }}
+    return account_list;
+    """
+    text = driver.execute_script(script)
+    sleep(1)
+    return text
 
 
 def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
@@ -55,23 +77,32 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
             # Wait for page load
             WebDriverWait(driver, 20).until(check_if_page_loaded)
             # Type in username and password and click login
-            WebDriverWait(driver, 10).until(
-                expected_conditions.element_to_be_clickable(
-                    (By.CSS_SELECTOR, "#userId-input")
+            # Fidelity has two login pages, find out which one and set selector
+            try:
+                WebDriverWait(driver, 10).until(
+                    expected_conditions.element_to_be_clickable(
+                        (By.CSS_SELECTOR, "#userId-input")
+                    )
                 )
-            )
+                username_selector = "#userId-input"
+                password_selector = "#password"
+                login_btn_selector = "#fs-login-button"
+            except TimeoutException:
+                username_selector = "#dom-username-input"
+                password_selector = "#dom-pswd-input"
+                login_btn_selector = "#dom-login-button > div"
             username_field = driver.find_element(
-                by=By.CSS_SELECTOR, value="#userId-input"
+                by=By.CSS_SELECTOR, value=username_selector
             )
             type_slowly(username_field, account[0])
             WebDriverWait(driver, 10).until(
                 expected_conditions.element_to_be_clickable(
-                    (By.CSS_SELECTOR, "#password")
+                    (By.CSS_SELECTOR, password_selector)
                 )
             )
-            password_field = driver.find_element(by=By.CSS_SELECTOR, value="#password")
+            password_field = driver.find_element(by=By.CSS_SELECTOR, value=password_selector)
             type_slowly(password_field, account[1])
-            driver.find_element(by=By.CSS_SELECTOR, value="#fs-login-button").click()
+            driver.find_element(by=By.CSS_SELECTOR, value=login_btn_selector).click()
             WebDriverWait(driver, 10).until(check_if_page_loaded)
             sleep(3)
             # Wait for page to load to summary page
@@ -103,127 +134,78 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
                 )
             sleep(3)
             fidelity_obj.set_logged_in_object(name, driver)
-            (
-                ind,
-                ret,
-                health,
-                values,
-                ret_values,
-                health_values,
-            ) = fidelity_account_numbers(driver, name=name)
-            for i in ind:
-                fidelity_obj.set_account_number(name, i)
-                fidelity_obj.set_account_type(name, i, "Individual")
-                fidelity_obj.set_account_totals(name, i, values[ind.index(i)])
-            for i in ret:
-                fidelity_obj.set_account_number(name, i)
-                fidelity_obj.set_account_type(name, i, "Retirement")
-                fidelity_obj.set_account_totals(name, i, ret_values[ret.index(i)])
-            for i in health:
-                fidelity_obj.set_account_number(name, i)
-                fidelity_obj.set_account_type(name, i, "Health")
-                fidelity_obj.set_account_totals(name, i, health_values[health.index(i)])
-            print("Logged in to Fidelity!")
-        except Exception as e:
-            print(f'Error logging in: "{e}"')
-            if driver is not None:
-                driver.save_screenshot(
-                    f"fidelity-login-error-{datetime.datetime.now()}.png"
+            # Get account numbers, types, and balances
+            account_dict = fidelity_account_info(driver)
+            if account_dict is None:
+                raise Exception(f"{name}: Error getting account info")
+            for acct in account_dict:
+                fidelity_obj.set_account_number(name, acct)
+                fidelity_obj.set_account_type(name, acct, account_dict[acct]["type"])
+                fidelity_obj.set_account_totals(
+                    name, acct, account_dict[acct]["balance"]
                 )
-                driver.close()
-                driver.quit()
-            traceback.print_exc()
+            print(f"Logged in to {name}!")
+        except Exception as e:
+            fidelity_error(driver, e)
+            driver.close()
+            driver.quit()
             return None
     return fidelity_obj
 
 
-def fidelity_account_numbers(driver: webdriver, loop=None, name="Fidelity"):
-    ret_acc = True
-    health_acc = True
+def fidelity_account_info(driver: webdriver) -> dict or None:
     try:
         # Get account holdings
         driver.get("https://digital.fidelity.com/ftgw/digital/portfolio/positions")
         # Wait for page load
         WebDriverWait(driver, 10).until(check_if_page_loaded)
-        sleep(5)
-        # Get total account value
-        total_value = driver.find_elements(
-            by=By.CSS_SELECTOR,
-            value="body > ap143528-portsum-dashboard-root > dashboard-root > div > div.account-selector__outer-box.account-selector__outer-box--expand-in-pc > accounts-selector > nav > div.acct-selector__acct-list > pvd3-link > s-root > span > a > span > s-slot > s-assigned-wrapper > div > div > div > span:nth-child(2)",
-        )
-        printAndDiscord(f"Total {name} account value: {total_value[0].text}", loop)
-        # Get value of individual accounts
-        ind_accounts = driver.find_elements(
-            by=By.CSS_SELECTOR, value=r"#Investment\ Accounts"
-        )
-        account_list = ind_accounts[0].text.replace("\n", " ").split(" ")[1::5]
-        values = values = [
-            x.replace("$", "")
-            for x in ind_accounts[0].text.replace("\n", " ").split(" ")[2::5]
-        ]
-        try:
-            # Get value of retirement accounts
-            ret_accounts = driver.find_elements(
-                by=By.CSS_SELECTOR, value=r"#Retirement\ Accounts"
+        # Get account numbers via javascript
+        WebDriverWait(driver, 10).until(
+            expected_conditions.presence_of_element_located(
+                (By.CLASS_NAME, "acct-selector__acct-num")
             )
-            ret_account_list = ret_accounts[0].text.replace("\n", " ").split(" ")[2::6]
-            ret_values = [
-                x.replace("$", "")
-                for x in ret_accounts[0].text.replace("\n", " ").split(" ")[3::6]
-            ]
-        except IndexError:
-            print("No retirement accounts found, skipping...")
-            ret_account_list = []
-            ret_values = []
-            ret_acc = False
-        try:
-            # Get value of health savings accounts
-            health_accounts = driver.find_elements(
-                by=By.CSS_SELECTOR, value=r"#Health\ Savings\ Accounts"
-            )
-            health_account_list = (
-                health_accounts[0]
-                .get_attribute("textContent")
-                .replace("\n", " ")
-                .split(" ")[27::9]
-            )
-            health_values = [
-                x.replace("$", "")
-                for x in health_accounts[0]
-                .get_attribute("textContent")
-                .replace("\n", " ")
-                .split(" ")[31::5]
-            ]
-        except IndexError:
-            print("No health accounts found, skipping...")
-            health_account_list = []
-            health_values = []
-            health_acc = False
-        # Print out account numbers and values
-        printAndDiscord("Individual accounts:", loop)
-        for x, item in enumerate(account_list):
-            printAndDiscord(f"{item} value: ${values[x]}", loop)
-        if ret_acc:
-            printAndDiscord("Retirement accounts:", loop)
-            for x, item in enumerate(ret_account_list):
-                printAndDiscord(f"{item} value: ${ret_values[x]}", loop)
-        if health_acc:
-            printAndDiscord("Health Savings accounts:", loop)
-            for x, item in enumerate(health_account_list):
-                printAndDiscord(f"{item} value: {health_values[x]}", loop)
-        return (
-            account_list,
-            ret_account_list,
-            health_account_list,
-            values,
-            ret_values,
-            health_values,
         )
+        account_numbers = javascript_get_classname(driver, "acct-selector__acct-num")
+        print(f"Accounts: {account_numbers}")
+        # Get account balances via javascript
+        account_values = javascript_get_classname(driver, "acct-selector__acct-balance")
+        print(f"Values: {account_values}")
+        # Get account names via javascript
+        account_types = javascript_get_classname(driver, "acct-selector__acct-name")
+        print(f"Account Names: {account_types}")
+        # Make sure all lists are the same length
+        if not (
+            len(account_numbers) == len(account_values)
+            and len(account_numbers) == len(account_types)
+        ):
+            shortest = min(
+                len(account_numbers), len(account_values), len(account_types)
+            )
+            account_numbers = account_numbers[:shortest]
+            account_values = account_values[:shortest]
+            account_types = account_types[:shortest]
+            print(
+                f"Warning: Account numbers, values, and types are not the same length! Using shortest length: {shortest}"
+            )
+        # Construct dictionary of account numbers and balances
+        account_dict = {}
+        for i, account in enumerate(account_numbers):
+            av = (
+                account_values[i]
+                .replace(" ", "")
+                .replace("$", "")
+                .replace(",", "")
+                .replace("»", "")
+                .replace("balance:", "")
+            )
+            account_dict[account] = {
+                "balance": float(av),
+                "type": account_types[i],
+            }
+        return account_dict
     except Exception as e:
-        print(f"{name}: Error getting holdings: {e}")
-        driver.save_screenshot(f"fidelity-an-error-{datetime.datetime.now()}.png")
-        print(traceback.format_exc())
-        return None, None, None, None, None, None
+        fidelity_error(driver, e)
+        return None
 
 
 def fidelity_holdings(fidelity_o: Brokerage, loop=None):
@@ -233,9 +215,41 @@ def fidelity_holdings(fidelity_o: Brokerage, loop=None):
     print("==============================")
     print()
     for key in fidelity_o.get_account_numbers():
-        driver = fidelity_o.get_logged_in_objects(key)
-        # Get account holdings since holdings is not yet implemented
-        fidelity_account_numbers(driver, loop=loop, name=key)
+        for account in fidelity_o.get_account_numbers(key):
+            driver: webdriver = fidelity_o.get_logged_in_objects(key)
+            try:
+                driver.get(
+                    f"https://digital.fidelity.com/ftgw/digital/portfolio/positions#{account}"
+                )
+                # Wait for page load
+                WebDriverWait(driver, 10).until(check_if_page_loaded)
+                # Get holdings via javascript
+                WebDriverWait(driver, 10).until(
+                    expected_conditions.presence_of_element_located(
+                        (By.CLASS_NAME, "ag-pinned-left-cols-container")
+                    )
+                )
+                stocks_list = javascript_get_classname(
+                    driver, "ag-pinned-left-cols-container"
+                )
+                # Find 3 or 4 letter words surrounded by 2 spaces on each side
+                for i in range(len(stocks_list)):
+                    stocks_list[i].replace(" \n ", "").replace("*", "")
+                    stocks_list[i] = re.findall(
+                        r"(?<=\s{2})[a-zA-Z]{3,4}(?=\s{2})", stocks_list[i]
+                    )
+                stocks_list = stocks_list[0]
+                print(f"Stocks: {stocks_list}")
+                holdings_info = javascript_get_classname(
+                    driver, "ag-center-cols-container"
+                )
+                print(f"Holdings Info: {holdings_info}")
+                for stock in stocks_list:
+                    fidelity_o.set_holdings(key, account, stock, "N/A", "N/A")
+            except Exception as e:
+                fidelity_error(driver, e)
+                continue
+        printHoldings(fidelity_o, loop)
 
 
 def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None):
@@ -244,6 +258,7 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
     print("Fidelity")
     print("==============================")
     print()
+    new_style = False
     for s in orderObj.get_stocks():
         for key in fidelity_o.get_account_numbers():
             printAndDiscord(
@@ -337,19 +352,51 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                     ).text
                     # If price is under $1, then we have to use a limit order
                     LIMIT = bool(float(ask_price) < 1 or float(bid_price) < 1)
+                    # Figure out whether page is in old or new style
+                    try:
+                        action_dropdown = driver.find_element(
+                            by=By.CSS_SELECTOR,
+                            value="#dest-dropdownlist-button-action",
+                        )
+                        new_style = True
+                    except NoSuchElementException:
+                        new_style = False
                     # Set buy/sell
                     if orderObj.get_action() == "buy":
-                        buy_button = driver.find_element(
-                            by=By.CSS_SELECTOR,
-                            value="#action-buy > s-root > div > label > s-slot > s-assigned-wrapper",
-                        )
-                        buy_button.click()
+                        # buy is default in dropdowns so do not need to click
+                        if new_style:
+                            driver.find_element(
+                                by=By.CSS_SELECTOR,
+                                value="#dest-dropdownlist-button-action",
+                            ).click()
+                            driver.find_element(
+                                by=By.CSS_SELECTOR, 
+                                value="#order-action-container-id > dropdownlist-ett-ap122489 > div > div > div.dropdownlist_items.ett-tabkey-idx-sel-cls > div > div.dropdownlist_items--item.dropdownlist_items--item_hover"
+                            ).click()
+                            new_style = True
+                        else:
+                            buy_button = driver.find_element(
+                                by=By.CSS_SELECTOR,
+                                value="#action-buy > s-root > div > label > s-slot > s-assigned-wrapper",
+                            )
+                            buy_button.click()
                     else:
-                        sell_button = driver.find_element(
-                            by=By.CSS_SELECTOR,
-                            value="#action-sell > s-root > div > label > s-slot > s-assigned-wrapper",
-                        )
-                        sell_button.click()
+                        if new_style:
+                            action_dropdown = driver.find_element(
+                                by=By.CSS_SELECTOR,
+                                value="#dest-dropdownlist-button-action",
+                            )
+                            action_dropdown.click()
+                            driver.find_element(
+                                by=By.CSS_SELECTOR, 
+                                value="#order-action-container-id > dropdownlist-ett-ap122489 > div > div > div.dropdownlist_items.ett-tabkey-idx-sel-cls > div > div:nth-child(2)"
+                            ).click()
+                        else:
+                            sell_button = driver.find_element(
+                                by=By.CSS_SELECTOR,
+                                value="#action-sell > s-root > div > label > s-slot > s-assigned-wrapper",
+                            )
+                            sell_button.click()
                     # Set amount (and clear previous amount)
                     amount_box = driver.find_element(
                         by=By.CSS_SELECTOR, value="#eqt-shared-quantity"
@@ -358,25 +405,51 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                     amount_box.send_keys(str(orderObj.get_amount()))
                     # Set market/limit
                     if not LIMIT:
-                        market_button = driver.find_element(
-                            by=By.CSS_SELECTOR,
-                            value="#market-yes > s-root > div > label > s-slot > s-assigned-wrapper",
-                        )
-                        market_button.click()
+                        if new_style:
+                            driver.find_element(
+                                by=By.CSS_SELECTOR,
+                                value="#dest-dropdownlist-button-ordertype",
+                            ).click()
+                            driver.find_element(
+                                by=By.CSS_SELECTOR,
+                                value="#order-type-container-id > dropdownlist-ett-ap122489 > div > div > div.dropdownlist_items.ett-tabkey-idx-sel-cls > div.dropdownlist_items--results-container > div:nth-child(1)",
+                            ).click()
+                        else:
+                            market_button = driver.find_element(
+                                by=By.CSS_SELECTOR,
+                                value="#market-yes > s-root > div > label > s-slot > s-assigned-wrapper",
+                            )
+                            market_button.click()
+                        
                     else:
-                        limit_button = driver.find_element(
-                            by=By.CSS_SELECTOR,
-                            value="#market-no > s-root > div > label > s-slot > s-assigned-wrapper",
-                        )
-                        limit_button.click()
-                        # Set price
+                        if new_style:
+                            driver.find_element(
+                                by=By.CSS_SELECTOR,
+                                value="#dest-dropdownlist-button-ordertype",
+                            ).click()
+                            driver.find_element(
+                                by=By.CSS_SELECTOR,
+                                value="#order-type-container-id > dropdownlist-ett-ap122489 > div > div > div.dropdownlist_items.ett-tabkey-idx-sel-cls > div.dropdownlist_items--results-container > div:nth-child(2)",
+                            ).click()
+                        else:
+                            limit_button = driver.find_element(
+                                by=By.CSS_SELECTOR,
+                                value="#market-no > s-root > div > label > s-slot > s-assigned-wrapper",
+                            )
+                            limit_button.click()
+                            # Set price
                         if orderObj.get_action() == "buy":
                             wanted_price = round(float(ask_price) + 0.01, 3)
                         else:
                             wanted_price = round(float(bid_price) - 0.01, 3)
-                        price_box = driver.find_element(
-                            by=By.CSS_SELECTOR, value="#eqt-ordsel-limit-price-field"
-                        )
+                        if new_style:
+                            price_box = driver.find_element(
+                                by=By.CSS_SELECTOR, value="#eqt-mts-limit-price"
+                            )
+                        else:
+                            price_box = driver.find_element(
+                                by=By.CSS_SELECTOR, value="#eqt-ordsel-limit-price-field"
+                            )
                         price_box.clear()
                         price_box.send_keys(wanted_price)
                     # Preview order
