@@ -156,12 +156,16 @@ async def tastytrade_execute(tt_o: Brokerage, orderObj: stockOrder, loop=None):
                             obj, new_order, dry_run=orderObj.get_dry()
                         )
                         # Check order status
-                        if placed_order.order.status.value == "Routed":
+                        if (
+                            placed_order.order.status.value
+                        ).strip().lower() == "routed":
                             message = f"{key} {acct.account_number}: {orderObj.get_action()} {orderObj.get_amount()} of {s}"
                             if orderObj.get_dry():
                                 message = f"{key} Running in DRY mode. Transaction would've been: {orderObj.get_action()} {orderObj.get_amount()} of {s}"
                             printAndDiscord(message, loop=loop)
-                        elif placed_order.order.status.value == "Rejected":
+                        elif (
+                            placed_order.order.status.value
+                        ).strip().lower() == "rejected":
                             # Retry with limit order
                             streamer = await DataStreamer.create(obj)
                             stock_limit = await streamer.oneshot(EventType.PROFILE, [s])

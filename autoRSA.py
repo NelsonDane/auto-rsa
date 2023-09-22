@@ -33,7 +33,7 @@ load_dotenv()
 SUPPORTED_BROKERS = ["ally", "fidelity", "robinhood", "schwab", "tastytrade", "tradier"]
 DISCORD_BOT = False
 DOCKER_MODE = False
-SUPRESS_OLD_WARN = False
+DANGER_MODE = False
 
 
 # Account nicknames
@@ -141,20 +141,11 @@ def argParser(args: str):
 
 
 if __name__ == "__main__":
-    # Check for legacy .env file format
-    # This should be removed in a future release
-    if os.getenv("SUPRESS_OLD_WARN", "").lower() == "true":
-        SUPRESS_OLD_WARN = True
-    if re.search(r"(_USERNAME|_PASSWORD)", str(os.environ)) and not SUPRESS_OLD_WARN:
-        print("Legacy .env file found. Please update to new format.")
-        print("See .env.example for details.")
-        print("To supress this warning, set SUPRESS_OLD_WARN=True in .env")
-        # Print troublesome variables
-        print("Please update/remove the following variables:")
-        for key in os.environ:
-            if re.search(r"(_USERNAME|_PASSWORD)", key):
-                print(f"{key}={os.environ[key]}")
-        sys.exit(1)
+    # Check if danger mode is enabled
+    if os.getenv("DANGER_MODE", "").lower() == "true":
+        DANGER_MODE = True
+        print("DANGER MODE ENABLED")
+        print()
     # Determine if ran from command line
     if len(sys.argv) == 1:  # If no arguments, do nothing
         print("No arguments given, see README for usage")
@@ -186,8 +177,9 @@ if __name__ == "__main__":
             print()
             print("If correct, press enter to continue...")
             try:
-                input("Otherwise, press ctrl+c to exit")
-                print()
+                if not DANGER_MODE:
+                    input("Otherwise, press ctrl+c to exit")
+                    print()
             except KeyboardInterrupt:
                 print()
                 print("Exiting, no orders placed")
@@ -225,16 +217,6 @@ if __name__ == "__main__":
         print("Discord bot is started...")
         print()
 
-        # String of available commands
-        help_string = (
-            "Available commands:\n"
-            "!ping\n"
-            "!help\n"
-            "!rsa holdings [all|<broker1>,<broker2>,...]\n"
-            "!rsa [buy|sell] [amount] [stock] [all|<broker1>,<broker2>,...] [not <broker1>,<broker2>,...] [DRY: true|false]\n"
-            "!restart"
-        )
-
         # Bot event when bot is ready
         @bot.event
         async def on_ready():
@@ -245,14 +227,6 @@ if __name__ == "__main__":
                 )
                 os._exit(1)
             await channel.send("Discord bot is started...")
-            # Old .env file format warning
-            if not SUPRESS_OLD_WARN:
-                await channel.send(
-                    "Heads up! .env file format has changed, see .env.example for new format"
-                )
-                await channel.send(
-                    "To supress this message, set SUPRESS_OLD_WARN to True in your .env file"
-                )
 
         # Bot ping-pong
         @bot.command(name="ping")
@@ -263,7 +237,15 @@ if __name__ == "__main__":
         # Help command
         @bot.command()
         async def help(ctx):
-            await ctx.send(help_string)
+            # String of available commands
+            await ctx.send(
+                "Available RSA commands:\n"
+                "!ping\n"
+                "!help\n"
+                "!rsa holdings [all|<broker1>,<broker2>,...]\n"
+                "!rsa [buy|sell] [amount] [stock1|stock1,stock2] [all|<broker1>,<broker2>,...] [not broker1,broker2,...] [DRY: true|false]\n"
+                "!restart"
+            )
 
         # Main RSA command
         @bot.command(name="rsa")
@@ -304,10 +286,11 @@ if __name__ == "__main__":
         # Catch bad commands
         @bot.event
         async def on_command_error(ctx, error):
-            print(f"Error: {error}")
-            await ctx.send(f"Error: {error}")
+            print(f"Command Error: {error}")
+            await ctx.send(f"Command Error: {error}")
             # Print help command
-            await ctx.send(help_string)
+            print("Type '!help' for a list of commands")
+            await ctx.send("Type '!help' for a list of commands")
 
         # Run Discord bot
         bot.run(DISCORD_TOKEN)
