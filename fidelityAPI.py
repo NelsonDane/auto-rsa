@@ -77,7 +77,7 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
             # Wait for page load
             WebDriverWait(driver, 20).until(check_if_page_loaded)
             # Type in username and password and click login
-            # Fidelity has two login pages, find out which one and set selector
+            # Fidelity has different login views, so check for both
             try:
                 WebDriverWait(driver, 10).until(
                     expected_conditions.element_to_be_clickable(
@@ -91,15 +91,15 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
                 username_selector = "#dom-username-input"
                 password_selector = "#dom-pswd-input"
                 login_btn_selector = "#dom-login-button > div"
+            WebDriverWait(driver, 10).until(
+                expected_conditions.element_to_be_clickable(
+                    (By.CSS_SELECTOR, username_selector)
+                )
+            )
             username_field = driver.find_element(
                 by=By.CSS_SELECTOR, value=username_selector
             )
             type_slowly(username_field, account[0])
-            WebDriverWait(driver, 10).until(
-                expected_conditions.element_to_be_clickable(
-                    (By.CSS_SELECTOR, password_selector)
-                )
-            )
             password_field = driver.find_element(by=By.CSS_SELECTOR, value=password_selector)
             type_slowly(password_field, account[1])
             driver.find_element(by=By.CSS_SELECTOR, value=login_btn_selector).click()
@@ -360,7 +360,7 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                         )
                         new_style = True
                     except NoSuchElementException:
-                        new_style = False
+                        pass
                     # Set buy/sell
                     if orderObj.get_action() == "buy":
                         # buy is default in dropdowns so do not need to click
@@ -373,7 +373,6 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                                 by=By.CSS_SELECTOR, 
                                 value="#order-action-container-id > dropdownlist-ett-ap122489 > div > div > div.dropdownlist_items.ett-tabkey-idx-sel-cls > div > div.dropdownlist_items--item.dropdownlist_items--item_hover"
                             ).click()
-                            new_style = True
                         else:
                             buy_button = driver.find_element(
                                 by=By.CSS_SELECTOR,
@@ -420,7 +419,6 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                                 value="#market-yes > s-root > div > label > s-slot > s-assigned-wrapper",
                             )
                             market_button.click()
-                        
                     else:
                         if new_style:
                             driver.find_element(
