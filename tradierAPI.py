@@ -11,17 +11,32 @@ from dotenv import load_dotenv
 from helperAPI import Brokerage, printAndDiscord, printHoldings, stockOrder
 
 
-def make_request(endpoint, BEARER_TOKEN, data=None, params=None):
+def make_request(endpoint, BEARER_TOKEN, data=None, params=None, method="GET"):
     try:
-        response = requests.get(
-            f"https://api.tradier.com/v1/{endpoint}",
-            data=data,
-            params=params,
-            headers={
-                "Authorization": f"Bearer {BEARER_TOKEN}",
-                "Accept": "application/json",
-            },
-        )
+        if method == "GET":
+            response = requests.get(
+                f"https://api.tradier.com/v1/{endpoint}",
+                data=data,
+                params=params,
+                headers={
+                    "Authorization": f"Bearer {BEARER_TOKEN}",
+                    "Accept": "application/json",
+                },
+            )
+        elif method == "POST":
+            response = requests.post(
+                f"https://api.tradier.com/v1/{endpoint}",
+                data=data,
+                params=params,
+                headers={
+                    "Authorization": f"Bearer {BEARER_TOKEN}",
+                    "Accept": "application/json",
+                }
+            )
+        else:
+            raise Exception(f"Invalid method: {method}")
+        if response.status_code != 200:
+            raise Exception(f"Status code: {response.status_code}")
         json_response = response.json()
         if json_response.get("fault") and json_response["fault"].get("faultstring"):
             raise Exception(json_response["fault"]["faultstring"])
@@ -160,7 +175,7 @@ def tradier_transaction(tradier_o: Brokerage, orderObj: stockOrder, loop=None):
                         "duration": "day",
                     }
                     json_response = make_request(
-                        f"accounts/{account}/orders", obj, data=data
+                        f"accounts/{account}/orders", obj, data=data, method="POST"
                     )
                     if json_response is None:
                         printAndDiscord(
@@ -172,16 +187,15 @@ def tradier_transaction(tradier_o: Brokerage, orderObj: stockOrder, loop=None):
                         json_response.get("order") is not None
                         and json_response["order"].get("status") is not None
                     ):
-                        if json_response["order"]["status"] == "ok":
-                            printAndDiscord(
-                                f"Tradier account {account}: {orderObj.get_action()} {orderObj.get_amount()} of {s}",
-                                loop=loop,
-                            )
-                        else:
-                            printAndDiscord(
-                                f"Tradier account {account} Error: This order did not route. JSON response: {json.dumps(json_response, indent=2)}",
-                                loop=loop,
-                            )
+                        printAndDiscord(
+                            f"Tradier account {account}: {orderObj.get_action()} {orderObj.get_amount()} of {s}: {json_response['order']['status']}",
+                            loop=loop,
+                        )
+                        continue
+                    printAndDiscord(
+                        f"Tradier account {account} Error: This order did not route. JSON response: {json.dumps(json_response, indent=2)}",
+                        loop=loop,
+                    )
                 else:
                     printAndDiscord(
                         f"Tradier account {account}: Running in DRY mode. Trasaction would've been: {orderObj.get_action()} {orderObj.get_amount()} of {s}",

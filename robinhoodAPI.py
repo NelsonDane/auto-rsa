@@ -144,6 +144,7 @@ def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, loop=None):
                             quantity=orderObj.get_amount(),
                             side=orderObj.get_action(),
                             account_number=account,
+                            timeInForce="gfd",
                         )
                         # Limit order fallback
                         if market_order is None:
@@ -181,6 +182,7 @@ def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, loop=None):
                                 side=orderObj.get_action(),
                                 limitPrice=price,
                                 account_number=account,
+                                timeInForce="gfd",
                             )
                             if limit_order is None:
                                 printAndDiscord(
