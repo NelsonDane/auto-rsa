@@ -370,7 +370,7 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                                 value="#dest-dropdownlist-button-action",
                             ).click()
                             driver.find_element(
-                                by=By.CSS_SELECTOR, 
+                                by=By.CSS_SELECTOR,
                                 value="#order-action-container-id > dropdownlist-ett-ap122489 > div > div > div.dropdownlist_items.ett-tabkey-idx-sel-cls > div > div.dropdownlist_items--item.dropdownlist_items--item_hover"
                             ).click()
                         else:
@@ -387,7 +387,7 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                             )
                             action_dropdown.click()
                             driver.find_element(
-                                by=By.CSS_SELECTOR, 
+                                by=By.CSS_SELECTOR,
                                 value="#order-action-container-id > dropdownlist-ett-ap122489 > div > div > div.dropdownlist_items.ett-tabkey-idx-sel-cls > div > div:nth-child(2)"
                             ).click()
                         else:
