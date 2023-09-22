@@ -100,7 +100,9 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
                 by=By.CSS_SELECTOR, value=username_selector
             )
             type_slowly(username_field, account[0])
-            password_field = driver.find_element(by=By.CSS_SELECTOR, value=password_selector)
+            password_field = driver.find_element(
+                by=By.CSS_SELECTOR, value=password_selector
+            )
             type_slowly(password_field, account[1])
             driver.find_element(by=By.CSS_SELECTOR, value=login_btn_selector).click()
             WebDriverWait(driver, 10).until(check_if_page_loaded)
@@ -371,7 +373,7 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                             ).click()
                             driver.find_element(
                                 by=By.CSS_SELECTOR,
-                                value="#order-action-container-id > dropdownlist-ett-ap122489 > div > div > div.dropdownlist_items.ett-tabkey-idx-sel-cls > div > div.dropdownlist_items--item.dropdownlist_items--item_hover"
+                                value="#order-action-container-id > dropdownlist-ett-ap122489 > div > div > div.dropdownlist_items.ett-tabkey-idx-sel-cls > div > div.dropdownlist_items--item.dropdownlist_items--item_hover",
                             ).click()
                         else:
                             buy_button = driver.find_element(
@@ -388,7 +390,7 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                             action_dropdown.click()
                             driver.find_element(
                                 by=By.CSS_SELECTOR,
-                                value="#order-action-container-id > dropdownlist-ett-ap122489 > div > div > div.dropdownlist_items.ett-tabkey-idx-sel-cls > div > div:nth-child(2)"
+                                value="#order-action-container-id > dropdownlist-ett-ap122489 > div > div > div.dropdownlist_items.ett-tabkey-idx-sel-cls > div > div:nth-child(2)",
                             ).click()
                         else:
                             sell_button = driver.find_element(
@@ -446,7 +448,8 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                             )
                         else:
                             price_box = driver.find_element(
-                                by=By.CSS_SELECTOR, value="#eqt-ordsel-limit-price-field"
+                                by=By.CSS_SELECTOR,
+                                value="#eqt-ordsel-limit-price-field",
                             )
                         price_box.clear()
                         price_box.send_keys(wanted_price)
