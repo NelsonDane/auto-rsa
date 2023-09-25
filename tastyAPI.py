@@ -204,7 +204,7 @@ async def tastytrade_execute(tt_o: Brokerage, orderObj: stockOrder, loop=None):
                                     message = f"{key} Running in DRY mode. Transaction would've been: {orderObj.get_action()} {orderObj.get_amount()} of {s}"
                                 printAndDiscord(message, loop=loop)
                             elif order_status == "Rejected":
-                                # Only want this message if it fails market and limit order. 
+                                # Only want this message if it fails market and limit order.
                                 printAndDiscord(
                                     f"{key} Error placing order: {placed_order.order.id} on account {acct.account_number}: {order_status}",
                                     loop=loop,
