@@ -153,22 +153,23 @@ async def tastytrade_execute(tt_o: Brokerage, orderObj: stockOrder, loop=None):
                         new_order = order_setup(
                             obj, order_type, stock_price, s, orderObj.get_amount()
                         )
-                        placed_order = accounts[i].place_order(
+                        placed_order = acct.place_order(
                             obj, new_order, dry_run=orderObj.get_dry()
-                        ) 
+                        )
+                        order_status = placed_order.order.status.value
                         # Check order status
-                        if placed_order.order.status.value in ["Received", "Routed"]:
-                            message = f"{key} {acct.account_number}: {orderObj.get_action()} {orderObj.get_amount()} of {s} Order: {placed_order.order.id} Status: {placed_order.order.status.value}"
+                        if order_status in ["Received", "Routed"]:
+                            message = f"{key} {acct.account_number}: {orderObj.get_action()} {orderObj.get_amount()} of {s} Order: {placed_order.order.id} Status: {order_status}"
                             if orderObj.get_dry():
                                 message = f"{key} Running in DRY mode. Transaction would've been: {orderObj.get_action()} {orderObj.get_amount()} of {s}"
                             printAndDiscord(message, loop=loop)
-                        elif placed_order.order.status.value == "Rejected":
+                        elif order_status == "Rejected":
                             # Retry with limit order
                             streamer = await DataStreamer.create(obj)
                             stock_limit = await streamer.oneshot(EventType.PROFILE, [s])
                             stock_quote = await streamer.oneshot(EventType.QUOTE, [s])
                             printAndDiscord(
-                                f"{key} {acct.account_number} Error: {placed_order.status.value} Trying Limit order...",
+                                f"{key} {acct.account_number} Error: {order_status} Trying Limit order...",
                                 loop=loop,
                             )
                             # Get limit price
@@ -193,19 +194,19 @@ async def tastytrade_execute(tt_o: Brokerage, orderObj: stockOrder, loop=None):
                             new_order = order_setup(
                                 obj, order_type, stock_price, s, orderObj.get_amount()
                             )
-                            placed_order = accounts[i].place_order(
+                            placed_order = acct.place_order(
                                 obj, new_order, dry_run=orderObj.get_dry()
                             )
                             # Check order status
-                            if placed_order.order.status.value in ["Received", "Routed"]:
-                                message = f"{key} {acct.account_number}: {orderObj.get_action()} {orderObj.get_amount()} of {s} Order: {placed_order.order.id} Status: {placed_order.order.status.value}"
+                            if order_status in ["Received", "Routed"]:
+                                message = f"{key} {acct.account_number}: {orderObj.get_action()} {orderObj.get_amount()} of {s} Order: {placed_order.order.id} Status: {order_status}"
                                 if orderObj.get_dry():
                                     message = f"{key} Running in DRY mode. Transaction would've been: {orderObj.get_action()} {orderObj.get_amount()} of {s}"
                                 printAndDiscord(message, loop=loop)
-                            elif placed_order.order.status.value == "Rejected":
+                            elif order_status == "Rejected":
                                 # Only want this message if it fails market and limit order. 
                                 printAndDiscord(
-                                    f"{key} Error placing order: {placed_order.order.id} on account {acct.account_number}: {placed_order.order.status.value}",
+                                    f"{key} Error placing order: {placed_order.order.id} on account {acct.account_number}: {order_status}",
                                     loop=loop,
                                 )
                 except TastytradeError as te:
