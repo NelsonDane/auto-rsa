@@ -147,8 +147,9 @@ async def tastytrade_execute(tt_o: Brokerage, orderObj: stockOrder, loop=None):
                     # Set stock price
                     stock_price = 0
                     # Day trade check
-                    cash_balance = float(acct.get_balances(obj).cash_balance)
+                    # Day trade check
                     # removing this check until tastytrade api maintainer fixes enhanced_security_check bug
+                    # cash_balance = float(acct.get_balances(obj).cash_balance)
                     # day_trade_check(obj, acct, cash_balance)
                     if True:
                         # Place order
