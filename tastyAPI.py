@@ -25,8 +25,15 @@ from helperAPI import Brokerage, printAndDiscord, printHoldings, stockOrder
 
 
 def day_trade_check(tt: ProductionSession, acct: Account, cash_balance, loop=None):
-    trading_status = acct.get_trading_status(tt)
-    day_trade_count = trading_status.day_trade_count
+    try:
+        trading_status = acct.get_trading_status(tt)
+        day_trade_count = trading_status.day_trade_count
+    except Exception as e:
+        printAndDiscord(
+            f"Error getting day trade count for account {acct.account_number}: {e}",
+            loop=loop,
+        )
+        return False
     if (
         acct.margin_or_cash == "Margin"
         and float(cash_balance) <= 25000
