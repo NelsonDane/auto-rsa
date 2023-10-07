@@ -134,11 +134,11 @@ if __name__ == "__main__":
         print("DANGER MODE ENABLED")
         print()
     # If docker argument, run docker bot
-    if (sys.argv[1].lower() == "docker"):
+    if sys.argv[1].lower() == "docker":
         print("Running bot from docker")
         DOCKER_MODE = DISCORD_BOT = True
     # If discord argument, run discord bot, no docker, no prompt
-    elif (sys.argv[1].lower() == "discord"):
+    elif sys.argv[1].lower() == "discord":
         updater()
         print("Running Discord bot from command line")
         DISCORD_BOT = True
@@ -207,7 +207,7 @@ if __name__ == "__main__":
                 print(
                     "ERROR: Invalid channel ID, please check your DISCORD_CHANNEL in your .env file and try again"
                 )
-                os._exit(1) # Special exit code to restart docker container
+                os._exit(1)  # Special exit code to restart docker container
             await channel.send("Discord bot is started...")
 
         # Bot ping-pong
@@ -232,9 +232,7 @@ if __name__ == "__main__":
         # Main RSA command
         @bot.command(name="rsa")
         async def rsa(ctx, *args):
-            discOrdObj = await bot.loop.run_in_executor(
-                None, argParser, args
-            )
+            discOrdObj = await bot.loop.run_in_executor(None, argParser, args)
             loop = asyncio.get_event_loop()
             try:
                 # Login to brokers
@@ -263,7 +261,7 @@ if __name__ == "__main__":
             print()
             await ctx.send("Restarting...")
             await bot.close()
-            os._exit(0) # Special exit code to restart docker container
+            os._exit(0)  # Special exit code to restart docker container
 
         # Catch bad commands
         @bot.event
