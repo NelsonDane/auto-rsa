@@ -52,32 +52,30 @@ def fun_run(orderObj: stockOrder, command, loop=None):
         for broker in orderObj.get_brokers():
             if broker in orderObj.get_notbrokers():
                 continue
+            broker = nicknames(broker)
             fun_name = broker + command
             try:
-                orderObj.order_validate(preLogin=True)
-                if nicknames(broker) == "ally":
-                    printAndDiscord(
-                        "Ally has disabled their API, so Ally is currently unavailable. Skipping...",
-                        loop,
-                    )
+                # Initialize broker
                 if command == "_init":
-                    if nicknames(broker) == "fidelity":
+                    if broker.lower() == "fidelity":
                         # Fidelity requires docker mode argument
                         orderObj.set_logged_in(
-                            globals()[fun_name](DOCKER=DOCKER_MODE), nicknames(broker)
+                            globals()[fun_name](DOCKER=DOCKER_MODE), broker
                         )
                     else:
-                        orderObj.set_logged_in(globals()[fun_name](), nicknames(broker))
-                # Holdings and transaction
-                elif orderObj.get_logged_in(nicknames(broker)) is None:
+                        orderObj.set_logged_in(globals()[fun_name](), broker)
+                # Verify broker is logged in
+                orderObj.order_validate(preLogin=False)
+                logged_in_broker = orderObj.get_logged_in(broker)
+                if logged_in_broker is None:
                     print(f"Error: {broker} not logged in, skipping...")
-                elif command == "_holdings":
-                    orderObj.order_validate(preLogin=False)
-                    globals()[fun_name](orderObj.get_logged_in(nicknames(broker)), loop)
+                    continue
+                # Get holdings or complete transaction
+                if command == "_holdings":
+                    globals()[fun_name](logged_in_broker, loop)
                 elif command == "_transaction":
-                    orderObj.order_validate(preLogin=False)
                     globals()[fun_name](
-                        orderObj.get_logged_in(nicknames(broker)),
+                        logged_in_broker,
                         orderObj,
                         loop,
                     )
@@ -90,81 +88,64 @@ def fun_run(orderObj: stockOrder, command, loop=None):
         print(f"Error: {command} is not a valid command")
 
 
-# Regex function to check if stock ticker is valid
-def isStockTicker(symbol):
-    pattern = r"^[A-Z]{1,5}$"  # Regex pattern for stock tickers
-    return re.match(pattern, symbol)
-
-
 # Parse input arguments and update the order object
-def argParser(args: str):
+def argParser(args: list) -> stockOrder:
     orderObj = stockOrder()
-    for arg in args:
-        arg = arg.lower()
-        # Exclusions
-        if arg == "not":
-            next_arg = nicknames(args[args.index(arg) + 1]).split(",")
-            for broker in next_arg:
-                if nicknames(broker) in SUPPORTED_BROKERS:
-                    orderObj.set_notbrokers(nicknames(broker))
-        elif arg in ["buy", "sell"]:
-            orderObj.set_action(arg)
-        elif arg.isnumeric():
-            orderObj.set_amount(arg)
-        elif arg == "false":
-            orderObj.set_dry(False)
-        # If first item of list is a broker, it must be a list of brokers
-        elif nicknames(arg.split(",")[0]) in SUPPORTED_BROKERS:
-            for broker in arg.split(","):
-                # Add broker if it is valid and not in notbrokers
-                if (
-                    nicknames(broker) in SUPPORTED_BROKERS
-                    and nicknames(broker) not in orderObj.get_notbrokers()
-                ):
-                    orderObj.set_brokers(nicknames(broker))
-        elif arg == "all":
-            if "all" not in orderObj.get_brokers() and orderObj.get_brokers() == []:
-                orderObj.set_brokers(SUPPORTED_BROKERS)
-        elif arg == "holdings":
-            orderObj.set_holdings(True)
-        # If first item of list is a stock, it must be a list of stocks
-        elif (
-            isStockTicker(arg.split(",")[0].upper())
-            and arg.lower() != "dry"
-            and orderObj.get_stocks() == []
-        ):
-            for stock in arg.split(","):
-                orderObj.set_stock(stock.upper())
+    # If first argument is holdings, set holdings to true
+    if args[0].lower() == "holdings":
+        orderObj.set_holdings(True)
+        # Next argument is brokers
+        if args[1].lower() == "all":
+            orderObj.set_brokers(SUPPORTED_BROKERS)
+        else:
+            for broker in args[1].split(","):
+                orderObj.set_brokers(nicknames(broker))
+        return orderObj
+    # Otherwise: action, amount, stock, broker, (optional) not broker, (optional) dry
+    orderObj.set_action(args[0].lower())
+    orderObj.set_amount(args[1])
+    for stock in args[2].split(","):
+        orderObj.set_stock(stock.upper())
+    # If next argument is a broker, set broker
+    for broker in args[3].split(","):
+        if nicknames(broker) in SUPPORTED_BROKERS:
+            orderObj.set_brokers(nicknames(broker))
+    # If next argument is not, set not broker
+    if len(args) > 4 and args[4].lower() == "not":
+        for broker in args[5].split(","):
+            if nicknames(broker) in SUPPORTED_BROKERS:
+                orderObj.set_notbrokers(nicknames(broker))
+    # If next argument is false, set dry to false
+    if args[-1].lower() == "false":
+        orderObj.set_dry(False)
     # Validate order object
     orderObj.order_validate(preLogin=True)
     return orderObj
 
 
 if __name__ == "__main__":
+    # Determine if ran from command line
+    if len(sys.argv) == 1:  # If no arguments, do nothing
+        print("No arguments given, see README for usage")
+        sys.exit(1)
     # Check if danger mode is enabled
     if os.getenv("DANGER_MODE", "").lower() == "true":
         DANGER_MODE = True
         print("DANGER MODE ENABLED")
         print()
-    # Determine if ran from command line
-    if len(sys.argv) == 1:  # If no arguments, do nothing
-        print("No arguments given, see README for usage")
-        sys.exit(1)
-    elif (
-        len(sys.argv) == 2 and sys.argv[1].lower() == "docker"
-    ):  # If docker argument, run docker bot
+    # If docker argument, run docker bot
+    if (sys.argv[1].lower() == "docker"):
         print("Running bot from docker")
         DOCKER_MODE = DISCORD_BOT = True
-    elif (
-        len(sys.argv) == 2 and sys.argv[1].lower() == "discord"
-    ):  # If discord argument, run discord bot, no docker, no prompt
+    # If discord argument, run discord bot, no docker, no prompt
+    elif (sys.argv[1].lower() == "discord"):
         updater()
         print("Running Discord bot from command line")
         DISCORD_BOT = True
     else:  # If any other argument, run bot, no docker or discord bot
         updater()
         print("Running bot from command line")
-        cliOrderObj: stockOrder = argParser(sys.argv[1:])
+        cliOrderObj = argParser(sys.argv[1:])
         if not cliOrderObj.get_holdings():
             print(f"Action: {cliOrderObj.get_action()}")
             print(f"Amount: {cliOrderObj.get_amount()}")
@@ -199,6 +180,7 @@ if __name__ == "__main__":
                 killDriver(cliOrderObj.get_logged_in(b))
         sys.exit(0)
 
+    # If discord bot, run discord bot
     if DISCORD_BOT:
         # Get discord token and channel from .env file
         if not os.environ["DISCORD_TOKEN"]:
@@ -225,7 +207,7 @@ if __name__ == "__main__":
                 print(
                     "ERROR: Invalid channel ID, please check your DISCORD_CHANNEL in your .env file and try again"
                 )
-                os._exit(1)
+                os._exit(1) # Special exit code to restart docker container
             await channel.send("Discord bot is started...")
 
         # Bot ping-pong
@@ -250,7 +232,7 @@ if __name__ == "__main__":
         # Main RSA command
         @bot.command(name="rsa")
         async def rsa(ctx, *args):
-            discOrdObj: stockOrder = await bot.loop.run_in_executor(
+            discOrdObj = await bot.loop.run_in_executor(
                 None, argParser, args
             )
             loop = asyncio.get_event_loop()
@@ -281,7 +263,7 @@ if __name__ == "__main__":
             print()
             await ctx.send("Restarting...")
             await bot.close()
-            os._exit(0)
+            os._exit(0) # Special exit code to restart docker container
 
         # Catch bad commands
         @bot.event

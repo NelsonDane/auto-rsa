@@ -38,14 +38,12 @@ class stockOrder:
         self.__action = action.lower()
 
     def set_amount(self, amount):
-        # Only allow ints for now
+        # Only allow floats
         try:
-            amount = int(amount)
+            amount = float(amount)
         except ValueError:
-            raise ValueError("Amount must be an integer")
-        if int(amount) < 1:
-            raise ValueError("Amount must be greater than 0")
-        self.__amount = int(amount)
+            raise ValueError(f"Amount ({amount}) must be a number")
+        self.__amount = amount
 
     def set_stock(self, stock):
         # Only allow strings for now
@@ -126,7 +124,7 @@ class stockOrder:
         self.__brokers.sort()
         self.__notbrokers.sort()
 
-    def order_validate(self, preLogin=False):
+    def order_validate(self, preLogin=False) -> None or ValueError:
         # Check for required fields (doesn't apply to holdings)
         if not self.__holdings:
             if self.__action is None:
