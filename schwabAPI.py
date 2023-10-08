@@ -6,7 +6,7 @@ import pprint
 from time import sleep
 
 from dotenv import load_dotenv
-from schwab_api import Schwab
+from schwab_api2 import Schwab
 
 from helperAPI import Brokerage, printAndDiscord, printHoldings, stockOrder
 
@@ -76,6 +76,7 @@ def schwab_holdings(schwab_o: Brokerage, loop=None):
                 printAndDiscord(f"{key} {account}: Error getting holdings: {e}", loop)
                 continue
         printHoldings(schwab_o, loop)
+    obj.close_session()
 
 
 def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
@@ -102,13 +103,12 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
                 try:
                     messages, success = obj.trade(
                         ticker=s,
-                        side=orderObj.get_action().capitalize(),
+                        action=orderObj.get_action().capitalize(),
                         qty=orderObj.get_amount(),
-                        account_id=account,
+                        order_type="Market",
+                        account_id=str(account),
                         dry_run=orderObj.get_dry(),
                     )
-                    print("The order verification produced the following messages: ")
-                    pprint.pprint(messages)
                     printAndDiscord(
                         f"{key} account {account}: The order verification was "
                         + "successful"
@@ -118,7 +118,7 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
                     )
                     if not success:
                         printAndDiscord(
-                            f"{key} account {account}: The order verification produced the following messages: {messages}",
+                            f"{key} account {account}: The order verification produced the following messages: {messages['order_messages']}",
                             loop,
                         )
                 except Exception as e:
@@ -128,3 +128,4 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
                     continue
                 sleep(1)
                 print()
+    obj.close_session()
