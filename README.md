@@ -155,6 +155,8 @@ Required `.env` variables:
 
 To get your TOTP secret, follow this [guide](guides/schwabSetup.md).
 
+If you are affected by [this issue](https://github.com/itsjafer/schwab-api/issues/16), please set `SCHWAB_BETA=True` in your `.env` file. For more information see [this issue](https://github.com/NelsonDane/auto-rsa/pull/92).
+
 ### Tradier
 Made by yours truly using the official [Tradier API](https://documentation.tradier.com/brokerage-api/trading/getting-started). Consider giving me a ⭐
 
