@@ -356,11 +356,16 @@ def killDriver(brokerObj: Brokerage):
         for key in brokerObj.get_account_numbers():
             driver = brokerObj.get_logged_in_objects(key)
             if driver is not None:
-                print(f"Killing {brokerObj.get_name()} drivers...")
-                driver.close()
-                driver.quit()
-                count += 1
-        print(f"Killed {count} {brokerObj.get_name()} drivers")
+                if brokerObj.get_name().lower() == "fidelity":
+                    print(f"Killing {brokerObj.get_name()} drivers...")
+                    driver.close()
+                    driver.quit()
+                    count += 1
+                elif os.getenv("SCHWAB_BETA", "").lower() == "true" and brokerObj.get_name().lower() == "schwab":
+                    driver.close_session()
+                    count += 1
+        if count > 0:
+            print(f"Killed {count} {brokerObj.get_name()} drivers")
 
 
 async def processTasks(message):

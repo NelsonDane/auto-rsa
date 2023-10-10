@@ -174,10 +174,9 @@ if __name__ == "__main__":
             fun_run(cliOrderObj, "_holdings")
         else:
             fun_run(cliOrderObj, "_transaction")
-        # Kill Selenium drivers
+        # Kill Drivers
         for b in cliOrderObj.get_logged_in():
-            if b.lower() == "fidelity":
-                killDriver(cliOrderObj.get_logged_in(b))
+            killDriver(cliOrderObj.get_logged_in(b))
         sys.exit(0)
 
     # If discord bot, run discord bot

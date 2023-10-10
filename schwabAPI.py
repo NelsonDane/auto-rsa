@@ -2,13 +2,19 @@
 # Schwab API
 
 import os
-import pprint
 from time import sleep
 
 from dotenv import load_dotenv
-from schwab_api2 import Schwab
-
 from helperAPI import Brokerage, printAndDiscord, printHoldings, stockOrder
+
+
+# Check for Schwab Beta
+load_dotenv()
+if os.getenv("SCHWAB_BETA", "").lower() == "true":
+    from schwab_api2 import Schwab
+    print("Using Schwab Beta API")
+else:
+    from schwab_api import Schwab
 
 
 def schwab_init(SCHWAB_EXTERNAL=None):
@@ -56,8 +62,8 @@ def schwab_init(SCHWAB_EXTERNAL=None):
 def schwab_holdings(schwab_o: Brokerage, loop=None):
     # Get holdings on each account
     for key in schwab_o.get_account_numbers():
+        obj: Schwab = schwab_o.get_logged_in_objects(key)
         for account in schwab_o.get_account_numbers(key):
-            obj: Schwab = schwab_o.get_logged_in_objects(key)
             try:
                 holdings = obj.get_account_info()[account]["positions"]
                 for item in holdings:
@@ -76,7 +82,6 @@ def schwab_holdings(schwab_o: Brokerage, loop=None):
                 printAndDiscord(f"{key} {account}: Error getting holdings: {e}", loop)
                 continue
         printHoldings(schwab_o, loop)
-    obj.close_session()
 
 
 def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
@@ -103,7 +108,7 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
                 try:
                     messages, success = obj.trade(
                         ticker=s,
-                        action=orderObj.get_action().capitalize(),
+                        side=orderObj.get_action().capitalize(),
                         qty=orderObj.get_amount(),
                         order_type="Market",
                         account_id=str(account),
@@ -128,4 +133,3 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
                     continue
                 sleep(1)
                 print()
-    obj.close_session()
