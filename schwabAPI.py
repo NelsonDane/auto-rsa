@@ -13,8 +13,10 @@ load_dotenv()
 if os.getenv("SCHWAB_BETA", "").lower() == "true":
     from schwab_api2 import Schwab
     print("Using Schwab Beta API")
+    SCHWAB_BETA = True
 else:
     from schwab_api import Schwab
+    SCHWAB_BETA = False
 
 
 def schwab_init(SCHWAB_EXTERNAL=None):
@@ -106,12 +108,22 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
                         "Running in DRY mode. No transactions will be made.", loop
                     )
                 try:
-                    messages, success = obj.trade(
+                    if SCHWAB_BETA:
+                        # Schwab Beta has different parameters
+                        messages, success = obj.trade(
+                            ticker=s,
+                            action=orderObj.get_action().capitalize(),
+                            qty=orderObj.get_amount(),
+                            order_type="Market",
+                            account_id=str(account),
+                            dry_run=orderObj.get_dry(),
+                        )
+                    else:
+                        messages, success = obj.trade(
                         ticker=s,
                         side=orderObj.get_action().capitalize(),
                         qty=orderObj.get_amount(),
-                        order_type="Market",
-                        account_id=str(account),
+                        account_id=account,
                         dry_run=orderObj.get_dry(),
                     )
                     printAndDiscord(
@@ -122,8 +134,17 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
                         loop,
                     )
                     if not success:
+                        if SCHWAB_BETA:
+                            messages = messages["order_messages"]
+                        else:
+                            if len(messages) > 1 and "security is deficient" in messages[1]:
+                                printAndDiscord(
+                                    f"Error: {messages[1]}. If this persists, please run with SCHWAB_BETA=True in .env",
+                                    loop,
+                                )
+                                continue
                         printAndDiscord(
-                            f"{key} account {account}: The order verification produced the following messages: {messages['order_messages']}",
+                            f"{key} account {account}: The order verification produced the following messages: {messages}",
                             loop,
                         )
                 except Exception as e:
