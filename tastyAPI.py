@@ -155,7 +155,8 @@ async def tastytrade_execute(tt_o: Brokerage, orderObj: stockOrder, loop=None):
                     stock_price = 0
                     # Day trade check
                     # Day trade check
-                    # removing this check until tastytrade api maintainer fixes enhanced_security_check bug
+                    # removing this check until tastytrade api
+                    # maintainer fixes enhanced_security_check bug
                     # cash_balance = float(acct.get_balances(obj).cash_balance)
                     # day_trade_check(obj, acct, cash_balance)
                     if True:
@@ -214,7 +215,7 @@ async def tastytrade_execute(tt_o: Brokerage, orderObj: stockOrder, loop=None):
                                     message = f"{key} Running in DRY mode. Transaction would've been: {orderObj.get_action()} {orderObj.get_amount()} of {s}"
                                 printAndDiscord(message, loop=loop)
                             elif order_status == "Rejected":
-                                # Only want this message if it fails market and limit order.
+                                # Only want this message if it fails both orders.
                                 printAndDiscord(
                                     f"{key} Error placing order: {placed_order.order.id} on account {acct.account_number}: {order_status}",
                                     loop=loop,

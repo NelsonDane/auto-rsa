@@ -3,7 +3,6 @@
 
 # Import libraries
 import os
-import re
 import sys
 import traceback
 
@@ -13,7 +12,6 @@ try:
     from dotenv import load_dotenv
 
     # Custom API libraries
-    from allyAPI import *
     from fidelityAPI import *
     from helperAPI import killDriver, stockOrder, updater
     from robinhoodAPI import *
@@ -30,7 +28,7 @@ load_dotenv()
 
 
 # Global variables
-SUPPORTED_BROKERS = ["ally", "fidelity", "robinhood", "schwab", "tastytrade", "tradier"]
+SUPPORTED_BROKERS = ["fidelity", "robinhood", "schwab", "tastytrade", "tradier"]
 DISCORD_BOT = False
 DOCKER_MODE = False
 DANGER_MODE = False

@@ -21,23 +21,23 @@ task_queue = Queue()
 
 class stockOrder:
     def __init__(self):
-        self.__action = None  # Buy or sell
-        self.__amount = None  # Amount of shares to buy/sell
-        self.__stock = []  # List of stock tickers to buy/sell
-        self.__time = "day"  # Only supports day for now
-        self.__price = "market"  # Default to market price
-        self.__brokers = []  # List of brokerages to use
-        self.__notbrokers = []  # List of brokerages to not use !ally
-        self.__dry = True  # Dry run mode
-        self.__holdings = False  # Get holdings from enabled brokerages
-        self.__logged_in = {}  # Dict of logged in brokerage objects
+        self.__action: str = None  # Buy or sell
+        self.__amount: float = None  # Amount of shares to buy/sell
+        self.__stock: list = []  # List of stock tickers to buy/sell
+        self.__time: str = "day"  # Only supports day for now
+        self.__price: str = "market"  # Default to market price
+        self.__brokers: list = []  # List of brokerages to use
+        self.__notbrokers: list = []  # List of brokerages to not use
+        self.__dry: bool = True  # Dry run mode
+        self.__holdings: bool = False  # Get holdings from enabled brokerages
+        self.__logged_in: dict = {}  # Dict of logged in brokerage objects
 
-    def set_action(self, action):
+    def set_action(self, action: str) -> None or ValueError:
         if action.lower() not in ["buy", "sell"]:
             raise ValueError("Action must be buy or sell")
         self.__action = action.lower()
 
-    def set_amount(self, amount):
+    def set_amount(self, amount: float) -> None or ValueError:
         # Only allow floats
         try:
             amount = float(amount)
@@ -45,19 +45,26 @@ class stockOrder:
             raise ValueError(f"Amount ({amount}) must be a number")
         self.__amount = amount
 
-    def set_stock(self, stock):
+    def set_stock(self, stock: str) -> None or ValueError:
         # Only allow strings for now
         if not isinstance(stock, str):
             raise ValueError("Stock must be a string")
         self.__stock.append(stock.upper())
 
-    def set_time(self, time):
+    def set_time(self, time) -> None or NotImplementedError:
         raise NotImplementedError
 
-    def set_price(self, price):
-        self.__price = float(price)
+    def set_price(self, price: str or float) -> None or ValueError:
+        # Only "market" or float
+        if not isinstance(price, (str, float)):
+            raise ValueError("Price must be a string or float")
+        if isinstance(price, float):
+            price = round(price, 2)
+        if isinstance(price, str):
+            price = price.lower()
+        self.__price = price
 
-    def set_brokers(self, brokers):
+    def set_brokers(self, brokers: list) -> None or ValueError:
         # Only allow strings or lists
         if not isinstance(brokers, (str, list)):
             raise ValueError("Brokers must be a string or list")
@@ -67,46 +74,56 @@ class stockOrder:
         else:
             self.__brokers.append(brokers.lower())
 
-    def set_notbrokers(self, notbrokers):
-        # Only allow strings for now
+    def set_notbrokers(self, notbrokers: list) -> None or ValueError:
+        # Only allow strings or lists
         if not isinstance(notbrokers, str):
             raise ValueError("Not Brokers must be a string")
-        self.__notbrokers.append(notbrokers.lower())
+        if isinstance(notbrokers, list):
+            for b in notbrokers:
+                self.__notbrokers.append(b.lower())
+        else:
+            self.__notbrokers.append(notbrokers.lower())
 
-    def set_dry(self, dry):
+    def set_dry(self, dry: bool) -> None or ValueError:
+        # Only allow bools
+        if not isinstance(dry, bool):
+            raise ValueError("Dry must be a boolean")
         self.__dry = dry
 
-    def set_holdings(self, holdings):
+    def set_holdings(self, holdings: bool) -> None or ValueError:
+        # Only allow bools
+        if not isinstance(holdings, bool):
+            raise ValueError("Holdings must be a boolean")
         self.__holdings = holdings
 
-    def set_logged_in(self, logged_in, broker):
+    def set_logged_in(self, logged_in, broker: str):
         self.__logged_in[broker] = logged_in
 
-    def get_action(self):
+    def get_action(self) -> str:
         return self.__action
 
-    def get_amount(self):
+    def get_amount(self) -> float:
         return self.__amount
 
-    def get_stocks(self):
+    def get_stocks(self) -> list:
         return self.__stock
 
-    def get_time(self):
+    def get_time(self) -> str:
         return self.__time
 
-    def get_price(self):
+    def get_price(self) -> str or float:
         return self.__price
 
-    def get_brokers(self):
+    def get_brokers(self) -> list:
         return self.__brokers
 
-    def get_notbrokers(self):
+    def get_notbrokers(self) -> list:
         return self.__notbrokers
 
-    def get_dry(self):
+    def get_dry(self) -> bool:
         return self.__dry
 
-    def get_holdings(self):
+    def get_holdings(self) -> bool:
         return self.__holdings
 
     def get_logged_in(self, broker=None):
@@ -161,24 +178,30 @@ class stockOrder:
 
 class Brokerage:
     def __init__(self, name):
-        self.__name = name  # Name of brokerage
-        self.__account_numbers = (
+        self.__name: str = name  # Name of brokerage
+        self.__account_numbers: dict = (
             {}
         )  # Dictionary of account names and numbers under parent
-        self.__logged_in_objects = {}  # Dictionary of logged in objects under parent
-        self.__holdings = {}  # Dictionary of holdings under parent
-        self.__account_totals = {}  # Dictionary of account totals
-        self.__account_types = {}  # Dictionary of account types
+        self.__logged_in_objects: dict = (
+            {}
+        )  # Dictionary of logged in objects under parent
+        self.__holdings: dict = {}  # Dictionary of holdings under parent
+        self.__account_totals: dict = {}  # Dictionary of account totals
+        self.__account_types: dict = {}  # Dictionary of account types
 
-    def set_name(self, name):
+    def set_name(self, name: str):
+        if not isinstance(name, str):
+            raise ValueError("Name must be a string")
         self.__name = name
 
-    def set_account_number(self, parent_name, account_number):
+    def set_account_number(self, parent_name: str, account_number: str):
         if parent_name not in self.__account_numbers:
             self.__account_numbers[parent_name] = []
         self.__account_numbers[parent_name].append(account_number)
 
-    def set_logged_in_object(self, parent_name, logged_in_object, account_name=None):
+    def set_logged_in_object(
+        self, parent_name: str, logged_in_object, account_name: str = None
+    ):
         if parent_name not in self.__logged_in_objects:
             self.__logged_in_objects[parent_name] = {}
         if account_name is None:
@@ -186,7 +209,14 @@ class Brokerage:
         else:
             self.__logged_in_objects[parent_name][account_name] = logged_in_object
 
-    def set_holdings(self, parent_name, account_name, stock, quantity, price):
+    def set_holdings(
+        self,
+        parent_name: str,
+        account_name: str,
+        stock: str,
+        quantity: float,
+        price: float,
+    ):
         quantity = 0 if quantity == "N/A" else quantity
         price = 0 if price == "N/A" else price
         if parent_name not in self.__holdings:
@@ -199,7 +229,7 @@ class Brokerage:
             "total": round(float(quantity) * float(price), 2),
         }
 
-    def set_account_totals(self, parent_name, account_name, total):
+    def set_account_totals(self, parent_name: str, account_name: str, total: float):
         if isinstance(total, str):
             total = total.replace(",", "").replace("$", "").strip()
         if parent_name not in self.__account_totals:
@@ -209,46 +239,50 @@ class Brokerage:
             self.__account_totals[parent_name].values()
         )
 
-    def set_account_type(self, parent_name, account_name, account_type):
+    def set_account_type(self, parent_name: str, account_name: str, account_type: str):
         if parent_name not in self.__account_types:
             self.__account_types[parent_name] = {}
         self.__account_types[parent_name][account_name] = account_type
 
-    def get_name(self):
+    def get_name(self) -> str:
         return self.__name
 
-    def get_account_numbers(self, parent_name=None):
+    def get_account_numbers(self, parent_name: str = None) -> list or dict:
         if parent_name is None:
             return self.__account_numbers
         return self.__account_numbers.get(parent_name, [])
 
-    def get_logged_in_objects(self, parent_name=None, account_name=None):
+    def get_logged_in_objects(
+        self, parent_name: str = None, account_name: str = None
+    ) -> dict:
         if parent_name is None:
             return self.__logged_in_objects
         if account_name is None:
             return self.__logged_in_objects.get(parent_name, {})
         return self.__logged_in_objects.get(parent_name, {}).get(account_name, {})
 
-    def get_holdings(self, parent_name=None, account_name=None):
+    def get_holdings(self, parent_name: str = None, account_name: str = None) -> dict:
         if parent_name is None:
             return self.__holdings
         if account_name is None:
             return self.__holdings.get(parent_name, {})
         return self.__holdings.get(parent_name, {}).get(account_name, {})
 
-    def get_account_totals(self, parent_name=None, account_name=None):
+    def get_account_totals(
+        self, parent_name: str = None, account_name: str = None
+    ) -> dict:
         if parent_name is None:
             return self.__account_totals
         if account_name is None:
             return self.__account_totals.get(parent_name, {})
         return self.__account_totals.get(parent_name, {}).get(account_name, 0)
 
-    def get_account_types(self, parent_name, account_name=None):
+    def get_account_types(self, parent_name: str, account_name: str = None) -> dict:
         if account_name is None:
             return self.__account_types.get(parent_name, {})
         return self.__account_types.get(parent_name, {}).get(account_name, "")
 
-    def __str__(self):
+    def __str__(self) -> str:
         return textwrap.dedent(
             f"""
             Brokerage: {self.__name}
@@ -399,6 +433,7 @@ async def processTasks(message):
         except Exception as e:
             print(f"Error Sending Message: {e}")
             break
+    sleep(0.5)
 
 
 def printAndDiscord(message, loop=None):
