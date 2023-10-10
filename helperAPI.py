@@ -27,7 +27,7 @@ class stockOrder:
         self.__time: str = "day"  # Only supports day for now
         self.__price: str = "market"  # Default to market price
         self.__brokers: list = []  # List of brokerages to use
-        self.__notbrokers: list = []  # List of brokerages to not use !ally
+        self.__notbrokers: list = []  # List of brokerages to not use
         self.__dry: bool = True  # Dry run mode
         self.__holdings: bool = False  # Get holdings from enabled brokerages
         self.__logged_in: dict = {}  # Dict of logged in brokerage objects

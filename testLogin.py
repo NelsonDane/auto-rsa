@@ -8,7 +8,6 @@ import os
 from dotenv import load_dotenv
 
 # Custom API libraries
-from allyAPI import ally_init
 from fidelityAPI import fidelity_init
 from robinhoodAPI import robinhood_init
 from schwabAPI import schwab_init
@@ -28,11 +27,6 @@ if os.environ.get("DISCORD_CHANNEL") is None:
     print("DISCORD_CHANNEL not found")
 else:
     print(f"Discord channel found {os.environ.get('DISCORD_CHANNEL')}")
-# Ally
-if os.environ.get("ALLY") is None:
-    print("ALLY not found")
-else:
-    print(f"ALLY found {os.environ.get('ALLY')}")
 # Fidelity
 if os.environ.get("FIDELITY") is None:
     print("FIDELITY not found")
@@ -64,8 +58,6 @@ print()
 print("==========================================================")
 print("Checking Accounts...")
 print("==========================================================")
-print()
-ally_init()
 print()
 fidelity_init()
 print()

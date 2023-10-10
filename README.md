@@ -2,9 +2,7 @@
 A CLI tool and Discord bot to buy and sell the same amount of stocks across multiple accounts!
 
 ## What is RSA?
-RSA stands for "Reverse Split Arbitrage." This is a strategy where you buy the same amount of stocks in multiple accounts across multiple brokers right before a stock performs a reverse split. Once the stock splits and your fractional share is rounded up to a full share, you profit!
-
-This project will allow you to maximize your profits by being able to easily manage multiple accounts across different brokerages, buying and selling as needed.
+RSA is a stock trading strategy where buying and selling a stock across multiple brokerages would be very beneficial, hence this project.
 
 ## Discord Bot Installation
 To create your Discord bot and get your `DISCORD_TOKEN`, follow this [guide](guides/discordBot.md).
@@ -34,21 +32,21 @@ To buy and sell stocks, use this command:
 
 `<action> <amount> <ticker> <accounts> <dry>`
 
-For example, to buy 1 STAF in all accounts:
+For example, to buy 1 AAPL in all accounts:
 
-`buy 1 STAF all false`
+`buy 1 AAPL all false`
 
 For a dry run of the above command in Robinhood only:
 
-`buy 1 STAF robinhood true`
+`buy 1 AAPL robinhood true`
 
-For a real run on Ally and Robinhood, but not Schwab:
+For a real run on Fidelity and Robinhood, but not Schwab:
 
-`buy 1 STAF ally,robinhood not schwab false`
+`buy 1 AAPL fidelity,robinhood not schwab false`
 
-For a real run on Ally and Robinhood but not Schwab buying both STAF and AREB:
+For a real run on Fidelity and Robinhood but not Schwab buying both AAPL and GOOG:
 
-`buy 1 STAF,AREB ally,robinhood not schwab false`
+`buy 1 AAPL,GOOG fidelity,robinhood not schwab false`
 
 To check your account holdings:
 
@@ -92,25 +90,7 @@ DISCLAIMER: I am not a financial advisor and not affiliated with any of the brok
 
 ## Supported brokerages:
 
-All brokers: separate account credentials with a colon (":"). For example, `ALLY_USERNAME:ALLY_PASSWORD`. Separate multiple logins with the same broker with a comma (","). For example, `ALLY_USERNAME:ALLY_PASSWORD,ALLY_USERNAME2:ALLY_PASSWORD2`.
-
-### Ally
-**Ally has disabled their API, so Ally is currently unsupported.**
-
-Made using [PyAlly](https://github.com/alienbrett/PyAlly). Go give them a ⭐
-
-Required `.env` variables:
-- `ALLY_CONSUMER_KEY`
-- `ALLY_CONSUMER_SECRET`
-- `ALLY_OAUTH_TOKEN`
-- `ALLY_OAUTH_SECRET`
-- `ALLY_ACCOUNT_NUMBERS`
-
-`.env` file format:
-- `ALLY=ALLY_CONSUMER_KEY:ALLY_CONSUMER_SECRET:ALLY_OAUTH_TOKEN:ALLY_OAUTH_SECRET`
-- `ALLY_ACCOUNT_NUMBERS=ALLY_ACCOUNT_NUMBER1:ALLY_ACCOUNT_NUMBER2`
-
-To get these, follow [these instructions](https://alienbrett.github.io/PyAlly/installing.html#get-the-library).
+All brokers: separate account credentials with a colon (":"). For example, `SCHWAB_USERNAME:SCHWAB_PASSWORD`. Separate multiple logins with the same broker with a comma (","). For example, `SCHWAB_USERNAME:SCHWAB_PASSWORD,SCHWAB_USERNAME2:SCHWAB_PASSWORD2`.
 
 ### Fidelity
 Made by yours truly using Selenium (and many hours of web scraping).
@@ -177,6 +157,8 @@ Required `.env` variables:
 - `TASTYTRADE=TASTYTRADE_USERNAME:TASTYTRADE_PASSWORD`
 
 ### Maybe future brokerages
+#### Ally
+Ally disabled their official API, so all Ally packages don't work. I am attempting to reverse engineer their API, which you can track [here](https://github.com/NelsonDane/ally-api). Once I get it working, I will add it to this project.
 #### Chase
 I will be signing up for a Chase account soon, and I have heard that it is possible, so I will be looking into it soon.
 #### Vanguard
