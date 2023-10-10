@@ -104,10 +104,13 @@ def argParser(args: list) -> stockOrder:
     orderObj.set_amount(args[1])
     for stock in args[2].split(","):
         orderObj.set_stock(stock.upper())
-    # If next argument is a broker, set broker
-    for broker in args[3].split(","):
-        if nicknames(broker) in SUPPORTED_BROKERS:
-            orderObj.set_brokers(nicknames(broker))
+    # Next argument is a broker, set broker
+    if args[3].lower() == "all":
+        orderObj.set_brokers(SUPPORTED_BROKERS)
+    else:
+        for broker in args[3].split(","):
+            if nicknames(broker) in SUPPORTED_BROKERS:
+                orderObj.set_brokers(nicknames(broker))
     # If next argument is not, set not broker
     if len(args) > 4 and args[4].lower() == "not":
         for broker in args[5].split(","):
