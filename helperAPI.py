@@ -182,7 +182,9 @@ class Brokerage:
         self.__account_numbers: dict = (
             {}
         )  # Dictionary of account names and numbers under parent
-        self.__logged_in_objects: dict = {}  # Dictionary of logged in objects under parent
+        self.__logged_in_objects: dict = (
+            {}
+        )  # Dictionary of logged in objects under parent
         self.__holdings: dict = {}  # Dictionary of holdings under parent
         self.__account_totals: dict = {}  # Dictionary of account totals
         self.__account_types: dict = {}  # Dictionary of account types
@@ -197,7 +199,9 @@ class Brokerage:
             self.__account_numbers[parent_name] = []
         self.__account_numbers[parent_name].append(account_number)
 
-    def set_logged_in_object(self, parent_name: str, logged_in_object, account_name: str = None):
+    def set_logged_in_object(
+        self, parent_name: str, logged_in_object, account_name: str = None
+    ):
         if parent_name not in self.__logged_in_objects:
             self.__logged_in_objects[parent_name] = {}
         if account_name is None:
@@ -205,7 +209,14 @@ class Brokerage:
         else:
             self.__logged_in_objects[parent_name][account_name] = logged_in_object
 
-    def set_holdings(self, parent_name: str, account_name: str, stock: str, quantity: float, price: float):
+    def set_holdings(
+        self,
+        parent_name: str,
+        account_name: str,
+        stock: str,
+        quantity: float,
+        price: float,
+    ):
         quantity = 0 if quantity == "N/A" else quantity
         price = 0 if price == "N/A" else price
         if parent_name not in self.__holdings:
@@ -241,7 +252,9 @@ class Brokerage:
             return self.__account_numbers
         return self.__account_numbers.get(parent_name, [])
 
-    def get_logged_in_objects(self, parent_name: str = None, account_name: str = None) -> dict:
+    def get_logged_in_objects(
+        self, parent_name: str = None, account_name: str = None
+    ) -> dict:
         if parent_name is None:
             return self.__logged_in_objects
         if account_name is None:
@@ -255,7 +268,9 @@ class Brokerage:
             return self.__holdings.get(parent_name, {})
         return self.__holdings.get(parent_name, {}).get(account_name, {})
 
-    def get_account_totals(self, parent_name: str = None, account_name: str = None) -> dict:
+    def get_account_totals(
+        self, parent_name: str = None, account_name: str = None
+    ) -> dict:
         if parent_name is None:
             return self.__account_totals
         if account_name is None:
