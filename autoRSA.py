@@ -245,6 +245,9 @@ if __name__ == "__main__":
                     await bot.loop.run_in_executor(
                         None, fun_run, discOrdObj, "_transaction", loop
                     )
+                # Kill Drivers
+                for b in discOrdObj.get_logged_in():
+                    killDriver(discOrdObj.get_logged_in(b))
             except Exception as err:
                 print(traceback.format_exc())
                 print(f"Error placing order: {err}")
