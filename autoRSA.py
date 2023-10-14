@@ -13,6 +13,7 @@ try:
 
     # Custom API libraries
     from fidelityAPI import *
+    from firstradeAPI import *
     from helperAPI import killDriver, stockOrder, updater
     from robinhoodAPI import *
     from schwabAPI import *
@@ -28,7 +29,7 @@ load_dotenv()
 
 
 # Global variables
-SUPPORTED_BROKERS = ["fidelity", "robinhood", "schwab", "tastytrade", "tradier"]
+SUPPORTED_BROKERS = ["fidelity", "firsttrade", "robinhood", "schwab", "tastytrade", "tradier"]
 DISCORD_BOT = False
 DOCKER_MODE = False
 DANGER_MODE = False
