@@ -82,7 +82,9 @@ def schwab_holdings(schwab_o: Brokerage, loop=None):
                     schwab_o.set_holdings(key, account, sym, qty, current_price)
             except Exception as e:
                 printAndDiscord(f"{key} {account}: Error getting holdings: {e}", loop)
-                continue
+        if SCHWAB_BETA:
+            print(f"Closing session for {key}")
+            obj.close_session()
         printHoldings(schwab_o, loop)
 
 
@@ -99,8 +101,8 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
                 f"{key} {orderObj.get_action()}ing {orderObj.get_amount()} {s} @ {orderObj.get_price()}",
                 loop,
             )
+            obj: Schwab = schwab_o.get_logged_in_objects(key)
             for account in schwab_o.get_account_numbers(key):
-                obj: Schwab = schwab_o.get_logged_in_objects(key)
                 print(f"{key} Account: {account}")
                 # If DRY is True, don't actually make the transaction
                 if orderObj.get_dry():
@@ -151,6 +153,7 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
                     printAndDiscord(
                         f"{key} {account}: Error submitting order: {e}", loop
                     )
-                    continue
                 sleep(1)
-                print()
+            if SCHWAB_BETA:
+                print(f"Closing session for {key}")
+                obj.close_session()

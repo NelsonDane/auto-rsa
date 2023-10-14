@@ -395,9 +395,6 @@ def killDriver(brokerObj: Brokerage):
                     driver.close()
                     driver.quit()
                     count += 1
-                elif os.getenv("SCHWAB_BETA", "").lower() == "true" and brokerObj.get_name().lower() == "schwab":
-                    driver.close_session()
-                    count += 1
         if count > 0:
             print(f"Killed {count} {brokerObj.get_name()} drivers")
 
