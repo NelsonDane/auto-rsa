@@ -82,10 +82,10 @@ def schwab_holdings(schwab_o: Brokerage, loop=None):
                     schwab_o.set_holdings(key, account, sym, qty, current_price)
             except Exception as e:
                 printAndDiscord(f"{key} {account}: Error getting holdings: {e}", loop)
+        printHoldings(schwab_o, loop)
         if SCHWAB_BETA:
             print(f"Closing session for {key}")
             obj.close_session()
-        printHoldings(schwab_o, loop)
 
 
 def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):

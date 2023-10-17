@@ -2,6 +2,7 @@
 # Script to automate RSA stock purchases
 
 # Import libraries
+import asyncio
 import os
 import sys
 import traceback
@@ -233,7 +234,7 @@ if __name__ == "__main__":
         @bot.command(name="rsa")
         async def rsa(ctx, *args):
             discOrdObj = await bot.loop.run_in_executor(None, argParser, args)
-            loop = asyncio.get_event_loop()
+            event_loop = asyncio.get_event_loop()
             try:
                 # Login to brokers
                 await bot.loop.run_in_executor(None, fun_run, discOrdObj, "_init")
@@ -242,11 +243,11 @@ if __name__ == "__main__":
                 # Get holdings or complete transaction
                 if discOrdObj.get_holdings():
                     await bot.loop.run_in_executor(
-                        None, fun_run, discOrdObj, "_holdings", loop
+                        None, fun_run, discOrdObj, "_holdings", event_loop
                     )
                 else:
                     await bot.loop.run_in_executor(
-                        None, fun_run, discOrdObj, "_transaction", loop
+                        None, fun_run, discOrdObj, "_transaction", event_loop
                     )
                 # Kill Drivers
                 for b in discOrdObj.get_logged_in():
