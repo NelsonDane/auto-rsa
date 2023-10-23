@@ -43,7 +43,6 @@ RUN playwright install && \
 
 # Grab needed files
 COPY ./autoRSA.py .
-COPY ./allyAPI.py .
 COPY ./fidelityAPI.py .
 COPY ./robinhoodAPI.py .
 COPY ./schwabAPI.py .

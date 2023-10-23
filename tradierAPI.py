@@ -165,6 +165,13 @@ def tradier_transaction(tradier_o: Brokerage, orderObj: stockOrder, loop=None):
             )
             for account in tradier_o.get_account_numbers(key):
                 obj: str = tradier_o.get_logged_in_objects(key)
+                # Tradier doesn't support fractional shares
+                if not orderObj.get_amount().is_integer():
+                    printAndDiscord(
+                        f"Tradier account {account} Error: Fractional share {orderObj.get_amount()} not supported",
+                        loop=loop,
+                    )
+                    continue
                 if not orderObj.get_dry():
                     data = {
                         "class": "equity",
