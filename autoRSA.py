@@ -30,6 +30,7 @@ load_dotenv()
 
 # Global variables
 SUPPORTED_BROKERS = ["fidelity", "robinhood", "schwab", "tastytrade", "tradier"]
+DAY1_BROKERS = ["robinhood", "schwab", "tastytrade", "tradier"]
 DISCORD_BOT = False
 DOCKER_MODE = False
 DANGER_MODE = False
@@ -96,6 +97,8 @@ def argParser(args: list) -> stockOrder:
         # Next argument is brokers
         if args[1].lower() == "all":
             orderObj.set_brokers(SUPPORTED_BROKERS)
+        elif args[1].lower() == "day1":
+            orderObj.set_brokers(DAY1_BROKERS)
         else:
             for broker in args[1].split(","):
                 orderObj.set_brokers(nicknames(broker))
@@ -108,6 +111,8 @@ def argParser(args: list) -> stockOrder:
     # Next argument is a broker, set broker
     if args[3].lower() == "all":
         orderObj.set_brokers(SUPPORTED_BROKERS)
+    elif args[3].lower() == "day1":
+        orderObj.set_brokers(DAY1_BROKERS)
     else:
         for broker in args[3].split(","):
             if nicknames(broker) in SUPPORTED_BROKERS:

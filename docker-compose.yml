@@ -8,8 +8,6 @@ services:
         env_file:
             - .env
         tty: true
-        labels:
-            com.centurylinklabs.watchtower.enable: "true"
 
     watchtower:
         image: containrrr/watchtower
@@ -17,6 +15,4 @@ services:
         container_name: watchtower
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock
-        labels:
-            com.centurylinklabs.watchtower.enable: "true"
         restart: unless-stopped
