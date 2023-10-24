@@ -89,40 +89,42 @@ def fun_run(orderObj: stockOrder, command, loop=None):
 
 # Parse input arguments and update the order object
 def argParser(args: list) -> stockOrder:
+    args = [x.lower() for x in args]
+    # Initialize order object
     orderObj = stockOrder()
     # If first argument is holdings, set holdings to true
-    if args[0].lower() == "holdings":
+    if args[0] == "holdings":
         orderObj.set_holdings(True)
         # Next argument is brokers
-        if args[1].lower() == "all":
+        if args[1] == "all":
             orderObj.set_brokers(SUPPORTED_BROKERS)
-        elif args[1].lower() == "day1":
+        elif args[1] == "day1":
             orderObj.set_brokers(DAY1_BROKERS)
         else:
             for broker in args[1].split(","):
                 orderObj.set_brokers(nicknames(broker))
         return orderObj
     # Otherwise: action, amount, stock, broker, (optional) not broker, (optional) dry
-    orderObj.set_action(args[0].lower())
+    orderObj.set_action(args[0])
     orderObj.set_amount(args[1])
     for stock in args[2].split(","):
-        orderObj.set_stock(stock.upper())
+        orderObj.set_stock(stock)
     # Next argument is a broker, set broker
-    if args[3].lower() == "all":
+    if args[3] == "all":
         orderObj.set_brokers(SUPPORTED_BROKERS)
-    elif args[3].lower() == "day1":
+    elif args[3] == "day1":
         orderObj.set_brokers(DAY1_BROKERS)
     else:
         for broker in args[3].split(","):
             if nicknames(broker) in SUPPORTED_BROKERS:
                 orderObj.set_brokers(nicknames(broker))
     # If next argument is not, set not broker
-    if len(args) > 4 and args[4].lower() == "not":
+    if len(args) > 4 and args[4] == "not":
         for broker in args[5].split(","):
             if nicknames(broker) in SUPPORTED_BROKERS:
                 orderObj.set_notbrokers(nicknames(broker))
     # If next argument is false, set dry to false
-    if args[-1].lower() == "false":
+    if args[-1] == "false":
         orderObj.set_dry(False)
     # Validate order object
     orderObj.order_validate(preLogin=True)
