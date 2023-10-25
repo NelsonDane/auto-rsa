@@ -2,10 +2,12 @@
 ## Discord Bot and CLI Tool
 A CLI tool and Discord bot to buy, sell, and monitor holdings across multiple accounts!
 
+<p>
 <img src="https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54"/>
 <img src="https://img.shields.io/badge/-selenium-%43B02A?style=for-the-badge&logo=selenium&logoColor=white"/>
 <img src="https://img.shields.io/badge/-discord.py-%232c2f33?style=for-the-badge&logo=discord&logoColor=white"/>
 <img src="https://img.shields.io/badge/-docker-%232c2f33?style=for-the-badge&logo=docker&logoColor=white"/>
+</p>
 
 ## ❓ What is RSA? ❓
 You already know what Reverse Split Arbitrage is, that's not why you're here. If you do know what it is, then you know why a tool like this would be valuable. If you're a big player, even more so...
