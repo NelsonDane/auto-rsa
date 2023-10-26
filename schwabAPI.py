@@ -2,7 +2,6 @@
 # Schwab API
 
 import os
-import psutil
 from time import sleep
 
 from dotenv import load_dotenv
@@ -18,22 +17,6 @@ if os.getenv("SCHWAB_BETA", "").lower() == "true":
 else:
     from schwab_api import Schwab
     SCHWAB_BETA = False
-
-
-def check_playwright():
-    processes = psutil.process_iter()
-    for process in processes:
-        try:
-            # Get the process name and command line arguments
-            name = process.name()
-            cmdline = process.cmdline()
-
-            # Check if the process is a Playwright process
-            if "playwright" in name or "playwright" in cmdline:
-                print("Terminating Playwright process:", name, cmdline)
-                process.terminate()
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-            pass
 
 
 def schwab_init(SCHWAB_EXTERNAL=None):
@@ -103,7 +86,6 @@ def schwab_holdings(schwab_o: Brokerage, loop=None):
         if SCHWAB_BETA:
             print(f"Closing session for {key}")
             obj.close_session()
-            check_playwright()
 
 
 def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
@@ -175,4 +157,3 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
             if SCHWAB_BETA:
                 print(f"Closing session for {key}")
                 obj.close_session()
-                check_playwright()
