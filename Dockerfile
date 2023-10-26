@@ -24,6 +24,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     gpg \
     python3-pip \
+    python3-psutil \
     tzdata \
     software-properties-common \
 && rm -rf /var/lib/apt/lists/*

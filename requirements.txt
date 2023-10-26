@@ -11,4 +11,3 @@ schwab-api2==0.2.9
 selenium==4.12.0
 tastytrade==6.1
 webdriver-manager==4.0.0
-psutil==5.9.6
