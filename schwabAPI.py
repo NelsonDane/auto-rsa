@@ -154,7 +154,9 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
                         f"{key} {account}: Error submitting order: {e}", loop
                     )
                 sleep(1)
-    # Move over to be sure the session is not closed until after all operations are completed.
+    # Kill playwright sessions
     if SCHWAB_BETA:
-        print(f"Closing session for {key}")
-        obj.close_session()
+        for key in schwab_o.get_account_numbers():
+            print(f"Closing session for {key}")
+            obj: Schwab = schwab_o.get_logged_in_objects(key)
+            obj.close_session()
