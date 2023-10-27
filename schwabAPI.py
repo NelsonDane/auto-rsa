@@ -122,12 +122,12 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
                         )
                     else:
                         messages, success = obj.trade(
-                        ticker=s,
-                        side=orderObj.get_action().capitalize(),
-                        qty=orderObj.get_amount(),
-                        account_id=account,
-                        dry_run=orderObj.get_dry(),
-                    )
+                            ticker=s,
+                            side=orderObj.get_action().capitalize(),
+                            qty=orderObj.get_amount(),
+                            account_id=account,
+                            dry_run=orderObj.get_dry(),
+                        )
                     printAndDiscord(
                         f"{key} account {account}: The order verification was "
                         + "successful"
