@@ -122,12 +122,12 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
                         )
                     else:
                         messages, success = obj.trade(
-                        ticker=s,
-                        side=orderObj.get_action().capitalize(),
-                        qty=orderObj.get_amount(),
-                        account_id=account,
-                        dry_run=orderObj.get_dry(),
-                    )
+                            ticker=s,
+                            side=orderObj.get_action().capitalize(),
+                            qty=orderObj.get_amount(),
+                            account_id=account,
+                            dry_run=orderObj.get_dry(),
+                        )
                     printAndDiscord(
                         f"{key} account {account}: The order verification was "
                         + "successful"
@@ -154,6 +154,9 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
                         f"{key} {account}: Error submitting order: {e}", loop
                     )
                 sleep(1)
-            if SCHWAB_BETA:
-                print(f"Closing session for {key}")
-                obj.close_session()
+    # Kill playwright sessions
+    if SCHWAB_BETA:
+        for key in schwab_o.get_account_numbers():
+            print(f"Closing session for {key}")
+            obj: Schwab = schwab_o.get_logged_in_objects(key)
+            obj.close_session()
