@@ -438,10 +438,11 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                             )
                             limit_button.click()
                             # Set price
+                        difference_price = 0.01 if float(ask_price) > 0.1 else 0.005
                         if orderObj.get_action() == "buy":
-                            wanted_price = round(float(ask_price) + 0.01, 3)
+                            wanted_price = round(float(ask_price) + difference_price, 3)
                         else:
-                            wanted_price = round(float(bid_price) - 0.01, 3)
+                            wanted_price = round(float(bid_price) - difference_price, 3)
                         if new_style:
                             price_box = driver.find_element(
                                 by=By.CSS_SELECTOR, value="#eqt-mts-limit-price"
