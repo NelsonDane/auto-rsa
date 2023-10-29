@@ -29,11 +29,15 @@ Make sure python3-pip is installed
 3. Create a `.env` file for your brokerage variables using [.env.example](.env.example) as a template, and add your bot using `DISCORD_TOKEN` and `DISCORD_CHANNEL`
 4. Run `python autoRSA.py` (See below for more command explanations)
 
+Note: If you are using Windows, you will need to install playwright manually. See [this guide](guides/playwrightWindows.md) for more information.
+
 ## 💻 CLI Tool Installation 💻
 1. Clone this repository and cd into it
 2. Run `pip install -r requirements.txt`
 3. Create a `.env` file for your brokerage variables using [.env.example](.env.example) as a template.
 4. Run the script using `python autoRSA.py` plus the command you want to run (See below for more command explanations)
+
+Note: If you are using Windows, you will need to install playwright manually. See [this guide](guides/playwrightWindows.md) for more information.
 
 ## 👀 Usage 👀
 If running as a Discord bot, append `!rsa` to the beginning of each command.
@@ -146,6 +150,8 @@ Required `.env` variables:
 To get your TOTP secret, follow this [guide](guides/schwabSetup.md).
 
 If you are affected by [this issue](https://github.com/itsjafer/schwab-api/issues/16), please set `SCHWAB_BETA=True` in your `.env` file. For more information see [this issue](https://github.com/NelsonDane/auto-rsa/pull/92).
+
+Note: If you are using Windows, you will need to install playwright manually. See [this guide](guides/playwrightWindows.md) for more information.
 
 ### Tradier
 Made by yours truly using the official [Tradier API](https://documentation.tradier.com/brokerage-api/trading/getting-started). Consider giving me a ⭐

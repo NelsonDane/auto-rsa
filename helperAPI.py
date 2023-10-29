@@ -383,18 +383,17 @@ def getDriver(DOCKER=False):
     return driver
 
 
-def killDriver(brokerObj: Brokerage):
-    # Kill all drivers
+def killSeleniumDriver(brokerObj: Brokerage):
+    # Kill all selenium drivers
     count = 0
     if brokerObj is not None:
         for key in brokerObj.get_account_numbers():
-            driver = brokerObj.get_logged_in_objects(key)
+            print(f"Killing driver for {key}")
+            driver: webdriver = brokerObj.get_logged_in_objects(key)
             if driver is not None:
-                if brokerObj.get_name().lower() == "fidelity":
-                    print(f"Killing {brokerObj.get_name()} drivers...")
-                    driver.close()
-                    driver.quit()
-                    count += 1
+                driver.close()
+                driver.quit()
+                count += 1
         if count > 0:
             print(f"Killed {count} {brokerObj.get_name()} drivers")
 

@@ -14,7 +14,7 @@ try:
 
     # Custom API libraries
     from fidelityAPI import *
-    from helperAPI import killDriver, stockOrder, updater
+    from helperAPI import stockOrder, updater
     from robinhoodAPI import *
     from schwabAPI import *
     from tastyAPI import *
@@ -183,9 +183,6 @@ if __name__ == "__main__":
             fun_run(cliOrderObj, "_holdings")
         else:
             fun_run(cliOrderObj, "_transaction")
-        # Kill Drivers
-        for b in cliOrderObj.get_logged_in():
-            killDriver(cliOrderObj.get_logged_in(b))
         sys.exit(0)
 
     # If discord bot, run discord bot
@@ -256,9 +253,6 @@ if __name__ == "__main__":
                     await bot.loop.run_in_executor(
                         None, fun_run, discOrdObj, "_transaction", event_loop
                     )
-                # Kill Drivers
-                for b in discOrdObj.get_logged_in():
-                    killDriver(discOrdObj.get_logged_in(b))
             except Exception as err:
                 print(traceback.format_exc())
                 print(f"Error placing order: {err}")
