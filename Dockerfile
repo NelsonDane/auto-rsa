@@ -49,6 +49,7 @@ COPY ./schwabAPI.py .
 COPY ./tradierAPI.py .
 COPY ./helperAPI.py .
 COPY ./tastyAPI.py .
+COPY ./firstradeAPI.py .
 COPY ./entrypoint.sh .
 
 # Make the entrypoint executable
