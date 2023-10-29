@@ -12,11 +12,23 @@ from helperAPI import Brokerage, printAndDiscord, printHoldings, stockOrder
 load_dotenv()
 if os.getenv("SCHWAB_BETA", "").lower() == "true":
     from schwab_api2 import Schwab
-    print("Using Schwab Beta API")
+    print("Using Schwab2 API")
     SCHWAB_BETA = True
 else:
     from schwab_api import Schwab
     SCHWAB_BETA = False
+
+
+def close_schwab_sessions(schwab_o: Brokerage):
+    # Kill playwright sessions
+    count = 0
+    for key in schwab_o.get_account_numbers():
+        print(f"Closing session for {key}")
+        obj: Schwab = schwab_o.get_logged_in_objects(key)
+        obj.close_session()
+        count += 1
+    if count > 0:
+        print(f"Closed {count} Schwab sessions")
 
 
 def schwab_init(SCHWAB_EXTERNAL=None):
@@ -82,10 +94,9 @@ def schwab_holdings(schwab_o: Brokerage, loop=None):
                     schwab_o.set_holdings(key, account, sym, qty, current_price)
             except Exception as e:
                 printAndDiscord(f"{key} {account}: Error getting holdings: {e}", loop)
-        printHoldings(schwab_o, loop)
-        if SCHWAB_BETA:
-            print(f"Closing session for {key}")
-            obj.close_session()
+    printHoldings(schwab_o, loop)
+    if SCHWAB_BETA:
+        close_schwab_sessions(schwab_o)
 
 
 def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
@@ -103,7 +114,6 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
             )
             obj: Schwab = schwab_o.get_logged_in_objects(key)
             for account in schwab_o.get_account_numbers(key):
-                print(f"{key} Account: {account}")
                 # If DRY is True, don't actually make the transaction
                 if orderObj.get_dry():
                     printAndDiscord(
@@ -156,7 +166,4 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
                 sleep(1)
     # Kill playwright sessions
     if SCHWAB_BETA:
-        for key in schwab_o.get_account_numbers():
-            print(f"Closing session for {key}")
-            obj: Schwab = schwab_o.get_logged_in_objects(key)
-            obj.close_session()
+        close_schwab_sessions(schwab_o)
