@@ -10,3 +10,4 @@ schwab-api==0.2.3
 selenium==4.12.0
 tastytrade==6.1
 webdriver-manager==4.0.0
+firstrade==0.0.4

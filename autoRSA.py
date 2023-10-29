@@ -19,6 +19,7 @@ try:
     from schwabAPI import *
     from tastyAPI import *
     from tradierAPI import *
+    from firstradeAPI import *
 except Exception as e:
     print(f"Error importing libraries: {e}")
     print("Please run 'pip install -r requirements.txt'")
@@ -29,7 +30,7 @@ load_dotenv()
 
 
 # Global variables
-SUPPORTED_BROKERS = ["fidelity", "robinhood", "schwab", "tastytrade", "tradier"]
+SUPPORTED_BROKERS = ["fidelity", "robinhood", "schwab", "tastytrade", "tradier", "firstrade"]
 DAY1_BROKERS = ["robinhood", "schwab", "tastytrade", "tradier"]
 DISCORD_BOT = False
 DOCKER_MODE = False
@@ -42,6 +43,8 @@ def nicknames(broker):
         return "robinhood"
     if broker == "tasty":
         return "tastytrade"
+    if broker == "ft":
+        return "firstrade"
     return broker
 
 
