@@ -20,6 +20,7 @@ from helperAPI import (
     Brokerage,
     check_if_page_loaded,
     getDriver,
+    killSeleniumDriver,
     printAndDiscord,
     printHoldings,
     stockOrder,
@@ -217,8 +218,8 @@ def fidelity_holdings(fidelity_o: Brokerage, loop=None):
     print("==============================")
     print()
     for key in fidelity_o.get_account_numbers():
+        driver: webdriver = fidelity_o.get_logged_in_objects(key)
         for account in fidelity_o.get_account_numbers(key):
-            driver: webdriver = fidelity_o.get_logged_in_objects(key)
             try:
                 driver.get(
                     f"https://digital.fidelity.com/ftgw/digital/portfolio/positions#{account}"
@@ -251,7 +252,8 @@ def fidelity_holdings(fidelity_o: Brokerage, loop=None):
             except Exception as e:
                 fidelity_error(driver, e)
                 continue
-        printHoldings(fidelity_o, loop)
+    printHoldings(fidelity_o, loop)
+    killSeleniumDriver(fidelity_o)
 
 
 def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None):
@@ -520,10 +522,7 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                         )
                     sleep(3)
                 except Exception as err:
-                    print(err)
-                    traceback.print_exc()
-                    driver.save_screenshot(
-                        f"fidelity-login-error-{datetime.datetime.now()}.png"
-                    )
+                    fidelity_error(driver, err)
                     continue
             print()
+    killSeleniumDriver(fidelity_o)
