@@ -19,7 +19,6 @@ try:
     from schwabAPI import *
     from tastyAPI import *
     from tradierAPI import *
-    from firstradeAPI import *
 except Exception as e:
     print(f"Error importing libraries: {e}")
     print("Please run 'pip install -r requirements.txt'")
