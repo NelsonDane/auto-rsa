@@ -30,15 +30,10 @@ def firstrade_init(FIRSTRADE_EXTERNAL=None):
         name = f"Firstrade {index}"
         try:
             account = account.split(":")
-            if account[3].lower() == "true":
-                persistent_session = True
-            else:
-                persistent_session = False
             firstrade = ft_account.FTSession(
                 username=account[0],
                 password=account[1],
-                pin=account[2],
-                persistent_session=persistent_session
+                pin=account[2]
             )
             account_info = ft_account.FTAccountData(firstrade)
             account_list = account_info.account_numbers

@@ -112,6 +112,12 @@ Required `.env` variables:
 `.env` file format:
 - `FIDELITY=FIDELITY_USERNAME:FIDELITY_PASSWORD`
 
+### Firstrade
+Made by [MaxxRK](https://github.com/MaxxRK/) using the [firstrade-api](https://github.com/MaxxRK/firstrade-api). Go give them a ⭐
+
+`.env` file format:
+- `FIRSTRADE=FIRSTRADE_USERNAME:FIRSTRADE_PASSWORD:FIRSTRADE_PIN`
+
 ### Robinhood
 Made using [robin_stocks](https://github.com/jmfernandes/robin_stocks). Go give them a ⭐
 
@@ -165,12 +171,6 @@ Required `.env` variables:
 
 `.env` file format:
 - `TASTYTRADE=TASTYTRADE_USERNAME:TASTYTRADE_PASSWORD`
-
-### Firstrade
-Made by [MaxxRK](https://github.com/MaxxRK/) using the [firstrade-api](https://github.com/MaxxRK/firstrade-api). Go give them a ⭐
-
-`.env` file format:
-- `FIRSTRADE=FIRSTRADE_USERNAME:FIRSTRADE_PASSWORD:FIRSTRADE_PIN:PERSISTENT_SESSION`
   
 ### 🤷‍♂️ Maybe future brokerages 🤷‍♀️
 #### Ally
