@@ -5,17 +5,19 @@ import os
 from time import sleep
 
 from dotenv import load_dotenv
-from helperAPI import Brokerage, printAndDiscord, printHoldings, stockOrder
 
+from helperAPI import Brokerage, printAndDiscord, printHoldings, stockOrder
 
 # Check for Schwab Beta
 load_dotenv()
 if os.getenv("SCHWAB_BETA", "").lower() == "true":
     from schwab_api2 import Schwab
+
     print("Using Schwab2 API")
     SCHWAB_BETA = True
 else:
     from schwab_api import Schwab
+
     SCHWAB_BETA = False
 
 
@@ -149,7 +151,10 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
                         if SCHWAB_BETA:
                             messages = messages["order_messages"]
                         else:
-                            if len(messages) > 1 and "security is deficient" in messages[1]:
+                            if (
+                                len(messages) > 1
+                                and "security is deficient" in messages[1]
+                            ):
                                 printAndDiscord(
                                     f"Error: {messages[1]}. If this persists, please run with SCHWAB_BETA=True in .env",
                                     loop,
