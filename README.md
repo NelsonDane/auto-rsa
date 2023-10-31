@@ -115,6 +115,11 @@ Required `.env` variables:
 ### Firstrade
 Made by [MaxxRK](https://github.com/MaxxRK/) using the [firstrade-api](https://github.com/MaxxRK/firstrade-api). Go give them a ⭐
 
+Required `.env` variables:
+- `FIRSTRADE_USERNAME`
+- `FIRSTRADE_PASSWORD`
+- `FIRSTRADE_PIN`
+
 `.env` file format:
 - `FIRSTRADE=FIRSTRADE_USERNAME:FIRSTRADE_PASSWORD:FIRSTRADE_PIN`
 
@@ -171,7 +176,7 @@ Required `.env` variables:
 
 `.env` file format:
 - `TASTYTRADE=TASTYTRADE_USERNAME:TASTYTRADE_PASSWORD`
-  
+
 ### 🤷‍♂️ Maybe future brokerages 🤷‍♀️
 #### Ally
 Ally disabled their official API, so all Ally packages don't work. I am attempting to reverse engineer their API, which you can track [here](https://github.com/NelsonDane/ally-api). Once I get it working, I will add it to this project.
