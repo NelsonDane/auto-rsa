@@ -13,7 +13,7 @@ from helperAPI import Brokerage, printAndDiscord, printHoldings, stockOrder
 def firstrade_init(FIRSTRADE_EXTERNAL=None):
     # Initialize .env file
     load_dotenv()
-    # Import Tradier account
+    # Import Firstrade account
     if not os.getenv("FIRSTRADE") and FIRSTRADE_EXTERNAL is None:
         print("Firstrade not found, skipping...")
         return None
