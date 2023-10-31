@@ -55,7 +55,7 @@ def firstrade_holdings(firstrade_o: Brokerage, loop=None):
     # Get holdings on each account
     for key in firstrade_o.get_account_numbers():
         for account in firstrade_o.get_account_numbers(key):
-            obj: Firstrade = firstrade_o.get_logged_in_objects(key)
+            obj: ft_account.FTSession = firstrade_o.get_logged_in_objects(key)
             try:
                 data = ft_account.FTAccountData(obj).get_positions(account=account)
                 for item in data:
@@ -85,8 +85,7 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
                 loop,
             )
             for account in firstrade_o.get_account_numbers(key):
-                obj: Firstrade = firstrade_o.get_logged_in_objects(key)
-                print(f"{key} Account: {account}")
+                obj: ft_account.FTSession = firstrade_o.get_logged_in_objects(key)
                 # If DRY is True, don't actually make the transaction
                 if orderObj.get_dry():
                     printAndDiscord(
@@ -118,11 +117,11 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
                     printAndDiscord(
                         f"{key} account {account}: The order verification was "
                         + "successful"
-                        if ft_order.order_confirmation["success"] == 'Yes'
+                        if ft_order.order_confirmation["success"] == "Yes"
                         else "unsuccessful",
                         loop,
                     )
-                    if not ft_order.order_confirmation["success"] == 'Yes':
+                    if not ft_order.order_confirmation["success"] == "Yes":
                         printAndDiscord(
                             f"{key} account {account}: The order verification produced the following messages: {ft_order.order_confirmation['actiondata']}",
                             loop,
