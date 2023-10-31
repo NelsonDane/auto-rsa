@@ -14,7 +14,7 @@ try:
     # Custom API libraries
     from fidelityAPI import *
     from firstradeAPI import *
-    from helperAPI import killDriver, stockOrder, updater
+    from helperAPI import stockOrder, updater
     from robinhoodAPI import *
     from schwabAPI import *
     from tastyAPI import *
@@ -185,10 +185,6 @@ if __name__ == "__main__":
             fun_run(cliOrderObj, "_holdings")
         else:
             fun_run(cliOrderObj, "_transaction")
-        # Kill Selenium drivers
-        for b in cliOrderObj.get_logged_in():
-            if b.lower() == "fidelity":
-                killDriver(cliOrderObj.get_logged_in(b))
         sys.exit(0)
 
     # If discord bot, run discord bot

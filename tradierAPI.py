@@ -4,6 +4,7 @@
 import json
 import os
 import traceback
+from time import sleep
 
 import requests
 from dotenv import load_dotenv
@@ -11,7 +12,9 @@ from dotenv import load_dotenv
 from helperAPI import Brokerage, printAndDiscord, printHoldings, stockOrder
 
 
-def make_request(endpoint, BEARER_TOKEN, data=None, params=None, method="GET"):
+def make_request(
+    endpoint, BEARER_TOKEN, data=None, params=None, method="GET"
+) -> dict | None:
     try:
         if method == "GET":
             response = requests.get(
@@ -40,11 +43,13 @@ def make_request(endpoint, BEARER_TOKEN, data=None, params=None, method="GET"):
         json_response = response.json()
         if json_response.get("fault") and json_response["fault"].get("faultstring"):
             raise Exception(json_response["fault"]["faultstring"])
+        sleep(0.1)
         return json_response
     except Exception as e:
         print(f"Error making request to Tradier API {endpoint}: {e}")
         print(f"Response: {response}")
         print(traceback.format_exc())
+        sleep(1)
         return None
 
 
@@ -133,9 +138,13 @@ def tradier_holdings(tradier_o: Brokerage, loop=None):
                         obj,
                         params={"symbols": sym, "greeks": "false"},
                     )
-                    if price_response is None:
+                    if (
+                        price_response is None
+                        or price_response.get("quotes").get("quote").get("last") is None
+                    ):
                         current_price.append(0)
-                    current_price.append(price_response["quotes"]["quote"]["last"])
+                    else:
+                        current_price.append(price_response["quotes"]["quote"]["last"])
                 # Print and send them
                 for position in stocks:
                     # Set index for easy use
@@ -190,10 +199,7 @@ def tradier_transaction(tradier_o: Brokerage, orderObj: stockOrder, loop=None):
                             loop=loop,
                         )
                         continue
-                    if (
-                        json_response.get("order") is not None
-                        and json_response["order"].get("status") is not None
-                    ):
+                    if json_response.get("order").get("status") is not None:
                         printAndDiscord(
                             f"Tradier account {account}: {orderObj.get_action()} {orderObj.get_amount()} of {s}: {json_response['order']['status']}",
                             loop=loop,
