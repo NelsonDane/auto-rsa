@@ -143,7 +143,8 @@ def tradier_holdings(tradier_o: Brokerage, loop=None):
                         or price_response.get("quotes").get("quote").get("last") is None
                     ):
                         current_price.append(0)
-                    current_price.append(price_response["quotes"]["quote"]["last"])
+                    else:
+                        current_price.append(price_response["quotes"]["quote"]["last"])
                 # Print and send them
                 for position in stocks:
                     # Set index for easy use
