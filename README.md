@@ -160,6 +160,8 @@ Required `.env` variables:
 
 To get your TOTP secret, follow this [guide](guides/schwabSetup.md).
 
+If you are affected by [this issue](https://github.com/itsjafer/schwab-api/issues/16), please set `SCHWAB_BETA=True` in your `.env` file. For more information see [this issue](https://github.com/NelsonDane/auto-rsa/pull/92).
+
 Note: If you are using Windows, you will need to install playwright manually. See [this guide](guides/playwrightWindows.md) for more information.
 
 ### Tradier
