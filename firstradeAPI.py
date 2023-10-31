@@ -4,6 +4,7 @@
 from firstrade import account as ft_account, symbols, order
 import os
 import pprint
+import traceback
 from time import sleep
 from dotenv import load_dotenv
 
@@ -47,6 +48,7 @@ def firstrade_init(FIRSTRADE_EXTERNAL=None):
                 )
         except Exception as e:
             print(f"Error logging in to Firstrade: {e}")
+            print(traceback.format_exc())
             return None
     return firstrade_obj
 
@@ -67,6 +69,7 @@ def firstrade_holdings(firstrade_o: Brokerage, loop=None):
                     firstrade_o.set_holdings(key, account, sym, qty, current_price)
             except Exception as e:
                 printAndDiscord(f"{key} {account}: Error getting holdings: {e}", loop)
+                print(traceback.format_exc())
                 continue
         printHoldings(firstrade_o, loop)
 
@@ -130,6 +133,7 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
                     printAndDiscord(
                         f"{key} {account}: Error submitting order: {e}", loop
                     )
+                    print(traceback.format_exc())
                     continue
                 sleep(1)
                 print()
