@@ -41,10 +41,11 @@ def firstrade_init(FIRSTRADE_EXTERNAL=None):
             print(f"The following Firstrade accounts were found: {account_list}")
             print("Logged in to Firstrade!")
             firstrade_obj.set_logged_in_object(name, firstrade)
-            for i, account in enumerate(account_list):
-                firstrade_obj.set_account_number(name, account)
+            for i, entry in enumerate(account_info.all_accounts):
+                account = list(entry.keys())
+                firstrade_obj.set_account_number(name, account[0])
                 firstrade_obj.set_account_totals(
-                    name, account, str(account_info.account_balances[i])
+                    name, account[0], str(account_info.all_accounts[i][account[0]]['Balance'])
                 )
         except Exception as e:
             print(f"Error logging in to Firstrade: {e}")
