@@ -37,8 +37,7 @@ def firstrade_init(FIRSTRADE_EXTERNAL=None):
                 pin=account[2]
             )
             account_info = ft_account.FTAccountData(firstrade)
-            account_list = account_info.account_numbers
-            print(f"The following Firstrade accounts were found: {account_list}")
+            print(f"The following Firstrade accounts were found: {account_info.account_numbers}")
             print("Logged in to Firstrade!")
             firstrade_obj.set_logged_in_object(name, firstrade)
             for i, entry in enumerate(account_info.all_accounts):
