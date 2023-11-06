@@ -105,11 +105,16 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
                     else:
                         price_type = order.PriceType.MARKET
                         price = 0.00
+                    if orderObj.get_action().capitalize() == "Buy":
+                        order_type = order.OrderType.BUY
+                    else:
+                        order_type = order.OrderType.SELL
                     ft_order = order.Order(obj)
                     ft_order.place_order(
                         account=account,
                         symbol=s,
-                        order_type=price_type,
+                        price_type=price_type,
+                        order_type=order_type,
                         quantity=int(orderObj.get_amount()),
                         duration=order.Duration.DAY,
                         price=price,
