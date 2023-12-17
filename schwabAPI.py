@@ -6,6 +6,7 @@ from time import sleep
 
 from dotenv import load_dotenv
 from schwab_api import Schwab
+
 from helperAPI import Brokerage, printAndDiscord, printHoldings, stockOrder
 
 
