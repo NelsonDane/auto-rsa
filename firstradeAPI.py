@@ -1,12 +1,14 @@
 # Donald Ryan Gullett(MaxxRK)
 # Firstrade API
 
-from firstrade import account as ft_account, symbols, order
 import os
 import pprint
 import traceback
 from time import sleep
+
 from dotenv import load_dotenv
+from firstrade import account as ft_account
+from firstrade import order, symbols
 
 from helperAPI import Brokerage, printAndDiscord, printHoldings, stockOrder
 
@@ -37,7 +39,6 @@ def firstrade_init(FIRSTRADE_EXTERNAL=None):
                 pin=account[2]
             )
             account_info = ft_account.FTAccountData(firstrade)
-            print(f"The following Firstrade accounts were found: {account_info.account_numbers}")
             print("Logged in to Firstrade!")
             firstrade_obj.set_logged_in_object(name, firstrade)
             for entry in account_info.all_accounts:
@@ -46,6 +47,8 @@ def firstrade_init(FIRSTRADE_EXTERNAL=None):
                 firstrade_obj.set_account_totals(
                     name, account, str(entry[account]['Balance'])
                 )
+            print_accounts = [firstrade_obj.print_account_number(a) for a in account_info.account_numbers]
+            print(f"The following Firstrade accounts were found: {print_accounts}")
         except Exception as e:
             print(f"Error logging in to Firstrade: {e}")
             print(traceback.format_exc())
@@ -89,6 +92,7 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
             )
             for account in firstrade_o.get_account_numbers(key):
                 obj: ft_account.FTSession = firstrade_o.get_logged_in_objects(key)
+                print_account = firstrade_o.print_account_number(account)
                 # If DRY is True, don't actually make the transaction
                 if orderObj.get_dry():
                     printAndDiscord(
@@ -123,7 +127,7 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
                     print("The order verification produced the following messages: ")
                     pprint.pprint(ft_order.order_confirmation)
                     printAndDiscord(
-                        f"{key} account {account}: The order verification was "
+                        f"{key} account {print_account}: The order verification was "
                         + "successful"
                         if ft_order.order_confirmation["success"] == "Yes"
                         else "unsuccessful",
@@ -131,12 +135,12 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
                     )
                     if not ft_order.order_confirmation["success"] == "Yes":
                         printAndDiscord(
-                            f"{key} account {account}: The order verification produced the following messages: {ft_order.order_confirmation['actiondata']}",
+                            f"{key} account {print_account}: The order verification produced the following messages: {ft_order.order_confirmation['actiondata']}",
                             loop,
                         )
                 except Exception as e:
                     printAndDiscord(
-                        f"{key} {account}: Error submitting order: {e}", loop
+                        f"{key} {print_account}: Error submitting order: {e}", loop
                     )
                     print(traceback.format_exc())
                     continue
