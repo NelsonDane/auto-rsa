@@ -11,13 +11,8 @@ from tastytrade import ProductionSession
 from tastytrade.account import Account
 from tastytrade.dxfeed.event import EventType
 from tastytrade.instruments import Equity
-from tastytrade.order import (
-    NewOrder,
-    OrderAction,
-    OrderTimeInForce,
-    OrderType,
-    PriceEffect,
-)
+from tastytrade.order import (NewOrder, OrderAction, OrderTimeInForce,
+                              OrderType, PriceEffect)
 from tastytrade.streamer import DataStreamer
 from tastytrade.utils import TastytradeError
 
@@ -121,7 +116,7 @@ async def tastytrade_execute(tt_o: Brokerage, orderObj: stockOrder, loop=None):
                 loop=loop,
             )
             for i, acct in enumerate(tt_o.get_account_numbers(key)):
-                print_account = tt_o.print_account_number(acct.account_number)
+                print_account = tt_o.print_account_number(acct)
                 try:
                     acct: Account = accounts[i]
                     # Set order type
