@@ -31,20 +31,19 @@ def webull_init(WEBULL_EXTERNAL=None):
             return None
         try:
             wb = webull()
-            wb.login(account[0], account[1], "autoRSA", save_token=True)
-            wb._access_token = account[2]
+            wb._set_did(account[2])
+            wb.login(account[0], account[1])
+            wb.get_trade_token(account[3])
             if not wb.is_logged_in():
                 raise Exception(f"Unable to log in to {name}. Check credentials.")
             # Initialize Webull account
             wb_obj = Brokerage("Webull")
             wb_obj.set_logged_in_object(name, wb, "wb")
-            wb_obj.set_logged_in_object(name, account[2], "access_token")
             wb_obj.set_logged_in_object(name, account[3], "trading_pin")
             wb_obj.set_logged_in_object(name, wb._account_id, "account_id")
             # TODO: Get other accounts (Roth, IRA, Margin, etc.)``
             print(wb.get_account_id())
             ac = wb.get_account()
-            print(ac)
             wb_obj.set_account_number(name, ac["brokerAccountId"])
             wb_obj.set_account_type(name, ac["brokerAccountId"], ac["accountType"])
             wb_obj.set_account_totals(name, ac["brokerAccountId"], ac["netLiquidation"])
@@ -124,7 +123,6 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
                             # Place normal order
                             obj.get_trade_token(wbo.get_logged_in_objects(key, "trading_pin"))
                             obj._account_id = wbo.get_logged_in_objects(key, "account_id")
-                            obj._access_token = wbo.get_logged_in_objects(key, "access_token")
                             order = obj.place_order(
                                 stock=s,
                                 action=orderObj.get_action(),
