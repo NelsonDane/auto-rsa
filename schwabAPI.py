@@ -2,7 +2,7 @@
 # Schwab API
 
 import os
-import pprint
+import traceback
 from time import sleep
 
 from dotenv import load_dotenv
@@ -37,9 +37,10 @@ def schwab_init(SCHWAB_EXTERNAL=None):
                 password=account[1],
                 totp_secret=None if account[2] == "NA" else account[2],
             )
-            account_info = schwab.get_account_info()
+            account_info = schwab.get_account_info_v2()
             account_list = list(account_info.keys())
-            print(f"The following Schwab accounts were found: {account_list}")
+            print_accounts = [schwab_obj.print_account_number(a) for a in account_list]
+            print(f"The following Schwab accounts were found: {print_accounts}")
             print("Logged in to Schwab!")
             schwab_obj.set_logged_in_object(name, schwab)
             for account in account_list:
@@ -49,6 +50,7 @@ def schwab_init(SCHWAB_EXTERNAL=None):
                 )
         except Exception as e:
             print(f"Error logging in to Schwab: {e}")
+            print(traceback.format_exc())
             return None
     return schwab_obj
 
@@ -56,10 +58,11 @@ def schwab_init(SCHWAB_EXTERNAL=None):
 def schwab_holdings(schwab_o: Brokerage, loop=None):
     # Get holdings on each account
     for key in schwab_o.get_account_numbers():
+        obj: Schwab = schwab_o.get_logged_in_objects(key)
+        all_holdings = obj.get_account_info_v2()
         for account in schwab_o.get_account_numbers(key):
-            obj: Schwab = schwab_o.get_logged_in_objects(key)
             try:
-                holdings = obj.get_account_info()[account]["positions"]
+                holdings = all_holdings[account]["positions"]
                 for item in holdings:
                     sym = item["symbol"]
                     if sym == "":
@@ -74,8 +77,8 @@ def schwab_holdings(schwab_o: Brokerage, loop=None):
                     schwab_o.set_holdings(key, account, sym, qty, current_price)
             except Exception as e:
                 printAndDiscord(f"{key} {account}: Error getting holdings: {e}", loop)
-                continue
-        printHoldings(schwab_o, loop)
+                print(traceback.format_exc())
+    printHoldings(schwab_o, loop)
 
 
 def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
@@ -91,26 +94,24 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
                 f"{key} {orderObj.get_action()}ing {orderObj.get_amount()} {s} @ {orderObj.get_price()}",
                 loop,
             )
+            obj: Schwab = schwab_o.get_logged_in_objects(key)
             for account in schwab_o.get_account_numbers(key):
-                obj: Schwab = schwab_o.get_logged_in_objects(key)
-                print(f"{key} Account: {account}")
+                print_account = schwab_o.print_account_number(account)
                 # If DRY is True, don't actually make the transaction
                 if orderObj.get_dry():
                     printAndDiscord(
                         "Running in DRY mode. No transactions will be made.", loop
                     )
                 try:
-                    messages, success = obj.trade(
+                    messages, success = obj.trade_v2(
                         ticker=s,
                         side=orderObj.get_action().capitalize(),
                         qty=orderObj.get_amount(),
                         account_id=account,
                         dry_run=orderObj.get_dry(),
                     )
-                    print("The order verification produced the following messages: ")
-                    pprint.pprint(messages)
                     printAndDiscord(
-                        f"{key} account {account}: The order verification was "
+                        f"{key} account {print_account}: The order verification was "
                         + "successful"
                         if success
                         else "unsuccessful",
@@ -118,13 +119,12 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
                     )
                     if not success:
                         printAndDiscord(
-                            f"{key} account {account}: The order verification produced the following messages: {messages}",
+                            f"{key} account {print_account}: The order verification produced the following messages: {messages}",
                             loop,
                         )
                 except Exception as e:
                     printAndDiscord(
-                        f"{key} {account}: Error submitting order: {e}", loop
+                        f"{key} {print_account}: Error submitting order: {e}", loop
                     )
-                    continue
+                    print(traceback.format_exc())
                 sleep(1)
-                print()
