@@ -30,8 +30,8 @@ load_dotenv()
 
 
 # Global variables
-SUPPORTED_BROKERS = ["fidelity", "robinhood", "schwab", "tastytrade", "tradier"]
-DAY1_BROKERS = ["robinhood", "schwab", "tastytrade", "tradier"]
+SUPPORTED_BROKERS = ["fidelity", "robinhood", "schwab", "tastytrade", "tradier", "webull"]
+DAY1_BROKERS = ["robinhood", "schwab", "tastytrade", "tradier", "webull"]
 DISCORD_BOT = False
 DOCKER_MODE = False
 DANGER_MODE = False

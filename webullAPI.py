@@ -10,6 +10,23 @@ from dotenv import load_dotenv
 from helperAPI import Brokerage, printAndDiscord, printHoldings, stockOrder
 
 
+def place_order(wbo: Brokerage, obj: webull, orderObj: stockOrder, key: str, s: str):
+    obj.get_trade_token(wbo.get_logged_in_objects(key, "trading_pin"))
+    obj._account_id = wbo.get_logged_in_objects(key, "account_id")
+    order = obj.place_order(
+        stock=s,
+        action=orderObj.get_action(),
+        orderType=orderObj.get_price(),
+        quant=orderObj.get_amount(),
+        enforce=orderObj.get_time().upper(),
+        outsideRegularTradingHour=False,
+    )
+    print(order)
+    if order["code"] != "200" or order["success"] == False:
+        raise Exception(f"{order['msg']} Code {order['code']}")
+    return order["success"]
+
+
 # Initialize Webull
 def webull_init(WEBULL_EXTERNAL=None):
     # Initialize .env file
@@ -41,9 +58,8 @@ def webull_init(WEBULL_EXTERNAL=None):
             wb_obj.set_logged_in_object(name, wb, "wb")
             wb_obj.set_logged_in_object(name, account[3], "trading_pin")
             wb_obj.set_logged_in_object(name, wb._account_id, "account_id")
-            # TODO: Get other accounts (Roth, IRA, Margin, etc.)``
-            print(wb.get_account_id())
             ac = wb.get_account()
+            print(wb_obj.print_account_number(ac["brokerAccountId"]))
             wb_obj.set_account_number(name, ac["brokerAccountId"])
             wb_obj.set_account_type(name, ac["brokerAccountId"], ac["accountType"])
             wb_obj.set_account_totals(name, ac["brokerAccountId"], ac["netLiquidation"])
@@ -105,43 +121,42 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
                     try:
                         if orderObj.get_price() == "market":
                             orderObj.set_price("MKT")
-                        # If stock price < $1 and buy, buy 100 shares and sell 100 - amount
+                        # If stock price < $1 or $0.10 and buy, buy 100/1000 shares and sell 100/1000 - amount
                         askList = obj.get_quote(s)["askList"]
                         bidList = obj.get_quote(s)["bidList"]
                         if askList == [] and bidList == []:
                             printAndDiscord(f"{key} {account}: {s} not found", loop)
+                            continue
                         askPrice = float(askList[0]["price"]) if askList != [] else 0
                         bidPrice = float(bidList[0]["price"]) if bidList != [] else 0
                         if (askPrice < 1 or bidPrice < 1) and orderObj.get_action() == "buy":
+                            big_amount = 1000 if askPrice < 0.1 or bidPrice < 0.1 else 100
+                            print(f"Buying {big_amount} then selling {big_amount - orderObj.get_amount()} of {s}")
+                            # Under $1, buy 100 shares and sell 100 - amount
                             old_amount = orderObj.get_amount()
-                            orderObj.set_amount(100)
-                            webull_transaction(wbo, orderObj, loop)
-                            orderObj.set_amount(100 - old_amount)
+                            orderObj.set_amount(big_amount)
+                            buy_success = place_order(wbo, obj, orderObj, key, s)
+                            if not buy_success:
+                                raise Exception("Error buying stock")
+                            orderObj.set_amount(big_amount - old_amount)
                             orderObj.set_action("sell")
-                            webull_transaction(wbo, orderObj, loop)
+                            sell_success = place_order(wbo, obj, orderObj, key, s)
+                            if not sell_success:
+                                raise Exception("Error selling stock")
                         else:
                             # Place normal order
-                            obj.get_trade_token(wbo.get_logged_in_objects(key, "trading_pin"))
-                            obj._account_id = wbo.get_logged_in_objects(key, "account_id")
-                            order = obj.place_order(
-                                stock=s,
-                                action=orderObj.get_action(),
-                                orderType=orderObj.get_price(),
-                                quant=orderObj.get_amount(),
-                                enforce=orderObj.get_time().upper(),
-                                outsideRegularTradingHour=False,
-                            )
-                            if order["code"] != "200" or order["success"] == False:
-                                raise Exception(f"{order['msg']} Code {order['code']}") 
-                            printAndDiscord(
-                                f"{key}: {orderObj.get_action()} {orderObj.get_amount()} of {s} in {account}: Success",
-                                loop,
-                            )
+                            print(f"Placing normal order for {s}")
+                            order = place_order(wbo, obj, orderObj, key, s)
+                            if order:
+                                printAndDiscord(
+                                    f"{key}: {orderObj.get_action()} {orderObj.get_amount()} of {s} in {account}: Success",
+                                    loop,
+                                )
                     except Exception as e:
                         printAndDiscord(
                             f"{key} {account}: Error placing order: {e}", loop
                         )
-                        traceback.format_exc()
+                        print(traceback.format_exc())
                         continue
                 else:
                     printAndDiscord(
