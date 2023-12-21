@@ -43,14 +43,14 @@ RUN playwright install && \
 
 # Grab needed files
 COPY ./autoRSA.py .
+COPY ./entrypoint.sh .
 COPY ./fidelityAPI.py .
+COPY ./helperAPI.py .
 COPY ./robinhoodAPI.py .
 COPY ./schwabAPI.py .
-COPY ./tradierAPI.py .
 COPY ./tastyAPI.py .
+COPY ./tradierAPI.py .
 COPY ./webullAPI.py .
-COPY ./helperAPI.py .
-COPY ./entrypoint.sh .
 
 # Make the entrypoint executable
 RUN chmod +x entrypoint.sh
