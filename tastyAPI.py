@@ -121,7 +121,7 @@ async def tastytrade_execute(tt_o: Brokerage, orderObj: stockOrder, loop=None):
                 loop=loop,
             )
             for i, acct in enumerate(tt_o.get_account_numbers(key)):
-                print_account = tt_o.print_account_number(acct.account_number)
+                print_account = tt_o.print_account_number(acct)
                 try:
                     acct: Account = accounts[i]
                     # Set order type
