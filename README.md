@@ -93,11 +93,11 @@ More detailed guides for some of the difficult setups:
 ## 🤝 Contributing 🤝
 Found or fixed a bug? Have a feature request? Want to add support for a new brokerage? Feel free to open an issue or pull request!
 
-Is someone selling a ripoff of this bot? (Looking at you OSU freshmen). Get it from here and contribute to open source!
+Enjoying the project? Feel free to Sponsor me on GitHub or Ko-fi!
 
-Like what you see? Feel free to support me on Ko-Fi! 
-
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/X8X6LFCI0)
+[![Sponsor](https://img.shields.io/badge/sponsor-30363D?style=for-the-badge&logo=GitHub-Sponsors&logoColor=#white)](https://github.com/sponsors/NelsonDane)
+[![ko-fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=white
+)](https://ko-fi.com/X8X6LFCI0)
 
 ## 😳 DISCLAIMER 😳
 DISCLAIMER: I am not a financial advisor and not affiliated with any of the brokerages listed below. Use this tool at your own risk. I am not responsible for any losses or damages you may incur by using this project. This tool is provided as-is with no warranty.
@@ -159,8 +159,6 @@ Required `.env` variables:
 - Without 2fa: `SCHWAB=SCHWAB_USERNAME:SCHWAB_PASSWORD:NA`
 
 To get your TOTP secret, follow this [guide](guides/schwabSetup.md).
-
-If you are affected by [this issue](https://github.com/itsjafer/schwab-api/issues/16), please set `SCHWAB_BETA=True` in your `.env` file. For more information see [this issue](https://github.com/NelsonDane/auto-rsa/pull/92).
 
 Note: If you are using Windows, you will need to install playwright manually. See [this guide](guides/playwrightWindows.md) for more information.
 

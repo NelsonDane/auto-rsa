@@ -85,7 +85,7 @@ def tradier_init(TRADIER_EXTERNAL=None):
                 an = json_response["profile"]["account"]["account_number"]
             else:
                 an = json_response["profile"]["account"][x]["account_number"]
-            print(an)
+            print(tradier_obj.print_account_number(an))
             tradier_obj.set_account_number(name, an)
             tradier_obj.set_account_type(
                 name, an, json_response["profile"]["account"][x]["type"]
@@ -174,43 +174,52 @@ def tradier_transaction(tradier_o: Brokerage, orderObj: stockOrder, loop=None):
             )
             for account in tradier_o.get_account_numbers(key):
                 obj: str = tradier_o.get_logged_in_objects(key)
+                print_account = tradier_o.print_account_number(account)
                 # Tradier doesn't support fractional shares
                 if not orderObj.get_amount().is_integer():
                     printAndDiscord(
-                        f"Tradier account {account} Error: Fractional share {orderObj.get_amount()} not supported",
+                        f"Tradier account {print_account} Error: Fractional share {orderObj.get_amount()} not supported",
                         loop=loop,
                     )
                     continue
                 if not orderObj.get_dry():
-                    data = {
-                        "class": "equity",
-                        "symbol": s,
-                        "side": orderObj.get_action(),
-                        "quantity": orderObj.get_amount(),
-                        "type": "market",
-                        "duration": "day",
-                    }
-                    json_response = make_request(
-                        f"accounts/{account}/orders", obj, data=data, method="POST"
-                    )
-                    if json_response is None:
+                    try:
+                        data = {
+                            "class": "equity",
+                            "symbol": s,
+                            "side": orderObj.get_action(),
+                            "quantity": orderObj.get_amount(),
+                            "type": "market",
+                            "duration": "day",
+                        }
+                        json_response = make_request(
+                            f"accounts/{account}/orders", obj, data=data, method="POST"
+                        )
+                        if json_response is None:
+                            printAndDiscord(
+                                f"Tradier account {print_account} Error: JSON response is None",
+                                loop=loop,
+                            )
+                            continue
+                        if json_response.get("order").get("status") is not None:
+                            printAndDiscord(
+                                f"Tradier account {print_account}: {orderObj.get_action()} {orderObj.get_amount()} of {s}: {json_response['order']['status']}",
+                                loop=loop,
+                            )
+                            continue
                         printAndDiscord(
-                            f"Tradier account {account} Error: JSON response is None",
+                            f"Tradier account {print_account} Error: This order did not route. JSON response: {json.dumps(json_response, indent=2)}",
                             loop=loop,
                         )
-                        continue
-                    if json_response.get("order").get("status") is not None:
+                    except Exception as e:
                         printAndDiscord(
-                            f"Tradier account {account}: {orderObj.get_action()} {orderObj.get_amount()} of {s}: {json_response['order']['status']}",
-                            loop=loop,
+                            f"Tradier account {print_account} Error: {e}", loop=loop
                         )
+                        print(traceback.format_exc())
+                        print(f"JSON response: {json.dumps(json_response, indent=2)}")
                         continue
-                    printAndDiscord(
-                        f"Tradier account {account} Error: This order did not route. JSON response: {json.dumps(json_response, indent=2)}",
-                        loop=loop,
-                    )
                 else:
                     printAndDiscord(
-                        f"Tradier account {account}: Running in DRY mode. Trasaction would've been: {orderObj.get_action()} {orderObj.get_amount()} of {s}",
+                        f"Tradier account {print_account}: Running in DRY mode. Trasaction would've been: {orderObj.get_action()} {orderObj.get_amount()} of {s}",
                         loop=loop,
                     )
