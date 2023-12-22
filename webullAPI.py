@@ -91,7 +91,7 @@ def webull_holdings(wbo: Brokerage, loop=None):
                         if sym == "":
                             sym = "Unknown"
                         qty = item["position"]
-                        mv = item["marketValue"]
+                        mv = round(float(item["marketValue"]) / float(qty), 2)
                         wbo.set_holdings(key, account, sym, qty, mv)
             except Exception as e:
                 printAndDiscord(f"{key} {account}: Error getting holdings: {e}", loop)
