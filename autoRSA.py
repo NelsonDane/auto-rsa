@@ -43,6 +43,8 @@ def nicknames(broker):
         return "robinhood"
     if broker == "tasty":
         return "tastytrade"
+    if broker == "wb":
+        return "webull"
     return broker
 
 

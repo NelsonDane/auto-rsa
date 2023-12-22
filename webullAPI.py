@@ -11,19 +11,19 @@ from helperAPI import Brokerage, printAndDiscord, printHoldings, stockOrder
 
 
 def place_order(wbo: Brokerage, obj: webull, orderObj: stockOrder, key: str, s: str):
-    obj.get_trade_token(wbo.get_logged_in_objects(key, "trading_pin"))
+    # obj.get_trade_token(wbo.get_logged_in_objects(key, "trading_pin"))
     obj._account_id = wbo.get_logged_in_objects(key, "account_id")
     order = obj.place_order(
         stock=s,
-        action=orderObj.get_action(),
-        orderType=orderObj.get_price(),
+        action=orderObj.get_action().upper(),
+        orderType=orderObj.get_price().upper(),
         quant=orderObj.get_amount(),
         enforce=orderObj.get_time().upper(),
-        outsideRegularTradingHour=False,
+        # outsideRegularTradingHour=False,
     )
     print(order)
-    if order["code"] != "200" or order["success"] == False:
-        raise Exception(f"{order['msg']} Code {order['code']}")
+    if not order["success"]:
+        print(f"{order['msg']} Code {order['code']}")
     return order["success"]
 
 
@@ -41,6 +41,7 @@ def webull_init(WEBULL_EXTERNAL=None):
         else WEBULL_EXTERNAL.strip().split(",")
     )
     for account in accounts:
+        print("Logging in to Webull...")
         name = f"Webull {accounts.index(account) + 1}"
         account = account.split(":")
         if len(account) != 4:
@@ -112,6 +113,14 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
                 loop,
             )
             for account in wbo.get_account_numbers(key):
+                print_account = wbo.print_account_number(account)
+                # Webull doesn't support fractional shares
+                if not orderObj.get_amount().is_integer():
+                    printAndDiscord(
+                        f"Webull account {print_account} Error: Fractional share {orderObj.get_amount()} not supported",
+                        loop=loop,
+                    )
+                    continue
                 obj: webull = wbo.get_logged_in_objects(key, "wb")
                 # Make sure we're logged in
                 if not obj.is_logged_in():
@@ -137,24 +146,24 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
                             orderObj.set_amount(big_amount)
                             buy_success = place_order(wbo, obj, orderObj, key, s)
                             if not buy_success:
-                                raise Exception("Error buying stock")
+                                raise Exception(f"Error buying {big_amount} of {s}")
                             orderObj.set_amount(big_amount - old_amount)
                             orderObj.set_action("sell")
                             sell_success = place_order(wbo, obj, orderObj, key, s)
                             if not sell_success:
-                                raise Exception("Error selling stock")
+                                raise Exception(f"Error selling {big_amount - old_amount} of {s}")
                         else:
                             # Place normal order
                             print(f"Placing normal order for {s}")
                             order = place_order(wbo, obj, orderObj, key, s)
                             if order:
                                 printAndDiscord(
-                                    f"{key}: {orderObj.get_action()} {orderObj.get_amount()} of {s} in {account}: Success",
+                                    f"{key}: {orderObj.get_action()} {orderObj.get_amount()} of {s} in {print_account}: Success",
                                     loop,
                                 )
                     except Exception as e:
                         printAndDiscord(
-                            f"{key} {account}: Error placing order: {e}", loop
+                            f"{key} {print_account}: Error placing order: {e}", loop
                         )
                         print(traceback.format_exc())
                         continue
