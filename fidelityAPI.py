@@ -439,8 +439,8 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                                 value="#market-no > s-root > div > label > s-slot > s-assigned-wrapper",
                             )
                             limit_button.click()
-                            # Set price
-                        difference_price = 0.01 if float(ask_price) > 0.1 else 0.005
+                        # Set price
+                        difference_price = 0.01 if float(ask_price) > 0.1 else 0.001
                         if orderObj.get_action() == "buy":
                             wanted_price = round(float(ask_price) + difference_price, 3)
                         else:
