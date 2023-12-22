@@ -456,6 +456,17 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                             )
                         price_box.clear()
                         price_box.send_keys(wanted_price)
+                    # Check for margin account
+                    try:
+                        print("Checking for margin account...")
+                        margin_cash = driver.find_element(
+                            by=By.ID, value="tradetype-cash"
+                        )
+                        margin_cash.click()
+                        print("Margin account found!")
+                    except NoSuchElementException:
+                        print("Not a margin account")
+                        pass
                     # Preview order
                     WebDriverWait(driver, 10).until(check_if_page_loaded)
                     sleep(1)
