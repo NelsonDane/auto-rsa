@@ -44,7 +44,9 @@ RUN playwright install && \
 # Grab needed files
 COPY ./autoRSA.py .
 COPY ./entrypoint.sh .
+COPY ./entrypoint.sh .
 COPY ./fidelityAPI.py .
+COPY ./helperAPI.py .
 COPY ./helperAPI.py .
 COPY ./robinhoodAPI.py .
 COPY ./schwabAPI.py .
