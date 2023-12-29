@@ -439,8 +439,8 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                                 value="#market-no > s-root > div > label > s-slot > s-assigned-wrapper",
                             )
                             limit_button.click()
-                            # Set price
-                        difference_price = 0.01 if float(ask_price) > 0.1 else 0.005
+                        # Set price
+                        difference_price = 0.01 if float(ask_price) > 0.1 else 0.001
                         if orderObj.get_action() == "buy":
                             wanted_price = round(float(ask_price) + difference_price, 3)
                         else:
@@ -456,6 +456,15 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                             )
                         price_box.clear()
                         price_box.send_keys(wanted_price)
+                    # Check for margin account
+                    try:
+                        margin_cash = driver.find_element(
+                            by=By.ID, value="tradetype-cash"
+                        )
+                        margin_cash.click()
+                        print("Margin account found!")
+                    except NoSuchElementException:
+                        pass
                     # Preview order
                     WebDriverWait(driver, 10).until(check_if_page_loaded)
                     sleep(1)
