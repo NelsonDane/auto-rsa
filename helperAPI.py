@@ -282,6 +282,14 @@ class Brokerage:
             return self.__account_types.get(parent_name, {})
         return self.__account_types.get(parent_name, {}).get(account_name, "")
 
+    def print_account_number(self, an) -> str:
+        # Print 12345678 as xxxx5678
+        an = str(an)
+        if len(an) < 4:
+            return an
+        masked = "x" * (len(an) - 4) + an[-4:]
+        return masked
+
     def __str__(self) -> str:
         return textwrap.dedent(
             f"""
@@ -458,7 +466,7 @@ def printHoldings(brokerObj: Brokerage, loop=None):
     )
     for key in brokerObj.get_account_numbers():
         for account in brokerObj.get_account_numbers(key):
-            printAndDiscord(f"{key} ({account}):", loop)
+            printAndDiscord(f"{key} ({brokerObj.print_account_number(account)}):", loop)
             holdings = brokerObj.get_holdings(key, account)
             if holdings == {}:
                 printAndDiscord("No holdings in Account\n", loop)

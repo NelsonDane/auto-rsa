@@ -121,6 +121,7 @@ async def tastytrade_execute(tt_o: Brokerage, orderObj: stockOrder, loop=None):
                 loop=loop,
             )
             for i, acct in enumerate(tt_o.get_account_numbers(key)):
+                print_account = tt_o.print_account_number(acct)
                 try:
                     acct: Account = accounts[i]
                     # Set order type
@@ -141,7 +142,7 @@ async def tastytrade_execute(tt_o: Brokerage, orderObj: stockOrder, loop=None):
                     order_status = placed_order.order.status.value
                     # Check order status
                     if order_status in ["Received", "Routed"]:
-                        message = f"{key} {acct.account_number}: {orderObj.get_action()} {orderObj.get_amount()} of {s} Order: {placed_order.order.id} Status: {order_status}"
+                        message = f"{key} {print_account}: {orderObj.get_action()} {orderObj.get_amount()} of {s} Order: {placed_order.order.id} Status: {order_status}"
                         if orderObj.get_dry():
                             message = f"{key} Running in DRY mode. Transaction would've been: {orderObj.get_action()} {orderObj.get_amount()} of {s}"
                         printAndDiscord(message, loop=loop)
@@ -151,7 +152,7 @@ async def tastytrade_execute(tt_o: Brokerage, orderObj: stockOrder, loop=None):
                         stock_limit = await streamer.oneshot(EventType.PROFILE, [s])
                         stock_quote = await streamer.oneshot(EventType.QUOTE, [s])
                         printAndDiscord(
-                            f"{key} {acct.account_number} Error: {order_status} Trying Limit order...",
+                            f"{key} {print_account} Error: {order_status} Trying Limit order...",
                             loop=loop,
                         )
                         # Get limit price
@@ -181,19 +182,19 @@ async def tastytrade_execute(tt_o: Brokerage, orderObj: stockOrder, loop=None):
                         )
                         # Check order status
                         if order_status in ["Received", "Routed"]:
-                            message = f"{key} {acct.account_number}: {orderObj.get_action()} {orderObj.get_amount()} of {s} Order: {placed_order.order.id} Status: {order_status}"
+                            message = f"{key} {print_account}: {orderObj.get_action()} {orderObj.get_amount()} of {s} Order: {placed_order.order.id} Status: {order_status}"
                             if orderObj.get_dry():
                                 message = f"{key} Running in DRY mode. Transaction would've been: {orderObj.get_action()} {orderObj.get_amount()} of {s}"
                             printAndDiscord(message, loop=loop)
                         elif order_status == "Rejected":
                             # Only want this message if it fails both orders.
                             printAndDiscord(
-                                f"{key} Error placing order: {placed_order.order.id} on account {acct.account_number}: {order_status}",
+                                f"{key} Error placing order: {placed_order.order.id} on account {print_account}: {order_status}",
                                 loop=loop,
                             )
                 except TastytradeError as te:
                     printAndDiscord(
-                        f"{key} {acct.account_number}: Error: {te}", loop=loop
+                        f"{key} {print_account}: Error: {te}", loop=loop
                     )
 
 

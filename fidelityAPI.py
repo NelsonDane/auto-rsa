@@ -169,13 +169,10 @@ def fidelity_account_info(driver: webdriver) -> dict or None:
             )
         )
         account_numbers = javascript_get_classname(driver, "acct-selector__acct-num")
-        print(f"Accounts: {account_numbers}")
         # Get account balances via javascript
         account_values = javascript_get_classname(driver, "acct-selector__acct-balance")
-        print(f"Values: {account_values}")
         # Get account names via javascript
         account_types = javascript_get_classname(driver, "acct-selector__acct-name")
-        print(f"Account Names: {account_types}")
         # Make sure all lists are the same length
         if not (
             len(account_numbers) == len(account_values)
@@ -242,11 +239,10 @@ def fidelity_holdings(fidelity_o: Brokerage, loop=None):
                         r"(?<=\s{2})[a-zA-Z]{3,4}(?=\s{2})", stocks_list[i]
                     )
                 stocks_list = stocks_list[0]
-                print(f"Stocks: {stocks_list}")
-                holdings_info = javascript_get_classname(
-                    driver, "ag-center-cols-container"
-                )
-                print(f"Holdings Info: {holdings_info}")
+                # holdings_info = javascript_get_classname(
+                #     driver, "ag-center-cols-container"
+                # )
+                # print(f"Holdings Info: {holdings_info}")
                 for stock in stocks_list:
                     fidelity_o.set_holdings(key, account, stock, "N/A", "N/A")
             except Exception as e:
@@ -318,7 +314,8 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                     accounts_dropdown_in = test.find_elements(
                         by=By.CSS_SELECTOR, value="li"
                     )
-                    account_label = accounts_dropdown_in[x].text
+                    account_number = accounts_dropdown_in[x].text
+                    account_label = fidelity_o.print_account_number(account_number)
                     accounts_dropdown_in[x].click()
                     sleep(1)
                     # Type in ticker
