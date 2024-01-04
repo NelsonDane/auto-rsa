@@ -140,7 +140,8 @@ def tradier_holdings(tradier_o: Brokerage, loop=None):
                     )
                     if (
                         price_response is None
-                        or price_response.get("quotes").get("quote").get("last") is None
+                        or price_response["quotes"].get("quote") is None
+                        or price_response["quotes"]["quote"].get("last") is None
                     ):
                         current_price.append(0)
                     else:
