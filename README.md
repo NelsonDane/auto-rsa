@@ -188,8 +188,6 @@ Required `.env` variables:
 Ally disabled their official API, so all Ally packages don't work. I am attempting to reverse engineer their API, which you can track [here](https://github.com/NelsonDane/ally-api). Once I get it working, I will add it to this project.
 #### Chase
 Chase doesn't have an official API, so it would have to be added using Selenium.
-#### Firstrade
-In progress on the `develop-firstrade` branch. Stay tuned.
 #### Vanguard
 Will be added using Selenium just like Fidelity. I found this [vanguard-api](https://github.com/rikonor/vanguard-api), but it failed when I ran it.
 #### SoFi
