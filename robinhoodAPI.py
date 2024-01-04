@@ -70,7 +70,9 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
                         info="account_number", account_number=ira
                     )
                     if ira_num is None:
-                        print(f"Unable to lookup IRA account {rh_obj.print_account_number(ira)}")
+                        print(
+                            f"Unable to lookup IRA account {rh_obj.print_account_number(ira)}"
+                        )
                         continue
                     print(f"Found IRA account {rh_obj.print_account_number(ira_num)}")
                     rh_obj.set_account_number(name, ira_num)
