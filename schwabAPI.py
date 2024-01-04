@@ -2,35 +2,13 @@
 # Schwab API
 
 import os
+import traceback
 from time import sleep
 
 from dotenv import load_dotenv
+from schwab_api import Schwab
 
 from helperAPI import Brokerage, printAndDiscord, printHoldings, stockOrder
-
-# Check for Schwab Beta
-load_dotenv()
-if os.getenv("SCHWAB_BETA", "").lower() == "true":
-    from schwab_api2 import Schwab
-
-    print("Using Schwab2 API")
-    SCHWAB_BETA = True
-else:
-    from schwab_api import Schwab
-
-    SCHWAB_BETA = False
-
-
-def close_schwab_sessions(schwab_o: Brokerage):
-    # Kill playwright sessions
-    count = 0
-    for key in schwab_o.get_account_numbers():
-        print(f"Closing session for {key}")
-        obj: Schwab = schwab_o.get_logged_in_objects(key)
-        obj.close_session()
-        count += 1
-    if count > 0:
-        print(f"Closed {count} Schwab sessions")
 
 
 def schwab_init(SCHWAB_EXTERNAL=None):
@@ -59,7 +37,7 @@ def schwab_init(SCHWAB_EXTERNAL=None):
                 password=account[1],
                 totp_secret=None if account[2] == "NA" else account[2],
             )
-            account_info = schwab.get_account_info()
+            account_info = schwab.get_account_info_v2()
             account_list = list(account_info.keys())
             print(f"The following Schwab accounts were found: {account_list}")
             print("Logged in to Schwab!")
@@ -70,6 +48,7 @@ def schwab_init(SCHWAB_EXTERNAL=None):
                     name, account, account_info[account]["account_value"]
                 )
         except Exception as e:
+            print(traceback.format_exc())
             print(f"Error logging in to Schwab: {e}")
             return None
     return schwab_obj
@@ -79,9 +58,10 @@ def schwab_holdings(schwab_o: Brokerage, loop=None):
     # Get holdings on each account
     for key in schwab_o.get_account_numbers():
         obj: Schwab = schwab_o.get_logged_in_objects(key)
+        all_holdings = obj.get_account_info_v2()
         for account in schwab_o.get_account_numbers(key):
             try:
-                holdings = obj.get_account_info()[account]["positions"]
+                holdings = all_holdings[account]["positions"]
                 for item in holdings:
                     sym = item["symbol"]
                     if sym == "":
@@ -97,8 +77,6 @@ def schwab_holdings(schwab_o: Brokerage, loop=None):
             except Exception as e:
                 printAndDiscord(f"{key} {account}: Error getting holdings: {e}", loop)
     printHoldings(schwab_o, loop)
-    if SCHWAB_BETA:
-        close_schwab_sessions(schwab_o)
 
 
 def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
@@ -122,24 +100,13 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
                         "Running in DRY mode. No transactions will be made.", loop
                     )
                 try:
-                    if SCHWAB_BETA:
-                        # Schwab Beta has different parameters
-                        messages, success = obj.trade(
-                            ticker=s,
-                            action=orderObj.get_action().capitalize(),
-                            qty=orderObj.get_amount(),
-                            order_type="Market",
-                            account_id=str(account),
-                            dry_run=orderObj.get_dry(),
-                        )
-                    else:
-                        messages, success = obj.trade(
-                            ticker=s,
-                            side=orderObj.get_action().capitalize(),
-                            qty=orderObj.get_amount(),
-                            account_id=account,
-                            dry_run=orderObj.get_dry(),
-                        )
+                    messages, success = obj.trade_v2(
+                        ticker=s,
+                        side=orderObj.get_action().capitalize(),
+                        qty=orderObj.get_amount(),
+                        account_id=account,
+                        dry_run=orderObj.get_dry(),
+                    )
                     printAndDiscord(
                         f"{key} account {account}: The order verification was "
                         + "successful"
@@ -148,18 +115,6 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
                         loop,
                     )
                     if not success:
-                        if SCHWAB_BETA:
-                            messages = messages["order_messages"]
-                        else:
-                            if (
-                                len(messages) > 1
-                                and "security is deficient" in messages[1]
-                            ):
-                                printAndDiscord(
-                                    f"Error: {messages[1]}. If this persists, please run with SCHWAB_BETA=True in .env",
-                                    loop,
-                                )
-                                continue
                         printAndDiscord(
                             f"{key} account {account}: The order verification produced the following messages: {messages}",
                             loop,
@@ -169,6 +124,3 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
                         f"{key} {account}: Error submitting order: {e}", loop
                     )
                 sleep(1)
-    # Kill playwright sessions
-    if SCHWAB_BETA:
-        close_schwab_sessions(schwab_o)
