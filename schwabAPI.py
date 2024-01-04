@@ -49,7 +49,6 @@ def schwab_init(SCHWAB_EXTERNAL=None):
                     name, account, account_info[account]["account_value"]
                 )
         except Exception as e:
-            print(traceback.format_exc())
             print(f"Error logging in to Schwab: {e}")
             print(traceback.format_exc())
             return None
