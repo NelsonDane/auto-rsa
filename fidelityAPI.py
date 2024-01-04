@@ -314,7 +314,7 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                     accounts_dropdown_in = test.find_elements(
                         by=By.CSS_SELECTOR, value="li"
                     )
-                    account_number = accounts_dropdown_in[x].text
+                    account_number = fidelity_o.get_account_numbers(key)[x]
                     account_label = fidelity_o.print_account_number(account_number)
                     accounts_dropdown_in[x].click()
                     sleep(1)
@@ -517,13 +517,13 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                                 "arguments[0].click();", error_dismiss
                             )
                             printAndDiscord(
-                                f"{key} {account_label}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}. DID NOT COMPLETE! \nEither this account does not have enough shares, or an order is already pending.",
+                                f"{key} account {account_label}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}. DID NOT COMPLETE! \nEither this account does not have enough shares, or an order is already pending.",
                                 loop,
                             )
                         # Send confirmation
                     else:
                         printAndDiscord(
-                            f"DRY: {key} {account_label}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}",
+                            f"DRY: {key} account {account_label}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}",
                             loop,
                         )
                     sleep(3)
