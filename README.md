@@ -116,6 +116,17 @@ Required `.env` variables:
 `.env` file format:
 - `FIDELITY=FIDELITY_USERNAME:FIDELITY_PASSWORD`
 
+### Firstrade
+Made by [MaxxRK](https://github.com/MaxxRK/) using the [firstrade-api](https://github.com/MaxxRK/firstrade-api). Go give them a ⭐
+
+Required `.env` variables:
+- `FIRSTRADE_USERNAME`
+- `FIRSTRADE_PASSWORD`
+- `FIRSTRADE_PIN`
+
+`.env` file format:
+- `FIRSTRADE=FIRSTRADE_USERNAME:FIRSTRADE_PASSWORD:FIRSTRADE_PIN`
+
 ### Robinhood
 Made using [robin_stocks](https://github.com/jmfernandes/robin_stocks). Go give them a ⭐
 
@@ -191,8 +202,6 @@ To get your Webull DID, follow this [guide](https://github.com/tedchou12/webull/
 Ally disabled their official API, so all Ally packages don't work. I am attempting to reverse engineer their API, which you can track [here](https://github.com/NelsonDane/ally-api). Once I get it working, I will add it to this project.
 #### Chase
 Chase doesn't have an official API, so it would have to be added using Selenium.
-#### Firstrade
-In progress on the `develop-firstrade` branch. Stay tuned.
 #### Vanguard
 Will be added using Selenium just like Fidelity. I found this [vanguard-api](https://github.com/rikonor/vanguard-api), but it failed when I ran it.
 #### SoFi

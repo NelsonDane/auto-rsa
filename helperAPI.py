@@ -287,14 +287,6 @@ class Brokerage:
             return self.__account_types.get(parent_name, {})
         return self.__account_types.get(parent_name, {}).get(account_name, "")
 
-    def print_account_number(self, an) -> str:
-        # Print 12345678 as xxxx5678
-        an = str(an)
-        if len(an) < 4:
-            return an
-        masked = "x" * (len(an) - 4) + an[-4:]
-        return masked
-
     def __str__(self) -> str:
         return textwrap.dedent(
             f"""
@@ -463,6 +455,15 @@ async def processQueue():
         task_queue.task_done()
 
 
+def maskString(string):
+    # Mask string (12345678 -> xxxx5678)
+    string = str(string)
+    if len(string) < 4:
+        return string
+    masked = "x" * (len(string) - 4) + string[-4:]
+    return masked
+
+
 def printHoldings(brokerObj: Brokerage, loop=None):
     # Helper function for holdings formatting
     printAndDiscord(
@@ -471,7 +472,7 @@ def printHoldings(brokerObj: Brokerage, loop=None):
     )
     for key in brokerObj.get_account_numbers():
         for account in brokerObj.get_account_numbers(key):
-            printAndDiscord(f"{key} ({brokerObj.print_account_number(account)}):", loop)
+            printAndDiscord(f"{key} ({maskString(account)}):", loop)
             holdings = brokerObj.get_holdings(key, account)
             if holdings == {}:
                 printAndDiscord("No holdings in Account\n", loop)
