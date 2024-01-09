@@ -14,6 +14,7 @@ try:
 
     # Custom API libraries
     from fidelityAPI import *
+    from firstradeAPI import *
     from helperAPI import stockOrder, updater
     from robinhoodAPI import *
     from schwabAPI import *
@@ -29,8 +30,8 @@ load_dotenv()
 
 
 # Global variables
-SUPPORTED_BROKERS = ["fidelity", "robinhood", "schwab", "tastytrade", "tradier"]
-DAY1_BROKERS = ["robinhood", "schwab", "tastytrade", "tradier"]
+SUPPORTED_BROKERS = ["fidelity", "firstrade", "robinhood", "schwab", "tastytrade", "tradier"]
+DAY1_BROKERS = ["robinhood", "firstrade", "schwab", "tastytrade", "tradier"]
 DISCORD_BOT = False
 DOCKER_MODE = False
 DANGER_MODE = False
@@ -38,6 +39,8 @@ DANGER_MODE = False
 
 # Account nicknames
 def nicknames(broker):
+    if broker == "ft":
+        return "firstrade"
     if broker == "rh":
         return "robinhood"
     if broker == "tasty":
