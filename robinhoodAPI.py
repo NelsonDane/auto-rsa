@@ -8,7 +8,7 @@ import pyotp
 import robin_stocks.robinhood as rh
 from dotenv import load_dotenv
 
-from helperAPI import Brokerage, printAndDiscord, printHoldings, stockOrder
+from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder
 
 
 def robinhood_init(ROBINHOOD_EXTERNAL=None):
@@ -52,7 +52,7 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
             )
             atype = rh.account.load_account_profile(info="type", account_number=an)
             rh_obj.set_account_type(name, an, atype)
-            print(f"Found {atype} account {an}")
+            print(f"Found {atype} account {maskString(an)}")
             # Check for IRA accounts
             if (len(account) > 3) and (account[3] != "NA"):
                 iras = [account[3]]
@@ -61,6 +61,7 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
                 for ira in iras:
                     # Make sure it's different from the normal account number
                     if ira == an:
+                        ira = maskString(ira)
                         print(
                             f"ERROR: IRA account {ira} is the same as margin account. Please remove {an} from your .env file."
                         )
@@ -69,9 +70,9 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
                         info="account_number", account_number=ira
                     )
                     if ira_num is None:
-                        print(f"Unable to lookup IRA account {ira}")
+                        print(f"Unable to lookup IRA account {maskString(ira)}")
                         continue
-                    print(f"Found IRA account {ira_num}")
+                    print(f"Found IRA account {maskString(ira_num)}")
                     rh_obj.set_account_number(name, ira_num)
                     rh_obj.set_account_totals(
                         name,
@@ -136,6 +137,7 @@ def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, loop=None):
             )
             for account in rho.get_account_numbers(key):
                 obj: rh = rho.get_logged_in_objects(key)
+                print_account = maskString(account)
                 if not orderObj.get_dry():
                     try:
                         # Market order
@@ -149,7 +151,7 @@ def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, loop=None):
                         # Limit order fallback
                         if market_order is None:
                             printAndDiscord(
-                                f"{key}: Error {orderObj.get_action()}ing {orderObj.get_amount()} of {s} in {account}, trying Limit Order",
+                                f"{key}: Error {orderObj.get_action()}ing {orderObj.get_amount()} of {s} in {print_account}, trying Limit Order",
                                 loop,
                             )
                             ask = obj.get_latest_price(s, priceType="ask_price")[0]
@@ -186,7 +188,7 @@ def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, loop=None):
                             )
                             if limit_order is None:
                                 printAndDiscord(
-                                    f"{key}: Error {orderObj.get_action()}ing {orderObj.get_amount()} of {s} in {account}",
+                                    f"{key}: Error {orderObj.get_action()}ing {orderObj.get_amount()} of {s} in {print_account}",
                                     loop,
                                 )
                                 continue
@@ -194,7 +196,7 @@ def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, loop=None):
                             if limit_order.get("non_field_errors") is not None:
                                 message = limit_order["non_field_errors"]
                             printAndDiscord(
-                                f"{key}: {orderObj.get_action()} {orderObj.get_amount()} of {s} in {account} @ {price}: {message}",
+                                f"{key}: {orderObj.get_action()} {orderObj.get_amount()} of {s} in {print_account} @ {price}: {message}",
                                 loop,
                             )
                         else:
@@ -202,7 +204,7 @@ def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, loop=None):
                             if market_order.get("non_field_errors") is not None:
                                 message = market_order["non_field_errors"]
                             printAndDiscord(
-                                f"{key}: {orderObj.get_action()} {orderObj.get_amount()} of {s} in {account}: {message}",
+                                f"{key}: {orderObj.get_action()} {orderObj.get_amount()} of {s} in {print_account}: {message}",
                                 loop,
                             )
                     except Exception as e:
@@ -210,6 +212,6 @@ def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, loop=None):
                         printAndDiscord(f"{key} Error submitting order: {e}", loop)
                 else:
                     printAndDiscord(
-                        f"{key} {account} Running in DRY mode. Transaction would've been: {orderObj.get_action()} {orderObj.get_amount()} of {s}",
+                        f"{key} {print_account} Running in DRY mode. Transaction would've been: {orderObj.get_action()} {orderObj.get_amount()} of {s}",
                         loop,
                     )

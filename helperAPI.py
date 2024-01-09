@@ -450,6 +450,15 @@ async def processQueue():
         task_queue.task_done()
 
 
+def maskString(string):
+    # Mask string (12345678 -> xxxx5678)
+    string = str(string)
+    if len(string) < 4:
+        return string
+    masked = "x" * (len(string) - 4) + string[-4:]
+    return masked
+
+
 def printHoldings(brokerObj: Brokerage, loop=None):
     # Helper function for holdings formatting
     printAndDiscord(
@@ -458,7 +467,7 @@ def printHoldings(brokerObj: Brokerage, loop=None):
     )
     for key in brokerObj.get_account_numbers():
         for account in brokerObj.get_account_numbers(key):
-            printAndDiscord(f"{key} ({account}):", loop)
+            printAndDiscord(f"{key} ({maskString(account)}):", loop)
             holdings = brokerObj.get_holdings(key, account)
             if holdings == {}:
                 printAndDiscord("No holdings in Account\n", loop)
