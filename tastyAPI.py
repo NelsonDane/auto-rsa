@@ -18,7 +18,7 @@ from tastytrade.order import (
     OrderType,
     PriceEffect,
 )
-from tastytrade.streamer import DataStreamer
+from tastytrade.streamer import DXFeedStreamer
 from tastytrade.utils import TastytradeError
 
 from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder
@@ -148,7 +148,7 @@ async def tastytrade_execute(tt_o: Brokerage, orderObj: stockOrder, loop=None):
                         printAndDiscord(message, loop=loop)
                     elif order_status == "Rejected":
                         # Retry with limit order
-                        streamer = await DataStreamer.create(obj)
+                        streamer = await DXFeedStreamer.create(obj)
                         stock_limit = await streamer.oneshot(EventType.PROFILE, [s])
                         stock_quote = await streamer.oneshot(EventType.QUOTE, [s])
                         printAndDiscord(
