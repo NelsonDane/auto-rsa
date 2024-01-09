@@ -21,9 +21,9 @@ from helperAPI import (
     check_if_page_loaded,
     getDriver,
     killSeleniumDriver,
+    maskString,
     printAndDiscord,
     printHoldings,
-    maskString,
     stockOrder,
     type_slowly,
 )

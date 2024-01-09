@@ -9,7 +9,7 @@ from time import sleep
 import requests
 from dotenv import load_dotenv
 
-from helperAPI import Brokerage, printAndDiscord, printHoldings, maskString, stockOrder
+from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder
 
 
 def make_request(

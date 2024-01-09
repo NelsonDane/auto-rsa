@@ -8,7 +8,7 @@ import pyotp
 import robin_stocks.robinhood as rh
 from dotenv import load_dotenv
 
-from helperAPI import Brokerage, printAndDiscord, printHoldings, maskString, stockOrder
+from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder
 
 
 def robinhood_init(ROBINHOOD_EXTERNAL=None):
@@ -70,9 +70,7 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
                         info="account_number", account_number=ira
                     )
                     if ira_num is None:
-                        print(
-                            f"Unable to lookup IRA account {maskString(ira)}"
-                        )
+                        print(f"Unable to lookup IRA account {maskString(ira)}")
                         continue
                     print(f"Found IRA account {maskString(ira_num)}")
                     rh_obj.set_account_number(name, ira_num)
