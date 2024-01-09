@@ -21,7 +21,7 @@ from tastytrade.order import (
 from tastytrade.streamer import DataStreamer
 from tastytrade.utils import TastytradeError
 
-from helperAPI import Brokerage, printAndDiscord, printHoldings, stockOrder
+from helperAPI import Brokerage, printAndDiscord, printHoldings, maskString, stockOrder
 
 
 def order_setup(tt: ProductionSession, order_type, stock_price, stock, amount):
@@ -121,7 +121,7 @@ async def tastytrade_execute(tt_o: Brokerage, orderObj: stockOrder, loop=None):
                 loop=loop,
             )
             for i, acct in enumerate(tt_o.get_account_numbers(key)):
-                print_account = tt_o.print_account_number(acct)
+                print_account = maskString(acct)
                 try:
                     acct: Account = accounts[i]
                     # Set order type

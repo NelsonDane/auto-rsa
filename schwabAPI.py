@@ -8,7 +8,7 @@ from time import sleep
 from dotenv import load_dotenv
 from schwab_api import Schwab
 
-from helperAPI import Brokerage, printAndDiscord, printHoldings, stockOrder
+from helperAPI import Brokerage, printAndDiscord, printHoldings, maskString, stockOrder
 
 
 def schwab_init(SCHWAB_EXTERNAL=None):
@@ -39,7 +39,7 @@ def schwab_init(SCHWAB_EXTERNAL=None):
             )
             account_info = schwab.get_account_info_v2()
             account_list = list(account_info.keys())
-            print_accounts = [schwab_obj.print_account_number(a) for a in account_list]
+            print_accounts = [maskString(a) for a in account_list]
             print(f"The following Schwab accounts were found: {print_accounts}")
             print("Logged in to Schwab!")
             schwab_obj.set_logged_in_object(name, schwab)
@@ -96,7 +96,7 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
             )
             obj: Schwab = schwab_o.get_logged_in_objects(key)
             for account in schwab_o.get_account_numbers(key):
-                print_account = schwab_o.print_account_number(account)
+                print_account = maskString(account)
                 # If DRY is True, don't actually make the transaction
                 if orderObj.get_dry():
                     printAndDiscord(

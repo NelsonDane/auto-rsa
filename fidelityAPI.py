@@ -23,6 +23,7 @@ from helperAPI import (
     killSeleniumDriver,
     printAndDiscord,
     printHoldings,
+    maskString,
     stockOrder,
     type_slowly,
 )
@@ -315,7 +316,7 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                         by=By.CSS_SELECTOR, value="li"
                     )
                     account_number = fidelity_o.get_account_numbers(key)[x]
-                    account_label = fidelity_o.print_account_number(account_number)
+                    account_label = maskString(account_number)
                     accounts_dropdown_in[x].click()
                     sleep(1)
                     # Type in ticker
