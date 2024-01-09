@@ -8,5 +8,5 @@ requests==2.31.0
 robin_stocks==3.0.6
 schwab-api==0.3.8
 selenium==4.16.0
-tastytrade==6.1
+tastytrade==6.4
 webdriver-manager==4.0.1
