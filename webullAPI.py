@@ -7,7 +7,7 @@ import traceback
 from webull import webull
 from dotenv import load_dotenv
 
-from helperAPI import Brokerage, printAndDiscord, printHoldings, stockOrder
+from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder
 
 
 def place_order(wbo: Brokerage, obj: webull, orderObj: stockOrder, key: str, s: str):
@@ -60,7 +60,7 @@ def webull_init(WEBULL_EXTERNAL=None):
             wb_obj.set_logged_in_object(name, account[3], "trading_pin")
             wb_obj.set_logged_in_object(name, wb._account_id, "account_id")
             ac = wb.get_account()
-            print(wb_obj.print_account_number(ac["brokerAccountId"]))
+            print(maskString(ac["brokerAccountId"]))
             wb_obj.set_account_number(name, ac["brokerAccountId"])
             wb_obj.set_account_type(name, ac["brokerAccountId"], ac["accountType"])
             wb_obj.set_account_totals(name, ac["brokerAccountId"], ac["netLiquidation"])
@@ -113,7 +113,7 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
                 loop,
             )
             for account in wbo.get_account_numbers(key):
-                print_account = wbo.print_account_number(account)
+                print_account = maskString(account)
                 # Webull doesn't support fractional shares
                 if not orderObj.get_amount().is_integer():
                     printAndDiscord(
