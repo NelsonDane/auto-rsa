@@ -45,10 +45,7 @@ def firstrade_init(FIRSTRADE_EXTERNAL=None):
                 firstrade_obj.set_account_totals(
                     name, account, str(entry[account]["Balance"])
                 )
-            print_accounts = [
-                maskString(a)
-                for a in account_info.account_numbers
-            ]
+            print_accounts = [maskString(a) for a in account_info.account_numbers]
             print(f"The following Firstrade accounts were found: {print_accounts}")
         except Exception as e:
             print(f"Error logging in to Firstrade: {e}")
