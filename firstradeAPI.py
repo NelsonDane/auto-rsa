@@ -34,9 +34,7 @@ def firstrade_init(FIRSTRADE_EXTERNAL=None):
         try:
             account = account.split(":")
             firstrade = ft_account.FTSession(
-                username=account[0],
-                password=account[1],
-                pin=account[2]
+                username=account[0], password=account[1], pin=account[2]
             )
             account_info = ft_account.FTAccountData(firstrade)
             print("Logged in to Firstrade!")
@@ -45,9 +43,12 @@ def firstrade_init(FIRSTRADE_EXTERNAL=None):
                 account = list(entry.keys())[0]
                 firstrade_obj.set_account_number(name, account)
                 firstrade_obj.set_account_totals(
-                    name, account, str(entry[account]['Balance'])
+                    name, account, str(entry[account]["Balance"])
                 )
-            print_accounts = [firstrade_obj.print_account_number(a) for a in account_info.account_numbers]
+            print_accounts = [
+                firstrade_obj.print_account_number(a)
+                for a in account_info.account_numbers
+            ]
             print(f"The following Firstrade accounts were found: {print_accounts}")
         except Exception as e:
             print(f"Error logging in to Firstrade: {e}")
