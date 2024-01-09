@@ -21,7 +21,7 @@ from tastytrade.order import (
 from tastytrade.streamer import DataStreamer
 from tastytrade.utils import TastytradeError
 
-from helperAPI import Brokerage, printAndDiscord, printHoldings, maskString, stockOrder
+from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder
 
 
 def order_setup(tt: ProductionSession, order_type, stock_price, stock, amount):
