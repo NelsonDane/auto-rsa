@@ -10,7 +10,8 @@ from dotenv import load_dotenv
 from firstrade import account as ft_account
 from firstrade import order, symbols
 
-from helperAPI import Brokerage, printAndDiscord, printHoldings, stockOrder
+from helperAPI import (Brokerage, maskString, printAndDiscord, printHoldings,
+                       stockOrder)
 
 
 def firstrade_init(FIRSTRADE_EXTERNAL=None):
@@ -45,10 +46,7 @@ def firstrade_init(FIRSTRADE_EXTERNAL=None):
                 firstrade_obj.set_account_totals(
                     name, account, str(entry[account]["Balance"])
                 )
-            print_accounts = [
-                firstrade_obj.print_account_number(a)
-                for a in account_info.account_numbers
-            ]
+            print_accounts = [maskString(a) for a in account_info.account_numbers]
             print(f"The following Firstrade accounts were found: {print_accounts}")
         except Exception as e:
             print(f"Error logging in to Firstrade: {e}")
@@ -93,7 +91,7 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
             )
             for account in firstrade_o.get_account_numbers(key):
                 obj: ft_account.FTSession = firstrade_o.get_logged_in_objects(key)
-                print_account = firstrade_o.print_account_number(account)
+                print_account = maskString(account)
                 # If DRY is True, don't actually make the transaction
                 if orderObj.get_dry():
                     printAndDiscord(
