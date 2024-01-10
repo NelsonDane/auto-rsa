@@ -13,6 +13,7 @@ try:
     from dotenv import load_dotenv
 
     # Custom API libraries
+    from chaseAPI import *
     from fidelityAPI import *
     from firstradeAPI import *
     from helperAPI import stockOrder, updater
@@ -31,6 +32,7 @@ load_dotenv()
 
 # Global variables
 SUPPORTED_BROKERS = [
+    "chase",
     "fidelity",
     "firstrade",
     "robinhood",
@@ -38,7 +40,7 @@ SUPPORTED_BROKERS = [
     "tastytrade",
     "tradier",
 ]
-DAY1_BROKERS = ["robinhood", "firstrade", "schwab", "tastytrade", "tradier"]
+DAY1_BROKERS = ["chase","robinhood", "firstrade", "schwab", "tastytrade", "tradier"]
 DISCORD_BOT = False
 DOCKER_MODE = False
 DANGER_MODE = False
@@ -71,6 +73,11 @@ def fun_run(orderObj: stockOrder, command, loop=None):
                         # Fidelity requires docker mode argument
                         orderObj.set_logged_in(
                             globals()[fun_name](DOCKER=DOCKER_MODE), broker
+                        )
+                    elif broker.lower() == "chase":
+                        # Chase requires docker mode and discord bot argument
+                        orderObj.set_logged_in(
+                            globals()[fun_name](DOCKER=DOCKER_MODE, EXTERNAL_CODE=DISCORD_BOT), broker
                         )
                     else:
                         orderObj.set_logged_in(globals()[fun_name](), broker)
@@ -239,6 +246,7 @@ if __name__ == "__main__":
                 "Available RSA commands:\n"
                 "!ping\n"
                 "!help\n"
+                "!code\n"
                 "!rsa holdings [all|<broker1>,<broker2>,...]\n"
                 "!rsa [buy|sell] [amount] [stock1|stock1,stock2] [all|<broker1>,<broker2>,...] [not broker1,broker2,...] [DRY: true|false]\n"
                 "!restart"
@@ -269,6 +277,14 @@ if __name__ == "__main__":
                 if ctx:
                     await ctx.send(f"Error placing order: {err}")
 
+        # Get code from user command
+        @bot.command(name="code")
+        async def code(ctx, *, arg):
+            with open (".code", "w") as f:
+                f.write(arg)
+            await ctx.send(f"You entered code: {arg}")
+            
+            
         # Restart command
         @bot.command(name="restart")
         async def restart(ctx):
