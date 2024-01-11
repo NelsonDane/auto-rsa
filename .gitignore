@@ -1,7 +1,7 @@
 .env
 did.bin
-.DS_Store
-*.json
+test.py
+test[0-9].py
 *.pkl
 *.png
 *.json
