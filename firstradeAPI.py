@@ -10,8 +10,7 @@ from dotenv import load_dotenv
 from firstrade import account as ft_account
 from firstrade import order, symbols
 
-from helperAPI import (Brokerage, maskString, printAndDiscord, printHoldings,
-                       stockOrder)
+from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder
 
 
 def firstrade_init(FIRSTRADE_EXTERNAL=None):
