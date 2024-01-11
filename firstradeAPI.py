@@ -72,7 +72,7 @@ def firstrade_holdings(firstrade_o: Brokerage, loop=None):
                 printAndDiscord(f"{key} {account}: Error getting holdings: {e}", loop)
                 print(traceback.format_exc())
                 continue
-    printHoldings(firstrade_o, loop)
+        printHoldings(firstrade_o, loop)
 
 
 def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=None):

@@ -5,7 +5,9 @@ did.bin
 *.pkl
 *.png
 __pycache__/
-src/
-test*
-*venv/
+did.bin
+test.py
+test[0-9].py
+*.pkl
+*.png
 .vscode/
