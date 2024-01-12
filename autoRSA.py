@@ -34,14 +34,13 @@ load_dotenv()
 SUPPORTED_BROKERS = [
     "fidelity",
     "firstrade",
-    "firstrade",
     "robinhood",
     "schwab",
     "tastytrade",
     "tradier",
     "webull",
 ]
-DAY1_BROKERS = ["robinhood", "firstrade", "firstrade", "schwab", "tastytrade", "tradier", "webull"]
+DAY1_BROKERS = ["robinhood", "firstrade", "schwab", "tastytrade", "tradier", "webull"]
 DISCORD_BOT = False
 DOCKER_MODE = False
 DANGER_MODE = False
