@@ -18,10 +18,10 @@ from tastytrade.order import (
     OrderType,
     PriceEffect,
 )
-from tastytrade.streamer import DataStreamer
+from tastytrade.streamer import DXFeedStreamer
 from tastytrade.utils import TastytradeError
 
-from helperAPI import Brokerage, printAndDiscord, printHoldings, stockOrder
+from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder
 
 
 def order_setup(tt: ProductionSession, order_type, stock_price, stock, amount):
@@ -121,7 +121,7 @@ async def tastytrade_execute(tt_o: Brokerage, orderObj: stockOrder, loop=None):
                 loop=loop,
             )
             for i, acct in enumerate(tt_o.get_account_numbers(key)):
-                print_account = tt_o.print_account_number(acct)
+                print_account = maskString(acct)
                 try:
                     acct: Account = accounts[i]
                     # Set order type
@@ -148,7 +148,7 @@ async def tastytrade_execute(tt_o: Brokerage, orderObj: stockOrder, loop=None):
                         printAndDiscord(message, loop=loop)
                     elif order_status == "Rejected":
                         # Retry with limit order
-                        streamer = await DataStreamer.create(obj)
+                        streamer = await DXFeedStreamer.create(obj)
                         stock_limit = await streamer.oneshot(EventType.PROFILE, [s])
                         stock_quote = await streamer.oneshot(EventType.QUOTE, [s])
                         printAndDiscord(
@@ -193,9 +193,7 @@ async def tastytrade_execute(tt_o: Brokerage, orderObj: stockOrder, loop=None):
                                 loop=loop,
                             )
                 except TastytradeError as te:
-                    printAndDiscord(
-                        f"{key} {print_account}: Error: {te}", loop=loop
-                    )
+                    printAndDiscord(f"{key} {print_account}: Error: {te}", loop=loop)
 
 
 def tastytrade_transaction(tt: Brokerage, orderObj: stockOrder, loop=None):

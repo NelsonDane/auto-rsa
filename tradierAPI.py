@@ -9,7 +9,7 @@ from time import sleep
 import requests
 from dotenv import load_dotenv
 
-from helperAPI import Brokerage, printAndDiscord, printHoldings, stockOrder
+from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder
 
 
 def make_request(
@@ -85,7 +85,7 @@ def tradier_init(TRADIER_EXTERNAL=None):
                 an = json_response["profile"]["account"]["account_number"]
             else:
                 an = json_response["profile"]["account"][x]["account_number"]
-            print(tradier_obj.print_account_number(an))
+            print(maskString(an))
             tradier_obj.set_account_number(name, an)
             tradier_obj.set_account_type(
                 name, an, json_response["profile"]["account"][x]["type"]
@@ -140,7 +140,8 @@ def tradier_holdings(tradier_o: Brokerage, loop=None):
                     )
                     if (
                         price_response is None
-                        or price_response.get("quotes").get("quote").get("last") is None
+                        or price_response["quotes"].get("quote") is None
+                        or price_response["quotes"]["quote"].get("last") is None
                     ):
                         current_price.append(0)
                     else:
@@ -174,7 +175,7 @@ def tradier_transaction(tradier_o: Brokerage, orderObj: stockOrder, loop=None):
             )
             for account in tradier_o.get_account_numbers(key):
                 obj: str = tradier_o.get_logged_in_objects(key)
-                print_account = tradier_o.print_account_number(account)
+                print_account = maskString(account)
                 # Tradier doesn't support fractional shares
                 if not orderObj.get_amount().is_integer():
                     printAndDiscord(

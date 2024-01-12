@@ -4,6 +4,7 @@ __pycache__/
 did.bin
 test.py
 test[0-9].py
+*.pkl
 *.png
 .vscode/
 *venv/
