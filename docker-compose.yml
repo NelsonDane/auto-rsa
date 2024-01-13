@@ -10,9 +10,20 @@ services:
         tty: true
 
     watchtower:
+        # Auto update the auto-rsa container every hour
+        # For more info see: https://containrrr.dev/watchtower/arguments/
         image: containrrr/watchtower
-        command: --cleanup --label-enable --interval 3600
         container_name: watchtower
+        hostname: auto-rsa
+        environment:
+            - WATCHTOWER_CLEANUP=true
+            - WATCHTOWER_INCLUDE_STOPPED=true
+            - WATCHTOWER_POLL_INTERVAL=3600
+            # For more info on notifications see: https://containrrr.dev/watchtower/notifications/
+            # - WATCHTOWER_NOTIFICATIONS=shoutrrr
+            # - WATCHTOWER_NOTIFICATION_URL=discord://TOKEN@WEBHOOKID
+        command:
+            - auto-rsa
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock
         restart: unless-stopped
