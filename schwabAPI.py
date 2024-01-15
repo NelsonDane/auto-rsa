@@ -114,10 +114,24 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
                         f"{key} account {print_account}: The order verification was "
                         + "successful"
                         if success
-                        else "unsuccessful",
+                        else "unsuccessful, retrying...",
                         loop,
                     )
                     if not success:
+                        messages, success = obj.trade(
+                            ticker=s,
+                            side=orderObj.get_action().capitalize(),
+                            qty=orderObj.get_amount(),
+                            account_id=account,
+                            dry_run=orderObj.get_dry(),
+                        )
+                        printAndDiscord(
+                            f"{key} account {print_account}: The order verification was "
+                            + "retry successful"
+                            if success
+                            else "retry unsuccessful",
+                            loop,
+                        )
                         printAndDiscord(
                             f"{key} account {print_account}: The order verification produced the following messages: {messages}",
                             loop,
