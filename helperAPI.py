@@ -10,10 +10,7 @@ from time import sleep
 
 import requests
 from dotenv import load_dotenv
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service as ChromiumService
-from selenium.webdriver.edge.service import Service as EdgeService
-from webdriver_manager.microsoft import EdgeChromiumDriverManager
+import undetected_chromedriver as webdriver
 
 # Create task queue
 task_queue = Queue()
@@ -364,16 +361,15 @@ def getDriver(DOCKER=False):
             options.add_argument("--disable-gpu")
             # Docker uses specific chromedriver installed via apt
             driver = webdriver.Chrome(
-                service=ChromiumService("/usr/bin/chromedriver"),
+                # service=ChromiumService("/usr/bin/chromedriver"),
                 options=options,
             )
         else:
             # Otherwise use Edge
-            options = webdriver.EdgeOptions()
+            options = webdriver.ChromeOptions()
             options.add_argument("--disable-blink-features=AutomationControlled")
             options.add_argument("--disable-notifications")
-            driver = webdriver.Edge(
-                service=EdgeService(EdgeChromiumDriverManager().install()),
+            driver = webdriver.Chrome(
                 options=options,
             )
     except Exception as e:
