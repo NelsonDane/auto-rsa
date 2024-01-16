@@ -229,7 +229,7 @@ class Brokerage:
         if account_name not in self.__holdings[parent_name]:
             self.__holdings[parent_name][account_name] = {}
         self.__holdings[parent_name][account_name][stock] = {
-            "quantity": round(float(quantity), 2),
+            "quantity": float(quantity),
             "price": round(float(price), 2),
             "total": round(float(quantity) * float(price), 2),
         }

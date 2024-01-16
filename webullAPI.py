@@ -114,13 +114,6 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
             )
             for account in wbo.get_account_numbers(key):
                 print_account = maskString(account)
-                # Webull doesn't support fractional shares
-                if not orderObj.get_amount().is_integer():
-                    printAndDiscord(
-                        f"Webull account {print_account} Error: Fractional share {orderObj.get_amount()} not supported",
-                        loop=loop,
-                    )
-                    continue
                 obj: webull = wbo.get_logged_in_objects(key, "wb")
                 # Make sure we're logged in
                 if not obj.is_logged_in():
