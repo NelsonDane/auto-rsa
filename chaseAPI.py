@@ -114,8 +114,6 @@ def chase_transaction(chase_o: Brokerage, orderObj: stockOrder, loop=None):
                         "Running in DRY mode. No transactions will be made.", loop
                     )
                 try:
-                    # Do not think i need this right now
-                    symbol_data = symbols.SymbolQuote(account, obj, s)
                     price_type = order.PriceType.MARKET
                     if orderObj.get_action().capitalize() == "Buy":
                         order_type = order.OrderType.BUY
