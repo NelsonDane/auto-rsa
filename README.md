@@ -160,7 +160,9 @@ Required `.env` variables:
 
 To get your TOTP secret, follow this [guide](guides/schwabSetup.md).
 
-Note: If you are using Windows, you will need to install playwright manually. See [this guide](guides/playwrightWindows.md) for more information.
+Note 1: Think or Swim must be enabled on all accounts. To enable, go to `Trade` > `Trading Platforms` > `Learn how to enable thinkorswim`. Then press `Continue` and expand the `thinkorswim Access Agreement` and accept it. Then press `Continue` again. Then select the checkbox for all available accounts and press `Submit`. It may take a day or two for the accounts to be enabled.
+
+Note 2: If you are using Windows, you may need to install playwright manually. See [this guide](guides/playwrightWindows.md) for more information.
 
 ### Tradier
 Made by yours truly using the official [Tradier API](https://documentation.tradier.com/brokerage-api/trading/getting-started). Consider giving me a ⭐
