@@ -9,17 +9,17 @@ from dotenv import load_dotenv
 
 from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder
 
+MAX_WB_RETRIES = 3
+MAX_WB_ACCOUNTS = 11
 
-def place_order(wbo: Brokerage, obj: webull, orderObj: stockOrder, key: str, s: str):
-    # obj.get_trade_token(wbo.get_logged_in_objects(key, "trading_pin"))
-    obj._account_id = wbo.get_logged_in_objects(key, "account_id")
+def place_order(obj: webull, account: str, orderObj: stockOrder, s: str):
+    obj._account_id = account
     order = obj.place_order(
         stock=s,
         action=orderObj.get_action().upper(),
         orderType=orderObj.get_price().upper(),
         quant=orderObj.get_amount(),
         enforce=orderObj.get_time().upper(),
-        # outsideRegularTradingHour=False,
     )
     print(order)
     if not order["success"]:
@@ -48,22 +48,30 @@ def webull_init(WEBULL_EXTERNAL=None):
             print(f"Invalid number of parameters for {name}, got {len(account)}, expected 4")
             return None
         try:
-            wb = webull()
-            wb._set_did(account[2])
-            wb.login(account[0], account[1])
-            wb.get_trade_token(account[3])
-            if not wb.is_logged_in():
-                raise Exception(f"Unable to log in to {name}. Check credentials.")
+            for i in range(MAX_WB_RETRIES):
+                wb = webull()
+                wb._set_did(account[2])
+                wb.login(account[0], account[1])
+                wb.get_trade_token(account[3])
+                if wb.is_logged_in():
+                    break
+                if i == MAX_WB_RETRIES - 1:
+                    raise Exception(f"Unable to log in to {name}. Check credentials.")
             # Initialize Webull account
             wb_obj = Brokerage("Webull")
             wb_obj.set_logged_in_object(name, wb, "wb")
             wb_obj.set_logged_in_object(name, account[3], "trading_pin")
-            wb_obj.set_logged_in_object(name, wb._account_id, "account_id")
-            ac = wb.get_account()
-            print(maskString(ac["brokerAccountId"]))
-            wb_obj.set_account_number(name, ac["brokerAccountId"])
-            wb_obj.set_account_type(name, ac["brokerAccountId"], ac["accountType"])
-            wb_obj.set_account_totals(name, ac["brokerAccountId"], ac["netLiquidation"])
+            # Get all accounts
+            for i in range(MAX_WB_ACCOUNTS):
+                id = wb.get_account_id(i)
+                if id is None:
+                    break
+                # Webull uses a different internal account ID than displayed
+                wb_obj.set_account_number(name, id)
+                ac = wb.get_account(v2=True)["accountSummaryVO"]
+                print(maskString(ac["accountNumber"]))
+                wb_obj.set_account_type(name, id, ac["accountTypeName"])
+                wb_obj.set_account_totals(name, id, ac["netLiquidationValue"])
         except Exception as e:
             print(traceback.format_exc())
             print(f"Error: Unable to log in to Webull: {e}")
@@ -82,8 +90,10 @@ def webull_holdings(wbo: Brokerage, loop=None):
                     printAndDiscord(f"{key} {account}: Not logged in", loop)
                     continue
                 # Get account holdings
-                obj._account_id = wbo.get_logged_in_objects(key, "account_id")
+                obj._account_id = account
                 positions = obj.get_positions()
+                if positions is None:
+                    positions = obj.get_positions(v2=True)
                 # List of holdings dictionaries
                 if positions != []:
                     for item in positions:
@@ -137,19 +147,19 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
                             # Under $1, buy 100 shares and sell 100 - amount
                             old_amount = orderObj.get_amount()
                             orderObj.set_amount(big_amount)
-                            buy_success = place_order(wbo, obj, orderObj, key, s)
+                            buy_success = place_order(obj, account, orderObj, s)
                             if not buy_success:
                                 raise Exception(f"Error buying {big_amount} of {s}")
                             orderObj.set_amount(big_amount - old_amount)
                             orderObj.set_action("sell")
-                            sell_success = place_order(wbo, obj, orderObj, key, s)
+                            sell_success = place_order(obj, account, orderObj, s)
                             orderObj.set_amount(old_amount)
                             if not sell_success:
                                 raise Exception(f"Error selling {big_amount - old_amount} of {s}")
                         else:
                             # Place normal order
                             print(f"Placing normal order for {s}")
-                            order = place_order(wbo, obj, orderObj, key, s)
+                            order = place_order(obj, account, orderObj, s)
                             if order:
                                 printAndDiscord(
                                     f"{key}: {orderObj.get_action()} {orderObj.get_amount()} of {s} in {print_account}: Success",
