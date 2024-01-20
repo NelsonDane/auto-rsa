@@ -1,19 +1,43 @@
 # Donald Ryan Gullett(MaxxRK)
 # Chase API
 
+import asyncio
 import os
 import pprint
+import queue as q
 import traceback
+from threading import Thread
 from time import sleep
 
 from chase import account as ch_account
 from chase import order, session, symbols
 from dotenv import load_dotenv
 
-from helperAPI import Brokerage, printAndDiscord, printHoldings, stockOrder
+from helperAPI import (Brokerage, maskString, printAndDiscord, printHoldings,
+                       stockOrder)
 
 
-def chase_init(CHASE_EXTERNAL=None, DOCKER=False, EXTERNAL_CODE=False):
+def monitor(queue, loop):
+    # Monitor Login thread
+    need_code = queue.get()
+    if need_code == (True, "code"):
+        printAndDiscord("Chase login code required please input through @code command. You have ~2 min.", loop)
+        for i in range(0, 121):
+            if not queue.empty():
+                logged_in = queue.get()
+                break
+            elif queue.empty() and (i+1)%20 == 0:
+                printAndDiscord(f"Waiting for code... You have ~{119 - i} seconds left.", loop)
+                sleep(1)
+            sleep(1)
+        if logged_in == (True, "logged_in"):
+           printAndDiscord("Code received!", loop)
+        elif logged_in == (False, "logged_in"):
+            printAndDiscord("Code not received in time...", loop)
+        return logged_in
+    return need_code
+
+def chase_init(CHASE_EXTERNAL=None, DOCKER=False, EXTERNAL_CODE=False, loop=None):
     # Initialize .env file
     load_dotenv()
     # Import Chase account
@@ -27,16 +51,24 @@ def chase_init(CHASE_EXTERNAL=None, DOCKER=False, EXTERNAL_CODE=False):
     )
     # Log in to Chase account
     print("Logging in to Chase...")
-    chase_obj = Brokerage("chase")
+    queue= q.Queue()
+    chase_obj = Brokerage("Chase")
     for account in accounts:
         index = accounts.index(account) + 1
         name = f"Chase {index}"
         try:
             account = account.split(":")
             ch_session = session.ChaseSession(title=f"chase_{index}", headless=True, docker=DOCKER, external_code=EXTERNAL_CODE)
-            ch_session.login(
-                username=account[0], password=account[1], last_four=account[2]
-            )
+            t = Thread(
+                target=ch_session.login,
+                args=(account[0], account[1], account[2], queue)
+                                        )
+            t.daemon = True
+            t.start()
+            logged_in = monitor(queue, loop)
+            t.join()
+            if logged_in == (False, "logged_in"):
+                return None
             all_accounts = ch_account.AllAccount(ch_session)
             account_ids = list(all_accounts.account_connectors.keys())
             print("Logged in to Chase!")
@@ -48,7 +80,7 @@ def chase_init(CHASE_EXTERNAL=None, DOCKER=False, EXTERNAL_CODE=False):
                     name, account.account_id, account.account_value
                 )
             print_accounts = [
-                chase_obj.print_account_number(a)
+                maskString(a)
                 for a in account_ids
             ]
             print(f"The following Chase accounts were found: {print_accounts}")
@@ -107,7 +139,7 @@ def chase_transaction(chase_o: Brokerage, orderObj: stockOrder, loop=None):
             )
             for account in chase_o.get_account_numbers(key):
                 obj: ch_session.ChaseSession = chase_o.get_logged_in_objects(key)
-                print_account = chase_o.print_account_number(account)
+                print_account = maskString(account)
                 # If DRY is True, don't actually make the transaction
                 if orderObj.get_dry():
                     printAndDiscord(
@@ -121,7 +153,7 @@ def chase_transaction(chase_o: Brokerage, orderObj: stockOrder, loop=None):
                         order_type = order.OrderType.SELL
                     chase_order = order.Order(obj)
                     messages = chase_order.place_order(
-                        account=account,
+                        account_id=account,
                         quantity=int(orderObj.get_amount()),
                         price_type=price_type,
                         symbol=s,
@@ -130,7 +162,7 @@ def chase_transaction(chase_o: Brokerage, orderObj: stockOrder, loop=None):
                         dry_run=orderObj.get_dry(),
                     )
                     print("The order verification produced the following messages: ")
-                    pprint.pprint(messages)
+                    pprint.pprint(messages['ORDER CONFIRMATION'])
                     printAndDiscord(
                         f"{key} account {print_account}: The order verification was "
                         + "successful"
@@ -140,7 +172,7 @@ def chase_transaction(chase_o: Brokerage, orderObj: stockOrder, loop=None):
                     )
                     if not messages["ORDER INVALID"] == "No invalid order message found.":
                         printAndDiscord(
-                            f"{key} account {print_account}: The order verification produced the following messages: {messages}",
+                            f"{key} account {print_account}: The order verification produced the following messages: {messages['ORDER INVALID']}",
                             loop,
                         )
                 except Exception as e:

@@ -69,6 +69,9 @@ def fun_run(orderObj: stockOrder, command, loop=None):
             try:
                 # Initialize broker
                 if command == "_init":
+                    if broker.lower() != "chase":
+                        # Other brokers do not require loop in init
+                        loop = None
                     if broker.lower() == "fidelity":
                         # Fidelity requires docker mode argument
                         orderObj.set_logged_in(
@@ -77,7 +80,7 @@ def fun_run(orderObj: stockOrder, command, loop=None):
                     elif broker.lower() == "chase":
                         # Chase requires docker mode and discord bot argument
                         orderObj.set_logged_in(
-                            globals()[fun_name](DOCKER=DOCKER_MODE, EXTERNAL_CODE=DISCORD_BOT), broker
+                            globals()[fun_name](DOCKER=DOCKER_MODE, EXTERNAL_CODE=DISCORD_BOT, loop=loop), broker
                         )
                     else:
                         orderObj.set_logged_in(globals()[fun_name](), broker)
@@ -259,7 +262,7 @@ if __name__ == "__main__":
             event_loop = asyncio.get_event_loop()
             try:
                 # Login to brokers
-                await bot.loop.run_in_executor(None, fun_run, discOrdObj, "_init")
+                await bot.loop.run_in_executor(None, fun_run, discOrdObj, "_init", event_loop)
                 # Validate order object
                 discOrdObj.order_validate()
                 # Get holdings or complete transaction
