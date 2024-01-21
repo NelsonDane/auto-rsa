@@ -4,10 +4,10 @@ did.bin
 *.json
 *.pkl
 *.png
-__pycache__/
-did.bin
-test.py
-test[0-9].py
+*.json
 *.pkl
 *.png
+__pycache__/
+test*
+*venv/
 .vscode/
