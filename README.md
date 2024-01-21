@@ -106,6 +106,15 @@ DISCLAIMER: I am not a financial advisor and not affiliated with any of the brok
 
 All brokers: separate account credentials with a colon (":"). For example, `SCHWAB_USERNAME:SCHWAB_PASSWORD`. Separate multiple logins with the same broker with a comma (","). For example, `SCHWAB_USERNAME:SCHWAB_PASSWORD,SCHWAB_USERNAME2:SCHWAB_PASSWORD2`.
 
+#### Chase
+Made by [MaxxRK](https://github.com/MaxxRK/) using the [chaseinvest-api](https://github.com/MaxxRK/chaseinvest-api). Go give them a ⭐
+- `CHASE_USERNAME`
+- `CHASE_PASSWORD`
+- `CELL_PHONE_LAST_FOUR`
+
+`.env` file format:
+- `CHASE=CHASE_USERNAME:CHASE_PASSWORD:CELL_PHONE_LAST_FOUR`
+
 ### Fidelity
 Made by yours truly using Selenium (and many hours of web scraping).
 
@@ -188,8 +197,6 @@ Required `.env` variables:
 ### 🤷‍♂️ Maybe future brokerages 🤷‍♀️
 #### Ally
 Ally disabled their official API, so all Ally packages don't work. I am attempting to reverse engineer their API, which you can track [here](https://github.com/NelsonDane/ally-api). Once I get it working, I will add it to this project.
-#### Chase
-Chase doesn't have an official API, so it would have to be added using Selenium.
 #### Vanguard
 Will be added using Selenium just like Fidelity. I found this [vanguard-api](https://github.com/rikonor/vanguard-api), but it failed when I ran it.
 #### SoFi
