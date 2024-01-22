@@ -103,7 +103,7 @@ def tastytrade_holdings(tt_o: Brokerage, loop=None):
                 printAndDiscord(f"{key}: Error getting account holdings: {e}", loop)
                 print(traceback.format_exc())
                 continue
-        printHoldings(tt_o, loop=loop)
+    printHoldings(tt_o, loop=loop)
 
 
 async def tastytrade_execute(tt_o: Brokerage, orderObj: stockOrder, loop=None):

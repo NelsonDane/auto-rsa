@@ -87,7 +87,7 @@ def robinhood_holdings(rho: Brokerage, loop=None):
                 printAndDiscord(f"{key}: Error getting account holdings: {e}", loop)
                 traceback.format_exc()
                 continue
-        printHoldings(rho, loop)
+    printHoldings(rho, loop)
 
 
 def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, loop=None):
