@@ -14,7 +14,7 @@ MAX_WB_ACCOUNTS = 11
 
 
 def place_order(obj: webull, account: str, orderObj: stockOrder, s: str):
-    obj._account_id = account
+    obj.set_account_id(account)
     order = obj.place_order(
         stock=s,
         action=orderObj.get_action().upper(),
@@ -54,7 +54,7 @@ def webull_init(WEBULL_EXTERNAL=None):
         try:
             for i in range(MAX_WB_RETRIES):
                 wb = webull()
-                wb._set_did(account[2])
+                wb.set_did(account[2])
                 wb.login(account[0], account[1])
                 wb.get_trade_token(account[3])
                 if wb.is_logged_in():
@@ -92,7 +92,7 @@ def webull_holdings(wbo: Brokerage, loop=None):
                     printAndDiscord(f"{key} {account}: Not logged in", loop)
                     continue
                 # Get account holdings
-                obj._account_id = account
+                obj.set_account_id(account)
                 positions = obj.get_positions()
                 if positions is None:
                     positions = obj.get_positions(v2=True)
