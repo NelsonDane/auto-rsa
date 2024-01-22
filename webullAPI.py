@@ -33,6 +33,7 @@ def webull_init(WEBULL_EXTERNAL=None):
     # Initialize .env file
     load_dotenv()
     # Import Webull account
+    wb_obj = Brokerage("Webull")
     if not os.getenv("WEBULL") and WEBULL_EXTERNAL is None:
         print("Webull not found, skipping...")
         return None
@@ -41,9 +42,9 @@ def webull_init(WEBULL_EXTERNAL=None):
         if WEBULL_EXTERNAL is None
         else WEBULL_EXTERNAL.strip().split(",")
     )
-    for account in accounts:
+    for index, account in enumerate(accounts):
         print("Logging in to Webull...")
-        name = f"Webull {accounts.index(account) + 1}"
+        name = f"Webull {index + 1}"
         account = account.split(":")
         if len(account) != 4:
             print(
@@ -60,8 +61,6 @@ def webull_init(WEBULL_EXTERNAL=None):
                     break
                 if i == MAX_WB_RETRIES - 1:
                     raise Exception(f"Unable to log in to {name}. Check credentials.")
-            # Initialize Webull account
-            wb_obj = Brokerage("Webull")
             wb_obj.set_logged_in_object(name, wb, "wb")
             wb_obj.set_logged_in_object(name, account[3], "trading_pin")
             # Get all accounts
@@ -98,7 +97,7 @@ def webull_holdings(wbo: Brokerage, loop=None):
                 if positions is None:
                     positions = obj.get_positions(v2=True)
                 # List of holdings dictionaries
-                if positions != []:
+                if positions is not None and positions != []: 
                     for item in positions:
                         sym = item["ticker"]["symbol"]
                         if sym == "":
@@ -110,7 +109,7 @@ def webull_holdings(wbo: Brokerage, loop=None):
                 printAndDiscord(f"{key} {account}: Error getting holdings: {e}", loop)
                 traceback.print_exc()
                 continue
-        printHoldings(wbo, loop=loop)
+    printHoldings(wbo, loop=loop)
 
 
 def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
