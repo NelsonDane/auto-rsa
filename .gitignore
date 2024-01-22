@@ -8,6 +8,7 @@ did.bin
 *.pkl
 *.png
 __pycache__/
+src/
 test*
 *venv/
 .vscode/
