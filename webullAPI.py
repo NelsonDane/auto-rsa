@@ -97,7 +97,7 @@ def webull_holdings(wbo: Brokerage, loop=None):
                 if positions is None:
                     positions = obj.get_positions(v2=True)
                 # List of holdings dictionaries
-                if positions is not None and positions != []: 
+                if positions is not None and positions != []:
                     for item in positions:
                         sym = item["ticker"]["symbol"]
                         if sym == "":
