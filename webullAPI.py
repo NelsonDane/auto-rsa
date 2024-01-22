@@ -4,13 +4,14 @@
 import os
 import traceback
 
-from webull import webull
 from dotenv import load_dotenv
+from webull import webull
 
 from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder
 
 MAX_WB_RETRIES = 3
 MAX_WB_ACCOUNTS = 11
+
 
 def place_order(obj: webull, account: str, orderObj: stockOrder, s: str):
     obj._account_id = account
@@ -45,7 +46,9 @@ def webull_init(WEBULL_EXTERNAL=None):
         name = f"Webull {accounts.index(account) + 1}"
         account = account.split(":")
         if len(account) != 4:
-            print(f"Invalid number of parameters for {name}, got {len(account)}, expected 4")
+            print(
+                f"Invalid number of parameters for {name}, got {len(account)}, expected 4"
+            )
             return None
         try:
             for i in range(MAX_WB_RETRIES):
@@ -141,9 +144,15 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
                             continue
                         askPrice = float(askList[0]["price"]) if askList != [] else 0
                         bidPrice = float(bidList[0]["price"]) if bidList != [] else 0
-                        if (askPrice < 1 or bidPrice < 1) and orderObj.get_action() == "buy":
-                            big_amount = 1000 if askPrice < 0.1 or bidPrice < 0.1 else 100
-                            print(f"Buying {big_amount} then selling {big_amount - orderObj.get_amount()} of {s}")
+                        if (
+                            askPrice < 1 or bidPrice < 1
+                        ) and orderObj.get_action() == "buy":
+                            big_amount = (
+                                1000 if askPrice < 0.1 or bidPrice < 0.1 else 100
+                            )
+                            print(
+                                f"Buying {big_amount} then selling {big_amount - orderObj.get_amount()} of {s}"
+                            )
                             # Under $1, buy 100 shares and sell 100 - amount
                             old_amount = orderObj.get_amount()
                             orderObj.set_amount(big_amount)
@@ -155,7 +164,9 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
                             sell_success = place_order(obj, account, orderObj, s)
                             orderObj.set_amount(old_amount)
                             if not sell_success:
-                                raise Exception(f"Error selling {big_amount - old_amount} of {s}")
+                                raise Exception(
+                                    f"Error selling {big_amount - old_amount} of {s}"
+                                )
                         else:
                             # Place normal order
                             print(f"Placing normal order for {s}")
