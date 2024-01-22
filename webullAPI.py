@@ -136,7 +136,8 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
                     try:
                         if orderObj.get_price() == "market":
                             orderObj.set_price("MKT")
-                        # If stock price < $1 or $0.10 and buy, buy 100/1000 shares and sell 100/1000 - amount
+                        # If buy stock price < $1 or $0.10,
+                        # buy 100/1000 shares and sell 100/1000 - amount
                         askList = obj.get_quote(s)["askList"]
                         bidList = obj.get_quote(s)["bidList"]
                         if askList == [] and bidList == []:
