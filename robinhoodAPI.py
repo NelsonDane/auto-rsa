@@ -40,54 +40,21 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
                 store_session=False,
             )
             rh_obj.set_logged_in_object(name, rh)
-            # Normal account
-            an = rh.account.load_account_profile(info="account_number")
-            rh_obj.set_account_number(name, an)
-            rh_obj.set_account_totals(
-                name,
-                an,
-                rh.account.load_account_profile(
-                    info="portfolio_cash", account_number=an
-                ),
-            )
-            atype = rh.account.load_account_profile(info="type", account_number=an)
-            rh_obj.set_account_type(name, an, atype)
-            print(f"Found {atype} account {maskString(an)}")
-            # Check for IRA accounts
-            if (len(account) > 3) and (account[3] != "NA"):
-                iras = [account[3]]
-                if len(account) > 4 and account[4] != "NA":
-                    iras.append(account[4])
-                for ira in iras:
-                    # Make sure it's different from the normal account number
-                    if ira == an:
-                        ira = maskString(ira)
-                        print(
-                            f"ERROR: IRA account {ira} is the same as margin account. Please remove {an} from your .env file."
-                        )
-                        continue
-                    ira_num = rh.account.load_account_profile(
-                        info="account_number", account_number=ira
-                    )
-                    if ira_num is None:
-                        print(f"Unable to lookup IRA account {maskString(ira)}")
-                        continue
-                    print(f"Found IRA account {maskString(ira_num)}")
-                    rh_obj.set_account_number(name, ira_num)
-                    rh_obj.set_account_totals(
-                        name,
-                        ira_num,
-                        rh.account.load_account_profile(
-                            info="portfolio_cash", account_number=ira_num
-                        ),
-                    )
-                    rh_obj.set_account_type(
-                        name,
-                        ira_num,
-                        rh.account.load_account_profile(
-                            info="type", account_number=ira_num
-                        ),
-                    )
+            # Load all accounts
+            all_accounts = rh.account.load_account_profile(dataType="results")
+            for a in all_accounts:
+                rh_obj.set_account_number(name, a["account_number"])
+                rh_obj.set_account_totals(
+                    name,
+                    a["account_number"],
+                    a["portfolio_cash"],
+                )
+                rh_obj.set_account_type(
+                    name, a["account_number"], a["brokerage_account_type"]
+                )
+                print(
+                    f"Found {a['brokerage_account_type']} account {maskString(a['account_number'])}"
+                )
         except Exception as e:
             print(f"Error: Unable to log in to Robinhood: {e}")
             traceback.format_exc()
