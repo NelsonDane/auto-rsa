@@ -49,8 +49,12 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
                     a["account_number"],
                     a["portfolio_cash"],
                 )
-                rh_obj.set_account_type(name, a["account_number"], a["brokerage_account_type"])
-                print(f"Found {a['brokerage_account_type']} account {maskString(a['account_number'])}")
+                rh_obj.set_account_type(
+                    name, a["account_number"], a["brokerage_account_type"]
+                )
+                print(
+                    f"Found {a['brokerage_account_type']} account {maskString(a['account_number'])}"
+                )
         except Exception as e:
             print(f"Error: Unable to log in to Robinhood: {e}")
             traceback.format_exc()
