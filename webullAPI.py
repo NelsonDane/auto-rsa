@@ -23,9 +23,10 @@ def place_order(obj: webull, account: str, orderObj: stockOrder, s: str):
         enforce=orderObj.get_time().upper(),
     )
     print(order)
-    if not order["success"]:
+    if order.get("success") is not None and not order["success"]:
         print(f"{order['msg']} Code {order['code']}")
-    return order["success"]
+        return False
+    return True
 
 
 # Initialize Webull
@@ -99,10 +100,17 @@ def webull_holdings(wbo: Brokerage, loop=None):
                 # List of holdings dictionaries
                 if positions is not None and positions != []:
                     for item in positions:
+                        if item.get("items") is not None:
+                            item = item["items"][0]
                         sym = item["ticker"]["symbol"]
                         if sym == "":
                             sym = "Unknown"
-                        qty = item["position"]
+                        if item.get("quantity") is not None:
+                            qty = item["quantity"]
+                        else:
+                            qty = item["position"]
+                        if float(qty) == 0:
+                            continue
                         mv = round(float(item["marketValue"]) / float(qty), 2)
                         wbo.set_holdings(key, account, sym, qty, mv)
             except Exception as e:
