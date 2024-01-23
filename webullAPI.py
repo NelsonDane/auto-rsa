@@ -170,7 +170,9 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
                             orderObj.set_amount(big_amount - old_amount)
                             orderObj.set_action("sell")
                             sell_success = place_order(obj, account, orderObj, s)
+                            # Restore orderObj
                             orderObj.set_amount(old_amount)
+                            orderObj.set_action("buy")
                             if not sell_success:
                                 raise Exception(
                                     f"Error selling {big_amount - old_amount} of {s}"
