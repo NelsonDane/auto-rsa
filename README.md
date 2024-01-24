@@ -134,17 +134,14 @@ Required `.env` variables:
 - `ROBINHOOD_USERNAME`
 - `ROBINHOOD_PASSWORD`
 - `ROBINHOOD_TOTP` (If 2fa enabled, else NA)
-- `ROBINHOOD_IRA_NUMBERS` (If you want to use your IRA account, else NA. Separate multiple IRA numbers with colons.)
 
 `.env` file format:
-- With 2fa: `ROBINHOOD=ROBINHOOD_USERNAME:ROBINHOOD_PASSWORD:ROBINHOOD_TOTP:ROBINHOOD_IRA_1:ROBINHOOD_IRA_2`
-- Without 2fa: `ROBINHOOD=ROBINHOOD_USERNAME:ROBINHOOD_PASSWORD:NA:ROBINHOOD_IRA_1:ROBINHOOD_IRA_2`
+- With 2fa: `ROBINHOOD=ROBINHOOD_USERNAME:ROBINHOOD_PASSWORD:ROBINHOOD_TOTP`
+- Without 2fa: `ROBINHOOD=ROBINHOOD_USERNAME:ROBINHOOD_PASSWORD:NA`
 
 If you don't have an IRA account or only have one, then you can omit the last field or set it to NA.
 
 Configuring 2fa can be tricky, read the TOTP section [here](https://github.com/jmfernandes/robin_stocks/blob/master/Robinhood.rst#with-mfa-entered-programmatically-from-time-based-one-time-password-totp).
-
-To get your IRA numbers, check your monthly statement, or tap the menu button in the Robinhood app and go to `Investing`. Or click the `Retirement` tab on the desktop website, then the `settings` button on the top right of the graph. Then click `Account numbers`.
 
 ### Schwab
 Made using the [schwab-api](https://github.com/itsjafer/schwab-api). Go give them a ⭐
@@ -160,7 +157,9 @@ Required `.env` variables:
 
 To get your TOTP secret, follow this [guide](guides/schwabSetup.md).
 
-Note: If you are using Windows, you will need to install playwright manually. See [this guide](guides/playwrightWindows.md) for more information.
+Note 1: Think or Swim must be enabled on all accounts. To enable, go to `Trade` > `Trading Platforms` > `Learn how to enable thinkorswim`. Then press `Continue` and expand the `thinkorswim Access Agreement` and accept it. Then press `Continue` again. Then select the checkbox for all available accounts and press `Submit`. It may take a day or two for the accounts to be enabled.
+
+Note 2: If you are using Windows, you may need to install playwright manually. See [this guide](guides/playwrightWindows.md) for more information.
 
 ### Tradier
 Made by yours truly using the official [Tradier API](https://documentation.tradier.com/brokerage-api/trading/getting-started). Consider giving me a ⭐
