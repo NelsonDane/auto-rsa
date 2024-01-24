@@ -356,27 +356,14 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                         return
                     except Exception:
                         pass
-                    # Get ask/bid price
-                    ask_price = (
-                        driver.find_element(
-                            by=By.CSS_SELECTOR,
-                            value="#quote-panel > div > div.eq-ticket__quote--blocks-container > div:nth-child(2) > div > span > span",
-                        )
-                    ).text
-                    # Last price gets us a more accurate number
+                    # Get last price
                     last_price = driver.find_element(
                         by=By.CSS_SELECTOR,
                         value="#eq-ticket__last-price > span.last-price"
                     ).text
                     last_price = last_price.replace("$", "")
-                    bid_price = (
-                        driver.find_element(
-                            by=By.CSS_SELECTOR,
-                            value="#quote-panel > div > div.eq-ticket__quote--blocks-container > div:nth-child(1) > div > span > span",
-                        )
-                    ).text
                     # If price is under $1, then we have to use a limit order
-                    LIMIT = bool(float(ask_price) < 1 or float(bid_price) < 1)
+                    LIMIT = bool(float(last_price) < 1)
                     # Figure out whether page is in old or new style
                     try:
                         action_dropdown = driver.find_element(
