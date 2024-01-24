@@ -112,8 +112,10 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
             # Retry the login if we get an error page
             try:
                 go_back_selector = "#dom-sys-err-go-to-login-button > span > s-slot > s-assigned-wrapper"
-                WebDriverWait(driver,10).until(
-                    expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, go_back_selector)),
+                WebDriverWait(driver, 10).until(
+                    expected_conditions.element_to_be_clickable(
+                        (By.CSS_SELECTOR, go_back_selector)
+                    ),
                 ).click()
                 username_field = driver.find_element(
                     by=By.CSS_SELECTOR, value=username_selector
@@ -123,7 +125,9 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
                     by=By.CSS_SELECTOR, value=password_selector
                 )
                 type_slowly(password_field, account[1])
-                driver.find_element(by=By.CSS_SELECTOR, value=login_btn_selector).click()
+                driver.find_element(
+                    by=By.CSS_SELECTOR, value=login_btn_selector
+                ).click()
             except TimeoutException:
                 pass
             # Wait for page to load to summary page
@@ -359,7 +363,7 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                     # Get last price
                     last_price = driver.find_element(
                         by=By.CSS_SELECTOR,
-                        value="#eq-ticket__last-price > span.last-price"
+                        value="#eq-ticket__last-price > span.last-price",
                     ).text
                     last_price = last_price.replace("$", "")
                     # If price is under $1, then we have to use a limit order
@@ -450,9 +454,13 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                         # Set price
                         difference_price = 0.01 if float(last_price) > 0.1 else 0.0001
                         if orderObj.get_action() == "buy":
-                            wanted_price = round(float(last_price) + difference_price, 3)
+                            wanted_price = round(
+                                float(last_price) + difference_price, 3
+                            )
                         else:
-                            wanted_price = round(float(last_price) - difference_price, 3)
+                            wanted_price = round(
+                                float(last_price) - difference_price, 3
+                            )
                         if new_style:
                             price_box = driver.find_element(
                                 by=By.CSS_SELECTOR, value="#eqt-mts-limit-price"
