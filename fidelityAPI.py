@@ -8,6 +8,13 @@ import re
 import traceback
 from time import sleep
 
+from selenium import webdriver
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
+from selenium.webdriver import Keys
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions
+from selenium.webdriver.support.wait import WebDriverWait
+
 from dotenv import load_dotenv
 from helperAPI import (
     Brokerage,
@@ -18,15 +25,8 @@ from helperAPI import (
     printAndDiscord,
     printHoldings,
     stockOrder,
-    type_slowly
+    type_slowly,
 )
-
-from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException, TimeoutException
-from selenium.webdriver import Keys
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions
-from selenium.webdriver.support.wait import WebDriverWait
 
 
 def fidelity_error(driver: webdriver, error: str):
