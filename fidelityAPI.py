@@ -112,8 +112,10 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
             # Retry the login if we get an error page
             try:
                 go_back_selector = "#dom-sys-err-go-to-login-button > span > s-slot > s-assigned-wrapper"
-                WebDriverWait(driver,10).until(
-                    expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, go_back_selector)),
+                WebDriverWait(driver, 10).until(
+                    expected_conditions.element_to_be_clickable(
+                        (By.CSS_SELECTOR, go_back_selector)
+                    ),
                 ).click()
                 username_field = driver.find_element(
                     by=By.CSS_SELECTOR, value=username_selector
@@ -123,7 +125,9 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
                     by=By.CSS_SELECTOR, value=password_selector
                 )
                 type_slowly(password_field, account[1])
-                driver.find_element(by=By.CSS_SELECTOR, value=login_btn_selector).click()
+                driver.find_element(
+                    by=By.CSS_SELECTOR, value=login_btn_selector
+                ).click()
             except TimeoutException:
                 pass
             # Wait for page to load to summary page
