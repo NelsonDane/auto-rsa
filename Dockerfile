@@ -44,6 +44,7 @@ RUN playwright install && \
 # Grab needed files
 COPY ./autoRSA.py .
 COPY ./entrypoint.sh .
+COPY ./chaseAPI.py .
 COPY ./fidelityAPI.py .
 COPY ./firstradeAPI.py .
 COPY ./helperAPI.py .
@@ -51,6 +52,10 @@ COPY ./robinhoodAPI.py .
 COPY ./schwabAPI.py .
 COPY ./tradierAPI.py .
 COPY ./tastyAPI.py .
+
+#Temporary
+COPY ./chaseinvest-api-0.1.0.tar.gz .
+RUN pip install ./chaseinvest-api-0.1.0.tar.gz
 
 # Make the entrypoint executable
 RUN chmod +x entrypoint.sh

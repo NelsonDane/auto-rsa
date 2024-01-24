@@ -12,7 +12,6 @@ from time import sleep
 from chase import account as ch_account
 from chase import order, session, symbols
 from dotenv import load_dotenv
-
 from helperAPI import (Brokerage, maskString, printAndDiscord, printHoldings,
                        stockOrder)
 
@@ -37,7 +36,7 @@ def monitor(queue, loop):
         return logged_in
     return need_code
 
-def chase_init(CHASE_EXTERNAL=None, DOCKER=False, EXTERNAL_CODE=False, loop=None):
+def chase_init(CHASE_EXTERNAL=None, DOCKER=False, external_code=False, loop=None):
     # Initialize .env file
     load_dotenv()
     # Import Chase account
@@ -58,7 +57,13 @@ def chase_init(CHASE_EXTERNAL=None, DOCKER=False, EXTERNAL_CODE=False, loop=None
         name = f"Chase {index}"
         try:
             account = account.split(":")
-            ch_session = session.ChaseSession(title=f"chase_{index}", headless=True, docker=DOCKER, external_code=EXTERNAL_CODE)
+            ch_session = session.ChaseSession(
+                title=f"chase_{index}", 
+                headless=True,
+                window_size=(1280, 1024),
+                docker=DOCKER,
+                external_code=external_code,
+            )
             t = Thread(
                 target=ch_session.login,
                 args=(account[0], account[1], account[2], queue)

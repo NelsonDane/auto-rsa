@@ -9,11 +9,10 @@ import traceback
 
 try:
     import discord
-    from discord.ext import commands
-    from dotenv import load_dotenv
-
     # Custom API libraries
     from chaseAPI import *
+    from discord.ext import commands
+    from dotenv import load_dotenv
     from fidelityAPI import *
     from firstradeAPI import *
     from helperAPI import stockOrder, updater
@@ -80,7 +79,7 @@ def fun_run(orderObj: stockOrder, command, loop=None):
                     elif broker.lower() == "chase":
                         # Chase requires docker mode and discord bot argument
                         orderObj.set_logged_in(
-                            globals()[fun_name](DOCKER=DOCKER_MODE, EXTERNAL_CODE=DISCORD_BOT, loop=loop), broker
+                            globals()[fun_name](DOCKER=DOCKER_MODE, external_code=DISCORD_BOT, loop=loop), broker
                         )
                     else:
                         orderObj.set_logged_in(globals()[fun_name](), broker)
