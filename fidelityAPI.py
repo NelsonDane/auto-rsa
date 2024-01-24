@@ -9,9 +9,18 @@ import traceback
 from time import sleep
 
 from dotenv import load_dotenv
-from helperAPI import (Brokerage, check_if_page_loaded, getDriver,
-                       killSeleniumDriver, maskString, printAndDiscord,
-                       printHoldings, stockOrder, type_slowly)
+from helperAPI import (
+    Brokerage,
+    check_if_page_loaded,
+    getDriver,
+    killSeleniumDriver,
+    maskString,
+    printAndDiscord,
+    printHoldings,
+    stockOrder,
+    type_slowly
+)
+
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver import Keys
