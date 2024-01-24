@@ -8,6 +8,7 @@ import re
 import traceback
 from time import sleep
 
+from dotenv import load_dotenv
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver import Keys
@@ -15,7 +16,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.wait import WebDriverWait
 
-from dotenv import load_dotenv
 from helperAPI import (
     Brokerage,
     check_if_page_loaded,
