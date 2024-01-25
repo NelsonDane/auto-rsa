@@ -17,6 +17,7 @@ try:
     from firstradeAPI import *
     from helperAPI import stockOrder, updater
     from robinhoodAPI import *
+    from publicAPI import *
     from schwabAPI import *
     from tastyAPI import *
     from tradierAPI import *
@@ -35,6 +36,7 @@ SUPPORTED_BROKERS = [
     "chase",
     "fidelity",
     "firstrade",
+    "public",
     "robinhood",
     "schwab",
     "tastytrade",
