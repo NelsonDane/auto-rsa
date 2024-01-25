@@ -109,6 +109,27 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
             driver.find_element(by=By.CSS_SELECTOR, value=login_btn_selector).click()
             WebDriverWait(driver, 10).until(check_if_page_loaded)
             sleep(3)
+            # Retry the login if we get an error page
+            try:
+                go_back_selector = "#dom-sys-err-go-to-login-button > span > s-slot > s-assigned-wrapper"
+                WebDriverWait(driver, 10).until(
+                    expected_conditions.element_to_be_clickable(
+                        (By.CSS_SELECTOR, go_back_selector)
+                    ),
+                ).click()
+                username_field = driver.find_element(
+                    by=By.CSS_SELECTOR, value=username_selector
+                )
+                type_slowly(username_field, account[0])
+                password_field = driver.find_element(
+                    by=By.CSS_SELECTOR, value=password_selector
+                )
+                type_slowly(password_field, account[1])
+                driver.find_element(
+                    by=By.CSS_SELECTOR, value=login_btn_selector
+                ).click()
+            except TimeoutException:
+                pass
             # Wait for page to load to summary page
             if "summary" not in driver.current_url:
                 if "errorpage" in driver.current_url.lower():
@@ -339,21 +360,14 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                         return
                     except Exception:
                         pass
-                    # Get ask/bid price
-                    ask_price = (
-                        driver.find_element(
-                            by=By.CSS_SELECTOR,
-                            value="#quote-panel > div > div.eq-ticket__quote--blocks-container > div:nth-child(2) > div > span > span",
-                        )
+                    # Get last price
+                    last_price = driver.find_element(
+                        by=By.CSS_SELECTOR,
+                        value="#eq-ticket__last-price > span.last-price",
                     ).text
-                    bid_price = (
-                        driver.find_element(
-                            by=By.CSS_SELECTOR,
-                            value="#quote-panel > div > div.eq-ticket__quote--blocks-container > div:nth-child(1) > div > span > span",
-                        )
-                    ).text
+                    last_price = last_price.replace("$", "")
                     # If price is under $1, then we have to use a limit order
-                    LIMIT = bool(float(ask_price) < 1 or float(bid_price) < 1)
+                    LIMIT = bool(float(last_price) < 1)
                     # Figure out whether page is in old or new style
                     try:
                         action_dropdown = driver.find_element(
@@ -438,11 +452,15 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                             )
                             limit_button.click()
                         # Set price
-                        difference_price = 0.01 if float(ask_price) > 0.1 else 0.001
+                        difference_price = 0.01 if float(last_price) > 0.1 else 0.0001
                         if orderObj.get_action() == "buy":
-                            wanted_price = round(float(ask_price) + difference_price, 3)
+                            wanted_price = round(
+                                float(last_price) + difference_price, 3
+                            )
                         else:
-                            wanted_price = round(float(bid_price) - difference_price, 3)
+                            wanted_price = round(
+                                float(last_price) - difference_price, 3
+                            )
                         if new_style:
                             price_box = driver.find_element(
                                 by=By.CSS_SELECTOR, value="#eqt-mts-limit-price"
