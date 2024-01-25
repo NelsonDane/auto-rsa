@@ -17,6 +17,7 @@ try:
     from firstradeAPI import *
     from helperAPI import stockOrder, updater
     from robinhoodAPI import *
+    from publicAPI import *
     from schwabAPI import *
     from tastyAPI import *
     from tradierAPI import *
@@ -34,12 +35,13 @@ load_dotenv()
 SUPPORTED_BROKERS = [
     "fidelity",
     "firstrade",
+    "public",
     "robinhood",
     "schwab",
     "tastytrade",
     "tradier",
 ]
-DAY1_BROKERS = ["robinhood", "firstrade", "schwab", "tastytrade", "tradier"]
+DAY1_BROKERS = ["robinhood", "firstrade", "public", "schwab", "tastytrade", "tradier"]
 DISCORD_BOT = False
 DOCKER_MODE = False
 DANGER_MODE = False
