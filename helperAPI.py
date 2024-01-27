@@ -7,9 +7,9 @@ import os
 import textwrap
 from queue import Queue
 from time import sleep
-from discord.ext import commands
 
 import requests
+from discord.ext import commands
 from dotenv import load_dotenv
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromiumService
@@ -451,22 +451,28 @@ async def processQueue():
         task_queue.task_done()
 
 
-async def getSMSCodeDiscord(botObj: commands.Bot, brokerName, code_len=6, timeout=60, loop=None):
+async def getSMSCodeDiscord(
+    botObj: commands.Bot, brokerName, code_len=6, timeout=60, loop=None
+):
     printAndDiscord(f"{brokerName} requires SMS code", loop)
-    printAndDiscord(f"Please enter SMS code or type cancel within {timeout} seconds", loop)
+    printAndDiscord(
+        f"Please enter SMS code or type cancel within {timeout} seconds", loop
+    )
     # Get SMS code from Discord
     sms_code = None
     while sms_code is None:
         try:
             code = await botObj.wait_for(
-                    "message",
-                    # Ignore bot messages and messages not in the correct channel
-                    check=lambda m: m.author != botObj.user
-                    and m.channel.id == int(os.getenv("DISCORD_CHANNEL")),
-                    timeout=timeout,
-                )
+                "message",
+                # Ignore bot messages and messages not in the correct channel
+                check=lambda m: m.author != botObj.user
+                and m.channel.id == int(os.getenv("DISCORD_CHANNEL")),
+                timeout=timeout,
+            )
         except asyncio.TimeoutError:
-            printAndDiscord(f"Timed out waiting for SMS code input for {brokerName}", loop)
+            printAndDiscord(
+                f"Timed out waiting for SMS code input for {brokerName}", loop
+            )
             return None
         if code.content.lower() == "cancel":
             printAndDiscord(f"Cancelling SMS code for {brokerName}", loop)
