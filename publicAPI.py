@@ -1,13 +1,14 @@
 import os
 import traceback
+import asyncio
 
 from public import public
 from dotenv import load_dotenv
 
-from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder
+from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder, getSMSCodeDiscord
 
 
-def public_init(PUBLIC_EXTERNAL=None):
+def public_init(PUBLIC_EXTERNAL=None, botObj=None, loop=None):
     # Initialize .env file
     load_dotenv()
     # Import Public account
@@ -27,10 +28,36 @@ def public_init(PUBLIC_EXTERNAL=None):
         try:
             account = account.split(":")
             pb = public.Public(filename=f"public{index + 1}.pkl")
-            pb.login(
-                username=account[0],
-                password=account[1]
-            )
+            try:
+                if botObj is None and loop is None:
+                    # Login from CLI
+                    pb.login(
+                        username=account[0],
+                        password=account[1],
+                        wait_for_2fa=True,
+                    )
+                else:
+                    # Login from Discord and check for 2fa required message
+                    pb.login(
+                        username=account[0],
+                        password=account[1],
+                        wait_for_2fa=False,
+                    )
+            except Exception as e:
+                if "2FA" in str(e) and botObj is not None and loop is not None:
+                    sms_code = asyncio.run_coroutine_threadsafe(
+                        getSMSCodeDiscord(botObj, name, loop), loop
+                    ).result()
+                    if sms_code is None:
+                        raise Exception("No SMS code found")
+                    pb.login(
+                        username=account[0],
+                        password=account[1],
+                        wait_for_2fa=False,
+                        sms_code=sms_code,
+                    )
+                else:
+                    raise e
             # Public only has one account
             public_obj.set_logged_in_object(name, pb)
             an = pb.get_account_number()

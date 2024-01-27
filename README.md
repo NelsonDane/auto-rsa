@@ -127,6 +127,16 @@ Required `.env` variables:
 `.env` file format:
 - `FIRSTRADE=FIRSTRADE_USERNAME:FIRSTRADE_PASSWORD:FIRSTRADE_PIN`
 
+### Public
+Made by yours truly using using [public-invest-api](https://github.com/NelsonDane/public-invest-api). Consider giving me a ⭐
+
+Required `.env` variables:
+- `PUBLIC_USERNAME`
+- `PUBLIC_PASSWORD`
+
+`.env` file format:
+- `PUBLIC=PUBLIC_USERNAME:PUBLIC_PASSWORD`
+
 ### Robinhood
 Made using [robin_stocks](https://github.com/jmfernandes/robin_stocks). Go give them a ⭐
 
@@ -193,8 +203,6 @@ Will be added using Selenium just like Fidelity. I found this [vanguard-api](htt
 Login requires SMS 2fa, and I'm not sure how to do that automatically.
 #### Webull
 In progress on [develop-webull](https://github.com/NelsonDane/auto-rsa/pull/61). Stay tuned.
-#### Public
-Same as Webull and SoFi.
 ### 👎 Never working brokerages 👎
 #### Stash
 Why.

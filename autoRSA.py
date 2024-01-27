@@ -60,7 +60,7 @@ def nicknames(broker):
 
 # Runs the specified function for each broker in the list
 # broker name + type of function
-def fun_run(orderObj: stockOrder, command, loop=None):
+def fun_run(orderObj: stockOrder, command, bot=None, loop=None):
     if command in ["_init", "_holdings", "_transaction"]:
         for broker in orderObj.get_brokers():
             if broker in orderObj.get_notbrokers():
@@ -75,6 +75,8 @@ def fun_run(orderObj: stockOrder, command, loop=None):
                         orderObj.set_logged_in(
                             globals()[fun_name](DOCKER=DOCKER_MODE), broker
                         )
+                    elif broker.lower() == "public":
+                        orderObj.set_logged_in(globals()[fun_name](botObj=bot, loop=loop), broker)
                     else:
                         orderObj.set_logged_in(globals()[fun_name](), broker)
                 # Verify broker is logged in
@@ -254,7 +256,7 @@ if __name__ == "__main__":
             event_loop = asyncio.get_event_loop()
             try:
                 # Login to brokers
-                await bot.loop.run_in_executor(None, fun_run, discOrdObj, "_init")
+                await bot.loop.run_in_executor(None, fun_run, discOrdObj, "_init", bot, event_loop)
                 # Validate order object
                 discOrdObj.order_validate()
                 # Get holdings or complete transaction
