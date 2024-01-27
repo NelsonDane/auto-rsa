@@ -16,8 +16,8 @@ try:
     from fidelityAPI import *
     from firstradeAPI import *
     from helperAPI import stockOrder, updater
-    from robinhoodAPI import *
     from publicAPI import *
+    from robinhoodAPI import *
     from schwabAPI import *
     from tastyAPI import *
     from tradierAPI import *
@@ -76,7 +76,9 @@ def fun_run(orderObj: stockOrder, command, bot=None, loop=None):
                             globals()[fun_name](DOCKER=DOCKER_MODE), broker
                         )
                     elif broker.lower() == "public":
-                        orderObj.set_logged_in(globals()[fun_name](botObj=bot, loop=loop), broker)
+                        orderObj.set_logged_in(
+                            globals()[fun_name](botObj=bot, loop=loop), broker
+                        )
                     else:
                         orderObj.set_logged_in(globals()[fun_name](), broker)
                 # Verify broker is logged in
@@ -256,7 +258,9 @@ if __name__ == "__main__":
             event_loop = asyncio.get_event_loop()
             try:
                 # Login to brokers
-                await bot.loop.run_in_executor(None, fun_run, discOrdObj, "_init", bot, event_loop)
+                await bot.loop.run_in_executor(
+                    None, fun_run, discOrdObj, "_init", bot, event_loop
+                )
                 # Validate order object
                 discOrdObj.order_validate()
                 # Get holdings or complete transaction

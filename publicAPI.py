@@ -1,11 +1,18 @@
+import asyncio
 import os
 import traceback
-import asyncio
 
-from public import public
 from dotenv import load_dotenv
+from public import public
 
-from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder, getSMSCodeDiscord
+from helperAPI import (
+    Brokerage,
+    getSMSCodeDiscord,
+    maskString,
+    printAndDiscord,
+    printHoldings,
+    stockOrder,
+)
 
 
 def public_init(PUBLIC_EXTERNAL=None, botObj=None, loop=None):
@@ -96,6 +103,7 @@ def public_holdings(pbo: Brokerage, loop=None):
                 traceback.format_exc()
                 continue
         printHoldings(pbo, loop)
+
 
 def public_transaction(pbo: Brokerage, orderObj: stockOrder, loop=None):
     print()
