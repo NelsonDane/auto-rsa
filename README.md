@@ -203,6 +203,8 @@ Will be added using Selenium just like Fidelity. I found this [vanguard-api](htt
 Login requires SMS 2fa, and I'm not sure how to do that automatically.
 #### Webull
 In progress on [develop-webull](https://github.com/NelsonDane/auto-rsa/pull/61). Stay tuned.
+#### Public
+In progress on [develop-public](https://github.com/NelsonDane/auto-rsa/pull/150). Stay tuned.
 ### 👎 Never working brokerages 👎
 #### Stash
 Why.
