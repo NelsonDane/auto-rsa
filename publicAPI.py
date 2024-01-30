@@ -3,7 +3,7 @@ import os
 import traceback
 
 from dotenv import load_dotenv
-from public import public
+from public_invest_api import Public
 
 from helperAPI import (
     Brokerage,
@@ -34,7 +34,7 @@ def public_init(PUBLIC_EXTERNAL=None, botObj=None, loop=None):
         name = f"Public {index + 1}"
         try:
             account = account.split(":")
-            pb = public.Public(filename=f"public{index + 1}.pkl")
+            pb = Public(filename=f"public{index + 1}.pkl")
             try:
                 if botObj is None and loop is None:
                     # Login from CLI
@@ -85,7 +85,7 @@ def public_init(PUBLIC_EXTERNAL=None, botObj=None, loop=None):
 def public_holdings(pbo: Brokerage, loop=None):
     for key in pbo.get_account_numbers():
         for account in pbo.get_account_numbers(key):
-            obj: public.Public = pbo.get_logged_in_objects(key)
+            obj: Public = pbo.get_logged_in_objects(key)
             try:
                 # Get account holdings
                 positions = obj.get_positions()
@@ -118,7 +118,7 @@ def public_transaction(pbo: Brokerage, orderObj: stockOrder, loop=None):
                 loop,
             )
             for account in pbo.get_account_numbers(key):
-                obj: public.Public = pbo.get_logged_in_objects(key)
+                obj: Public = pbo.get_logged_in_objects(key)
                 print_account = maskString(account)
                 try:
                     order = obj.place_order(
@@ -127,8 +127,9 @@ def public_transaction(pbo: Brokerage, orderObj: stockOrder, loop=None):
                         side=orderObj.get_action(),
                         order_type="market",
                         time_in_force="day",
+                        is_dry_run=orderObj.get_dry(),
                     )
-                    print(f"{print_account}: {order}")
+                    printAndDiscord(f"{print_account}: {order}", loop)
                 except Exception as e:
                     printAndDiscord(f"{print_account}: Error placing order: {e}", loop)
                     traceback.print_exc()
