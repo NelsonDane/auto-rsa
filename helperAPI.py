@@ -7,6 +7,7 @@ import os
 import textwrap
 from queue import Queue
 from time import sleep
+from pathlib import Path
 
 import requests
 from dotenv import load_dotenv
@@ -307,7 +308,7 @@ def updater():
         from git import Repo
     except ImportError:
         print(
-            "UPDATE ERROR: GitPython not installed. Please install Git and then run pip install -r requirements.txt"
+            "UPDATE ERROR: Git is not installed. Please install Git and then run pip install -r requirements.txt"
         )
         print()
         return
@@ -315,14 +316,26 @@ def updater():
     try:
         repo = Repo(".")
     except git.exc.InvalidGitRepositoryError:
-        # If downloaded as zip, repo won't exist, so clone it
+        # If downloaded as zip, repo won't exist, so create it
         repo = Repo.init(".")
         repo.create_remote("origin", "https://github.com/NelsonDane/auto-rsa")
         repo.remotes.origin.fetch()
+        # Always create main branch
         repo.create_head("main", repo.remotes.origin.refs.main)
         repo.heads.main.set_tracking_branch(repo.remotes.origin.refs.main)
-        repo.heads.main.checkout(True)
-        print(f"Cloned repo from {repo.active_branch}.")
+        # If downloaded from other branch, zip has branch name
+        current_dir = Path.cwd()
+        if current_dir.name != "auto-rsa-main":
+            branch = str.replace(current_dir.name, "auto-rsa-", "")
+            try:
+                repo.create_head(branch, repo.remotes.origin.refs[branch])
+                repo.heads[branch].set_tracking_branch(repo.remotes.origin.refs[branch])
+                repo.heads[branch].checkout(True)
+            except:
+                print(f"No branch {branch} found, using main")
+        else:
+            repo.heads.main.checkout(True)
+        print(f"Cloned repo from {repo.active_branch}")
     if repo.is_dirty():
         # Print warning and let users take care of changes themselves
         print(
@@ -331,9 +344,17 @@ def updater():
         print()
         return
     if not repo.bare:
-        repo.remotes.origin.pull()
-        print(f"Pulled lates changes from {repo.active_branch}.")
-    print("Update complete!")
+        try:
+            repo.remotes.origin.pull(repo.active_branch)
+            print(f"Pulled latest changes from {repo.active_branch}")
+        except Exception as e:
+            print(
+                f"UPDATE ERROR: Cannot pull from {repo.active_branch}. Local repository is not set up correctly: {e}"
+            )
+            print()
+            return
+    revision_head = str(repo.head.commit)[:7]
+    print(f"Update complete! Using commit {revision_head}")
     print()
     return
 
