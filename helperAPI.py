@@ -12,6 +12,7 @@ from pathlib import Path
 from threading import Thread
 from queue import Queue
 from time import sleep
+from pathlib import Path
 
 import pkg_resources
 import requests
