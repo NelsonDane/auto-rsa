@@ -24,9 +24,6 @@ try:
     from webullAPI import *
 except Exception as e:
     print(f"Error importing libraries: {e}")
-    print(traceback.format_exc())
-    print("Please run 'pip install -r requirements.txt'")
-    print(traceback.format_exc())
     print("Please run 'pip install -r requirements.txt'")
     print(traceback.format_exc())
     sys.exit(1)
