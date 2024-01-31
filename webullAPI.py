@@ -9,8 +9,8 @@ from webull import webull
 
 from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder
 
-MAX_WB_RETRIES = 3
-MAX_WB_ACCOUNTS = 11
+MAX_WB_RETRIES = 3 # Number of times to retry logging in if not successful
+MAX_WB_ACCOUNTS = 11 # Different account types
 
 
 def place_order(obj: webull, account: str, orderObj: stockOrder, s: str):
@@ -58,10 +58,11 @@ def webull_init(WEBULL_EXTERNAL=None):
                 wb.set_did(account[2])
                 wb.login(account[0], account[1])
                 wb.get_trade_token(account[3])
-                if wb.is_logged_in():
+                id_test = wb.get_account_id(0)
+                if id_test is not None:
                     break
                 if i == MAX_WB_RETRIES - 1:
-                    raise Exception(f"Unable to log in to {name}. Check credentials.")
+                    raise Exception(f"Unable to log in to {name} after {i+1} tries. Check credentials.")
             wb_obj.set_logged_in_object(name, wb, "wb")
             wb_obj.set_logged_in_object(name, account[3], "trading_pin")
             # Get all accounts
