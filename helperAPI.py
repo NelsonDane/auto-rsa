@@ -5,9 +5,9 @@
 import asyncio
 import os
 import textwrap
+from pathlib import Path
 from queue import Queue
 from time import sleep
-from pathlib import Path
 
 import requests
 from dotenv import load_dotenv
