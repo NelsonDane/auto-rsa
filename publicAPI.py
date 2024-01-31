@@ -129,7 +129,12 @@ def public_transaction(pbo: Brokerage, orderObj: stockOrder, loop=None):
                         time_in_force="day",
                         is_dry_run=orderObj.get_dry(),
                     )
-                    printAndDiscord(f"{print_account}: {order}", loop)
+                    if order["success"] is True:
+                        order = "Success"
+                    printAndDiscord(
+                        f"{key}: {orderObj.get_action()} {orderObj.get_amount()} of {s} in {print_account}: {order}",
+                        loop,
+                    )
                 except Exception as e:
                     printAndDiscord(f"{print_account}: Error placing order: {e}", loop)
                     traceback.print_exc()
