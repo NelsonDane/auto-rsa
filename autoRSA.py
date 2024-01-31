@@ -96,6 +96,10 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                         orderObj,
                         loop,
                     )
+                    printAndDiscord(
+                        f"All {broker.capitalize()} transactions complete",
+                        loop,
+                    )
             except Exception as ex:
                 print(traceback.format_exc())
                 print(f"Error in {fun_name} with {broker}: {ex}")
