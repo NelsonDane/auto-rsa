@@ -9,8 +9,8 @@ from webull import webull
 
 from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder
 
-MAX_WB_RETRIES = 3 # Number of times to retry logging in if not successful
-MAX_WB_ACCOUNTS = 11 # Different account types
+MAX_WB_RETRIES = 3  # Number of times to retry logging in if not successful
+MAX_WB_ACCOUNTS = 11  # Different account types
 
 
 def place_order(obj: webull, account: str, orderObj: stockOrder, s: str):
@@ -62,7 +62,9 @@ def webull_init(WEBULL_EXTERNAL=None):
                 if id_test is not None:
                     break
                 if i == MAX_WB_RETRIES - 1:
-                    raise Exception(f"Unable to log in to {name} after {i+1} tries. Check credentials.")
+                    raise Exception(
+                        f"Unable to log in to {name} after {i+1} tries. Check credentials."
+                    )
             wb_obj.set_logged_in_object(name, wb, "wb")
             wb_obj.set_logged_in_object(name, account[3], "trading_pin")
             # Get all accounts
@@ -160,12 +162,16 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
                             # Under $1, buy 100 shares and sell 100 - amount
                             old_amount = orderObj.get_amount()
                             orderObj.set_amount(big_amount)
-                            buy_success = place_order(obj, internal_account, orderObj, s)
+                            buy_success = place_order(
+                                obj, internal_account, orderObj, s
+                            )
                             if not buy_success:
                                 raise Exception(f"Error buying {big_amount} of {s}")
                             orderObj.set_amount(big_amount - old_amount)
                             orderObj.set_action("sell")
-                            sell_success = place_order(obj, internal_account, orderObj, s)
+                            sell_success = place_order(
+                                obj, internal_account, orderObj, s
+                            )
                             # Restore orderObj
                             orderObj.set_amount(old_amount)
                             orderObj.set_action("buy")
