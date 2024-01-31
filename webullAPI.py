@@ -69,10 +69,11 @@ def webull_init(WEBULL_EXTERNAL=None):
                 id = wb.get_account_id(i)
                 if id is None:
                     break
-                # Webull uses a different internal account ID than displayed
-                wb_obj.set_account_number(name, id)
+                # Webull uses a different internal account ID than displayed in app
                 ac = wb.get_account(v2=True)["accountSummaryVO"]
+                wb_obj.set_account_number(name, ac["accountNumber"])
                 print(maskString(ac["accountNumber"]))
+                wb_obj.set_logged_in_object(name, id, ac["accountNumber"])
                 wb_obj.set_account_type(name, id, ac["accountTypeName"])
                 wb_obj.set_account_totals(name, id, ac["netLiquidationValue"])
         except Exception as e:
@@ -87,13 +88,10 @@ def webull_holdings(wbo: Brokerage, loop=None):
     for key in wbo.get_account_numbers():
         for account in wbo.get_account_numbers(key):
             obj: webull = wbo.get_logged_in_objects(key, "wb")
+            internal_account = wbo.get_logged_in_objects(key, account)
             try:
-                # Make sure we're logged in
-                if not obj.is_logged_in():
-                    printAndDiscord(f"{key} {account}: Not logged in", loop)
-                    continue
                 # Get account holdings
-                obj.set_account_id(account)
+                obj.set_account_id(internal_account)
                 positions = obj.get_positions()
                 if positions is None:
                     positions = obj.get_positions(v2=True)
@@ -114,7 +112,7 @@ def webull_holdings(wbo: Brokerage, loop=None):
                         mv = round(float(item["marketValue"]) / float(qty), 2)
                         wbo.set_holdings(key, account, sym, qty, mv)
             except Exception as e:
-                printAndDiscord(f"{key} {account}: Error getting holdings: {e}", loop)
+                printAndDiscord(f"{key}: Error getting holdings: {e}", loop)
                 traceback.print_exc()
                 continue
     printHoldings(wbo, loop=loop)
@@ -135,10 +133,7 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
             for account in wbo.get_account_numbers(key):
                 print_account = maskString(account)
                 obj: webull = wbo.get_logged_in_objects(key, "wb")
-                # Make sure we're logged in
-                if not obj.is_logged_in():
-                    printAndDiscord(f"{key} {account}: Not logged in", loop)
-                    continue
+                internal_account = wbo.get_logged_in_objects(key, account)
                 if not orderObj.get_dry():
                     try:
                         if orderObj.get_price() == "market":
@@ -164,12 +159,12 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
                             # Under $1, buy 100 shares and sell 100 - amount
                             old_amount = orderObj.get_amount()
                             orderObj.set_amount(big_amount)
-                            buy_success = place_order(obj, account, orderObj, s)
+                            buy_success = place_order(obj, internal_account, orderObj, s)
                             if not buy_success:
                                 raise Exception(f"Error buying {big_amount} of {s}")
                             orderObj.set_amount(big_amount - old_amount)
                             orderObj.set_action("sell")
-                            sell_success = place_order(obj, account, orderObj, s)
+                            sell_success = place_order(obj, internal_account, orderObj, s)
                             # Restore orderObj
                             orderObj.set_amount(old_amount)
                             orderObj.set_action("buy")
@@ -180,7 +175,7 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
                         else:
                             # Place normal order
                             print(f"Placing normal order for {s}")
-                            order = place_order(obj, account, orderObj, s)
+                            order = place_order(obj, internal_account, orderObj, s)
                             if order:
                                 printAndDiscord(
                                     f"{key}: {orderObj.get_action()} {orderObj.get_amount()} of {s} in {print_account}: Success",
@@ -194,6 +189,6 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
                         continue
                 else:
                     printAndDiscord(
-                        f"{key} Running in DRY mode. Transaction would've been: {orderObj.get_action()} {orderObj.get_amount()} of {s}",
+                        f"{key} {print_account}: Running in DRY mode. Transaction would've been: {orderObj.get_action()} {orderObj.get_amount()} of {s}",
                         loop,
                     )
