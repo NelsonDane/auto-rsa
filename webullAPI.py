@@ -169,13 +169,13 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
                                 raise Exception(f"Error buying {big_amount} of {s}")
                             orderObj.set_amount(big_amount - old_amount)
                             orderObj.set_action("sell")
-                            sell_success = place_order(
+                            order = place_order(
                                 obj, internal_account, orderObj, s
                             )
                             # Restore orderObj
                             orderObj.set_amount(old_amount)
                             orderObj.set_action("buy")
-                            if not sell_success:
+                            if not order:
                                 raise Exception(
                                     f"Error selling {big_amount - old_amount} of {s}"
                                 )
@@ -183,11 +183,11 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
                             # Place normal order
                             print(f"Placing normal order for {s}")
                             order = place_order(obj, internal_account, orderObj, s)
-                            if order:
-                                printAndDiscord(
-                                    f"{key}: {orderObj.get_action()} {orderObj.get_amount()} of {s} in {print_account}: Success",
-                                    loop,
-                                )
+                        if order:
+                            printAndDiscord(
+                                f"{key}: {orderObj.get_action()} {orderObj.get_amount()} of {s} in {print_account}: Success",
+                                loop,
+                            )
                     except Exception as e:
                         printAndDiscord(
                             f"{key} {print_account}: Error placing order: {e}", loop
