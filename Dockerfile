@@ -1,7 +1,7 @@
 # Nelson Dane
 
 # Build from the playwright image
-FROM mcr.microsoft.com/playwright:v1.41.1-jammy
+FROM mcr.microsoft.com/playwright:v1.41.2-jammy
 # Set ENV variables
 ENV TZ=America/New_York
 ENV DEBIAN_FRONTEND=noninteractive
