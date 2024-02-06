@@ -77,8 +77,8 @@ def webull_init(WEBULL_EXTERNAL=None):
                 wb_obj.set_account_number(name, ac["accountNumber"])
                 print(maskString(ac["accountNumber"]))
                 wb_obj.set_logged_in_object(name, id, ac["accountNumber"])
-                wb_obj.set_account_type(name, id, ac["accountTypeName"])
-                wb_obj.set_account_totals(name, id, ac["netLiquidationValue"])
+                wb_obj.set_account_type(name, ac["accountNumber"], ac["accountTypeName"])
+                wb_obj.set_account_totals(name, ac["accountNumber"], ac["netLiquidationValue"])
         except Exception as e:
             print(traceback.format_exc())
             print(f"Error: Unable to log in to Webull: {e}")
