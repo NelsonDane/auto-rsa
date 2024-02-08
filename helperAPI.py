@@ -365,7 +365,6 @@ def updater():
 def check_package_versions():
     print("Checking package versions...")
     # Check if pip packages are up to date
-    installed_packages = {pkg.key for pkg in pkg_resources.working_set}
     required_packages = []
     required_repos = []
     f = open("requirements.txt", "r")
@@ -382,9 +381,6 @@ def check_package_versions():
             continue
         package_name = package.split("==")[0].lower()
         required_version = package.split("==")[1]
-        if package_name not in installed_packages:
-            print(f"Required package {package_name} is not installed.")
-            SHOULD_CONTINUE = False
         installed_version = pkg_resources.get_distribution(package_name).version
         if installed_version < required_version:
             print(
@@ -403,12 +399,8 @@ def check_package_versions():
             # Invalid hash
             print(f"Required repo {repo_name} has invalid hash {required_version}.")
             continue
-        if package_name not in installed_packages:
-            print(f"Required repo {package_name} is not installed.")
-            SHOULD_CONTINUE = False
-            continue
         package_data = subprocess.run(
-            ["pip", "show", package_name], capture_output=True, text=True
+            ["pip", "show", package_name], capture_output=True, text=True, check=True
         ).stdout
         if "Editable project location:" in package_data:
             epl = (
@@ -417,7 +409,7 @@ def check_package_versions():
                 .strip()
             )
             installed_hash = subprocess.run(
-                ["git", "rev-parse", "HEAD"], capture_output=True, cwd=epl, text=True
+                ["git", "rev-parse", "HEAD"], capture_output=True, cwd=epl, text=True, check=True
             )
             installed_hash = installed_hash.stdout.strip()
             if installed_hash != required_version:
