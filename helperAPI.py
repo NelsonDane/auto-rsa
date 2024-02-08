@@ -4,12 +4,15 @@
 
 import asyncio
 import os
+import sys
+import subprocess
 import textwrap
 from pathlib import Path
 from queue import Queue
 from time import sleep
 
 import requests
+import pkg_resources
 from discord.ext import commands
 from dotenv import load_dotenv
 from selenium import webdriver
@@ -358,6 +361,82 @@ def updater():
     print(f"Update complete! Using commit {revision_head}")
     print()
     return
+
+
+def check_package_versions():
+    print("Checking package versions...")
+    # Check if pip packages are up to date
+    installed_packages = {pkg.key for pkg in pkg_resources.working_set}
+    required_packages = []
+    required_repos = []
+    f = open("requirements.txt", "r")
+    for line in f:
+        # Not commented pip packages
+        if not line.startswith("#") and "==" in line:
+            required_packages.append(line.strip())
+        # Not commented git repos
+        elif not line.startswith("#") and "git+" in line:
+            required_repos.append(line.strip())
+    SHOULD_CONTINUE = True
+    for package in required_packages:
+        if "==" not in package:
+            continue
+        package_name = package.split("==")[0].lower()
+        required_version = package.split("==")[1]
+        if package_name not in installed_packages:
+            print(f'Required package {package_name} is not installed.')
+            SHOULD_CONTINUE = False
+        installed_version = pkg_resources.get_distribution(package_name).version
+        if installed_version < required_version:
+            print(
+                f'Required package {package_name} is out of date (Want {required_version} but have {installed_version}).'
+            )
+            SHOULD_CONTINUE = False
+        elif installed_version > required_version:
+            print(
+                f'WARNING: Required package {package_name} is newer than required (Want {required_version} but have {installed_version}).'
+            )
+    for repo in required_repos:
+        repo_name = repo.split("/")[-1].split(".")[0].lower()
+        package_name = repo.split("egg=")[-1].lower()
+        required_version = repo.split("@")[-1].split("#")[0]
+        if len(required_version) != 40:
+            # Invalid hash
+            print(f"Required repo {repo_name} has invalid hash {required_version}.")
+            continue
+        if package_name not in installed_packages:
+            print(f'Required repo {package_name} is not installed.')
+            SHOULD_CONTINUE = False
+            continue
+        package_data = subprocess.run(
+            ["pip", "show", package_name], capture_output=True, text=True
+        ).stdout
+        if "Editable project location:" in package_data:
+            epl = package_data.split("Editable project location:")[1].split("\n")[0].strip()
+            installed_hash = subprocess.run(
+                ["git", "rev-parse", "HEAD"], capture_output=True, cwd=epl, text=True
+            )
+            installed_hash = installed_hash.stdout.strip()
+            if installed_hash != required_version:
+                print(
+                    f"Required repo {repo_name} is out of date (Want {required_version} but have {installed_hash})."
+                )
+                SHOULD_CONTINUE = False
+        else:
+            print(
+                f"Required repo {repo_name} is installed as a package, not a git repo."
+            )
+            SHOULD_CONTINUE = False
+            continue
+    if not SHOULD_CONTINUE:
+        print(
+            'Please run "pip install -r requirements.txt" to install/update required packages.'
+        )
+        sys.exit(1)
+    else:
+        print("All required packages are installed and up to date.")
+        print()
+        return
 
 
 def type_slowly(element, string, delay=0.3):
