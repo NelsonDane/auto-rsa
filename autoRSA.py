@@ -15,7 +15,7 @@ try:
     from dotenv import load_dotenv
     from fidelityAPI import *
     from firstradeAPI import *
-    from helperAPI import stockOrder, updater, check_package_versions
+    from helperAPI import check_package_versions, stockOrder, updater
     from publicAPI import *
     from robinhoodAPI import *
     from schwabAPI import *

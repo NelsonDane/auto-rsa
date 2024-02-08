@@ -4,15 +4,15 @@
 
 import asyncio
 import os
-import sys
 import subprocess
+import sys
 import textwrap
 from pathlib import Path
 from queue import Queue
 from time import sleep
 
-import requests
 import pkg_resources
+import requests
 from discord.ext import commands
 from dotenv import load_dotenv
 from selenium import webdriver
@@ -384,17 +384,17 @@ def check_package_versions():
         package_name = package.split("==")[0].lower()
         required_version = package.split("==")[1]
         if package_name not in installed_packages:
-            print(f'Required package {package_name} is not installed.')
+            print(f"Required package {package_name} is not installed.")
             SHOULD_CONTINUE = False
         installed_version = pkg_resources.get_distribution(package_name).version
         if installed_version < required_version:
             print(
-                f'Required package {package_name} is out of date (Want {required_version} but have {installed_version}).'
+                f"Required package {package_name} is out of date (Want {required_version} but have {installed_version})."
             )
             SHOULD_CONTINUE = False
         elif installed_version > required_version:
             print(
-                f'WARNING: Required package {package_name} is newer than required (Want {required_version} but have {installed_version}).'
+                f"WARNING: Required package {package_name} is newer than required (Want {required_version} but have {installed_version})."
             )
     for repo in required_repos:
         repo_name = repo.split("/")[-1].split(".")[0].lower()
@@ -405,14 +405,18 @@ def check_package_versions():
             print(f"Required repo {repo_name} has invalid hash {required_version}.")
             continue
         if package_name not in installed_packages:
-            print(f'Required repo {package_name} is not installed.')
+            print(f"Required repo {package_name} is not installed.")
             SHOULD_CONTINUE = False
             continue
         package_data = subprocess.run(
             ["pip", "show", package_name], capture_output=True, text=True
         ).stdout
         if "Editable project location:" in package_data:
-            epl = package_data.split("Editable project location:")[1].split("\n")[0].strip()
+            epl = (
+                package_data.split("Editable project location:")[1]
+                .split("\n")[0]
+                .strip()
+            )
             installed_hash = subprocess.run(
                 ["git", "rev-parse", "HEAD"], capture_output=True, cwd=epl, text=True
             )
