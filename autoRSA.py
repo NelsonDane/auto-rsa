@@ -15,7 +15,7 @@ try:
     # Custom API libraries
     from fidelityAPI import *
     from firstradeAPI import *
-    from helperAPI import stockOrder, updater, check_package_versions
+    from helperAPI import check_package_versions, stockOrder, updater
     from robinhoodAPI import *
     from schwabAPI import *
     from tastyAPI import *
