@@ -34,7 +34,7 @@ def public_init(PUBLIC_EXTERNAL=None, botObj=None, loop=None):
         name = f"Public {index + 1}"
         try:
             account = account.split(":")
-            pb = Public(filename=f"public{index + 1}.pkl")
+            pb = Public(filename=f"public{index + 1}.pkl", path="./creds/")
             try:
                 if botObj is None and loop is None:
                     # Login from CLI
