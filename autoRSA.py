@@ -26,6 +26,7 @@ except Exception as e:
     print(traceback.format_exc())
     print("Please run 'pip install -r requirements.txt'")
     print(traceback.format_exc())
+    print("Please run 'pip install -r requirements.txt'")
     sys.exit(1)
 
 # Initialize .env file
