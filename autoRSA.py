@@ -15,15 +15,15 @@ try:
     # Custom API libraries
     from fidelityAPI import *
     from firstradeAPI import *
-    from helperAPI import stockOrder, updater
+    from helperAPI import stockOrder, updater, check_package_versions
     from robinhoodAPI import *
     from schwabAPI import *
     from tastyAPI import *
     from tradierAPI import *
 except Exception as e:
     print(f"Error importing libraries: {e}")
-    print("Please run 'pip install -r requirements.txt'")
     print(traceback.format_exc())
+    print("Please run 'pip install -r requirements.txt'")
     sys.exit(1)
 
 # Initialize .env file
@@ -164,10 +164,12 @@ if __name__ == "__main__":
     # If discord argument, run discord bot, no docker, no prompt
     elif sys.argv[1].lower() == "discord":
         updater()
+        check_package_versions()
         print("Running Discord bot from command line")
         DISCORD_BOT = True
     else:  # If any other argument, run bot, no docker or discord bot
         updater()
+        check_package_versions()
         print("Running bot from command line")
         cliOrderObj = argParser(sys.argv[1:])
         if not cliOrderObj.get_holdings():
