@@ -409,7 +409,11 @@ def check_package_versions():
                 .strip()
             )
             installed_hash = subprocess.run(
-                ["git", "rev-parse", "HEAD"], capture_output=True, cwd=epl, text=True, check=True
+                ["git", "rev-parse", "HEAD"],
+                capture_output=True,
+                cwd=epl,
+                text=True,
+                check=True,
             )
             installed_hash = installed_hash.stdout.strip()
             if installed_hash != required_version:
