@@ -61,7 +61,7 @@ def public_init(PUBLIC_EXTERNAL=None, botObj=None, loop=None):
                         username=account[0],
                         password=account[1],
                         wait_for_2fa=False,
-                        sms_code=sms_code,
+                        code=sms_code,
                     )
                 else:
                     raise e

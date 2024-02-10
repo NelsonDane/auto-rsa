@@ -48,6 +48,7 @@ COPY ./chaseAPI.py .
 COPY ./fidelityAPI.py .
 COPY ./firstradeAPI.py .
 COPY ./helperAPI.py .
+COPY ./publicAPI.py .
 COPY ./robinhoodAPI.py .
 COPY ./schwabAPI.py .
 COPY ./tradierAPI.py .
