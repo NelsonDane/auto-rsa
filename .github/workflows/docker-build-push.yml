@@ -10,7 +10,7 @@ jobs:
   call-workflow-dockerhub-build-push:
     uses: NelsonDane/DockerHub-Actions/.github/workflows/dockerhub_build_push.yml@main
     with:
-      dockerhub_repo_name: auto-rsa
+      image_name: auto-rsa
       image_tag: ${{ github.ref_name == 'main' && 'latest' || startsWith(github.ref_name, 'develop') && github.ref_name }}
       should_push: ${{ github.ref_name == 'main' || startsWith(github.ref_name, 'develop') }}
       platforms: linux/amd64,linux/arm64
