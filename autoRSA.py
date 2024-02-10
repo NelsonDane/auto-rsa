@@ -272,11 +272,11 @@ if __name__ == "__main__":
                 # Get holdings or complete transaction
                 if discOrdObj.get_holdings():
                     await bot.loop.run_in_executor(
-                        None, fun_run, discOrdObj, "_holdings", event_loop
+                        None, fun_run, discOrdObj, "_holdings", None, event_loop
                     )
                 else:
                     await bot.loop.run_in_executor(
-                        None, fun_run, discOrdObj, "_transaction", event_loop
+                        None, fun_run, discOrdObj, "_transaction", None, event_loop
                     )
             except Exception as err:
                 print(traceback.format_exc())
