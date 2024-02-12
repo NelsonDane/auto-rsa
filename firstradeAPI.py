@@ -34,7 +34,10 @@ def firstrade_init(FIRSTRADE_EXTERNAL=None):
         try:
             account = account.split(":")
             firstrade = ft_account.FTSession(
-                username=account[0], password=account[1], pin=account[2], profile_path="./creds/"
+                username=account[0],
+                password=account[1],
+                pin=account[2],
+                profile_path="./creds/",
             )
             account_info = ft_account.FTAccountData(firstrade)
             print("Logged in to Firstrade!")
