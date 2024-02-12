@@ -1,6 +1,6 @@
 asyncio==3.4.3
 discord.py==2.3.2
-firstrade==0.0.12
+firstrade==0.0.14
 GitPython==3.1.41
 -e git+https://github.com/NelsonDane/public-invest-api.git@576984d6006a88c91dc4b301855c787d5567ae97#egg=public-invest-api
 pyotp==2.9.0
@@ -9,6 +9,6 @@ requests==2.31.0
 -e git+https://github.com/NelsonDane/robin_stocks.git@f490a2eb0d5fc53afc93e077b3ea2a555124e105#egg=robin-stocks
 schwab-api==0.3.9
 selenium==4.17.2
-setuptools==69.0.3
-tastytrade==6.6
+setuptools==69.1.0
+tastytrade==6.7
 webdriver-manager==4.0.1
