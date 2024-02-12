@@ -1,6 +1,6 @@
 asyncio==3.4.3
 discord.py==2.3.2
-firstrade==0.0.12
+firstrade==0.0.14
 GitPython==3.1.41
 pyotp==2.9.0
 python-dotenv==1.0.1
