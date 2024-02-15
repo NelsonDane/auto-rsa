@@ -10,8 +10,14 @@ from time import sleep
 from chase import account as ch_account
 from chase import order, session, symbols
 from dotenv import load_dotenv
-from helperAPI import (Brokerage, getSMSCodeDiscord, maskString,
-                       printAndDiscord, printHoldings, stockOrder)
+from helperAPI import (
+    Brokerage,
+    getSMSCodeDiscord,
+    maskString,
+    printAndDiscord,
+    printHoldings,
+    stockOrder,
+)
 
 
 def get_account_id(account_connectors, value):
