@@ -59,9 +59,10 @@ def nicknames(broker):
 
 # Runs the specified function for each broker in the list
 # broker name + type of function
-def fun_run(orderObj: stockOrder, command, loop=None):
+def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
     if command in ["_init", "_holdings", "_transaction"]:
-        for broker in orderObj.get_brokers():
+        brokers = switcheroo(orderObj.get_brokers())
+        for broker in brokers:
             if broker in orderObj.get_notbrokers():
                 continue
             broker = nicknames(broker)
@@ -78,9 +79,8 @@ def fun_run(orderObj: stockOrder, command, loop=None):
                             globals()[fun_name](DOCKER=DOCKER_MODE), broker
                         )
                     elif broker.lower() == "chase":
-                        # Chase requires docker mode and discord bot argument
                         orderObj.set_logged_in(
-                            globals()[fun_name](DOCKER=DOCKER_MODE, external_code=DISCORD_BOT, loop=loop), broker
+                            globals()[fun_name](botObj=botObj, loop=loop), broker
                         )
                     else:
                         orderObj.set_logged_in(globals()[fun_name](), broker)
@@ -151,6 +151,18 @@ def argParser(args: list) -> stockOrder:
     orderObj.order_validate(preLogin=True)
     return orderObj
 
+def switcheroo(brokers):
+    if "chase" and "schwab" in brokers:
+        print("Switcheroo engaged....")
+        brokers_switch = []
+        for i in range(len(brokers)):
+            if brokers[i] != "chase":
+                brokers_switch.append(brokers[i])
+            if i == len(brokers) - 1 and "chase" in brokers:
+                brokers_switch.append("chase")
+        return brokers_switch
+    return brokers
+            
 
 if __name__ == "__main__":
     # Determine if ran from command line
@@ -259,34 +271,26 @@ if __name__ == "__main__":
         @bot.command(name="rsa")
         async def rsa(ctx, *args):
             discOrdObj = await bot.loop.run_in_executor(None, argParser, args)
-            event_loop = asyncio.get_event_loop()
+            event_loop= asyncio.get_event_loop()
             try:
                 # Login to brokers
-                await bot.loop.run_in_executor(None, fun_run, discOrdObj, "_init", event_loop)
+                await bot.loop.run_in_executor(None, fun_run, discOrdObj, "_init", bot, event_loop)
                 # Validate order object
                 discOrdObj.order_validate()
                 # Get holdings or complete transaction
                 if discOrdObj.get_holdings():
                     await bot.loop.run_in_executor(
-                        None, fun_run, discOrdObj, "_holdings", event_loop
+                        None, fun_run, discOrdObj, "_holdings", None, event_loop
                     )
                 else:
                     await bot.loop.run_in_executor(
-                        None, fun_run, discOrdObj, "_transaction", event_loop
+                        None, fun_run, discOrdObj, "_transaction", None, event_loop
                     )
             except Exception as err:
                 print(traceback.format_exc())
                 print(f"Error placing order: {err}")
                 if ctx:
                     await ctx.send(f"Error placing order: {err}")
-
-        # Get code from user command
-        @bot.command(name="code")
-        async def code(ctx, *, arg):
-            with open (".code", "w") as f:
-                f.write(arg)
-            await ctx.send(f"You entered code: {arg}")
-            
             
         # Restart command
         @bot.command(name="restart")
