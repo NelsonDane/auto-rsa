@@ -7,6 +7,7 @@ import traceback
 from decimal import Decimal as D
 
 from dotenv import load_dotenv
+from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder
 from tastytrade import ProductionSession
 from tastytrade.account import Account
 from tastytrade.dxfeed.event import EventType
@@ -20,8 +21,6 @@ from tastytrade.order import (
 )
 from tastytrade.streamer import DXFeedStreamer
 from tastytrade.utils import TastytradeError
-
-from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder
 
 
 def order_setup(tt: ProductionSession, order_type, stock_price, stock, amount):
@@ -192,7 +191,7 @@ async def tastytrade_execute(tt_o: Brokerage, orderObj: stockOrder, loop=None):
                                 f"{key} Error placing order: {placed_order.order.id} on account {print_account}: {order_status}",
                                 loop=loop,
                             )
-                except TastytradeError as te:
+                except (TastytradeError, KeyError) as te:
                     printAndDiscord(f"{key} {print_account}: Error: {te}", loop=loop)
 
 
