@@ -15,7 +15,7 @@ try:
     from dotenv import load_dotenv
     from fidelityAPI import *
     from firstradeAPI import *
-    from helperAPI import check_package_versions, stockOrder, updater
+    from helperAPI import check_package_versions, stockOrder, updater, printAndDiscord
     from publicAPI import *
     from robinhoodAPI import *
     from schwabAPI import *
@@ -288,11 +288,11 @@ if __name__ == "__main__":
                 # Get holdings or complete transaction
                 if discOrdObj.get_holdings():
                     await bot.loop.run_in_executor(
-                        None, fun_run, discOrdObj, "_holdings", None, event_loop
+                        None, fun_run, discOrdObj, "_holdings", bot, event_loop
                     )
                 else:
                     await bot.loop.run_in_executor(
-                        None, fun_run, discOrdObj, "_transaction", None, event_loop
+                        None, fun_run, discOrdObj, "_transaction", bot, event_loop
                     )
             except Exception as err:
                 print(traceback.format_exc())

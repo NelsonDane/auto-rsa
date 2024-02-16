@@ -138,6 +138,7 @@ def chase_transaction(chase_o: Brokerage, orderObj: stockOrder, loop=None):
                 loop,
             )
             try:
+                print(chase_o.get_account_numbers())
                 for i, account in enumerate(chase_o.get_account_numbers(key)):
                     obj: ch_session.ChaseSession = chase_o.get_logged_in_objects(key)
                     if i == 0:
@@ -150,50 +151,50 @@ def chase_transaction(chase_o: Brokerage, orderObj: stockOrder, loop=None):
                         printAndDiscord(
                             "Running in DRY mode. No transactions will be made.", loop
                         )
-                        price_type = order.PriceType.MARKET
-                        if orderObj.get_action().capitalize() == "Buy":
-                            order_type = order.OrderSide.BUY
-                        else:
-                            order_type = order.OrderSide.SELL
-                        chase_order = order.Order(obj)
-                        messages = chase_order.place_order(
-                            account_id=account_id,
-                            quantity=int(orderObj.get_amount()),
-                            price_type=price_type,
-                            symbol=s,
-                            duration=order.Duration.DAY,
-                            order_type=order_type,
-                            dry_run=orderObj.get_dry(),
+                    price_type = order.PriceType.MARKET
+                    if orderObj.get_action().capitalize() == "Buy":
+                        order_type = order.OrderSide.BUY
+                    else:
+                        order_type = order.OrderSide.SELL
+                    chase_order = order.Order(obj)
+                    messages = chase_order.place_order(
+                        account_id=account_id,
+                        quantity=int(orderObj.get_amount()),
+                        price_type=price_type,
+                        symbol=s,
+                        duration=order.Duration.DAY,
+                        order_type=order_type,
+                        dry_run=orderObj.get_dry(),
+                    )
+                    print("The order verification produced the following messages: ")
+                    if orderObj.get_dry():
+                        pprint.pprint(messages['ORDER PREVIEW'])
+                        printAndDiscord(
+                            f"{key} account {account}: The order verification was "
+                            + "successful"
+                            if messages["ORDER PREVIEW"] not in  ["", "No order preview page found."]
+                            else "unsuccessful",
+                            loop,
                         )
-                        print("The order verification produced the following messages: ")
-                        if orderObj.get_dry():
-                            pprint.pprint(messages['ORDER PREVIEW'])
+                        if not messages["ORDER INVALID"] == "No invalid order message found.":
                             printAndDiscord(
-                                f"{key} account {account}: The order verification was "
-                                + "successful"
-                                if messages["ORDER PREVIEW"] not in  ["", "No order preview page found."]
-                                else "unsuccessful",
+                                f"{key} account {account}: The order verification produced the following messages: {messages['ORDER INVALID']}",
                                 loop,
                             )
-                            if not messages["ORDER INVALID"] == "No invalid order message found.":
-                                printAndDiscord(
-                                    f"{key} account {account}: The order verification produced the following messages: {messages['ORDER INVALID']}",
-                                    loop,
-                                )
-                        else:
-                            pprint.pprint(messages['ORDER CONFIRMATION'])
+                    else:
+                        pprint.pprint(messages['ORDER CONFIRMATION'])
+                        printAndDiscord(
+                            f"{key} account {account}: The order verification was "
+                            + "successful"
+                            if messages["ORDER CONFIRMATION"] not in  ["", "No order confirmation page found. Order Failed."]
+                            else "unsuccessful",
+                            loop,
+                        )
+                        if not messages["ORDER INVALID"] == "No invalid order message found.":
                             printAndDiscord(
-                                f"{key} account {account}: The order verification was "
-                                + "successful"
-                                if messages["ORDER CONFIRMATION"] not in  ["", "No order confirmation page found. Order Failed."]
-                                else "unsuccessful",
+                                f"{key} account {account}: The order verification produced the following messages: {messages['ORDER INVALID']}",
                                 loop,
                             )
-                            if not messages["ORDER INVALID"] == "No invalid order message found.":
-                                printAndDiscord(
-                                    f"{key} account {account}: The order verification produced the following messages: {messages['ORDER INVALID']}",
-                                    loop,
-                                )
                     
             except Exception as e:
                 obj.close_browser()
