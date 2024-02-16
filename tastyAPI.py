@@ -7,7 +7,6 @@ import traceback
 from decimal import Decimal as D
 
 from dotenv import load_dotenv
-from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder
 from tastytrade import ProductionSession
 from tastytrade.account import Account
 from tastytrade.dxfeed.event import EventType
@@ -21,6 +20,8 @@ from tastytrade.order import (
 )
 from tastytrade.streamer import DXFeedStreamer
 from tastytrade.utils import TastytradeError
+
+from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder
 
 
 def order_setup(tt: ProductionSession, order_type, stock_price, stock, amount):
