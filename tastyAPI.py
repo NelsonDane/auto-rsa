@@ -192,7 +192,7 @@ async def tastytrade_execute(tt_o: Brokerage, orderObj: stockOrder, loop=None):
                                 f"{key} Error placing order: {placed_order.order.id} on account {print_account}: {order_status}",
                                 loop=loop,
                             )
-                except TastytradeError as te:
+                except (TastytradeError, KeyError) as te:
                     printAndDiscord(f"{key} {print_account}: Error: {te}", loop=loop)
 
 
