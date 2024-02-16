@@ -1,7 +1,7 @@
 asyncio==3.4.3
 discord.py==2.3.2
 firstrade==0.0.14
-GitPython==3.1.41
+GitPython==3.1.42
 -e git+https://github.com/NelsonDane/public-invest-api.git@576984d6006a88c91dc4b301855c787d5567ae97#egg=public-invest-api
 pyotp==2.9.0
 python-dotenv==1.0.1
