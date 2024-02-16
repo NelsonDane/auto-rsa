@@ -81,7 +81,7 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                             globals()[fun_name](DOCKER=DOCKER_MODE), broker
                         )
                     elif broker.lower() in ["public", "chase"]:
-                        orderObj.set_logged_in(globals()[fun_name](botObj=bot, loop=loop), broker)
+                        orderObj.set_logged_in(globals()[fun_name](botObj=botObj, loop=loop), broker)
                     else:
                         orderObj.set_logged_in(globals()[fun_name](), broker)
                 # Verify broker is logged in

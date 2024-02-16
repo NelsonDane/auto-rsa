@@ -91,6 +91,12 @@ def chase_holdings(chase_o: Brokerage, loop=None):
                 obj: ch_session.ChaseSession = chase_o.get_logged_in_objects(key)
                 if h == 0:
                     all_accounts = ch_account.AllAccount(obj)
+                    if all_accounts is None:
+                            printAndDiscord(
+                                f"{key}: Error getting chase account details",
+                                loop,
+                            )
+                            raise Exception(f"Error getting account details")    
                 account_id = get_account_id(all_accounts.account_connectors, account)
                 data = symbols.SymbolHoldings(account_id, obj)
                 success = data.get_holdings()
@@ -140,6 +146,12 @@ def chase_transaction(chase_o: Brokerage, orderObj: stockOrder, loop=None):
                     obj: ch_session.ChaseSession = chase_o.get_logged_in_objects(key)
                     if i == 0:
                         all_accounts = ch_account.AllAccount(obj)
+                        if all_accounts is None:
+                            printAndDiscord(
+                                f"{key}: Error getting chase account details",
+                                loop,
+                            )
+                            raise Exception(f"Error getting account details")         
                     account_id = get_account_id(all_accounts.account_connectors, account)
                     # If DRY is True, don't actually make the transaction
                     if orderObj.get_dry():
