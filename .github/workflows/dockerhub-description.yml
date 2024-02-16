@@ -9,7 +9,7 @@ on:
 
 jobs:
   call-dockerhub-action:
-    uses: NelsonDane/DockerHub-Actions/.github/workflows/dockerhub-description.yml@main
+    uses: NelsonDane/Custom-GitHub-Actions/.github/workflows/dockerhub-description.yml@e3876788a573bfb35bac32593c4075b87c37e774
     with:
       dockerhub_repo_name: auto-rsa
     secrets:

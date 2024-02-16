@@ -18,7 +18,7 @@ from tastytrade.order import (
     OrderType,
     PriceEffect,
 )
-from tastytrade.streamer import DXFeedStreamer
+from tastytrade.streamer import DXLinkStreamer
 from tastytrade.utils import TastytradeError
 
 from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder
@@ -136,10 +136,16 @@ async def tastytrade_execute(tt_o: Brokerage, orderObj: stockOrder, loop=None):
                     new_order = order_setup(
                         obj, order_type, stock_price, s, orderObj.get_amount()
                     )
-                    placed_order = acct.place_order(
-                        obj, new_order, dry_run=orderObj.get_dry()
-                    )
-                    order_status = placed_order.order.status.value
+                    try:
+                        placed_order = acct.place_order(
+                            obj, new_order, dry_run=orderObj.get_dry()
+                        )
+                        order_status = placed_order.order.status.value
+                    except Exception as e:
+                        print(f"Error placing order: {e}")
+                        if "preflight_check_failure" in str(e):
+                            raise TastytradeError(e)
+                        order_status = "Rejected"
                     # Check order status
                     if order_status in ["Received", "Routed"]:
                         message = f"{key} {print_account}: {orderObj.get_action()} {orderObj.get_amount()} of {s} Order: {placed_order.order.id} Status: {order_status}"
@@ -148,26 +154,28 @@ async def tastytrade_execute(tt_o: Brokerage, orderObj: stockOrder, loop=None):
                         printAndDiscord(message, loop=loop)
                     elif order_status == "Rejected":
                         # Retry with limit order
-                        streamer = await DXFeedStreamer.create(obj)
-                        stock_limit = await streamer.oneshot(EventType.PROFILE, [s])
-                        stock_quote = await streamer.oneshot(EventType.QUOTE, [s])
+                        streamer = await DXLinkStreamer.create(obj)
+                        stock_limit = await streamer.subscribe(EventType.PROFILE, [s])
+                        stock_quote = await streamer.subscribe(EventType.QUOTE, [s])
+                        stock_limit = await streamer.get_event(EventType.PROFILE)
+                        stock_quote = await streamer.get_event(EventType.QUOTE)
                         printAndDiscord(
                             f"{key} {print_account} Error: {order_status} Trying Limit order...",
                             loop=loop,
                         )
                         # Get limit price
                         if orderObj.get_action() == "buy":
-                            stock_limit = D(stock_limit[0].highLimitPrice)
+                            stock_limit = D(stock_limit.highLimitPrice)
                             stock_price = (
-                                D(stock_quote[0].askPrice)
+                                D(stock_quote.askPrice)
                                 if stock_limit.is_nan()
                                 else stock_limit
                             )
                             order_type = ["Market", "Debit", "Buy to Open"]
                         elif orderObj.get_action() == "sell":
-                            stock_limit = D(stock_limit[0].lowLimitPrice)
+                            stock_limit = D(stock_limit.lowLimitPrice)
                             stock_price = (
-                                D(stock_quote[0].bidPrice)
+                                D(stock_quote.bidPrice)
                                 if stock_limit.is_nan()
                                 else stock_limit
                             )
@@ -194,6 +202,7 @@ async def tastytrade_execute(tt_o: Brokerage, orderObj: stockOrder, loop=None):
                             )
                 except (TastytradeError, KeyError) as te:
                     printAndDiscord(f"{key} {print_account}: Error: {te}", loop=loop)
+                    continue
 
 
 def tastytrade_transaction(tt: Brokerage, orderObj: stockOrder, loop=None):
