@@ -3,15 +3,16 @@
 
 import os
 import traceback
+import asyncio
 from time import sleep
 
 from dotenv import load_dotenv
 from schwab_api import Schwab
 
-from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder
+from helperAPI import Brokerage, getSMSCodeDiscord, maskString, printAndDiscord, printHoldings, stockOrder
 
 
-def schwab_init(SCHWAB_EXTERNAL=None):
+def schwab_init(SCHWAB_EXTERNAL=None, botObj=None, loop=None):
     # Initialize .env file
     load_dotenv()
     # Import Schwab account
@@ -32,11 +33,20 @@ def schwab_init(SCHWAB_EXTERNAL=None):
         try:
             account = account.split(":")
             schwab = Schwab()
-            schwab.login(
+            logged_in = schwab.login(
                 username=account[0],
                 password=account[1],
                 totp_secret=None if account[2] == "NA" else account[2],
             )
+            if not logged_in:
+                if botObj is None:
+                    schwab.sms_login(input("Enter code: "))
+                else:
+                    sms_code = asyncio.run_coroutine_threadsafe(
+                        getSMSCodeDiscord(botObj, name, code_len=6, loop=loop), loop
+                    ).result() 
+                if not sms_code:
+                    raise Exception(f"Schwab {index} code not received in time...", loop)
             account_info = schwab.get_account_info_v2()
             account_list = list(account_info.keys())
             print_accounts = [maskString(a) for a in account_list]

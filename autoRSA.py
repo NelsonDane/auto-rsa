@@ -15,7 +15,7 @@ try:
     from dotenv import load_dotenv
     from fidelityAPI import *
     from firstradeAPI import *
-    from helperAPI import check_package_versions, stockOrder, updater, printAndDiscord
+    from helperAPI import check_package_versions, stockOrder, updater, printAndDiscord, ThreadHandler
     from publicAPI import *
     from robinhoodAPI import *
     from schwabAPI import *
@@ -62,47 +62,57 @@ def nicknames(broker):
 # Runs the specified function for each broker in the list
 # broker name + type of function
 def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
-    if command in ["_init", "_holdings", "_transaction"]:
-        brokers = switcheroo(orderObj.get_brokers())
-        for broker in brokers:
+    if command in [("_init", "_holdings"), ("_init", "_transaction")]:
+        for broker in orderObj.get_brokers():
             if broker in orderObj.get_notbrokers():
                 continue
             broker = nicknames(broker)
-            fun_name = broker + command
+            first_command, second_command = command
             try:
                 # Initialize broker
-                if command == "_init":
-                    if broker.lower() != "chase":
-                        # Other brokers do not require loop in init
-                        loop = None
-                    if broker.lower() == "fidelity":
-                        # Fidelity requires docker mode argument
-                        orderObj.set_logged_in(
-                            globals()[fun_name](DOCKER=DOCKER_MODE), broker
+                fun_name = broker + first_command
+                if broker.lower() == "fidelity":
+                    # Fidelity requires docker mode argument
+                    orderObj.set_logged_in(
+                        globals()[fun_name](DOCKER=DOCKER_MODE), broker
+                    )
+                elif broker.lower() == "public":
+                    # Public requires bot object
+                    orderObj.set_logged_in(globals()[fun_name](botObj=botObj, loop=loop), broker)
+                elif broker.lower() == "chase":
+                    fun_name = broker + "_run"
+                    # PLAYWRIGHT_BROKERS have to run all transactions with one function
+                    th=ThreadHandler(globals()[fun_name], orderObj=orderObj, command=command, botObj=botObj, loop=loop)
+                    th.start()
+                    th.join()
+                    _, err = th.get_result()
+                    if err is not None:
+                        raise Exception("Error in " + fun_name + ": Function did not complete successfully.")
+                else:
+                    orderObj.set_logged_in(globals()[fun_name](), broker)
+                
+                if broker.lower() != "chase":
+                    # Verify broker is logged in
+                    orderObj.order_validate(preLogin=False)
+                    logged_in_broker = orderObj.get_logged_in(broker)
+                    if logged_in_broker is None:
+                        print(f"Error: {broker} not logged in, skipping...")
+                        continue
+                    # Get holdings or complete transaction
+                    if second_command == "_holdings":
+                        fun_name = broker + second_command
+                        globals()[fun_name](logged_in_broker, loop)
+                    elif second_command == "_transaction":
+                        fun_name = broker + second_command
+                        globals()[fun_name](
+                            logged_in_broker,
+                            orderObj,
+                            loop,
                         )
-                    elif broker.lower() in ["public", "chase"]:
-                        orderObj.set_logged_in(globals()[fun_name](botObj=botObj, loop=loop), broker)
-                    else:
-                        orderObj.set_logged_in(globals()[fun_name](), broker)
-                # Verify broker is logged in
-                orderObj.order_validate(preLogin=False)
-                logged_in_broker = orderObj.get_logged_in(broker)
-                if logged_in_broker is None:
-                    print(f"Error: {broker} not logged in, skipping...")
-                    continue
-                # Get holdings or complete transaction
-                if command == "_holdings":
-                    globals()[fun_name](logged_in_broker, loop)
-                elif command == "_transaction":
-                    globals()[fun_name](
-                        logged_in_broker,
-                        orderObj,
-                        loop,
-                    )
-                    printAndDiscord(
-                        f"All {broker.capitalize()} transactions complete",
-                        loop,
-                    )
+                        printAndDiscord(
+                            f"All {broker.capitalize()} transactions complete",
+                            loop,
+                        )
             except Exception as ex:
                 print(traceback.format_exc())
                 print(f"Error in {fun_name} with {broker}: {ex}")
@@ -155,18 +165,6 @@ def argParser(args: list) -> stockOrder:
     orderObj.order_validate(preLogin=True)
     return orderObj
 
-def switcheroo(brokers):
-    if "chase" and "schwab" in brokers:
-        print("Switcheroo engaged....")
-        brokers_switch = []
-        for i in range(len(brokers)):
-            if brokers[i] != "chase":
-                brokers_switch.append(brokers[i])
-            if i == len(brokers) - 1 and "chase" in brokers:
-                brokers_switch.append("chase")
-        return brokers_switch
-    return brokers
-            
 
 if __name__ == "__main__":
     # Determine if ran from command line
@@ -279,20 +277,18 @@ if __name__ == "__main__":
             discOrdObj = await bot.loop.run_in_executor(None, argParser, args)
             event_loop= asyncio.get_event_loop()
             try:
-                # Login to brokers
-                await bot.loop.run_in_executor(
-                    None, fun_run, discOrdObj, "_init", bot, event_loop
-                )
                 # Validate order object
-                discOrdObj.order_validate()
+                discOrdObj.order_validate(preLogin=True)
                 # Get holdings or complete transaction
                 if discOrdObj.get_holdings():
+                    # Run Holdings
                     await bot.loop.run_in_executor(
-                        None, fun_run, discOrdObj, "_holdings", bot, event_loop
+                        None, fun_run, discOrdObj, ("_init", "_holdings"), bot, event_loop
                     )
                 else:
+                    # Run Transaction
                     await bot.loop.run_in_executor(
-                        None, fun_run, discOrdObj, "_transaction", bot, event_loop
+                        None, fun_run, discOrdObj, ("_init", "_transaction"), bot, event_loop
                     )
             except Exception as err:
                 print(traceback.format_exc())
