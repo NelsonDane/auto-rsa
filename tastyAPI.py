@@ -142,10 +142,11 @@ async def tastytrade_execute(tt_o: Brokerage, orderObj: stockOrder, loop=None):
                         )
                         order_status = placed_order.order.status.value
                     except Exception as e:
-                        print(f"Error placing order: {e}")
-                        if "preflight_check_failure" in str(e):
-                            raise TastytradeError(e)
-                        order_status = "Rejected"
+                        printAndDiscord(
+                            f"{key} {print_account}: Error placing order: {e}",
+                            loop=loop,
+                        )
+                        continue
                     # Check order status
                     if order_status in ["Received", "Routed"]:
                         message = f"{key} {print_account}: {orderObj.get_action()} {orderObj.get_amount()} of {s} Order: {placed_order.order.id} Status: {order_status}"
