@@ -140,6 +140,7 @@ def chase_transaction(chase_o: Brokerage, orderObj: stockOrder, loop=None):
     print("Chase")
     print("==============================")
     print()
+    account_id = None
     # Buy on each account
     for s in orderObj.get_stocks():
         for key in chase_o.get_account_numbers():
@@ -149,13 +150,13 @@ def chase_transaction(chase_o: Brokerage, orderObj: stockOrder, loop=None):
             )
             try:
                 print(chase_o.get_account_numbers())
-                for i, account in enumerate(chase_o.get_account_numbers(key)):
+                for account in chase_o.get_account_numbers(key):
                     obj: ch_session.ChaseSession = chase_o.get_logged_in_objects(key)
-                    if i == 0:
+                    if account_id is None:
                         all_accounts = ch_account.AllAccount(obj)
                         if all_accounts is None:
                             raise Exception("Error getting account details")         
-                    account_id = get_account_id(all_accounts.account_connectors, account)
+                        account_id = get_account_id(all_accounts.account_connectors, account)
                     # If DRY is True, don't actually make the transaction
                     if orderObj.get_dry():
                         printAndDiscord(
