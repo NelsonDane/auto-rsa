@@ -201,6 +201,22 @@ Required `.env` variables:
 `.env` file format:
 - `TASTYTRADE=TASTYTRADE_USERNAME:TASTYTRADE_PASSWORD`
 
+### Webull
+Made using the [webull](https://github.com/tedchou12/webull) library. Go give them a ⭐
+
+Required `.env` variables:
+- `WEBULL_USERNAME`
+- `WEBULL_PASSWORD`
+- `WEBULL_DID`
+- `WEBULL_TRADING_PIN`
+
+`.env` file format:
+- `WEBULL=WEBULL_USERNAME:WEBULL_PASSWORD:WEBULL_DID:WEBULL_TRADING_PIN`
+
+Your `WEBULL_USERNAME` can be your email or phone number. If using a phone number, it must be formatted as: +1-XXXXXXXXXX or +86-XXXXXXXXXXX.
+
+To get your Webull DID, follow this [guide](https://github.com/tedchou12/webull/wiki/Workaround-for-Login-%E2%80%90-Method-2).
+
 ### 🤷‍♂️ Maybe future brokerages 🤷‍♀️
 #### Ally
 Ally disabled their official API, so all Ally packages don't work. I am attempting to reverse engineer their API, which you can track [here](https://github.com/NelsonDane/ally-api). Once I get it working, I will add it to this project.

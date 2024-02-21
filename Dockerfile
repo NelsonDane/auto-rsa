@@ -51,8 +51,9 @@ COPY ./helperAPI.py .
 COPY ./publicAPI.py .
 COPY ./robinhoodAPI.py .
 COPY ./schwabAPI.py .
-COPY ./tradierAPI.py .
 COPY ./tastyAPI.py .
+COPY ./tradierAPI.py .
+COPY ./webullAPI.py .
 
 #Temporary
 COPY ./chaseinvest-api-0.1.0.tar.gz .
