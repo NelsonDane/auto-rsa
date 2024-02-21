@@ -22,7 +22,6 @@ def place_order(obj: webull, account: str, orderObj: stockOrder, s: str):
         quant=orderObj.get_amount(),
         enforce=orderObj.get_time().upper(),
     )
-    print(order)
     if order.get("success") is not None and not order["success"]:
         print(f"{order['msg']} Code {order['code']}")
         return False
@@ -183,7 +182,6 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
                                 )
                         else:
                             # Place normal order
-                            print(f"Placing normal order for {s}")
                             order = place_order(obj, internal_account, orderObj, s)
                         if order:
                             printAndDiscord(
