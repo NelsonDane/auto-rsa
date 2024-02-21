@@ -143,7 +143,8 @@ async def tastytrade_execute(tt_o: Brokerage, orderObj: stockOrder, loop=None):
                         order_status = placed_order.order.status.value
                     except Exception as e:
                         printAndDiscord(
-                            f"{key} {print_account}: Error placing order: {e}", loop=loop
+                            f"{key} {print_account}: Error placing order: {e}",
+                            loop=loop,
                         )
                         continue
                     # Check order status
