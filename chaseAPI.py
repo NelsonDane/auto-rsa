@@ -12,7 +12,6 @@ from dotenv import load_dotenv
 from helperAPI import (
     Brokerage,
     getSMSCodeDiscord,
-    maskString,
     printAndDiscord,
     printHoldings,
     stockOrder,
