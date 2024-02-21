@@ -20,6 +20,7 @@ try:
     from schwabAPI import *
     from tastyAPI import *
     from tradierAPI import *
+    from webullAPI import *
 except Exception as e:
     print(f"Error importing libraries: {e}")
     print(traceback.format_exc())
@@ -38,8 +39,9 @@ SUPPORTED_BROKERS = [
     "schwab",
     "tastytrade",
     "tradier",
+    "webull",
 ]
-DAY1_BROKERS = ["robinhood", "firstrade", "schwab", "tastytrade", "tradier"]
+DAY1_BROKERS = ["robinhood", "firstrade", "schwab", "tastytrade", "tradier", "webull"]
 DISCORD_BOT = False
 DOCKER_MODE = False
 DANGER_MODE = False
@@ -53,6 +55,8 @@ def nicknames(broker):
         return "robinhood"
     if broker == "tasty":
         return "tastytrade"
+    if broker == "wb":
+        return "webull"
     return broker
 
 

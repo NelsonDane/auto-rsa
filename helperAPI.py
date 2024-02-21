@@ -55,8 +55,13 @@ class stockOrder:
             raise ValueError("Stock must be a string")
         self.__stock.append(stock.upper())
 
-    def set_time(self, time) -> None or NotImplementedError:
-        raise NotImplementedError
+    def set_time(self, time):
+        # Only allow strings for now
+        if not isinstance(time, str):
+            raise ValueError("Time must be a string")
+        if time.lower() not in ["day", "gtc"]:
+            raise ValueError("Time must be day or gtc")
+        self.__time = time.lower()
 
     def set_price(self, price: str or float) -> None or ValueError:
         # Only "market" or float
@@ -228,7 +233,7 @@ class Brokerage:
         if account_name not in self.__holdings[parent_name]:
             self.__holdings[parent_name][account_name] = {}
         self.__holdings[parent_name][account_name][stock] = {
-            "quantity": round(float(quantity), 2),
+            "quantity": float(quantity),
             "price": round(float(price), 2),
             "total": round(float(quantity) * float(price), 2),
         }

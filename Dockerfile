@@ -49,8 +49,9 @@ COPY ./firstradeAPI.py .
 COPY ./helperAPI.py .
 COPY ./robinhoodAPI.py .
 COPY ./schwabAPI.py .
-COPY ./tradierAPI.py .
 COPY ./tastyAPI.py .
+COPY ./tradierAPI.py .
+COPY ./webullAPI.py .
 
 # Make the entrypoint executable
 RUN chmod +x entrypoint.sh
