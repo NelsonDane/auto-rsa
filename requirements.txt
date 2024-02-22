@@ -1,7 +1,6 @@
 asyncio==3.4.3
 #chaseinvest-api==0.1.0
 discord.py==2.3.2
-<<<<<<< HEAD
 firstrade==0.0.14
 GitPython==3.1.42
 -e git+https://github.com/NelsonDane/public-invest-api.git@576984d6006a88c91dc4b301855c787d5567ae97#egg=public-invest-api
@@ -10,7 +9,6 @@ GitPython==3.1.41
 pyotp==2.9.0
 python-dotenv==1.0.1
 requests==2.31.0
-<<<<<<< HEAD
 -e git+https://github.com/NelsonDane/robin_stocks.git@f490a2eb0d5fc53afc93e077b3ea2a555124e105#egg=robin_stocks
 schwab-api==0.3.10
 selenium==4.18.1
