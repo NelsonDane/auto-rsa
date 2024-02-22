@@ -55,8 +55,8 @@ COPY ./tradierAPI.py .
 COPY ./tastyAPI.py .
 
 #Temporary
-COPY ./chaseinvest-api-0.1.0.tar.gz .
-RUN pip install ./chaseinvest-api-0.1.0.tar.gz
+COPY ./chaseinvest-api-0.1.1.tar.gz .
+RUN pip install ./chaseinvest-api-0.1.1.tar.gz
 
 # Make the entrypoint executable
 RUN chmod +x entrypoint.sh
