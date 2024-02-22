@@ -5,7 +5,6 @@ import asyncio
 import os
 import pprint
 import traceback
-from time import sleep
 
 from chase import account as ch_account
 from chase import order, session, symbols
@@ -13,12 +12,22 @@ from dotenv import load_dotenv
 from helperAPI import (
     Brokerage,
     getSMSCodeDiscord,
-    maskString,
     printAndDiscord,
     printHoldings,
     stockOrder,
 )
 
+
+def chase_run(orderObj: stockOrder, command=None, botObj=None, loop=None, CHASE_EXTERNAL=None):
+    # Set the functions to be run
+    _, second_command = command
+    success = chase_init(CHASE_EXTERNAL=CHASE_EXTERNAL, botObj=botObj, loop=loop)
+    if success is not None:
+        orderObj.set_logged_in(success, "chase")
+        if second_command == "_holdings":
+            chase_holdings(success, loop=loop)
+        else:
+            chase_transaction(success, orderObj, loop=loop)
 
 def get_account_id(account_connectors, value):
     for key, val in account_connectors.items():
@@ -92,10 +101,10 @@ def chase_holdings(chase_o: Brokerage, loop=None):
                 if h == 0:
                     all_accounts = ch_account.AllAccount(obj)
                     if all_accounts is None:
-                        raise Exception("Error getting account details")    
+                        raise Exception("Error getting account details")   
                 account_id = get_account_id(all_accounts.account_connectors, account)
                 data = symbols.SymbolHoldings(account_id, obj)
-                success = data.get_holdings()
+                success = data.get_holdings() 
                 if success:
                     for i, _ in enumerate(data.positions):
                         if data.positions[i]["instrumentLongName"] == "Cash and Sweep Funds":
@@ -130,6 +139,7 @@ def chase_transaction(chase_o: Brokerage, orderObj: stockOrder, loop=None):
     print("Chase")
     print("==============================")
     print()
+    account_id = None
     # Buy on each account
     for s in orderObj.get_stocks():
         for key in chase_o.get_account_numbers():
@@ -139,13 +149,13 @@ def chase_transaction(chase_o: Brokerage, orderObj: stockOrder, loop=None):
             )
             try:
                 print(chase_o.get_account_numbers())
-                for i, account in enumerate(chase_o.get_account_numbers(key)):
+                for account in chase_o.get_account_numbers(key):
                     obj: ch_session.ChaseSession = chase_o.get_logged_in_objects(key)
-                    if i == 0:
+                    if account_id is None:
                         all_accounts = ch_account.AllAccount(obj)
                         if all_accounts is None:
                             raise Exception("Error getting account details")         
-                    account_id = get_account_id(all_accounts.account_connectors, account)
+                        account_id = get_account_id(all_accounts.account_connectors, account)
                     # If DRY is True, don't actually make the transaction
                     if orderObj.get_dry():
                         printAndDiscord(

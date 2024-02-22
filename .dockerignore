@@ -7,7 +7,7 @@
 !entrypoint.sh
 !requirements.txt
 #temporary
-!chaseinvest-api-0.1.0.tar.gz
+!chaseinvest-api-0.1.1.tar.gz
 
 # Broker APIs
 !**/*API*.py
