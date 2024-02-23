@@ -36,12 +36,12 @@ class stockOrder:
         self.__holdings: bool = False  # Get holdings from enabled brokerages
         self.__logged_in: dict = {}  # Dict of logged in brokerage objects
 
-    def set_action(self, action: str) -> None or ValueError:
+    def set_action(self, action: str) -> None | ValueError:
         if action.lower() not in ["buy", "sell"]:
             raise ValueError("Action must be buy or sell")
         self.__action = action.lower()
 
-    def set_amount(self, amount: float) -> None or ValueError:
+    def set_amount(self, amount: float) -> None | ValueError:
         # Only allow floats
         try:
             amount = float(amount)
@@ -49,7 +49,7 @@ class stockOrder:
             raise ValueError(f"Amount ({amount}) must be a number")
         self.__amount = amount
 
-    def set_stock(self, stock: str) -> None or ValueError:
+    def set_stock(self, stock: str) -> None | ValueError:
         # Only allow strings for now
         if not isinstance(stock, str):
             raise ValueError("Stock must be a string")
@@ -63,7 +63,7 @@ class stockOrder:
             raise ValueError("Time must be day or gtc")
         self.__time = time.lower()
 
-    def set_price(self, price: str or float) -> None or ValueError:
+    def set_price(self, price: str | float) -> None | ValueError:
         # Only "market" or float
         if not isinstance(price, (str, float)):
             raise ValueError("Price must be a string or float")
@@ -73,7 +73,7 @@ class stockOrder:
             price = price.lower()
         self.__price = price
 
-    def set_brokers(self, brokers: list) -> None or ValueError:
+    def set_brokers(self, brokers: list) -> None | ValueError:
         # Only allow strings or lists
         if not isinstance(brokers, (str, list)):
             raise ValueError("Brokers must be a string or list")
@@ -83,7 +83,7 @@ class stockOrder:
         else:
             self.__brokers.append(brokers.lower())
 
-    def set_notbrokers(self, notbrokers: list) -> None or ValueError:
+    def set_notbrokers(self, notbrokers: list) -> None | ValueError:
         # Only allow strings or lists
         if not isinstance(notbrokers, str):
             raise ValueError("Not Brokers must be a string")
@@ -93,13 +93,13 @@ class stockOrder:
         else:
             self.__notbrokers.append(notbrokers.lower())
 
-    def set_dry(self, dry: bool) -> None or ValueError:
+    def set_dry(self, dry: bool) -> None | ValueError:
         # Only allow bools
         if not isinstance(dry, bool):
             raise ValueError("Dry must be a boolean")
         self.__dry = dry
 
-    def set_holdings(self, holdings: bool) -> None or ValueError:
+    def set_holdings(self, holdings: bool) -> None | ValueError:
         # Only allow bools
         if not isinstance(holdings, bool):
             raise ValueError("Holdings must be a boolean")
@@ -120,7 +120,7 @@ class stockOrder:
     def get_time(self) -> str:
         return self.__time
 
-    def get_price(self) -> str or float:
+    def get_price(self) -> str | float:
         return self.__price
 
     def get_brokers(self) -> list:
@@ -150,7 +150,7 @@ class stockOrder:
         self.__brokers.sort()
         self.__notbrokers.sort()
 
-    def order_validate(self, preLogin=False) -> None or ValueError:
+    def order_validate(self, preLogin=False) -> None | ValueError:
         # Check for required fields (doesn't apply to holdings)
         if not self.__holdings:
             if self.__action is None:
@@ -256,7 +256,7 @@ class Brokerage:
     def get_name(self) -> str:
         return self.__name
 
-    def get_account_numbers(self, parent_name: str = None) -> list or dict:
+    def get_account_numbers(self, parent_name: str = None) -> list | dict:
         if parent_name is None:
             return self.__account_numbers
         return self.__account_numbers.get(parent_name, [])

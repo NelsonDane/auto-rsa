@@ -178,7 +178,7 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
     return fidelity_obj
 
 
-def fidelity_account_info(driver: webdriver) -> dict or None:
+def fidelity_account_info(driver: webdriver) -> dict | None:
     try:
         # Get account holdings
         driver.get("https://digital.fidelity.com/ftgw/digital/portfolio/positions")
