@@ -155,7 +155,7 @@ def chase_transaction(chase_o: Brokerage, orderObj: stockOrder, loop=None):
                         all_accounts = ch_account.AllAccount(obj)
                         if all_accounts is None:
                             raise Exception("Error getting account details")         
-                        account_id = get_account_id(all_accounts.account_connectors, account)
+                    account_id = get_account_id(all_accounts.account_connectors, account)
                     # If DRY is True, don't actually make the transaction
                     if orderObj.get_dry():
                         printAndDiscord(
