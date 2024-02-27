@@ -34,7 +34,10 @@ def firstrade_init(FIRSTRADE_EXTERNAL=None):
         try:
             account = account.split(":")
             firstrade = ft_account.FTSession(
-                username=account[0], password=account[1], pin=account[2]
+                username=account[0],
+                password=account[1],
+                pin=account[2],
+                profile_path="./creds/",
             )
             account_info = ft_account.FTAccountData(firstrade)
             print("Logged in to Firstrade!")
@@ -72,7 +75,7 @@ def firstrade_holdings(firstrade_o: Brokerage, loop=None):
                 printAndDiscord(f"{key} {account}: Error getting holdings: {e}", loop)
                 print(traceback.format_exc())
                 continue
-        printHoldings(firstrade_o, loop)
+    printHoldings(firstrade_o, loop)
 
 
 def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=None):

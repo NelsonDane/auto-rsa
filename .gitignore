@@ -1,10 +1,11 @@
 .env
-.DS_Store
-__pycache__/
 did.bin
-test.py
-test[0-9].py
+.DS_Store
+*.json
 *.pkl
 *.png
-.vscode/
+__pycache__/
+src/
+test*
 *venv/
+.vscode/

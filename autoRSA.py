@@ -15,13 +15,15 @@ try:
     # Custom API libraries
     from fidelityAPI import *
     from firstradeAPI import *
-    from helperAPI import stockOrder, updater
+    from helperAPI import check_package_versions, stockOrder, updater
     from robinhoodAPI import *
     from schwabAPI import *
     from tastyAPI import *
     from tradierAPI import *
+    from webullAPI import *
 except Exception as e:
     print(f"Error importing libraries: {e}")
+    print(traceback.format_exc())
     print("Please run 'pip install -r requirements.txt'")
     sys.exit(1)
 
@@ -37,8 +39,9 @@ SUPPORTED_BROKERS = [
     "schwab",
     "tastytrade",
     "tradier",
+    "webull",
 ]
-DAY1_BROKERS = ["robinhood", "firstrade", "schwab", "tastytrade", "tradier"]
+DAY1_BROKERS = ["robinhood", "firstrade", "schwab", "tastytrade", "tradier", "webull"]
 DISCORD_BOT = False
 DOCKER_MODE = False
 DANGER_MODE = False
@@ -52,6 +55,8 @@ def nicknames(broker):
         return "robinhood"
     if broker == "tasty":
         return "tastytrade"
+    if broker == "wb":
+        return "webull"
     return broker
 
 
@@ -87,6 +92,10 @@ def fun_run(orderObj: stockOrder, command, loop=None):
                     globals()[fun_name](
                         logged_in_broker,
                         orderObj,
+                        loop,
+                    )
+                    printAndDiscord(
+                        f"All {broker.capitalize()} transactions complete",
                         loop,
                     )
             except Exception as ex:
@@ -159,10 +168,12 @@ if __name__ == "__main__":
     # If discord argument, run discord bot, no docker, no prompt
     elif sys.argv[1].lower() == "discord":
         updater()
+        check_package_versions()
         print("Running Discord bot from command line")
         DISCORD_BOT = True
     else:  # If any other argument, run bot, no docker or discord bot
         updater()
+        check_package_versions()
         print("Running bot from command line")
         cliOrderObj = argParser(sys.argv[1:])
         if not cliOrderObj.get_holdings():

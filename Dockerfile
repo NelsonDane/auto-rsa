@@ -1,7 +1,7 @@
 # Nelson Dane
 
 # Build from the playwright image
-FROM mcr.microsoft.com/playwright:v1.40.1-jammy
+FROM mcr.microsoft.com/playwright:v1.41.2-jammy
 # Set ENV variables
 ENV TZ=America/New_York
 ENV DEBIAN_FRONTEND=noninteractive
@@ -49,8 +49,9 @@ COPY ./firstradeAPI.py .
 COPY ./helperAPI.py .
 COPY ./robinhoodAPI.py .
 COPY ./schwabAPI.py .
-COPY ./tradierAPI.py .
 COPY ./tastyAPI.py .
+COPY ./tradierAPI.py .
+COPY ./webullAPI.py .
 
 # Make the entrypoint executable
 RUN chmod +x entrypoint.sh

@@ -134,17 +134,14 @@ Required `.env` variables:
 - `ROBINHOOD_USERNAME`
 - `ROBINHOOD_PASSWORD`
 - `ROBINHOOD_TOTP` (If 2fa enabled, else NA)
-- `ROBINHOOD_IRA_NUMBERS` (If you want to use your IRA account, else NA. Separate multiple IRA numbers with colons.)
 
 `.env` file format:
-- With 2fa: `ROBINHOOD=ROBINHOOD_USERNAME:ROBINHOOD_PASSWORD:ROBINHOOD_TOTP:ROBINHOOD_IRA_1:ROBINHOOD_IRA_2`
-- Without 2fa: `ROBINHOOD=ROBINHOOD_USERNAME:ROBINHOOD_PASSWORD:NA:ROBINHOOD_IRA_1:ROBINHOOD_IRA_2`
+- With 2fa: `ROBINHOOD=ROBINHOOD_USERNAME:ROBINHOOD_PASSWORD:ROBINHOOD_TOTP`
+- Without 2fa: `ROBINHOOD=ROBINHOOD_USERNAME:ROBINHOOD_PASSWORD:NA`
 
 If you don't have an IRA account or only have one, then you can omit the last field or set it to NA.
 
 Configuring 2fa can be tricky, read the TOTP section [here](https://github.com/jmfernandes/robin_stocks/blob/master/Robinhood.rst#with-mfa-entered-programmatically-from-time-based-one-time-password-totp).
-
-To get your IRA numbers, check your monthly statement, or tap the menu button in the Robinhood app and go to `Investing`. Or click the `Retirement` tab on the desktop website, then the `settings` button on the top right of the graph. Then click `Account numbers`.
 
 ### Schwab
 Made using the [schwab-api](https://github.com/itsjafer/schwab-api). Go give them a ⭐
@@ -160,7 +157,9 @@ Required `.env` variables:
 
 To get your TOTP secret, follow this [guide](guides/schwabSetup.md).
 
-Note: If you are using Windows, you will need to install playwright manually. See [this guide](guides/playwrightWindows.md) for more information.
+Note 1: Think or Swim must be enabled on all accounts. To enable, go to `Trade` > `Trading Platforms` > `Learn how to enable thinkorswim`. Then press `Continue` and expand the `thinkorswim Access Agreement` and accept it. Then press `Continue` again. Then select the checkbox for all available accounts and press `Submit`. It may take a day or two for the accounts to be enabled.
+
+Note 2: If you are using Windows, you may need to install playwright manually. See [this guide](guides/playwrightWindows.md) for more information.
 
 ### Tradier
 Made by yours truly using the official [Tradier API](https://documentation.tradier.com/brokerage-api/trading/getting-started). Consider giving me a ⭐
@@ -183,6 +182,22 @@ Required `.env` variables:
 `.env` file format:
 - `TASTYTRADE=TASTYTRADE_USERNAME:TASTYTRADE_PASSWORD`
 
+### Webull
+Made using the [webull](https://github.com/tedchou12/webull) library. Go give them a ⭐
+
+Required `.env` variables:
+- `WEBULL_USERNAME`
+- `WEBULL_PASSWORD`
+- `WEBULL_DID`
+- `WEBULL_TRADING_PIN`
+
+`.env` file format:
+- `WEBULL=WEBULL_USERNAME:WEBULL_PASSWORD:WEBULL_DID:WEBULL_TRADING_PIN`
+
+Your `WEBULL_USERNAME` can be your email or phone number. If using a phone number, it must be formatted as: +1-XXXXXXXXXX or +86-XXXXXXXXXXX.
+
+To get your Webull DID, follow this [guide](https://github.com/tedchou12/webull/wiki/Workaround-for-Login-%E2%80%90-Method-2).
+
 ### 🤷‍♂️ Maybe future brokerages 🤷‍♀️
 #### Ally
 Ally disabled their official API, so all Ally packages don't work. I am attempting to reverse engineer their API, which you can track [here](https://github.com/NelsonDane/ally-api). Once I get it working, I will add it to this project.
@@ -195,7 +210,7 @@ Login requires SMS 2fa, and I'm not sure how to do that automatically.
 #### Webull
 In progress on [develop-webull](https://github.com/NelsonDane/auto-rsa/pull/61). Stay tuned.
 #### Public
-Same as Webull and SoFi.
+In progress on [develop-public](https://github.com/NelsonDane/auto-rsa/pull/150). Stay tuned.
 ### 👎 Never working brokerages 👎
 #### Stash
 Why.
