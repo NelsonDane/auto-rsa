@@ -101,6 +101,8 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
             username_field = driver.find_element(
                 by=By.CSS_SELECTOR, value=username_selector
             )
+            # Click in field for anti-bot
+            username_field.click()
             type_slowly(username_field, account[0])
             password_field = driver.find_element(
                 by=By.CSS_SELECTOR, value=password_selector
@@ -120,6 +122,8 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
                 username_field = driver.find_element(
                     by=By.CSS_SELECTOR, value=username_selector
                 )
+                # Click in field for anti-bot
+                username_field.click()
                 type_slowly(username_field, account[0])
                 password_field = driver.find_element(
                     by=By.CSS_SELECTOR, value=password_selector
