@@ -29,9 +29,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 && rm -rf /var/lib/apt/lists/*
 
 # Install Chromium
-RUN add-apt-repository ppa:saiarcot895/chromium-beta
+RUN add-apt-repository ppa:savoury1/chromium
 RUN apt-get update && apt-get install -y --no-install-recommends chromium-browser chromium-chromedriver && rm -rf /var/lib/apt/lists/*
-RUN ln -s /usr/lib/chromium-browser/chromedriver /usr/bin/chromedriver
 
 # Install python dependencies
 COPY ./requirements.txt .
@@ -54,10 +53,6 @@ COPY ./schwabAPI.py .
 COPY ./tastyAPI.py .
 COPY ./tradierAPI.py .
 COPY ./webullAPI.py .
-
-#Temporary
-COPY ./chaseinvest-api-0.1.1.tar.gz .
-RUN pip install ./chaseinvest-api-0.1.1.tar.gz
 
 # Make the entrypoint executable
 RUN chmod +x entrypoint.sh
