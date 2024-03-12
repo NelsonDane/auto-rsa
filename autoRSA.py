@@ -22,8 +22,10 @@ try:
     from tastyAPI import *
     from tradierAPI import *
     from webullAPI import *
+    from webullAPI import *
 except Exception as e:
     print(f"Error importing libraries: {e}")
+    print(traceback.format_exc())
     print(traceback.format_exc())
     print("Please run 'pip install -r requirements.txt'")
     sys.exit(1)
@@ -38,10 +40,12 @@ SUPPORTED_BROKERS = [
     "fidelity",
     "firstrade",
     "public",
+    "public",
     "robinhood",
     "schwab",
     "tastytrade",
     "tradier",
+    "webull",
     "webull",
 ]
 DAY1_BROKERS = ["chase", "robinhood", "firstrade", "schwab", "tastytrade", "tradier", "webull"]
@@ -58,6 +62,8 @@ def nicknames(broker):
         return "robinhood"
     if broker == "tasty":
         return "tastytrade"
+    if broker == "wb":
+        return "webull"
     if broker == "wb":
         return "webull"
     return broker
@@ -188,10 +194,12 @@ if __name__ == "__main__":
     elif sys.argv[1].lower() == "discord":
         updater()
         check_package_versions()
+        check_package_versions()
         print("Running Discord bot from command line")
         DISCORD_BOT = True
     else:  # If any other argument, run bot, no docker or discord bot
         updater()
+        check_package_versions()
         check_package_versions()
         print("Running bot from command line")
         cliOrderObj = argParser(sys.argv[1:])

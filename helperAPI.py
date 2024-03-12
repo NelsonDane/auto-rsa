@@ -7,9 +7,7 @@ import os
 import subprocess
 import sys
 import textwrap
-import traceback
 from pathlib import Path
-from threading import Thread
 from queue import Queue
 from time import sleep
 
