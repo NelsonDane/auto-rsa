@@ -4,12 +4,8 @@ did.bin
 *.json
 *.pkl
 *.png
-*.json
-*.pkl
-*.png
 __pycache__/
 src/
 test*
 *venv/
 .vscode/
-
