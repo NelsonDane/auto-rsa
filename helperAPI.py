@@ -10,8 +10,8 @@ import textwrap
 import traceback
 from pathlib import Path
 from queue import Queue
-from time import sleep
 from threading import Thread
+from time import sleep
 
 import pkg_resources
 import requests
