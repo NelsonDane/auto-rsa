@@ -215,15 +215,13 @@ if __name__ == "__main__":
                 print()
                 print("Exiting, no orders placed")
                 sys.exit(0)
-        # Login to brokers
-        fun_run(cliOrderObj, "_init")
         # Validate order object
-        cliOrderObj.order_validate()
+        cliOrderObj.order_validate(preLogin=True)
         # Get holdings or complete transaction
         if cliOrderObj.get_holdings():
-            fun_run(cliOrderObj, "_holdings")
+            fun_run(cliOrderObj, ("_init", "_holdings"))
         else:
-            fun_run(cliOrderObj, "_transaction")
+            fun_run(cliOrderObj, ("_init", "_transaction"))
         sys.exit(0)
 
     # If discord bot, run discord bot

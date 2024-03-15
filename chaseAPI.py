@@ -205,7 +205,6 @@ def chase_transaction(chase_o: Brokerage, orderObj: stockOrder, loop=None):
                                 f"{key} account {account}: The order verification produced the following messages: {messages['ORDER INVALID']}",
                                 loop,
                             )
-                    
             except Exception as e:
                 obj.close_browser()
                 printAndDiscord(
@@ -213,4 +212,8 @@ def chase_transaction(chase_o: Brokerage, orderObj: stockOrder, loop=None):
                 )
                 print(traceback.format_exc())
                 continue
+    printAndDiscord(
+        "All Chase transactions complete",
+        loop,
+    )
     obj.close_browser()
