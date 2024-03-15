@@ -128,10 +128,12 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
                     print("The order verification produced the following messages: ")
                     pprint.pprint(ft_order.order_confirmation)
                     printAndDiscord(
-                        f"{key} account {print_account}: The order verification was "
-                        + "successful"
-                        if ft_order.order_confirmation["success"] == "Yes"
-                        else "unsuccessful",
+                        (
+                            f"{key} account {print_account}: The order verification was "
+                            + "successful"
+                            if ft_order.order_confirmation["success"] == "Yes"
+                            else "unsuccessful"
+                        ),
                         loop,
                     )
                     if not ft_order.order_confirmation["success"] == "Yes":

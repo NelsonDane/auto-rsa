@@ -45,7 +45,16 @@ SUPPORTED_BROKERS = [
     "tradier",
     "webull",
 ]
-DAY1_BROKERS = ["chase", "robinhood", "firstrade", "schwab", "tastytrade", "tradier", "webull"]
+DAY1_BROKERS = [
+    "chase",
+    "robinhood",
+    "firstrade",
+    "public",
+    "schwab",
+    "tastytrade",
+    "tradier",
+    "webull",
+]
 DISCORD_BOT = False
 DOCKER_MODE = False
 DANGER_MODE = False
