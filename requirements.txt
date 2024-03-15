@@ -6,7 +6,7 @@ pyotp==2.9.0
 python-dotenv==1.0.1
 requests==2.31.0
 -e git+https://github.com/NelsonDane/robin_stocks.git@f490a2eb0d5fc53afc93e077b3ea2a555124e105#egg=robin-stocks
-schwab-api==0.3.12
+schwab-api==0.4.0
 selenium==4.18.1
 setuptools==69.2.0
 tastytrade==7.0
