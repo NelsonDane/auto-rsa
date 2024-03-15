@@ -16,7 +16,13 @@ try:
     from chaseAPI import *
     from fidelityAPI import *
     from firstradeAPI import *
-    from helperAPI import check_package_versions, stockOrder, updater, printAndDiscord, ThreadHandler
+    from helperAPI import (
+        ThreadHandler,
+        check_package_versions,
+        printAndDiscord,
+        stockOrder,
+        updater,
+    )
     from publicAPI import *
     from robinhoodAPI import *
     from schwabAPI import *
@@ -45,7 +51,15 @@ SUPPORTED_BROKERS = [
     "tradier",
     "webull",
 ]
-DAY1_BROKERS = ["chase", "robinhood", "firstrade", "schwab", "tastytrade", "tradier", "webull"]
+DAY1_BROKERS = [
+    "chase",
+    "robinhood",
+    "firstrade",
+    "schwab",
+    "tastytrade",
+    "tradier",
+    "webull",
+]
 DISCORD_BOT = False
 DOCKER_MODE = False
 DANGER_MODE = False
@@ -83,19 +97,31 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                     )
                 elif broker.lower() == "public":
                     # Public requires bot object
-                    orderObj.set_logged_in(globals()[fun_name](botObj=botObj, loop=loop), broker)
+                    orderObj.set_logged_in(
+                        globals()[fun_name](botObj=botObj, loop=loop), broker
+                    )
                 elif broker.lower() == "chase":
                     fun_name = broker + "_run"
                     # PLAYWRIGHT_BROKERS have to run all transactions with one function
-                    th=ThreadHandler(globals()[fun_name], orderObj=orderObj, command=command, botObj=botObj, loop=loop)
+                    th = ThreadHandler(
+                        globals()[fun_name],
+                        orderObj=orderObj,
+                        command=command,
+                        botObj=botObj,
+                        loop=loop,
+                    )
                     th.start()
                     th.join()
                     _, err = th.get_result()
                     if err is not None:
-                        raise Exception("Error in " + fun_name + ": Function did not complete successfully.")
+                        raise Exception(
+                            "Error in "
+                            + fun_name
+                            + ": Function did not complete successfully."
+                        )
                 else:
                     orderObj.set_logged_in(globals()[fun_name](), broker)
-                
+
                 if broker.lower() != "chase":
                     # Verify broker is logged in
                     orderObj.order_validate(preLogin=False)
@@ -286,12 +312,22 @@ if __name__ == "__main__":
                 if discOrdObj.get_holdings():
                     # Run Holdings
                     await bot.loop.run_in_executor(
-                        None, fun_run, discOrdObj, ("_init", "_holdings"), bot, event_loop
+                        None,
+                        fun_run,
+                        discOrdObj,
+                        ("_init", "_holdings"),
+                        bot,
+                        event_loop,
                     )
                 else:
                     # Run Transaction
                     await bot.loop.run_in_executor(
-                        None, fun_run, discOrdObj, ("_init", "_transaction"), bot, event_loop
+                        None,
+                        fun_run,
+                        discOrdObj,
+                        ("_init", "_transaction"),
+                        bot,
+                        event_loop,
                     )
             except Exception as err:
                 print(traceback.format_exc())

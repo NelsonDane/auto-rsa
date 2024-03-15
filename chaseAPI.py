@@ -9,6 +9,7 @@ import traceback
 from chase import account as ch_account
 from chase import order, session, symbols
 from dotenv import load_dotenv
+
 from helperAPI import (
     Brokerage,
     getSMSCodeDiscord,
@@ -18,7 +19,9 @@ from helperAPI import (
 )
 
 
-def chase_run(orderObj: stockOrder, command=None, botObj=None, loop=None, CHASE_EXTERNAL=None):
+def chase_run(
+    orderObj: stockOrder, command=None, botObj=None, loop=None, CHASE_EXTERNAL=None
+):
     # Set the functions to be run
     _, second_command = command
     success = chase_init(CHASE_EXTERNAL=CHASE_EXTERNAL, botObj=botObj, loop=loop)
@@ -29,11 +32,13 @@ def chase_run(orderObj: stockOrder, command=None, botObj=None, loop=None, CHASE_
         else:
             chase_transaction(success, orderObj, loop=loop)
 
+
 def get_account_id(account_connectors, value):
     for key, val in account_connectors.items():
         if val[0] == value:
             return key
     return None
+
 
 def chase_init(CHASE_EXTERNAL=None, botObj=None, loop=None):
     # Initialize .env file
@@ -56,9 +61,7 @@ def chase_init(CHASE_EXTERNAL=None, botObj=None, loop=None):
         try:
             account = account.split(":")
             ch_session = session.ChaseSession(
-                title=f"chase_{index}", 
-                headless=False,
-                profile_path="./creds"
+                title=f"chase_{index}", headless=False, profile_path="./creds"
             )
             need_second = ch_session.login(account[0], account[1], account[2])
             if need_second:
@@ -67,10 +70,10 @@ def chase_init(CHASE_EXTERNAL=None, botObj=None, loop=None):
                 else:
                     sms_code = asyncio.run_coroutine_threadsafe(
                         getSMSCodeDiscord(botObj, name, code_len=8, loop=loop), loop
-                    ).result() 
+                    ).result()
                 if sms_code is None:
                     raise Exception(f"Chase {index} code not received in time...", loop)
-                ch_session.login_two(sms_code)   
+                ch_session.login_two(sms_code)
             all_accounts = ch_account.AllAccount(ch_session)
             account_ids = list(all_accounts.account_connectors.keys())
             print("Logged in to Chase!")
@@ -79,9 +82,7 @@ def chase_init(CHASE_EXTERNAL=None, botObj=None, loop=None):
             for account in account_ids:
                 account = ch_account.AccountDetails(account, all_accounts)
                 chase_obj.set_account_number(name, account.mask)
-                chase_obj.set_account_totals(
-                    name, account.mask, account.account_value
-                )
+                chase_obj.set_account_totals(name, account.mask, account.account_value)
                 print_accounts.append(account.mask)
             print(f"The following Chase accounts were found: {print_accounts}")
         except Exception as e:
@@ -101,15 +102,20 @@ def chase_holdings(chase_o: Brokerage, loop=None):
                 if h == 0:
                     all_accounts = ch_account.AllAccount(obj)
                     if all_accounts is None:
-                        raise Exception("Error getting account details")   
+                        raise Exception("Error getting account details")
                 account_id = get_account_id(all_accounts.account_connectors, account)
                 data = symbols.SymbolHoldings(account_id, obj)
-                success = data.get_holdings() 
+                success = data.get_holdings()
                 if success:
                     for i, _ in enumerate(data.positions):
-                        if data.positions[i]["instrumentLongName"] == "Cash and Sweep Funds":
+                        if (
+                            data.positions[i]["instrumentLongName"]
+                            == "Cash and Sweep Funds"
+                        ):
                             sym = data.positions[i]["instrumentLongName"]
-                            current_price = data.positions[i]["marketValue"]["baseValueAmount"]
+                            current_price = data.positions[i]["marketValue"][
+                                "baseValueAmount"
+                            ]
                             qty = "1"
                             chase_o.set_holdings(key, account, sym, qty, current_price)
                         elif data.positions[i]["assetCategoryName"] == "EQUITY":
@@ -117,11 +123,17 @@ def chase_holdings(chase_o: Brokerage, loop=None):
                                 sym = data.positions[i]["positionComponents"][0][
                                     "securityIdDetail"
                                 ][0]["symbolSecurityIdentifier"]
-                                current_price = data.positions[i]["marketValue"]["baseValueAmount"]
+                                current_price = data.positions[i]["marketValue"][
+                                    "baseValueAmount"
+                                ]
                                 qty = data.positions[i]["tradedUnitQuantity"]
                             except KeyError:
-                                sym = data.positions[i]["securityIdDetail"]["cusipIdentifier"]
-                                current_price = data.positions[i]["marketValue"]["baseValueAmount"]
+                                sym = data.positions[i]["securityIdDetail"][
+                                    "cusipIdentifier"
+                                ]
+                                current_price = data.positions[i]["marketValue"][
+                                    "baseValueAmount"
+                                ]
                                 qty = data.positions[i]["tradedUnitQuantity"]
                             chase_o.set_holdings(key, account, sym, qty, current_price)
         except Exception as e:
@@ -154,8 +166,10 @@ def chase_transaction(chase_o: Brokerage, orderObj: stockOrder, loop=None):
                     if account_id is None:
                         all_accounts = ch_account.AllAccount(obj)
                         if all_accounts is None:
-                            raise Exception("Error getting account details")         
-                    account_id = get_account_id(all_accounts.account_connectors, account)
+                            raise Exception("Error getting account details")
+                    account_id = get_account_id(
+                        all_accounts.account_connectors, account
+                    )
                     # If DRY is True, don't actually make the transaction
                     if orderObj.get_dry():
                         printAndDiscord(
@@ -178,38 +192,51 @@ def chase_transaction(chase_o: Brokerage, orderObj: stockOrder, loop=None):
                     )
                     print("The order verification produced the following messages: ")
                     if orderObj.get_dry():
-                        pprint.pprint(messages['ORDER PREVIEW'])
+                        pprint.pprint(messages["ORDER PREVIEW"])
                         printAndDiscord(
-                            f"{key} account {account}: The order verification was "
-                            + "successful"
-                            if messages["ORDER PREVIEW"] not in  ["", "No order preview page found."]
-                            else "unsuccessful",
+                            (
+                                f"{key} account {account}: The order verification was "
+                                + "successful"
+                                if messages["ORDER PREVIEW"]
+                                not in ["", "No order preview page found."]
+                                else "unsuccessful"
+                            ),
                             loop,
                         )
-                        if not messages["ORDER INVALID"] == "No invalid order message found.":
+                        if (
+                            not messages["ORDER INVALID"]
+                            == "No invalid order message found."
+                        ):
                             printAndDiscord(
                                 f"{key} account {account}: The order verification produced the following messages: {messages['ORDER INVALID']}",
                                 loop,
                             )
                     else:
-                        pprint.pprint(messages['ORDER CONFIRMATION'])
+                        pprint.pprint(messages["ORDER CONFIRMATION"])
                         printAndDiscord(
-                            f"{key} account {account}: The order verification was "
-                            + "successful"
-                            if messages["ORDER CONFIRMATION"] not in  ["", "No order confirmation page found. Order Failed."]
-                            else "unsuccessful",
+                            (
+                                f"{key} account {account}: The order verification was "
+                                + "successful"
+                                if messages["ORDER CONFIRMATION"]
+                                not in [
+                                    "",
+                                    "No order confirmation page found. Order Failed.",
+                                ]
+                                else "unsuccessful"
+                            ),
                             loop,
                         )
-                        if not messages["ORDER INVALID"] == "No invalid order message found.":
+                        if (
+                            not messages["ORDER INVALID"]
+                            == "No invalid order message found."
+                        ):
                             printAndDiscord(
                                 f"{key} account {account}: The order verification produced the following messages: {messages['ORDER INVALID']}",
                                 loop,
                             )
             except Exception as e:
                 obj.close_browser()
-                printAndDiscord(
-                    f"{key} {account}: Error submitting order: {e}", loop
-                )
+                printAndDiscord(f"{key} {account}: Error submitting order: {e}", loop)
                 print(traceback.format_exc())
                 continue
     printAndDiscord(
