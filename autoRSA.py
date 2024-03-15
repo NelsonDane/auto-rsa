@@ -295,7 +295,6 @@ if __name__ == "__main__":
                 "Available RSA commands:\n"
                 "!ping\n"
                 "!help\n"
-                "!code\n"
                 "!rsa holdings [all|<broker1>,<broker2>,...]\n"
                 "!rsa [buy|sell] [amount] [stock1|stock1,stock2] [all|<broker1>,<broker2>,...] [not broker1,broker2,...] [DRY: true|false]\n"
                 "!restart"

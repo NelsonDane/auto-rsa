@@ -7,6 +7,7 @@ import pprint
 import traceback
 
 from chase import account as ch_account
+from chase import session as ch_session
 from chase import order, session, symbols
 from dotenv import load_dotenv
 
