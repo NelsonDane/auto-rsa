@@ -7,10 +7,7 @@ import pprint
 import traceback
 
 from chase import account as ch_account
-from chase import order
-from chase import session
-from chase import session as ch_session
-from chase import symbols
+from chase import order, session, symbols
 from dotenv import load_dotenv
 
 from helperAPI import (
@@ -101,7 +98,7 @@ def chase_holdings(chase_o: Brokerage, loop=None):
     for key in chase_o.get_account_numbers():
         try:
             for h, account in enumerate(chase_o.get_account_numbers(key)):
-                obj: ch_session.ChaseSession = chase_o.get_logged_in_objects(key)
+                obj: session.ChaseSession = chase_o.get_logged_in_objects(key)
                 if h == 0:
                     all_accounts = ch_account.AllAccount(obj)
                     if all_accounts is None:
@@ -165,7 +162,7 @@ def chase_transaction(chase_o: Brokerage, orderObj: stockOrder, loop=None):
             try:
                 print(chase_o.get_account_numbers())
                 for account in chase_o.get_account_numbers(key):
-                    obj: ch_session.ChaseSession = chase_o.get_logged_in_objects(key)
+                    obj: session.ChaseSession = chase_o.get_logged_in_objects(key)
                     if account_id is None:
                         all_accounts = ch_account.AllAccount(obj)
                         if all_accounts is None:
