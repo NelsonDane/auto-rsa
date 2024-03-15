@@ -34,9 +34,9 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
             rh.login(
                 username=account[0],
                 password=account[1],
-                mfa_code=None
-                if account[2].upper() == "NA"
-                else pyotp.TOTP(account[2]).now(),
+                mfa_code=(
+                    None if account[2].upper() == "NA" else pyotp.TOTP(account[2]).now()
+                ),
                 store_session=False,
             )
             rh_obj.set_logged_in_object(name, rh)
