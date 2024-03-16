@@ -135,7 +135,7 @@ Required `.env` variables:
 - `PUBLIC_PASSWORD`
 
 `.env` file format:
-- `PUBLIC=PUBLIC_USERNAME:PUBLIC_PASSWORD`
+- `PUBLIC_BROKERAGE=PUBLIC_USERNAME:PUBLIC_PASSWORD`
 
 ### Robinhood
 Made using [robin_stocks](https://github.com/jmfernandes/robin_stocks). Go give them a ⭐
