@@ -65,15 +65,15 @@ def chase_init(CHASE_EXTERNAL=None, botObj=None, loop=None):
             )
             need_second = ch_session.login(account[0], account[1], account[2])
             if need_second:
-                if botObj is None:
+                if botObj is None and loop is None:
                     ch_session.login_two(input("Enter code: "))
                 else:
                     sms_code = asyncio.run_coroutine_threadsafe(
                         getSMSCodeDiscord(botObj, name, code_len=8, loop=loop), loop
                     ).result()
-                if sms_code is None:
-                    raise Exception(f"Chase {index} code not received in time...", loop)
-                ch_session.login_two(sms_code)
+                    if sms_code is None:
+                        raise Exception(f"Chase {index} code not received in time...", loop)
+                    ch_session.login_two(sms_code)
             all_accounts = ch_account.AllAccount(ch_session)
             account_ids = list(all_accounts.account_connectors.keys())
             print("Logged in to Chase!")
