@@ -20,11 +20,11 @@ def public_init(PUBLIC_EXTERNAL=None, botObj=None, loop=None):
     load_dotenv()
     # Import Public account
     public_obj = Brokerage("Public")
-    if not os.getenv("PUBLIC") and PUBLIC_EXTERNAL is None:
+    if not os.getenv("PUBLIC_BROKER") and PUBLIC_EXTERNAL is None:
         print("Public not found, skipping...")
         return None
     PUBLIC = (
-        os.environ["PUBLIC"].strip().split(",")
+        os.environ["PUBLIC_BROKER"].strip().split(",")
         if PUBLIC_EXTERNAL is None
         else PUBLIC_EXTERNAL.strip().split(",")
     )

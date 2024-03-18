@@ -53,9 +53,9 @@ SUPPORTED_BROKERS = [
 ]
 DAY1_BROKERS = [
     "chase",
-    "robinhood",
     "firstrade",
     "public",
+    "robinhood",
     "schwab",
     "tastytrade",
     "tradier",
