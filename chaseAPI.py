@@ -72,7 +72,9 @@ def chase_init(CHASE_EXTERNAL=None, botObj=None, loop=None):
                         getSMSCodeDiscord(botObj, name, code_len=8, loop=loop), loop
                     ).result()
                     if sms_code is None:
-                        raise Exception(f"Chase {index} code not received in time...", loop)
+                        raise Exception(
+                            f"Chase {index} code not received in time...", loop
+                        )
                     ch_session.login_two(sms_code)
             all_accounts = ch_account.AllAccount(ch_session)
             account_ids = list(all_accounts.account_connectors.keys())
