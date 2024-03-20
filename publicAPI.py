@@ -72,7 +72,7 @@ def public_init(PUBLIC_EXTERNAL=None, botObj=None, loop=None):
             public_obj.set_logged_in_object(name, pb)
             an = pb.get_account_number()
             public_obj.set_account_number(name, an)
-            print(f"Found account {maskString(an)}")
+            print(f"{name}: Found account {maskString(an)}")
             atype = pb.get_account_type()
             public_obj.set_account_type(name, an, atype)
             cash = pb.get_account_cash()
@@ -105,7 +105,7 @@ def public_holdings(pbo: Brokerage, loop=None):
                 printAndDiscord(f"{key}: Error getting account holdings: {e}", loop)
                 traceback.format_exc()
                 continue
-        printHoldings(pbo, loop)
+    printHoldings(pbo, loop)
 
 
 def public_transaction(pbo: Brokerage, orderObj: stockOrder, loop=None):
