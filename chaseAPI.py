@@ -198,10 +198,12 @@ def chase_transaction(chase_o: Brokerage, orderObj: stockOrder, loop=None):
                         printAndDiscord(
                             (
                                 f"{key} account {account}: The order verification was "
-                                + ("successful"
+                                + (
+                                    "successful"
                                     if messages["ORDER PREVIEW"]
                                     not in ["", "No order preview page found."]
-                                    else "unsuccessful")
+                                    else "unsuccessful"
+                                )
                             ),
                             loop,
                         )
@@ -218,13 +220,15 @@ def chase_transaction(chase_o: Brokerage, orderObj: stockOrder, loop=None):
                         printAndDiscord(
                             (
                                 f"{key} account {account}: The order verification was "
-                                + ("successful"
+                                + (
+                                    "successful"
                                     if messages["ORDER CONFIRMATION"]
                                     not in [
                                         "",
                                         "No order confirmation page found. Order Failed.",
                                     ]
-                                    else "unsuccessful")
+                                    else "unsuccessful"
+                                )
                             ),
                             loop,
                         )
