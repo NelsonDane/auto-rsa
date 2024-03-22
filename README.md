@@ -221,13 +221,11 @@ To get your Webull DID, follow this [guide](https://github.com/tedchou12/webull/
 
 ### 🤷‍♂️ Maybe future brokerages 🤷‍♀️
 #### Ally
-Ally disabled their official API, so all Ally packages don't work. I am attempting to reverse engineer their API, which you can track [here](https://github.com/NelsonDane/ally-api). Once I get it working, I will add it to this project.
+Ally disabled their official API, so all Ally packages don't work. I am attempting to reverse engineer their API, and will add it if I get it working. Otherwise, I will use Selenium or Playwright.
 #### Vanguard
-Will be added using Selenium just like Fidelity. I found this [vanguard-api](https://github.com/rikonor/vanguard-api), but it failed when I ran it.
+Will be added using Selenium or Playwright.
 #### SoFi
-Login requires SMS 2fa, and I'm not sure how to do that automatically.
-#### Webull
-In progress on [develop-webull](https://github.com/NelsonDane/auto-rsa/pull/61). Stay tuned.
+Will be added using Selenium or Playwright.
 #### Public
 In progress on [develop-public](https://github.com/NelsonDane/auto-rsa/pull/150). Stay tuned.
 ### 👎 Never working brokerages 👎
