@@ -219,8 +219,6 @@ In progress on [develop-chase](https://github.com/NelsonDane/auto-rsa/pull/185).
 Will be added using Selenium or Playwright.
 #### SoFi
 Will be added using Selenium or Playwright.
-#### Public
-In progress on [develop-public](https://github.com/NelsonDane/auto-rsa/pull/150). Stay tuned.
 ### 👎 Never working brokerages 👎
 #### Stash
 Why.
