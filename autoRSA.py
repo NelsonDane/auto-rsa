@@ -59,6 +59,8 @@ DANGER_MODE = False
 
 # Account nicknames
 def nicknames(broker):
+    if broker in ["fid", "fido"]:
+        return "fidelity"
     if broker == "ft":
         return "firstrade"
     if broker == "rh":
