@@ -8,6 +8,8 @@ services:
         env_file:
             - .env
         tty: true
+        volumes:
+            - ./creds:/app/creds
 
     watchtower:
         # Auto update the auto-rsa container every hour

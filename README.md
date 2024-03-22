@@ -127,6 +127,18 @@ Required `.env` variables:
 `.env` file format:
 - `FIRSTRADE=FIRSTRADE_USERNAME:FIRSTRADE_PASSWORD:FIRSTRADE_PIN`
 
+### Public
+Made by yours truly using using [public-invest-api](https://github.com/NelsonDane/public-invest-api). Consider giving me a ⭐
+
+Required `.env` variables:
+- `PUBLIC_USERNAME`
+- `PUBLIC_PASSWORD`
+
+`.env` file format:
+- `PUBLIC_BROKER=PUBLIC_USERNAME:PUBLIC_PASSWORD`
+
+Note: Because Windows already has a `PUBLIC` environment variable, you will need to use `PUBLIC_BROKER` instead.
+
 ### Robinhood
 Made using [robin_stocks](https://github.com/jmfernandes/robin_stocks). Go give them a ⭐
 

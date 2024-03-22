@@ -16,6 +16,7 @@ try:
     from fidelityAPI import *
     from firstradeAPI import *
     from helperAPI import check_package_versions, stockOrder, updater
+    from publicAPI import *
     from robinhoodAPI import *
     from schwabAPI import *
     from tastyAPI import *
@@ -35,13 +36,22 @@ load_dotenv()
 SUPPORTED_BROKERS = [
     "fidelity",
     "firstrade",
+    "public",
     "robinhood",
     "schwab",
     "tastytrade",
     "tradier",
     "webull",
 ]
-DAY1_BROKERS = ["robinhood", "firstrade", "schwab", "tastytrade", "tradier", "webull"]
+DAY1_BROKERS = [
+    "firstrade",
+    "public",
+    "robinhood",
+    "schwab",
+    "tastytrade",
+    "tradier",
+    "webull",
+]
 DISCORD_BOT = False
 DOCKER_MODE = False
 DANGER_MODE = False
@@ -64,7 +74,7 @@ def nicknames(broker):
 
 # Runs the specified function for each broker in the list
 # broker name + type of function
-def fun_run(orderObj: stockOrder, command, loop=None):
+def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
     if command in ["_init", "_holdings", "_transaction"]:
         for broker in orderObj.get_brokers():
             if broker in orderObj.get_notbrokers():
@@ -78,6 +88,10 @@ def fun_run(orderObj: stockOrder, command, loop=None):
                         # Fidelity requires docker mode argument
                         orderObj.set_logged_in(
                             globals()[fun_name](DOCKER=DOCKER_MODE), broker
+                        )
+                    elif broker.lower() == "public":
+                        orderObj.set_logged_in(
+                            globals()[fun_name](botObj=botObj, loop=loop), broker
                         )
                     else:
                         orderObj.set_logged_in(globals()[fun_name](), broker)
@@ -264,17 +278,19 @@ if __name__ == "__main__":
             event_loop = asyncio.get_event_loop()
             try:
                 # Login to brokers
-                await bot.loop.run_in_executor(None, fun_run, discOrdObj, "_init")
+                await bot.loop.run_in_executor(
+                    None, fun_run, discOrdObj, "_init", bot, event_loop
+                )
                 # Validate order object
                 discOrdObj.order_validate()
                 # Get holdings or complete transaction
                 if discOrdObj.get_holdings():
                     await bot.loop.run_in_executor(
-                        None, fun_run, discOrdObj, "_holdings", event_loop
+                        None, fun_run, discOrdObj, "_holdings", None, event_loop
                     )
                 else:
                     await bot.loop.run_in_executor(
-                        None, fun_run, discOrdObj, "_transaction", event_loop
+                        None, fun_run, discOrdObj, "_transaction", None, event_loop
                     )
             except Exception as err:
                 print(traceback.format_exc())
