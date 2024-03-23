@@ -3,7 +3,7 @@ chaseinvest-api==0.1.1
 discord.py==2.3.2
 firstrade==0.0.14
 GitPython==3.1.42
--e git+https://github.com/NelsonDane/public-invest-api.git@abc84ca23cbf765f2ce0a88484c6db3b4b8019b4#egg=public-invest-api
+public-invest-api==1.0.2
 pyotp==2.9.0
 python-dotenv==1.0.1
 requests==2.31.0
