@@ -11,5 +11,5 @@ schwab-api==0.4.0
 selenium==4.18.1
 setuptools==69.2.0
 tastytrade==7.0
--e git+https://github.com/NelsonDane/webull.git@824442ea6a97f76d5a44cf4ea05aa2a0864ee4bc#egg=webull
+-e git+https://github.com/NelsonDane/webull.git@d76cc46b8aefb18ab8a2755a5b51d672655a1ead#egg=webull
 webdriver-manager==4.0.1
