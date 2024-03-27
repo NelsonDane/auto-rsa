@@ -7,8 +7,10 @@ import os
 import subprocess
 import sys
 import textwrap
+import traceback
 from pathlib import Path
 from queue import Queue
+from threading import Thread
 from time import sleep
 
 import pkg_resources
@@ -303,6 +305,33 @@ class Brokerage:
             Account Types: {self.__account_types}
         """
         )
+
+
+class ThreadHandler:
+    def __init__(self, func, *args, **kwargs):
+        self.func = func
+        self.args = args
+        self.kwargs = kwargs
+        self._active_threads = []
+        self.queue = Queue()
+        self.thread = Thread(target=self._run)
+
+    def _run(self):
+        try:
+            result = self.func(*self.args, **self.kwargs)
+            self.queue.put((result, None))
+        except Exception as e:
+            print(traceback.print_exc())
+            self.queue.put((None, e))
+
+    def start(self):
+        self.thread.start()
+
+    def join(self):
+        self.thread.join()
+
+    def get_result(self):
+        return self.queue.get()
 
 
 def updater():

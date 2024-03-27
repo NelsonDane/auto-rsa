@@ -106,6 +106,15 @@ DISCLAIMER: I am not a financial advisor and not affiliated with any of the brok
 
 All brokers: separate account credentials with a colon (":"). For example, `SCHWAB_USERNAME:SCHWAB_PASSWORD`. Separate multiple logins with the same broker with a comma (","). For example, `SCHWAB_USERNAME:SCHWAB_PASSWORD,SCHWAB_USERNAME2:SCHWAB_PASSWORD2`.
 
+#### Chase
+Made by [MaxxRK](https://github.com/MaxxRK/) using the [chaseinvest-api](https://github.com/MaxxRK/chaseinvest-api). Go give them a ⭐
+- `CHASE_USERNAME`
+- `CHASE_PASSWORD`
+- `CELL_PHONE_LAST_FOUR`
+
+`.env` file format:
+- `CHASE=CHASE_USERNAME:CHASE_PASSWORD:CELL_PHONE_LAST_FOUR`
+
 ### Fidelity
 Made by yours truly using Selenium (and many hours of web scraping).
 
@@ -213,8 +222,6 @@ To get your Webull DID, follow this [guide](https://github.com/tedchou12/webull/
 ### 🤷‍♂️ Maybe future brokerages 🤷‍♀️
 #### Ally
 Ally disabled their official API, so all Ally packages don't work. I am attempting to reverse engineer their API, and will add it if I get it working. Otherwise, I will use Selenium or Playwright.
-#### Chase
-In progress on [develop-chase](https://github.com/NelsonDane/auto-rsa/pull/185). Stay tuned.
 #### Vanguard
 Will be added using Selenium or Playwright.
 #### SoFi
