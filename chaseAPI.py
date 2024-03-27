@@ -22,25 +22,6 @@ from helperAPI import (
 def chase_run(
     orderObj: stockOrder, command=None, botObj=None, loop=None, CHASE_EXTERNAL=None
 ):
-    # Set the functions to be run
-    _, second_command = command
-    success = chase_init(CHASE_EXTERNAL=CHASE_EXTERNAL, botObj=botObj, loop=loop)
-    if success is not None:
-        orderObj.set_logged_in(success, "chase")
-        if second_command == "_holdings":
-            chase_holdings(success, loop=loop)
-        else:
-            chase_transaction(success, orderObj, loop=loop)
-
-
-def get_account_id(account_connectors, value):
-    for key, val in account_connectors.items():
-        if val[0] == value:
-            return key
-    return None
-
-
-def chase_init(CHASE_EXTERNAL=None, botObj=None, loop=None):
     # Initialize .env file
     load_dotenv()
     # Import Chase account
@@ -52,46 +33,67 @@ def chase_init(CHASE_EXTERNAL=None, botObj=None, loop=None):
         if CHASE_EXTERNAL is None
         else CHASE_EXTERNAL.strip().split(",")
     )
+    # Set the functions to be run
+    _, second_command = command
+    
+    for account in accounts:
+        index = accounts.index(account) + 1
+        success = chase_init(account=account, index=index, CHASE_EXTERNAL=CHASE_EXTERNAL, botObj=botObj, loop=loop)
+        if success is not None:
+            orderObj.set_logged_in(success, "chase")
+            if second_command == "_holdings":
+                chase_holdings(success, loop=loop)
+            else:
+                chase_transaction(success, orderObj, loop=loop)
+
+
+def get_account_id(account_connectors, value):
+    for key, val in account_connectors.items():
+        if val[0] == value:
+            return key
+    return None
+
+
+def chase_init(account, index, CHASE_EXTERNAL=None, botObj=None, loop=None):
+    
     # Log in to Chase account
     print("Logging in to Chase...")
     chase_obj = Brokerage("Chase")
-    for account in accounts:
-        index = accounts.index(account) + 1
-        name = f"Chase {index}"
-        try:
-            account = account.split(":")
-            ch_session = session.ChaseSession(
-                title=f"chase_{index}", headless=False, profile_path="./creds"
-            )
-            need_second = ch_session.login(account[0], account[1], account[2])
-            if need_second:
-                if botObj is None and loop is None:
-                    ch_session.login_two(input("Enter code: "))
-                else:
-                    sms_code = asyncio.run_coroutine_threadsafe(
-                        getSMSCodeDiscord(botObj, name, code_len=8, loop=loop), loop
-                    ).result()
-                    if sms_code is None:
-                        raise Exception(
-                            f"Chase {index} code not received in time...", loop
-                        )
-                    ch_session.login_two(sms_code)
-            all_accounts = ch_account.AllAccount(ch_session)
-            account_ids = list(all_accounts.account_connectors.keys())
-            print("Logged in to Chase!")
-            chase_obj.set_logged_in_object(name, ch_session)
-            print_accounts = []
-            for account in account_ids:
-                account = ch_account.AccountDetails(account, all_accounts)
-                chase_obj.set_account_number(name, account.mask)
-                chase_obj.set_account_totals(name, account.mask, account.account_value)
-                print_accounts.append(account.mask)
-            print(f"The following Chase accounts were found: {print_accounts}")
-        except Exception as e:
-            ch_session.close_browser()
-            print(f"Error logging in to Chase: {e}")
-            print(traceback.format_exc())
-            return None
+    name = f"Chase {index}"
+    try:
+        account = account.split(":")
+        ch_session = session.ChaseSession(
+            title=f"chase_{index}", headless=False, profile_path="./creds"
+        )
+        need_second = ch_session.login(account[0], account[1], account[2])
+        if need_second:
+            if botObj is None and loop is None:
+                ch_session.login_two(input("Enter code: "))
+            else:
+                sms_code = asyncio.run_coroutine_threadsafe(
+                    getSMSCodeDiscord(botObj, name, code_len=8, loop=loop), loop
+                ).result()
+                if sms_code is None:
+                    raise Exception(
+                        f"Chase {index} code not received in time...", loop
+                    )
+                ch_session.login_two(sms_code)
+        all_accounts = ch_account.AllAccount(ch_session)
+        account_ids = list(all_accounts.account_connectors.keys())
+        print("Logged in to Chase!")
+        chase_obj.set_logged_in_object(name, ch_session)
+        print_accounts = []
+        for account in account_ids:
+            account = ch_account.AccountDetails(account, all_accounts)
+            chase_obj.set_account_number(name, account.mask)
+            chase_obj.set_account_totals(name, account.mask, account.account_value)
+            print_accounts.append(account.mask)
+        print(f"The following Chase accounts were found: {print_accounts}")
+    except Exception as e:
+        ch_session.close_browser()
+        print(f"Error logging in to Chase: {e}")
+        print(traceback.format_exc())
+        return None
     return chase_obj
 
 
@@ -198,12 +200,10 @@ def chase_transaction(chase_o: Brokerage, orderObj: stockOrder, loop=None):
                         printAndDiscord(
                             (
                                 f"{key} account {account}: The order verification was "
-                                + (
-                                    "successful"
+                                + ("successful"
                                     if messages["ORDER PREVIEW"]
                                     not in ["", "No order preview page found."]
-                                    else "unsuccessful"
-                                )
+                                    else "unsuccessful")
                             ),
                             loop,
                         )
@@ -220,15 +220,13 @@ def chase_transaction(chase_o: Brokerage, orderObj: stockOrder, loop=None):
                         printAndDiscord(
                             (
                                 f"{key} account {account}: The order verification was "
-                                + (
-                                    "successful"
+                                + ("successful"
                                     if messages["ORDER CONFIRMATION"]
                                     not in [
                                         "",
                                         "No order confirmation page found. Order Failed.",
                                     ]
-                                    else "unsuccessful"
-                                )
+                                    else "unsuccessful")
                             ),
                             loop,
                         )
