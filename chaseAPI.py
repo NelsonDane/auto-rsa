@@ -45,6 +45,7 @@ def chase_run(
                 chase_holdings(success, loop=loop)
             else:
                 chase_transaction(success, orderObj, loop=loop)
+    return None
 
 
 def get_account_id(account_connectors, value):
