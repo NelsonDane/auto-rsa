@@ -106,6 +106,8 @@ DISCLAIMER: I am not a financial advisor and not affiliated with any of the brok
 
 All brokers: separate account credentials with a colon (":"). For example, `SCHWAB_USERNAME:SCHWAB_PASSWORD`. Separate multiple logins with the same broker with a comma (","). For example, `SCHWAB_USERNAME:SCHWAB_PASSWORD,SCHWAB_USERNAME2:SCHWAB_PASSWORD2`.
 
+Some brokerages require `Playwright` to run. On Windows, the `playwright install` command might not be recognized. If this is the case, run `python -m playwright install` instead.
+
 #### Chase
 Made by [MaxxRK](https://github.com/MaxxRK/) using the [chaseinvest-api](https://github.com/MaxxRK/chaseinvest-api). Go give them a ⭐
 - `CHASE_USERNAME`
@@ -179,8 +181,6 @@ Required `.env` variables:
 To get your TOTP secret, follow this [guide](guides/schwabSetup.md).
 
 Note 1: Think or Swim must be enabled on all accounts. To enable, go to `Trade` > `Trading Platforms` > `Learn how to enable thinkorswim`. Then press `Continue` and expand the `thinkorswim Access Agreement` and accept it. Then press `Continue` again. Then select the checkbox for all available accounts and press `Submit`. It may take a day or two for the accounts to be enabled.
-
-Note 2: If you are using Windows, you may need to install playwright manually. See [this guide](guides/playwrightWindows.md) for more information.
 
 ### Tradier
 Made by yours truly using the official [Tradier API](https://documentation.tradier.com/brokerage-api/trading/getting-started). Consider giving me a ⭐
