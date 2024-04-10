@@ -61,8 +61,7 @@ def get_account_id(account_connectors, value):
     return None
 
 
-def chase_init(account, index, CHASE_EXTERNAL=None, botObj=None, loop=None):
-
+def chase_init(account, index, botObj=None, loop=None):
     # Log in to Chase account
     print("Logging in to Chase...")
     chase_obj = Brokerage("Chase")
@@ -88,8 +87,8 @@ def chase_init(account, index, CHASE_EXTERNAL=None, botObj=None, loop=None):
         print("Logged in to Chase!")
         chase_obj.set_logged_in_object(name, ch_session)
         print_accounts = []
-        for account in account_ids:
-            account = ch_account.AccountDetails(account, all_accounts)
+        for acct in account_ids:
+            account = ch_account.AccountDetails(acct, all_accounts)
             chase_obj.set_account_number(name, account.mask)
             chase_obj.set_account_totals(name, account.mask, account.account_value)
             print_accounts.append(account.mask)
