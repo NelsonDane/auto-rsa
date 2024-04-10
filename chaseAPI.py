@@ -41,7 +41,6 @@ def chase_run(
         success = chase_init(
             account=account,
             index=index,
-            CHASE_EXTERNAL=CHASE_EXTERNAL,
             botObj=botObj,
             loop=loop,
         )
