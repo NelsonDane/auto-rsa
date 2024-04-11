@@ -141,6 +141,8 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
                 obj: webull = wbo.get_logged_in_objects(key, "wb")
                 internal_account = wbo.get_logged_in_objects(key, account)
                 if not orderObj.get_dry():
+                    old_amount = orderObj.get_amount()
+                    original_action = orderObj.get_action()
                     try:
                         if orderObj.get_price() == "market":
                             orderObj.set_price("MKT")
@@ -163,7 +165,6 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
                                 f"Buying {big_amount} then selling {big_amount - orderObj.get_amount()} of {s}"
                             )
                             # Under $1, buy 100 shares and sell 100 - amount
-                            old_amount = orderObj.get_amount()
                             orderObj.set_amount(big_amount)
                             buy_success = place_order(
                                 obj, internal_account, orderObj, s
@@ -173,9 +174,6 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
                             orderObj.set_amount(big_amount - old_amount)
                             orderObj.set_action("sell")
                             order = place_order(obj, internal_account, orderObj, s)
-                            # Restore orderObj
-                            orderObj.set_amount(old_amount)
-                            orderObj.set_action("buy")
                             if not order:
                                 raise Exception(
                                     f"Error selling {big_amount - old_amount} of {s}"
@@ -194,6 +192,10 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
                         )
                         print(traceback.format_exc())
                         continue
+                    finally:
+                        # Restore orderObj
+                        orderObj.set_amount(old_amount)
+                        orderObj.set_action(original_action)
                 else:
                     printAndDiscord(
                         f"{key} {print_account}: Running in DRY mode. Transaction would've been: {orderObj.get_action()} {orderObj.get_amount()} of {s}",
