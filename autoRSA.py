@@ -125,6 +125,7 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                 else:
                     orderObj.set_logged_in(globals()[fun_name](), broker)
 
+                print()
                 if broker.lower() != "chase":
                     # Verify broker is logged in
                     orderObj.order_validate(preLogin=False)
@@ -224,6 +225,7 @@ if __name__ == "__main__":
         updater()
         check_package_versions()
         print("Running bot from command line")
+        print()
         cliOrderObj = argParser(sys.argv[1:])
         if not cliOrderObj.get_holdings():
             print(f"Action: {cliOrderObj.get_action()}")
