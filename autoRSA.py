@@ -14,6 +14,7 @@ try:
 
     # Custom API libraries
     from chaseAPI import *
+    from fennelAPI import *
     from fidelityAPI import *
     from firstradeAPI import *
     from helperAPI import (
@@ -42,6 +43,7 @@ load_dotenv()
 # Global variables
 SUPPORTED_BROKERS = [
     "chase",
+    "fennel",
     "fidelity",
     "firstrade",
     "public",
@@ -53,6 +55,7 @@ SUPPORTED_BROKERS = [
 ]
 DAY1_BROKERS = [
     "chase",
+    "fennel",
     "firstrade",
     "public",
     "robinhood",
