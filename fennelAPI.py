@@ -69,7 +69,9 @@ def fennel_init(FENNEL_EXTERNAL=None, botObj=None, loop=None):
             fennel_obj.set_logged_in_object(name, fb)
             fennel_obj.set_account_number(name, an)
             total_cash = fb.get_portfolio_summary()
-            fennel_obj.set_account_totals(name, an, total_cash["cash"]["balance"]["canTrade"])
+            fennel_obj.set_account_totals(
+                name, an, total_cash["cash"]["balance"]["canTrade"]
+            )
             print(f"{name}: Logged in")
         except Exception as e:
             print(f"Error logging into Fennel: {e}")
