@@ -44,6 +44,7 @@ RUN playwright install && \
 COPY ./autoRSA.py .
 COPY ./entrypoint.sh .
 COPY ./chaseAPI.py .
+COPY ./fennelAPI.py .
 COPY ./fidelityAPI.py .
 COPY ./firstradeAPI.py .
 COPY ./helperAPI.py .
