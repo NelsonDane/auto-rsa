@@ -246,7 +246,6 @@ def chase_transaction(chase_o: Brokerage, orderObj: stockOrder, loop=None):
                                 loop,
                             )
             except Exception as e:
-                obj.close_browser()
                 printAndDiscord(f"{key} {account}: Error submitting order: {e}", loop)
                 print(traceback.format_exc())
                 continue
