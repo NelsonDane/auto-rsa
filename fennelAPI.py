@@ -7,7 +7,7 @@ from fennel_invest_api import Fennel
 
 from helperAPI import (
     Brokerage,
-    getSMSCodeDiscord,
+    getOTPCodeDiscord,
     maskString,
     printAndDiscord,
     printHoldings,
@@ -51,16 +51,16 @@ def fennel_init(FENNEL_EXTERNAL=None, botObj=None, loop=None):
                 if "2FA" in str(e) and botObj is not None and loop is not None:
                     # Sometimes codes take a long time to arrive
                     timeout = 300  # 5 minutes
-                    sms_code = asyncio.run_coroutine_threadsafe(
-                        getSMSCodeDiscord(botObj, name, timeout=timeout, loop=loop),
+                    otp_code = asyncio.run_coroutine_threadsafe(
+                        getOTPCodeDiscord(botObj, name, timeout=timeout, loop=loop),
                         loop,
                     ).result()
-                    if sms_code is None:
+                    if otp_code is None:
                         raise Exception("No 2FA code found")
                     fb.login(
                         email=account,
                         wait_for_code=False,
-                        code=sms_code,
+                        code=otp_code,
                     )
                 else:
                     raise e
