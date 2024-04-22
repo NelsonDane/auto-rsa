@@ -101,8 +101,8 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                     orderObj.set_logged_in(
                         globals()[fun_name](DOCKER=DOCKER_MODE), broker
                     )
-                elif broker.lower() == "public":
-                    # Public requires bot object
+                elif broker.lower() in ["fennel", "public"]:
+                    # Requires bot object and loop
                     orderObj.set_logged_in(
                         globals()[fun_name](botObj=botObj, loop=loop), broker
                     )
