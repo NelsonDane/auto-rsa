@@ -1,7 +1,7 @@
 asyncio==3.4.3
 chaseinvest-api==0.1.1
 discord.py==2.3.2
-fennel-invest-api==1.0.2
+fennel-invest-api==1.0.3
 firstrade==0.0.15
 GitPython==3.1.43
 public-invest-api==1.0.2
