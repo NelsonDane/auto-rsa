@@ -7,7 +7,7 @@ from public_invest_api import Public
 
 from helperAPI import (
     Brokerage,
-    getSMSCodeDiscord,
+    getOTPCodeDiscord,
     maskString,
     printAndDiscord,
     printHoldings,
@@ -55,7 +55,7 @@ def public_init(PUBLIC_EXTERNAL=None, botObj=None, loop=None):
                     # Sometimes codes take a long time to arrive
                     timeout = 300  # 5 minutes
                     sms_code = asyncio.run_coroutine_threadsafe(
-                        getSMSCodeDiscord(botObj, name, timeout=timeout, loop=loop),
+                        getOTPCodeDiscord(botObj, name, timeout=timeout, loop=loop),
                         loop,
                     ).result()
                     if sms_code is None:

@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 
 from helperAPI import (
     Brokerage,
-    getSMSCodeDiscord,
+    getOTPCodeDiscord,
     printAndDiscord,
     printHoldings,
     stockOrder,
@@ -76,7 +76,7 @@ def chase_init(account, index, botObj=None, loop=None):
                 ch_session.login_two(input("Enter code: "))
             else:
                 sms_code = asyncio.run_coroutine_threadsafe(
-                    getSMSCodeDiscord(botObj, name, code_len=8, loop=loop), loop
+                    getOTPCodeDiscord(botObj, name, code_len=8, loop=loop), loop
                 ).result()
                 if sms_code is None:
                     raise Exception(f"Chase {index} code not received in time...", loop)
