@@ -162,9 +162,7 @@ Required `.env` variables:
 - With 2fa: `ROBINHOOD=ROBINHOOD_USERNAME:ROBINHOOD_PASSWORD:ROBINHOOD_TOTP`
 - Without 2fa: `ROBINHOOD=ROBINHOOD_USERNAME:ROBINHOOD_PASSWORD:NA`
 
-If you don't have an IRA account or only have one, then you can omit the last field or set it to NA.
-
-Configuring 2fa can be tricky, read the TOTP section [here](https://github.com/jmfernandes/robin_stocks/blob/master/Robinhood.rst#with-mfa-entered-programmatically-from-time-based-one-time-password-totp).
+Configuring 2fa can be tricky, so follow this [guide](guides/robinhoodSetup.md).
 
 ### Schwab
 Made using the [schwab-api](https://github.com/itsjafer/schwab-api). Go give them a ⭐
