@@ -89,9 +89,7 @@ def tradier_init(TRADIER_EXTERNAL=None):
                 at = json_response["profile"]["account"][x]["type"]
             print(maskString(an))
             tradier_obj.set_account_number(name, an)
-            tradier_obj.set_account_type(
-                name, an, at
-            )
+            tradier_obj.set_account_type(name, an, at)
             # Get balances
             json_balances = make_request(f"accounts/{an}/balances", account)
             if json_balances is None:
