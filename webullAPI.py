@@ -156,7 +156,9 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
                         askPrice = float(askList[0]["price"]) if askList != [] else 0
                         bidPrice = float(bidList[0]["price"]) if bidList != [] else 0
                         should_dance = False
-                        if (askPrice * orderObj.get_amount()) < 1 or (bidPrice * orderObj.get_amount()) < 1:
+                        if (askPrice * orderObj.get_amount()) < 1 or (
+                            bidPrice * orderObj.get_amount()
+                        ) < 1:
                             should_dance = True
                         if should_dance and orderObj.get_action() == "buy":
                             big_amount = (
