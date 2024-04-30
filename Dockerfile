@@ -19,16 +19,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xvfb \
 && rm -rf /var/lib/apt/lists/*
 
-# CD into app
-WORKDIR /app
-COPY . .
-
 # Install python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+COPY ./requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
 
 # Install playwright
 RUN playwright install && \
     playwright install-deps
+
+# CD into app
+WORKDIR /app
+COPY . .
 
 # Make the entrypoint executable
 RUN dos2unix entrypoint.sh && \
