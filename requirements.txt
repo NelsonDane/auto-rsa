@@ -10,7 +10,5 @@ requests==2.31.0
 -e git+https://github.com/NelsonDane/robin_stocks.git@f490a2eb0d5fc53afc93e077b3ea2a555124e105#egg=robin-stocks
 schwab-api==0.4.0
 selenium==4.20.0
-setuptools==69.5.1
 tastytrade==8.0
 -e git+https://github.com/NelsonDane/webull.git@ef14ae63f9e1436fbea77fe864df54847cf2f730#egg=webull
-webdriver-manager==4.0.1
