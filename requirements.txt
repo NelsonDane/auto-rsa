@@ -3,7 +3,7 @@ chaseinvest-api==0.1.1
 discord.py==2.3.2
 firstrade==0.0.15
 GitPython==3.1.43
-public-invest-api==1.0.2
+public-invest-api==1.0.3
 pyotp==2.9.0
 python-dotenv==1.0.1
 requests==2.31.0
