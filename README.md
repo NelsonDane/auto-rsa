@@ -217,11 +217,24 @@ Your `WEBULL_USERNAME` can be your email or phone number. If using a phone numbe
 
 To get your Webull DID, follow this [guide](https://github.com/tedchou12/webull/wiki/Workaround-for-Login-%E2%80%90-Method-2).
 
+### Vanguard
+Made by [MaxxRK](https://github.com/MaxxRK/) using the [vanguard-api](https://github.com/MaxxRK/vanguard-api). Go give them a ⭐
+
+Required `.env` variables:
+- `VANGUARD_USERNAME`
+- `VANGUARD_PASSWORD`
+- `CELL_PHONE_LAST_FOUR`
+
+Optional `.env` variables:
+- `DEBUG` (Set to `True` to enable debug mode)
+
+`.env` file format:
+- `VANGUARD=VANGUARD_USERNAME:VANGUARD_PASSWORD:PHONE_LAST_FOUR:DEBUG`
+
+
 ### 🤷‍♂️ Maybe future brokerages 🤷‍♀️
 #### Ally
 Ally disabled their official API, so all Ally packages don't work. I am attempting to reverse engineer their API, and will add it if I get it working. Otherwise, I will use Selenium or Playwright.
-#### Vanguard
-Will be added using Selenium or Playwright.
 #### SoFi
 Will be added using Selenium or Playwright.
 ### 👎 Never working brokerages 👎

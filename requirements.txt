@@ -1,5 +1,5 @@
 asyncio==3.4.3
-chaseinvest-api==0.1.1
+chaseinvest-api==0.1.4
 discord.py==2.3.2
 firstrade==0.0.15
 GitPython==3.1.43
@@ -11,4 +11,5 @@ requests==2.31.0
 schwab-api==0.4.0
 selenium==4.20.0
 tastytrade==8.0
+vanguard-api==0.0.5
 -e git+https://github.com/NelsonDane/webull.git@ef14ae63f9e1436fbea77fe864df54847cf2f730#egg=webull
