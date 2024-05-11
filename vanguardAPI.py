@@ -62,7 +62,7 @@ def vanguard_init(account, index, botObj=None, loop=None):
         debug = bool(account[3]) if len(account) == 4 else False
         vg_session = session.VanguardSession(
             title=f"Vanguard_{index}",
-            headless=False,
+            headless=True,
             profile_path="./creds",
             debug=debug
         )
