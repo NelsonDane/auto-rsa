@@ -1,13 +1,13 @@
 asyncio==3.4.3
 chaseinvest-api==0.1.4
 discord.py==2.3.2
-firstrade==0.0.15
+firstrade==0.0.17
 GitPython==3.1.43
-public-invest-api==1.0.2
+public-invest-api==1.0.4
 pyotp==2.9.0
 python-dotenv==1.0.1
 requests==2.31.0
--e git+https://github.com/NelsonDane/robin_stocks.git@f490a2eb0d5fc53afc93e077b3ea2a555124e105#egg=robin-stocks
+robin-stocks==3.1.0
 schwab-api==0.4.0
 selenium==4.20.0
 tastytrade==8.0
