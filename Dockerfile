@@ -13,6 +13,7 @@ ENV DISPLAY :99
 # Install python, pip, and tzdata
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
+    chromium-driver \
     dos2unix \
     git \
     tzdata \
@@ -24,7 +25,7 @@ COPY ./requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
 # Install playwright
-RUN playwright install && \
+RUN playwright install firefox && \
     playwright install-deps
 
 # CD into app
