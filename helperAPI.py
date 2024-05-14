@@ -498,7 +498,7 @@ def getDriver(DOCKER=False):
             options.add_argument("--disable-gpu")
             # Docker uses specific chromedriver installed via apt
             driver = webdriver.Chrome(
-                service=ChromiumService(),
+                service=ChromiumService("/usr/bin/chromedriver"),
                 options=options,
             )
         else:
