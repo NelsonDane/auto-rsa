@@ -83,16 +83,16 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
             try:
                 WebDriverWait(driver, 10).until(
                     expected_conditions.element_to_be_clickable(
-                        (By.CSS_SELECTOR, "#userId-input")
+                        (By.CSS_SELECTOR, "#dom-username-input")
                     )
                 )
-                username_selector = "#userId-input"
-                password_selector = "#password"
-                login_btn_selector = "#fs-login-button"
-            except TimeoutException:
                 username_selector = "#dom-username-input"
                 password_selector = "#dom-pswd-input"
                 login_btn_selector = "#dom-login-button > div"
+            except TimeoutException:
+                username_selector = "#userId-input"
+                password_selector = "#password"
+                login_btn_selector = "#fs-login-button"
             WebDriverWait(driver, 10).until(
                 expected_conditions.element_to_be_clickable(
                     (By.CSS_SELECTOR, username_selector)
@@ -109,8 +109,8 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
             driver.find_element(by=By.CSS_SELECTOR, value=login_btn_selector).click()
             WebDriverWait(driver, 10).until(check_if_page_loaded)
             sleep(3)
-            # Retry the login if we get an error page
             try:
+                # Look for: Sorry, we can't complete this action right now. Please try again.
                 go_back_selector = "#dom-sys-err-go-to-login-button > span > s-slot > s-assigned-wrapper"
                 WebDriverWait(driver, 10).until(
                     expected_conditions.element_to_be_clickable(
