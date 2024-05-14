@@ -83,16 +83,16 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
             try:
                 WebDriverWait(driver, 10).until(
                     expected_conditions.element_to_be_clickable(
-                        (By.CSS_SELECTOR, "#userId-input")
+                        (By.CSS_SELECTOR, "#dom-username-input")
                     )
                 )
-                username_selector = "#userId-input"
-                password_selector = "#password"
-                login_btn_selector = "#fs-login-button"
-            except TimeoutException:
                 username_selector = "#dom-username-input"
                 password_selector = "#dom-pswd-input"
                 login_btn_selector = "#dom-login-button > div"
+            except TimeoutException:
+                username_selector = "#userId-input"
+                password_selector = "#password"
+                login_btn_selector = "#fs-login-button"
             WebDriverWait(driver, 10).until(
                 expected_conditions.element_to_be_clickable(
                     (By.CSS_SELECTOR, username_selector)
@@ -109,8 +109,8 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
             driver.find_element(by=By.CSS_SELECTOR, value=login_btn_selector).click()
             WebDriverWait(driver, 10).until(check_if_page_loaded)
             sleep(3)
-            # Retry the login if we get an error page
             try:
+                # Look for: Sorry, we can't complete this action right now. Please try again.
                 go_back_selector = "#dom-sys-err-go-to-login-button > span > s-slot > s-assigned-wrapper"
                 WebDriverWait(driver, 10).until(
                     expected_conditions.element_to_be_clickable(
@@ -310,14 +310,13 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                     by=By.CSS_SELECTOR, value="#ett-acct-sel-list"
                 )
                 accounts_list = test.find_elements(by=By.CSS_SELECTOR, value="li")
-                print(f"Number of accounts: {len(accounts_list)}")
                 number_of_accounts = len(accounts_list)
                 # Click a second time to clear the account list
                 driver.execute_script("arguments[0].click();", accounts_dropdown)
             except Exception as e:
-                print(f"Error: No accounts foundin dropdown: {e}")
-                traceback.print_exc()
-                return
+                fidelity_error(driver, f"No accounts found in dropdown: {e}")
+                killSeleniumDriver(fidelity_o)
+                return None
             # Complete on each account
             # Because of stale elements, we need to re-find the elements each time
             for x in range(number_of_accounts):
@@ -354,10 +353,12 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                     try:
                         driver.find_element(
                             by=By.CSS_SELECTOR,
-                            value="body > div.app-body > ap122489-ett-component > div > order-entry > div.eq-ticket.order-entry__container-height > div > div > form > div.order-entry__container-content.scroll > div:nth-child(2) > symbol-search > div > div.eq-ticket--border-top > div > div:nth-child(2) > div > div > div > pvd3-inline-alert > s-root > div > div.pvd-inline-alert__content > s-slot > s-assigned-wrapper",
+                            value="body > div.app-body > ap122489-ett-component > div > order-entry-base > div > div > div.order-entry__container-content.scroll > div > equity-order-selection > div:nth-child(1) > symbol-search > div > div.eq-ticket--border-top > div > div:nth-child(2) > div > div > div > pvd3-inline-alert > s-root > div > div.pvd-inline-alert__content > s-slot > s-assigned-wrapper",
                         )
-                        print(f"Error: Symbol {s} not found")
-                        return
+                        printAndDiscord(f"{key} Error: Symbol {s} not found", loop)
+                        print()
+                        killSeleniumDriver(fidelity_o)
+                        return None
                     except Exception:
                         pass
                     # Get last price
