@@ -310,7 +310,6 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                     by=By.CSS_SELECTOR, value="#ett-acct-sel-list"
                 )
                 accounts_list = test.find_elements(by=By.CSS_SELECTOR, value="li")
-                print(f"Number of accounts: {len(accounts_list)}")
                 number_of_accounts = len(accounts_list)
                 # Click a second time to clear the account list
                 driver.execute_script("arguments[0].click();", accounts_dropdown)
@@ -354,10 +353,14 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                     try:
                         driver.find_element(
                             by=By.CSS_SELECTOR,
-                            value="body > div.app-body > ap122489-ett-component > div > order-entry > div.eq-ticket.order-entry__container-height > div > div > form > div.order-entry__container-content.scroll > div:nth-child(2) > symbol-search > div > div.eq-ticket--border-top > div > div:nth-child(2) > div > div > div > pvd3-inline-alert > s-root > div > div.pvd-inline-alert__content > s-slot > s-assigned-wrapper",
+                            value="body > div.app-body > ap122489-ett-component > div > order-entry-base > div > div > div.order-entry__container-content.scroll > div > equity-order-selection > div:nth-child(1) > symbol-search > div > div.eq-ticket--border-top > div > div:nth-child(2) > div > div > div > pvd3-inline-alert > s-root > div > div.pvd-inline-alert__content > s-slot > s-assigned-wrapper",
                         )
-                        print(f"Error: Symbol {s} not found")
-                        return
+                        printAndDiscord(
+                            f"{key} Error: Symbol {s} not found", loop
+                        )
+                        print()
+                        killSeleniumDriver(fidelity_o)
+                        return None
                     except Exception:
                         pass
                     # Get last price
