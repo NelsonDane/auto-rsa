@@ -355,9 +355,7 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                             by=By.CSS_SELECTOR,
                             value="body > div.app-body > ap122489-ett-component > div > order-entry-base > div > div > div.order-entry__container-content.scroll > div > equity-order-selection > div:nth-child(1) > symbol-search > div > div.eq-ticket--border-top > div > div:nth-child(2) > div > div > div > pvd3-inline-alert > s-root > div > div.pvd-inline-alert__content > s-slot > s-assigned-wrapper",
                         )
-                        printAndDiscord(
-                            f"{key} Error: Symbol {s} not found", loop
-                        )
+                        printAndDiscord(f"{key} Error: Symbol {s} not found", loop)
                         print()
                         killSeleniumDriver(fidelity_o)
                         return None
