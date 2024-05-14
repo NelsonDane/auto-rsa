@@ -314,9 +314,9 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                 # Click a second time to clear the account list
                 driver.execute_script("arguments[0].click();", accounts_dropdown)
             except Exception as e:
-                print(f"Error: No accounts foundin dropdown: {e}")
-                traceback.print_exc()
-                return
+                fidelity_error(driver, f"No accounts found in dropdown: {e}")
+                killSeleniumDriver(fidelity_o)
+                return None
             # Complete on each account
             # Because of stale elements, we need to re-find the elements each time
             for x in range(number_of_accounts):
@@ -355,9 +355,7 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                             by=By.CSS_SELECTOR,
                             value="body > div.app-body > ap122489-ett-component > div > order-entry-base > div > div > div.order-entry__container-content.scroll > div > equity-order-selection > div:nth-child(1) > symbol-search > div > div.eq-ticket--border-top > div > div:nth-child(2) > div > div > div > pvd3-inline-alert > s-root > div > div.pvd-inline-alert__content > s-slot > s-assigned-wrapper",
                         )
-                        printAndDiscord(
-                            f"{key} Error: Symbol {s} not found", loop
-                        )
+                        printAndDiscord(f"{key} Error: Symbol {s} not found", loop)
                         print()
                         killSeleniumDriver(fidelity_o)
                         return None
