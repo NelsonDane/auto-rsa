@@ -72,13 +72,13 @@ def vanguard_init(account, index, botObj=None, loop=None):
                 vg_session.login_two(input("Enter code: "))
             else:
                 sms_code = asyncio.run_coroutine_threadsafe(
-                    getOTPCodeDiscord(botObj, name, code_len=8, loop=loop), loop
+                    getOTPCodeDiscord(botObj, name, timeout=120, loop=loop), loop
                 ).result()
                 if sms_code is None:
                     raise Exception(f"Vanguard {index} code not received in time...", loop)
                 vg_session.login_two(sms_code)
         all_accounts = vg_account.AllAccount(vg_session)
-        success = all_accounts.get_holdings()
+        success = all_accounts.get_account_ids()
         if success is False:
             raise Exception("Error getting account details")
         print("Logged in to Vanguard!")
