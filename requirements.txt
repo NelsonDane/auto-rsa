@@ -10,6 +10,6 @@ python-dotenv==1.0.1
 requests==2.31.0
 robin-stocks==3.1.0
 schwab-api==0.4.0
-selenium==4.20.0
+selenium==4.21.0
 tastytrade==8.0
 -e git+https://github.com/NelsonDane/webull.git@ef14ae63f9e1436fbea77fe864df54847cf2f730#egg=webull
