@@ -227,7 +227,7 @@ def vanguard_transaction(vanguard_o: Brokerage, orderObj: stockOrder, loop=None)
                 printAndDiscord(f"{key} {print_account}: Error submitting order: {e}", loop)
                 print(traceback.format_exc())
                 continue
-        obj.close_browser()
+    obj.close_browser()
     printAndDiscord(
         "All Vanguard transactions complete",
         loop,
