@@ -110,7 +110,7 @@ def vanguard_holdings(vanguard_o: Brokerage, loop=None):
                 for account in all_accounts.accounts_positions.keys():
                     for type in all_accounts.accounts_positions[account].keys():
                         for stock in all_accounts.accounts_positions[account][type]:
-                            if int(stock["quantity"]) != 0:
+                            if float(stock["quantity"]) != 0:
                                 vanguard_o.set_holdings(key, account, stock["symbol"], stock["quantity"], stock["price"])
             else:
                 raise Exception("Vanguard-api failed to retrieve holdings.")
