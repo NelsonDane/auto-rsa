@@ -79,7 +79,7 @@ def vanguard_init(account, index, botObj=None, loop=None):
                 vg_session.login_two(sms_code)
         all_accounts = vg_account.AllAccount(vg_session)
         success = all_accounts.get_account_ids()
-        if success is False:
+        if not success:
             raise Exception("Error getting account details")
         print("Logged in to Vanguard!")
         vanguard_obj.set_logged_in_object(name, vg_session)
@@ -110,7 +110,8 @@ def vanguard_holdings(vanguard_o: Brokerage, loop=None):
                 for account in all_accounts.accounts_positions.keys():
                     for type in all_accounts.accounts_positions[account].keys():
                         for stock in all_accounts.accounts_positions[account][type]:
-                            vanguard_o.set_holdings(key, account, stock["symbol"], stock["quantity"], stock["price"])
+                            if int(stock["quantity"]) != 0:
+                                vanguard_o.set_holdings(key, account, stock["symbol"], stock["quantity"], stock["price"])
             else:
                 raise Exception("Vanguard-api failed to retrieve holdings.")
         except Exception as e:
