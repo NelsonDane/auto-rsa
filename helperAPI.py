@@ -630,7 +630,7 @@ def maskString(string):
     return masked
 
 
-def printHoldings(brokerObj: Brokerage, loop=None):
+def printHoldings(brokerObj: Brokerage, loop=None, mask=True):
     # Helper function for holdings formatting
     printAndDiscord(
         f"==============================\n{brokerObj.get_name()} Holdings\n==============================",
@@ -638,7 +638,7 @@ def printHoldings(brokerObj: Brokerage, loop=None):
     )
     for key in brokerObj.get_account_numbers():
         for account in brokerObj.get_account_numbers(key):
-            printAndDiscord(f"{key} ({maskString(account)}):", loop)
+            printAndDiscord(f"{key} ({maskString(account) if mask else account})", loop)
             holdings = brokerObj.get_holdings(key, account)
             if holdings == {}:
                 printAndDiscord("No holdings in Account\n", loop)
