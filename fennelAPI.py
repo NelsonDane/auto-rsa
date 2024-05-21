@@ -122,18 +122,21 @@ def fennel_transaction(fbo: Brokerage, orderObj: stockOrder, loop=None):
                 loop,
             )
             for account in fbo.get_account_numbers(key):
-                obj: Fennel = fbo.get_logged_in_objects(key)
-                print_account = maskString(account)
+                obj: Fennel = fbo.get_logged_in_objects(key, "fb")
+                account_id = fbo.get_logged_in_objects(key, account)
                 try:
                     order = obj.place_order(
+                        account_id=account_id,
                         ticker=s,
                         quantity=orderObj.get_amount(),
                         side=orderObj.get_action(),
                         dry_run=orderObj.get_dry(),
                     )
-                    print(f"{key}: {order}")
+                    message = "Success"
+                    if order.get("data", {}).get("createOrder") != "pending":
+                        message = order.get("data", {}).get("createOrder")
                     printAndDiscord(
-                        f"{key}: {orderObj.get_action()} {orderObj.get_amount()} of {s} in {print_account}: {order}",
+                        f"{key}: {orderObj.get_action()} {orderObj.get_amount()} of {s} in {account}: {message}",
                         loop,
                     )
                 except Exception as e:
