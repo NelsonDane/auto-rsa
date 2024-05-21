@@ -8,7 +8,6 @@ from fennel_invest_api import Fennel
 from helperAPI import (
     Brokerage,
     getOTPCodeDiscord,
-    maskString,
     printAndDiscord,
     printHoldings,
     stockOrder,
