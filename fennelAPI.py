@@ -64,14 +64,17 @@ def fennel_init(FENNEL_EXTERNAL=None, botObj=None, loop=None):
                     )
                 else:
                     raise e
-            # Fenneldoesn't expose the account number
-            an = "00000000"
-            fennel_obj.set_logged_in_object(name, fb)
-            fennel_obj.set_account_number(name, an)
-            total_cash = fb.get_portfolio_summary()
-            fennel_obj.set_account_totals(
-                name, an, total_cash["cash"]["balance"]["canTrade"]
-            )
+            fennel_obj.set_logged_in_object(name, fb, "fb")
+            full_accounts = fb.get_full_accounts()
+            for a in full_accounts:
+                fennel_obj.set_account_number(name, a["name"])
+                fennel_obj.set_account_totals(
+                    name,
+                    a["name"],
+                    a["portfolio"]["cash"]["balance"]["canTrade"],
+                )
+                fennel_obj.set_logged_in_object(name, a["id"], a["name"])
+                print(f"Found account {a['name']}")
             print(f"{name}: Logged in")
         except Exception as e:
             print(f"Error logging into Fennel: {e}")
@@ -84,10 +87,11 @@ def fennel_init(FENNEL_EXTERNAL=None, botObj=None, loop=None):
 def fennel_holdings(fbo: Brokerage, loop=None):
     for key in fbo.get_account_numbers():
         for account in fbo.get_account_numbers(key):
-            obj: Fennel = fbo.get_logged_in_objects(key)
+            obj: Fennel = fbo.get_logged_in_objects(key, "fb")
+            account_id = fbo.get_logged_in_objects(key, account)
             try:
                 # Get account holdings
-                positions = obj.get_stock_holdings()
+                positions = obj.get_stock_holdings(account_id)
                 if positions != []:
                     for holding in positions:
                         qty = holding["investment"]["ownedShares"]
@@ -102,7 +106,7 @@ def fennel_holdings(fbo: Brokerage, loop=None):
                 printAndDiscord(f"Error getting Fennel holdings: {e}")
                 print(traceback.format_exc())
                 continue
-    printHoldings(fbo, loop)
+    printHoldings(fbo, loop, False)
 
 
 def fennel_transaction(fbo: Brokerage, orderObj: stockOrder, loop=None):
