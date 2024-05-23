@@ -14,6 +14,7 @@ try:
 
     # Custom API libraries
     from chaseAPI import *
+    from fennelAPI import *
     from fidelityAPI import *
     from firstradeAPI import *
     from helperAPI import (
@@ -43,6 +44,7 @@ load_dotenv()
 # Global variables
 SUPPORTED_BROKERS = [
     "chase",
+    "fennel",
     "fidelity",
     "firstrade",
     "public",
@@ -55,6 +57,7 @@ SUPPORTED_BROKERS = [
 ]
 DAY1_BROKERS = [
     "chase",
+    "fennel",
     "firstrade",
     "public",
     "robinhood",
@@ -102,8 +105,8 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                     orderObj.set_logged_in(
                         globals()[fun_name](DOCKER=DOCKER_MODE), broker
                     )
-                elif broker.lower() == "public":
-                    # Public requires bot object
+                elif broker.lower() in ["fennel", "public"]:
+                    # Requires bot object and loop
                     orderObj.set_logged_in(
                         globals()[fun_name](botObj=botObj, loop=loop), broker
                     )
