@@ -117,6 +117,17 @@ Made by [MaxxRK](https://github.com/MaxxRK/) using the [chaseinvest-api](https:/
 `.env` file format:
 - `CHASE=CHASE_USERNAME:CHASE_PASSWORD:CELL_PHONE_LAST_FOUR`
 
+### Fennel
+Made by yours truly using the [fennel-invest-api](https://github.com/NelsonDane/fennel-invest-api). Consider giving me a ⭐
+
+Required `.env` variables:
+- `FENNEL_EMAIL`
+
+`.env` file format:
+- `FENNEL=FENNEL_EMAIL`
+
+Fennel accounts don't have passwords, so you need to login by inputting the code sent to your email. The script will then save your session credentials for future use.
+
 ### Fidelity
 Made by yours truly using Selenium (and many hours of web scraping).
 
