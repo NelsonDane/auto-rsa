@@ -202,7 +202,7 @@ def tradier_transaction(tradier_o: Brokerage, orderObj: stockOrder, loop=None):
                                 loop=loop,
                             )
                             continue
-                        if json_response.get("order").get("status") is not None:
+                        if json_response.get("order", {}).get("status") is not None:
                             printAndDiscord(
                                 f"Tradier account {print_account}: {orderObj.get_action()} {orderObj.get_amount()} of {s}: {json_response['order']['status']}",
                                 loop=loop,
