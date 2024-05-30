@@ -152,9 +152,11 @@ Made by [MaxxRK](https://github.com/MaxxRK/) using the [chaseinvest-api](https:/
 - `CHASE_USERNAME`
 - `CHASE_PASSWORD`
 - `CELL_PHONE_LAST_FOUR`
+Optional .env variables:
+- `DEBUG` (Set to `True` to enable debug mode)`
 
 `.env` file format:
-- `CHASE=CHASE_USERNAME:CHASE_PASSWORD:CELL_PHONE_LAST_FOUR`
+- `CHASE=CHASE_USERNAME:CHASE_PASSWORD:CELL_PHONE_LAST_FOUR:DEBUG`
 
 ### Fennel
 Made by yours truly using the [fennel-invest-api](https://github.com/NelsonDane/fennel-invest-api). Consider giving me a ⭐
