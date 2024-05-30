@@ -20,7 +20,6 @@ from dotenv import load_dotenv
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromiumService
 from selenium.webdriver.edge.service import Service as EdgeService
-from webdriver_manager.microsoft import EdgeChromiumDriverManager
 
 # Create task queue
 task_queue = Queue()
@@ -508,7 +507,7 @@ def getDriver(DOCKER=False):
             options.add_argument("--disable-blink-features=AutomationControlled")
             options.add_argument("--disable-notifications")
             driver = webdriver.Edge(
-                service=EdgeService(EdgeChromiumDriverManager().install()),
+                service=EdgeService(),
                 options=options,
             )
     except Exception as e:
@@ -585,16 +584,16 @@ async def processQueue():
         task_queue.task_done()
 
 
-async def getSMSCodeDiscord(
+async def getOTPCodeDiscord(
     botObj: commands.Bot, brokerName, code_len=6, timeout=60, loop=None
 ):
-    printAndDiscord(f"{brokerName} requires SMS code", loop)
+    printAndDiscord(f"{brokerName} requires OTP code", loop)
     printAndDiscord(
-        f"Please enter SMS code or type cancel within {timeout} seconds", loop
+        f"Please enter OTP code or type cancel within {timeout} seconds", loop
     )
-    # Get SMS code from Discord
-    sms_code = None
-    while sms_code is None:
+    # Get OTP code from Discord
+    otp_code = None
+    while otp_code is None:
         try:
             code = await botObj.wait_for(
                 "message",
@@ -605,21 +604,21 @@ async def getSMSCodeDiscord(
             )
         except asyncio.TimeoutError:
             printAndDiscord(
-                f"Timed out waiting for SMS code input for {brokerName}", loop
+                f"Timed out waiting for OTP code input for {brokerName}", loop
             )
             return None
         if code.content.lower() == "cancel":
-            printAndDiscord(f"Cancelling SMS code for {brokerName}", loop)
+            printAndDiscord(f"Cancelling OTP code for {brokerName}", loop)
             return None
         try:
-            sms_code = int(code.content)
+            otp_code = int(code.content)
         except ValueError:
-            printAndDiscord("SMS code must be numbers only", loop)
+            printAndDiscord("OTP code must be numbers only", loop)
             continue
         if len(code.content) != code_len:
-            printAndDiscord("SMS code must be 6 digits", loop)
+            printAndDiscord(f"OTP code must be {code_len} digits", loop)
             continue
-    return sms_code
+    return otp_code
 
 
 def maskString(string):
@@ -631,7 +630,7 @@ def maskString(string):
     return masked
 
 
-def printHoldings(brokerObj: Brokerage, loop=None):
+def printHoldings(brokerObj: Brokerage, loop=None, mask=True):
     # Helper function for holdings formatting
     printAndDiscord(
         f"==============================\n{brokerObj.get_name()} Holdings\n==============================",
@@ -639,7 +638,7 @@ def printHoldings(brokerObj: Brokerage, loop=None):
     )
     for key in brokerObj.get_account_numbers():
         for account in brokerObj.get_account_numbers(key):
-            printAndDiscord(f"{key} ({maskString(account)}):", loop)
+            printAndDiscord(f"{key} ({maskString(account) if mask else account})", loop)
             holdings = brokerObj.get_holdings(key, account)
             if holdings == {}:
                 printAndDiscord("No holdings in Account\n", loop)

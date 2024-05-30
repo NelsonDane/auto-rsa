@@ -7,7 +7,7 @@ import traceback
 from decimal import Decimal as D
 
 from dotenv import load_dotenv
-from tastytrade import ProductionSession
+from tastytrade import Session
 from tastytrade.account import Account
 from tastytrade.dxfeed.event import EventType
 from tastytrade.instruments import Equity
@@ -24,7 +24,7 @@ from tastytrade.utils import TastytradeError
 from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder
 
 
-def order_setup(tt: ProductionSession, order_type, stock_price, stock, amount):
+def order_setup(tt: Session, order_type, stock_price, stock, amount):
     symbol = Equity.get_equity(tt, stock)
     if order_type[2] == "Buy to Open":
         leg = symbol.build_leg(D(amount), OrderAction.BUY_TO_OPEN)
@@ -67,7 +67,7 @@ def tastytrade_init(TASTYTRADE_EXTERNAL=None):
         account = account.strip().split(":")
         name = f"Tastytrade {index}"
         try:
-            tasty = ProductionSession(account[0], account[1])
+            tasty = Session(account[0], account[1])
             tasty_obj.set_logged_in_object(name, tasty, "session")
             an = Account.get_accounts(tasty)
             tasty_obj.set_logged_in_object(name, an, "accounts")
@@ -86,7 +86,7 @@ def tastytrade_init(TASTYTRADE_EXTERNAL=None):
 
 def tastytrade_holdings(tt_o: Brokerage, loop=None):
     for key in tt_o.get_account_numbers():
-        obj: ProductionSession = tt_o.get_logged_in_objects(key, "session")
+        obj: Session = tt_o.get_logged_in_objects(key, "session")
         for index, account in enumerate(tt_o.get_logged_in_objects(key, "accounts")):
             try:
                 an = tt_o.get_account_numbers(key)[index]
@@ -114,7 +114,7 @@ async def tastytrade_execute(tt_o: Brokerage, orderObj: stockOrder, loop=None):
     print()
     for s in orderObj.get_stocks():
         for key in tt_o.get_account_numbers():
-            obj: ProductionSession = tt_o.get_logged_in_objects(key, "session")
+            obj: Session = tt_o.get_logged_in_objects(key, "session")
             accounts: Account = tt_o.get_logged_in_objects(key, "accounts")
             printAndDiscord(
                 f"{key}: {orderObj.get_action()}ing {orderObj.get_amount()} of {s}",

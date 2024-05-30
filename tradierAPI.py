@@ -83,13 +83,13 @@ def tradier_init(TRADIER_EXTERNAL=None):
         for x in range(account_num):
             if account_num == 1:
                 an = json_response["profile"]["account"]["account_number"]
+                at = json_response["profile"]["account"]["type"]
             else:
                 an = json_response["profile"]["account"][x]["account_number"]
+                at = json_response["profile"]["account"][x]["type"]
             print(maskString(an))
             tradier_obj.set_account_number(name, an)
-            tradier_obj.set_account_type(
-                name, an, json_response["profile"]["account"][x]["type"]
-            )
+            tradier_obj.set_account_type(name, an, at)
             # Get balances
             json_balances = make_request(f"accounts/{an}/balances", account)
             if json_balances is None:
@@ -202,7 +202,7 @@ def tradier_transaction(tradier_o: Brokerage, orderObj: stockOrder, loop=None):
                                 loop=loop,
                             )
                             continue
-                        if json_response.get("order").get("status") is not None:
+                        if json_response.get("order", {}).get("status") is not None:
                             printAndDiscord(
                                 f"Tradier account {print_account}: {orderObj.get_action()} {orderObj.get_amount()} of {s}: {json_response['order']['status']}",
                                 loop=loop,
