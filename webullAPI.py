@@ -5,6 +5,7 @@ import os
 import traceback
 
 from dotenv import load_dotenv
+from time import sleep
 from webull import webull
 
 from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder
@@ -176,6 +177,7 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
                                 raise Exception(f"Error buying {big_amount} of {s}")
                             orderObj.set_amount(big_amount - old_amount)
                             orderObj.set_action("sell")
+                            sleep(1)
                             order = place_order(obj, internal_account, orderObj, s)
                             if not order:
                                 raise Exception(
