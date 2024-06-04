@@ -3,9 +3,9 @@
 
 import os
 import traceback
+from time import sleep
 
 from dotenv import load_dotenv
-from time import sleep
 from webull import webull
 
 from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder
