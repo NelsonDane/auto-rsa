@@ -131,14 +131,19 @@ def fennel_transaction(fbo: Brokerage, orderObj: stockOrder, loop=None):
                         side=orderObj.get_action(),
                         dry_run=orderObj.get_dry(),
                     )
-                    message = "Success"
-                    if order.get("data", {}).get("createOrder") != "pending":
-                        message = order.get("data", {}).get("createOrder")
+                    if orderObj.get_dry():
+                        message = "Dry Run Success"
+                        if not order.get("dry_run_success", False):
+                            message = "Dry Run Failed"
+                    else:
+                        message = "Success"
+                        if order.get("data", {}).get("createOrder") != "pending":
+                            message = order.get("data", {}).get("createOrder")
                     printAndDiscord(
                         f"{key}: {orderObj.get_action()} {orderObj.get_amount()} of {s} in {account}: {message}",
                         loop,
                     )
                 except Exception as e:
-                    printAndDiscord(f"{key}: Error placing order: {e}", loop)
+                    printAndDiscord(f"{key} {account}: Error placing order: {e}", loop)
                     print(traceback.format_exc())
                     continue
