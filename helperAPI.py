@@ -334,11 +334,6 @@ class ThreadHandler:
 
 
 def updater():
-    # Check if disabled
-    if os.getenv("ENABLE_AUTO_UPDATE", "").lower() == "false":
-        print("Auto update disabled, skipping...")
-        print()
-        return
     # Check if git is installed
     try:
         import git
@@ -349,7 +344,7 @@ def updater():
         )
         print()
         return
-    print("Starting auto update. To disable, set ENABLE_AUTO_UPDATE to false in .env")
+    print("Starting auto update...")
     try:
         repo = Repo(".")
     except git.exc.InvalidGitRepositoryError:
