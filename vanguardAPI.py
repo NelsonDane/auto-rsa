@@ -6,9 +6,9 @@ import os
 import pprint
 import traceback
 
+from dotenv import load_dotenv
 from vanguard import account as vg_account
 from vanguard import order, session
-from dotenv import load_dotenv
 
 from helperAPI import (
     Brokerage,
@@ -20,18 +20,14 @@ from helperAPI import (
 )
 
 
-def vanguard_run(
-    orderObj: stockOrder, command=None, botObj=None, loop=None
-):
+def vanguard_run(orderObj: stockOrder, command=None, botObj=None, loop=None):
     # Initialize .env file
     load_dotenv()
     # Import Vanguard account
     if not os.getenv("VANGUARD"):
         print("Vanguard not found, skipping...")
         return None
-    accounts = (
-        os.environ["VANGUARD"].strip().split(",")
-    )
+    accounts = os.environ["VANGUARD"].strip().split(",")
     # Set the functions to be run
     _, second_command = command
 
@@ -64,7 +60,7 @@ def vanguard_init(account, index, botObj=None, loop=None):
             title=f"Vanguard_{index}",
             headless=True,
             profile_path="./creds",
-            debug=debug
+            debug=debug,
         )
         need_second = vg_session.login(account[0], account[1], account[2])
         if need_second:
@@ -75,7 +71,9 @@ def vanguard_init(account, index, botObj=None, loop=None):
                     getOTPCodeDiscord(botObj, name, timeout=120, loop=loop), loop
                 ).result()
                 if sms_code is None:
-                    raise Exception(f"Vanguard {index} code not received in time...", loop)
+                    raise Exception(
+                        f"Vanguard {index} code not received in time...", loop
+                    )
                 vg_session.login_two(sms_code)
         all_accounts = vg_account.AllAccount(vg_session)
         success = all_accounts.get_account_ids()
@@ -86,7 +84,9 @@ def vanguard_init(account, index, botObj=None, loop=None):
         print_accounts = []
         for acct in all_accounts.account_totals.keys():
             vanguard_obj.set_account_number(name, acct)
-            vanguard_obj.set_account_totals(name, acct, all_accounts.account_totals[acct])
+            vanguard_obj.set_account_totals(
+                name, acct, all_accounts.account_totals[acct]
+            )
             print_accounts.append(acct)
         print(f"The following Vanguard accounts were found: {print_accounts}")
     except Exception as e:
@@ -111,7 +111,13 @@ def vanguard_holdings(vanguard_o: Brokerage, loop=None):
                     for type in all_accounts.accounts_positions[account].keys():
                         for stock in all_accounts.accounts_positions[account][type]:
                             if float(stock["quantity"]) != 0:
-                                vanguard_o.set_holdings(key, account, stock["symbol"], stock["quantity"], stock["price"])
+                                vanguard_o.set_holdings(
+                                    key,
+                                    account,
+                                    stock["symbol"],
+                                    stock["quantity"],
+                                    stock["price"],
+                                )
             else:
                 raise Exception("Vanguard-api failed to retrieve holdings.")
         except Exception as e:
@@ -161,16 +167,21 @@ def vanguard_transaction(vanguard_o: Brokerage, orderObj: stockOrder, loop=None)
                         dry_run=orderObj.get_dry(),
                     )
                     print("The order verification produced the following messages: ")
-                    if messages["ORDER CONFIRMATION"] == "No order confirmation page found. Order Failed.":
-                        printAndDiscord("Market order failed placing limit order.", loop)
+                    if (
+                        messages["ORDER CONFIRMATION"]
+                        == "No order confirmation page found. Order Failed."
+                    ):
+                        printAndDiscord(
+                            "Market order failed placing limit order.", loop
+                        )
                         price_type = order.PriceType.LIMIT
                         price = vg_order.get_quote(s) + 0.01
                         messages = vg_order.place_order(
                             account_id=account,
-                            quantity=int(orderObj.get_amount()), 
-                            price_type=price_type, 
-                            symbol=s, 
-                            duration=order.Duration.DAY, 
+                            quantity=int(orderObj.get_amount()),
+                            price_type=price_type,
+                            symbol=s,
+                            duration=order.Duration.DAY,
                             order_type=order_type,
                             limit_price=price,
                             dry_run=orderObj.get_dry(),
@@ -225,7 +236,9 @@ def vanguard_transaction(vanguard_o: Brokerage, orderObj: stockOrder, loop=None)
                                 loop,
                             )
             except Exception as e:
-                printAndDiscord(f"{key} {print_account}: Error submitting order: {e}", loop)
+                printAndDiscord(
+                    f"{key} {print_account}: Error submitting order: {e}", loop
+                )
                 print(traceback.format_exc())
                 continue
     obj.close_browser()
