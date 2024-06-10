@@ -109,7 +109,9 @@ def vanguard_holdings(vanguard_o: Brokerage, loop=None):
             if success:
                 for account in all_accounts.accounts_positions:
                     for account_type in all_accounts.accounts_positions[account].keys():
-                        for stock in all_accounts.accounts_positions[account][account_type]:
+                        for stock in all_accounts.accounts_positions[account][
+                            account_type
+                        ]:
                             if float(stock["quantity"]) != 0:
                                 vanguard_o.set_holdings(
                                     key,
