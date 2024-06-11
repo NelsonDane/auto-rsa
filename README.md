@@ -285,8 +285,6 @@ Optional `.env` variables:
 
 
 ### 🤷‍♂️ Maybe future brokerages 🤷‍♀️
-#### Vanguard
-In progress [here](https://github.com/NelsonDane/auto-rsa/pull/242).
 #### SoFi
 In progress [here](https://github.com/NelsonDane/auto-rsa/pull/237).
 ### 👎 Never working brokerages 👎
