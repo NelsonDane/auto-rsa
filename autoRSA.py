@@ -29,6 +29,7 @@ try:
     from schwabAPI import *
     from tastyAPI import *
     from tradierAPI import *
+    from vanguardAPI import *
     from webullAPI import *
 except Exception as e:
     print(f"Error importing libraries: {e}")
@@ -51,6 +52,7 @@ SUPPORTED_BROKERS = [
     "schwab",
     "tastytrade",
     "tradier",
+    "vanguard",
     "webull",
 ]
 DAY1_BROKERS = [
@@ -79,6 +81,8 @@ def nicknames(broker):
         return "robinhood"
     if broker == "tasty":
         return "tastytrade"
+    if broker == "vg":
+        return "vanguard"
     if broker == "wb":
         return "webull"
     return broker
@@ -106,7 +110,7 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                     orderObj.set_logged_in(
                         globals()[fun_name](botObj=botObj, loop=loop), broker
                     )
-                elif broker.lower() == "chase":
+                elif broker.lower() in ["chase", "vanguard"]:
                     fun_name = broker + "_run"
                     # PLAYWRIGHT_BROKERS have to run all transactions with one function
                     th = ThreadHandler(
@@ -129,7 +133,7 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                     orderObj.set_logged_in(globals()[fun_name](), broker)
 
                 print()
-                if broker.lower() != "chase":
+                if broker.lower() not in ["chase", "vanguard"]:
                     # Verify broker is logged in
                     orderObj.order_validate(preLogin=False)
                     logged_in_broker = orderObj.get_logged_in(broker)

@@ -269,6 +269,21 @@ Your `WEBULL_USERNAME` can be your email or phone number. If using a phone numbe
 
 To get your Webull DID, follow this [guide](https://github.com/tedchou12/webull/wiki/Workaround-for-Login-%E2%80%90-Method-2).
 
+### Vanguard
+Made by [MaxxRK](https://github.com/MaxxRK/) using the [vanguard-api](https://github.com/MaxxRK/vanguard-api). Go give them a ⭐
+
+Required `.env` variables:
+- `VANGUARD_USERNAME`
+- `VANGUARD_PASSWORD`
+- `CELL_PHONE_LAST_FOUR`
+
+Optional `.env` variables:
+- `DEBUG` (Set to `True` to enable debug mode)
+
+`.env` file format:
+- `VANGUARD=VANGUARD_USERNAME:VANGUARD_PASSWORD:PHONE_LAST_FOUR:DEBUG`
+
+
 ### 🤷‍♂️ Maybe future brokerages 🤷‍♀️
 #### Vanguard
 In progress [here](https://github.com/NelsonDane/auto-rsa/pull/242).
