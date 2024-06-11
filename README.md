@@ -278,7 +278,7 @@ Required `.env` variables:
 - `CELL_PHONE_LAST_FOUR`
 
 Optional `.env` variables:
-- `DEBUG` (Set to `True` to enable debug mode)
+- `DEBUG` (Set to `True` to enable debug mode, otherwise `False`)
 
 `.env` file format:
 - `VANGUARD=VANGUARD_USERNAME:VANGUARD_PASSWORD:PHONE_LAST_FOUR:DEBUG`
