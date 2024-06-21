@@ -149,11 +149,12 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
                             orderObj.set_price("MKT")
                         # If buy stock price < $1 or $0.10,
                         # buy 100/1000 shares and sell 100/1000 - amount
-                        askList = obj.get_quote(s)["askList"]
-                        bidList = obj.get_quote(s)["bidList"]
+                        quote = obj.get_quote(s)
+                        askList = quote.get("askList", [])
+                        bidList = quote.get("bidList", [])
                         if askList == [] and bidList == []:
-                            printAndDiscord(f"{key} {account}: {s} not found", loop)
-                            continue
+                            printAndDiscord(f"{key}: {s} is not available for trading", loop)
+                            raise Exception(f"{s} is not available for trading")
                         askPrice = float(askList[0]["price"]) if askList != [] else 0
                         bidPrice = float(bidList[0]["price"]) if bidList != [] else 0
                         should_dance = False

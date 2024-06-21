@@ -373,6 +373,7 @@ def updater():
         print(
             "UPDATE ERROR: Conflicting changes found. Please commit, stash, or remove your changes before updating."
         )
+        print(f"Using commit {str(repo.head.commit)[:7]}")
         print()
         return
     if not repo.bare:
@@ -385,8 +386,7 @@ def updater():
             )
             print()
             return
-    revision_head = str(repo.head.commit)[:7]
-    print(f"Update complete! Using commit {revision_head}")
+    print(f"Update complete! Using commit {str(repo.head.commit)[:7]}")
     print()
     return
 
