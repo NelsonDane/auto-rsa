@@ -13,5 +13,5 @@ schwab-api==0.4.0
 selenium==4.22.0
 setuptools==70.1.0
 tastytrade==8.0
-vanguard-api==0.1.7
+vanguard-api==0.1.9
 -e git+https://github.com/NelsonDane/webull.git@ef14ae63f9e1436fbea77fe864df54847cf2f730#egg=webull
