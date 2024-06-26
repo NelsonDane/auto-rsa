@@ -64,8 +64,27 @@ def fennel_init(FENNEL_EXTERNAL=None, botObj=None, loop=None):
                 else:
                     raise e
             fennel_obj.set_logged_in_object(name, fb, "fb")
+            print("Running on testing branch")
+            print(f"{name} IDS: {fb.get_account_ids()}")
             full_accounts = fb.get_full_accounts()
+            # # print(f"{name} IDs: {fb.get_account_ids()}")
+            # try:
+            #     full_accounts = fb.get_full_accounts()
+            #     print(full_accounts)
+            #     input()
+            #     raise Exception("503 test")
+            # except Exception as e:
+            #     if "503" in str(e):
+            #         # Maybe old account
+            #         accound_ids = fb.get_account_ids()
+            #         full_accounts = []
+            #         for a in accound_ids:
+            #             test = fb.get_portfolio_summary(a)
+            #             print(test)
+            # sys.exit(1)
+            # full_accounts = []
             for a in full_accounts:
+                print(a)
                 fennel_obj.set_account_number(name, a["name"])
                 fennel_obj.set_account_totals(
                     name,
