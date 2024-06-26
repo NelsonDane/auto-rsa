@@ -218,6 +218,7 @@ def fidelity_account_info(driver: webdriver) -> dict | None:
                 .replace("$", "")
                 .replace(",", "")
                 .replace("»", "")
+                .replace("‡", "")
                 .replace("balance:", "")
             )
             account_dict[account] = {
