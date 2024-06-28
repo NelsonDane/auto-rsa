@@ -1,8 +1,7 @@
 asyncio==3.4.3
 chaseinvest-api==0.1.9
 discord.py==2.4.0
--e git+https://github.com/NelsonDane/fennel-invest-api.git@b782ae951f4fd624ff6b5ed93f6bfde79b60e909#egg=fennel-invest-api
-# ../fennel-invest-api
+fennel-invest-api==1.0.9.2
 firstrade==0.0.19
 GitPython==3.1.43
 public-invest-api==1.0.4
