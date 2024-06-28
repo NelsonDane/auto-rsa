@@ -66,11 +66,12 @@ def fennel_init(FENNEL_EXTERNAL=None, botObj=None, loop=None):
             fennel_obj.set_logged_in_object(name, fb, "fb")
             full_accounts = fb.get_full_accounts()
             for a in full_accounts:
+                b = fb.get_portfolio_summary(a["id"])
                 fennel_obj.set_account_number(name, a["name"])
                 fennel_obj.set_account_totals(
                     name,
                     a["name"],
-                    a["portfolio"]["cash"]["balance"]["canTrade"],
+                    b["cash"]["balance"]["canTrade"],
                 )
                 fennel_obj.set_logged_in_object(name, a["id"], a["name"])
                 print(f"Found account {a['name']}")
