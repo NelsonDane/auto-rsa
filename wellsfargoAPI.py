@@ -158,9 +158,16 @@ def wellsfargo_transaction(
 
             driver.execute_script('document.getElementById("BuySellBtn").click()')
             # Buy or Sell
-            action = WebDriverWait(driver, 20).until(
-                EC.element_to_be_clickable((By.LINK_TEXT, "Buy"))
-            )
+            if orderObj.get_action().lower() == "buy":
+                action = WebDriverWait(driver, 20).until(
+                    EC.element_to_be_clickable((By.LINK_TEXT, "Buy"))
+                )
+            elif orderObj.get_action().lower() == "sell":
+                action = WebDriverWait(driver, 20).until(
+                    EC.element_to_be_clickable((By.LINK_TEXT, "Buy"))
+                )
+            else:
+                print("no buy or sell set")
             action.click()
 
             # ticker
