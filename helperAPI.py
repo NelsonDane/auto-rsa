@@ -199,6 +199,7 @@ class Brokerage:
         self.__holdings: dict = {}  # Dictionary of holdings under parent
         self.__account_totals: dict = {}  # Dictionary of account totals
         self.__account_types: dict = {}  # Dictionary of account types
+        self.__url: str = ''
 
     def set_name(self, name: str):
         if not isinstance(name, str):
@@ -254,6 +255,9 @@ class Brokerage:
         if parent_name not in self.__account_types:
             self.__account_types[parent_name] = {}
         self.__account_types[parent_name][account_name] = account_type
+    
+    def set_url(self, url: str):
+        self.__url=url
 
     def get_name(self) -> str:
         return self.__name
@@ -292,6 +296,9 @@ class Brokerage:
         if account_name is None:
             return self.__account_types.get(parent_name, {})
         return self.__account_types.get(parent_name, {}).get(account_name, "")
+
+    def get_url(self) -> str:
+        return self.__url
 
     def __str__(self) -> str:
         return textwrap.dedent(

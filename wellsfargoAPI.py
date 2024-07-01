@@ -73,8 +73,9 @@ def wellsfargo_init(WELLSFARGO_EXTERNAL=None,DOCKER=Fasle):
                 login_button = WebDriverWait(driver, 20).until(
                     EC.element_to_be_clickable((By.CSS_SELECTOR, ".Button__modern___cqCp7")))
                 login_button.click()
+                WebDriverWait(driver, 20).until(check_if_page_loaded)
+                WELLSFARGO_obj.set_url(driver.current_url)
                 print("=====================================================\n")
-
             except TimeoutException:
                 print("TimeoutException: Login failed.")
                 return False
@@ -86,4 +87,6 @@ def wellsfargo_init(WELLSFARGO_EXTERNAL=None,DOCKER=Fasle):
             driver.quit()
             return None
     return WELLSFARGO_obj
+
+    
 
