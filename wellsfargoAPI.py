@@ -153,7 +153,7 @@ def wellsfargo_transaction(
         except:
             print("could not change account")
             killSeleniumDriver(WELLSFARGO_o)
-
+        print(orderObj.get_action)
         for s in orderObj.get_stocks():
 
             driver.execute_script('document.getElementById("BuySellBtn").click()')
@@ -181,6 +181,7 @@ def wellsfargo_transaction(
             quantBox = WebDriverWait(driver, 20).until(
                 EC.element_to_be_clickable((By.ID, "OrderQuantity"))
             )
+            print(orderObj.get_amount())
             quantBox.send_keys(orderObj.get_amount())
             quantBox.send_keys(Keys.ENTER)
 
