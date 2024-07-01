@@ -54,7 +54,7 @@ def wellsfargo_init(WELLSFARGO_EXTERNAL=None, DOCKER=False):
         account = account.split(":")
         try:
             print("Logging into WELLS FARGO...")
-            driver = DRIVER
+            driver = getDriver(DOCKER)
             if driver is None:
                 raise Exception("Driver not found.")
             driver.get("https://connect.secure.wellsfargo.com/auth/login/present")
