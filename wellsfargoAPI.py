@@ -187,7 +187,7 @@ def wellsfargo_transaction(
             order.click()
 
             # limit price
-            price = driver.execute_script("return document.getElementsByClassName('qeval')[2].textContent")
+            price = driver.execute_script("return document.getElementsByClassName('qeval')[0].textContent")
             tickerBox = driver.find_element(By.ID, "Price")
             tickerBox.send_keys(price)
             tickerBox.send_keys(Keys.ENTER)
