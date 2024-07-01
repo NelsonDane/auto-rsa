@@ -62,16 +62,11 @@ def wellsfargo_init(WELLSFARGO_EXTERNAL=None, DOCKER=False):
             # Login
             try:
                 print("Username:", account[0], "Password:", (account[1]))
-                username_field = WebDriverWait(driver, 20).until(
-                    EC.element_to_be_clickable((By.XPATH, "//*[@id='j_username']"))
-                )
-                username_field.send_keys(account[0])
-
+                username_field = driver.find_element(By.XPATH, "//*[@id='j_username']")
+                type_slowly(username_field,account[0])
                 # Wait for the password field and enter the password
-                password_field = WebDriverWait(driver, 20).until(
-                    EC.element_to_be_clickable((By.XPATH, "//*[@id='j_password']"))
-                )
-                password_field.send_keys(account[1])
+                password_field = driver.find_element(By.XPATH, "//*[@id='j_password']")
+                type_slowly(password_field,account[1])
 
                 login_button = WebDriverWait(driver, 20).until(
                     EC.element_to_be_clickable(
@@ -80,7 +75,10 @@ def wellsfargo_init(WELLSFARGO_EXTERNAL=None, DOCKER=False):
                 )
                 login_button.click()
                 WebDriverWait(driver, 20).until(check_if_page_loaded)
+                #TODO check if auth needed
+                sleep(10)
                 WELLSFARGO_obj.set_url(driver.current_url)
+                print(WELLSFARGO_obj.get_url())
                 print("=====================================================\n")
             except TimeoutException:
                 print("TimeoutException: Login failed.")
@@ -104,9 +102,13 @@ def wellsfargo_transaction(
     print("==============================")
     print()
 
-    driver = DRIVER
+    #dont make this hardcoded
+    driver: webdriver = WELLSFARGO_o.get_logged_in_objects("WELLSFARGO 1")
+    try:
+        driver.get(WELLSFARGO_o.get_url)
+    except:
+        print('wtf')
 
-    driver.get(WELLSFARGO_o.get_url)
 
     # Navigate to Trade
     try:
@@ -157,7 +159,7 @@ def wellsfargo_transaction(
             driver.execute_script('document.getElementById("BuySellBtn").click()')
             # Buy or Sell
             action = WebDriverWait(driver, 20).until(
-                EC.element_to_be_clickable((By.LINK_TEXT, orderObj.get_action()))
+                EC.element_to_be_clickable((By.LINK_TEXT, "Buy"))
             )
             action.click()
 
