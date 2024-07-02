@@ -31,6 +31,7 @@ try:
     from tradierAPI import *
     from vanguardAPI import *
     from webullAPI import *
+    from wellsfargoAPI import *
 except Exception as e:
     print(f"Error importing libraries: {e}")
     print(traceback.format_exc())
@@ -54,6 +55,7 @@ SUPPORTED_BROKERS = [
     "tradier",
     "vanguard",
     "webull",
+    "wellsfargo",
 ]
 DAY1_BROKERS = [
     "chase",
@@ -85,6 +87,8 @@ def nicknames(broker):
         return "vanguard"
     if broker == "wb":
         return "webull"
+    if broker == "wf":
+        return "wellsfargo"
     return broker
 
 
