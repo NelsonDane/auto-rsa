@@ -141,6 +141,9 @@ def wellsfargo_transaction(
     for account in range(accounts):
         try:
             # choose account
+            open_dropdown = WebDriverWait(driver, 20).until(
+            EC.element_to_be_clickable((By.XPATH, "//*[@id='dropdown2']"))
+            )
             open_dropdown.click()
             driver.execute_script(
                 "document.getElementById('dropdownlist2').getElementsByTagName('li')["
@@ -177,30 +180,27 @@ def wellsfargo_transaction(
 
             # quantity            
             driver.execute_script("document.querySelector('#OrderQuantity').value ="+ str(int(orderObj.get_amount())))
+            
+            #get price
+            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, 'qeval')))
+            price = driver.execute_script("return document.getElementsByClassName('qeval')[0].textContent;")
 
             # order type
-            #document.getElementById('OrderTypeBtnText').click()
-            orderBox = driver.find_element(By.ID, "OrderTypeBtnText")
-            orderBox.click()
-            
-            driver.execute_script("document.evaluate('/html/body/div[3]/div[5]/div/form/div/div[1]/div[4]/div[1]/div[2]/div[2]/ul/li[1]/a', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click()")
+            sleep(1)
+            driver.execute_script("document.getElementById('OrderTypeBtnText').click()")
 
+            #limit price
+            order = driver.find_element(By.LINK_TEXT, "Limit")
+            order.click()
 
-            # limit price
-            #Getting Price doesnt work
-            price = driver.execute_script("return document.getElementsByClassName('qeval')[0].textContent;")
             tickerBox = driver.find_element(By.ID, "Price")
             tickerBox.send_keys(price)
             tickerBox.send_keys(Keys.ENTER)
             
             # timing
-            timing = WebDriverWait(driver, 20).until(
-                EC.element_to_be_clickable((By.ID, "TIFBtn"))
-            )
-            timing.click()
-            day = WebDriverWait(driver, 20).until(
-                EC.element_to_be_clickable((By.ID, "Day"))
-            )
+            driver.execute_script("document.getElementById('TIFBtn').click()")
+
+            day = driver.find_element(By.LINK_TEXT, "Day")
             day.click()
 
             # preview
@@ -210,11 +210,12 @@ def wellsfargo_transaction(
             review.click()
 
             # submit
+            sleep(5)
             submit = WebDriverWait(driver, 20).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, ".btn-wfa-submit"))
             )
             submit.click()
-
+            sleep(5)
             buy_next = WebDriverWait(driver, 20).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, ".btn-wfa-primary"))
             )
