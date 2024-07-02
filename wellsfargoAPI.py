@@ -104,10 +104,7 @@ def wellsfargo_transaction(
 
     #dont make this hardcoded
     driver: webdriver = WELLSFARGO_o.get_logged_in_objects("WELLSFARGO 1")
-    try:
-        driver.get(WELLSFARGO_o.get_url)
-    except:
-        print('wtf')
+
 
 
     # Navigate to Trade
@@ -153,7 +150,7 @@ def wellsfargo_transaction(
         except:
             print("could not change account")
             killSeleniumDriver(WELLSFARGO_o)
-        print(orderObj.get_action)
+
         for s in orderObj.get_stocks():
 
             #idk why doing it through selenium doesnt work sometimes
@@ -190,7 +187,7 @@ def wellsfargo_transaction(
 
 
             # limit price
-            sleep(2000)
+            #Getting Price doesnt work
             price = driver.execute_script("return document.getElementsByClassName('qeval')[0].textContent;")
             tickerBox = driver.find_element(By.ID, "Price")
             tickerBox.send_keys(price)
