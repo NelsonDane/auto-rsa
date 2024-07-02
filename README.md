@@ -73,7 +73,7 @@ To buy and sell stocks, use this command:
 
 `<prefix> <action> <amount> <ticker> <accounts> <dry>`
 
-(Parameter explanation [below](#-parameters-explanation-))
+(Parameter explanation below)
 
 For example, to buy 1 AAPL in all accounts:
 
