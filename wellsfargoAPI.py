@@ -156,6 +156,7 @@ def wellsfargo_transaction(
         print(orderObj.get_action)
         for s in orderObj.get_stocks():
 
+            #idk why doing it through selenium doesnt work sometimes
             driver.execute_script('document.getElementById("BuySellBtn").click()')
             # Buy or Sell
             if orderObj.get_action().lower() == "buy":
@@ -177,31 +178,24 @@ def wellsfargo_transaction(
             tickerBox.send_keys(s)
             tickerBox.send_keys(Keys.ENTER)
 
-            # quantity
-            quantBox = WebDriverWait(driver, 20).until(
-                EC.element_to_be_clickable((By.ID, "OrderQuantity"))
-            )
-            print(orderObj.get_amount())
-            quantBox.send_keys(orderObj.get_amount())
-            quantBox.send_keys(Keys.ENTER)
+            # quantity            
+            driver.execute_script("document.querySelector('#OrderQuantity').value ="+ str(int(orderObj.get_amount())))
 
             # order type
-            orderBox = WebDriverWait(driver, 20).until(
-                EC.element_to_be_clickable((By.ID, "OrderTypeBtnText"))
-            )
+            #document.getElementById('OrderTypeBtnText').click()
+            orderBox = driver.find_element(By.ID, "OrderTypeBtnText")
             orderBox.click()
+            
+            driver.execute_script("document.evaluate('/html/body/div[3]/div[5]/div/form/div/div[1]/div[4]/div[1]/div[2]/div[2]/ul/li[1]/a', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click()")
 
-            order = WebDriverWait(driver, 20).until(
-                EC.element_to_be_clickable((By.ID, "Limit"))
-            )
-            order.click()
 
             # limit price
-            price = driver.execute_script("return document.getElementsByClassName('qeval')[0].textContent")
+            sleep(2000)
+            price = driver.execute_script("return document.getElementsByClassName('qeval')[0].textContent;")
             tickerBox = driver.find_element(By.ID, "Price")
             tickerBox.send_keys(price)
             tickerBox.send_keys(Keys.ENTER)
-
+            
             # timing
             timing = WebDriverWait(driver, 20).until(
                 EC.element_to_be_clickable((By.ID, "TIFBtn"))
