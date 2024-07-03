@@ -39,7 +39,7 @@ There are two ways to run the Discord bot: using Docker or running the Python sc
 1. Add `DISCORD_TOKEN` and `DISCORD_CHANNEL` to your `.env` file.
 2. Create the container using the provided [docker-compose.yml](docker-compose.yml) file:
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 3. The bot should appear online in Discord (You can also do `!ping` to check).
 
@@ -71,35 +71,37 @@ pip install -r requirements.txt
 
 To buy and sell stocks, use this command:
 
-`<action> <amount> <ticker> <accounts> <dry>`
+`<prefix> <action> <amount> <ticker> <accounts> <dry>`
+
+(Parameter explanation below)
 
 For example, to buy 1 AAPL in all accounts:
 
-`buy 1 AAPL all false`
+`<prefix> buy 1 AAPL all false`
 
 For a dry run of the above command in Robinhood only:
 
-`buy 1 AAPL robinhood true`
+`<prefix> buy 1 AAPL robinhood true`
 
 For a real run on Fidelity and Robinhood, but not Schwab:
 
-`buy 1 AAPL fidelity,robinhood not schwab false`
+`<prefix> buy 1 AAPL fidelity,robinhood not schwab false`
 
 For a real run on Fidelity and Robinhood but not Schwab buying both AAPL and GOOG:
 
-`buy 1 AAPL,GOOG fidelity,robinhood not schwab false`
+`<prefix> buy 1 AAPL,GOOG fidelity,robinhood not schwab false`
 
 To check your account holdings:
 
-`holdings <accounts>`
+`<prefix> holdings <accounts>`
 
 To restart the Discord bot (only for the Docker Discord bot):
 
-`!restart` (without appending `!rsa`)
+`!restart` (without appending `!rsa` or prefix)
 
 For help:
 
-`!help` (without appending `!rsa`)
+`!help` (without appending `!rsa` or prefix)
 
 ### ⚙️ Parameters Explanation ⚙️
 - `<prefix>`: string, The prefix for the command. For the Discord bot, this is `!rsa`. For the CLI tool, this is `python autoRSA.py`.
