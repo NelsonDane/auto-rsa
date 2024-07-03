@@ -52,7 +52,6 @@ SUPPORTED_BROKERS = [
     "schwab",
     "tastytrade",
     "tradier",
-    "vanguard",
     "webull",
 ]
 DAY1_BROKERS = [
@@ -60,7 +59,6 @@ DAY1_BROKERS = [
     "fennel",
     "firstrade",
     "public",
-    "robinhood",
     "schwab",
     "tastytrade",
     "tradier",
