@@ -294,6 +294,13 @@ if __name__ == "__main__":
                 os._exit(1)  # Special exit code to restart docker container
             await channel.send("Discord bot is started...")
 
+        # Process the message only if it's from the specified channel
+        @bot.event
+        async def on_message(message):
+            channel = bot.get_channel(DISCORD_CHANNEL)
+            if message.channel.id == channel.id:
+                await bot.process_commands(message)
+
         # Bot ping-pong
         @bot.command(name="ping")
         async def ping(ctx):
