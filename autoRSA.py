@@ -297,8 +297,7 @@ if __name__ == "__main__":
         # Process the message only if it's from the specified channel
         @bot.event
         async def on_message(message):
-            channel = bot.get_channel(DISCORD_CHANNEL)
-            if message.channel.id == channel.id:
+            if message.channel.id == DISCORD_CHANNEL:
                 await bot.process_commands(message)
 
         # Bot ping-pong
