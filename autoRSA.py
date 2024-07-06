@@ -160,8 +160,7 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                 print(f"Error in {fun_name} with {broker}: {ex}")
                 print(orderObj)
             print()
-        if not orderObj.get_holdings():
-            printAndDiscord("All transactions complete in all brokers", loop)
+        printAndDiscord("All commands complete in all brokers", loop)
     else:
         print(f"Error: {command} is not a valid command")
 
