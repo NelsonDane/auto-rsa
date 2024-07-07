@@ -181,13 +181,11 @@ def argParser(args: list) -> stockOrder:
         else:
             for broker in args[1].split(","):
                 orderObj.set_brokers(nicknames(broker))
-
         # If next argument is not, set not broker
         if len(args) > 3 and args[2] == "not":
             for broker in args[3].split(","):
                 if nicknames(broker) in SUPPORTED_BROKERS:
                     orderObj.set_notbrokers(nicknames(broker))
-
         return orderObj
     # Otherwise: action, amount, stock, broker, (optional) not broker, (optional) dry
     orderObj.set_action(args[0])
