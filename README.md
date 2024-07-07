@@ -124,7 +124,7 @@ Note: There are two special keywords you can use when specifying accounts: `all`
 
 This is useful for brokers that provide quick turnaround times, hence the nickname "day 1".
 A couple other keywords that can be used:
-`most`: will use every account you have setup except for "vanguard".
+`most`: will use every account you have setup except for vanguard.
 `fast`: will use every "day 1" broker + robinhood.
 
 ## 🗺️ Other Guides 🗺️
