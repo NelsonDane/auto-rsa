@@ -149,6 +149,16 @@ All brokers: separate account credentials with a colon (":"). For example, `SCHW
 
 Some brokerages require `Playwright` to run. On Windows, the `playwright install` command might not be recognized. If this is the case, run `python -m playwright install` instead.
 
+### Ally
+Made by yours truly using Selenium. Consider giving me a ⭐
+
+Required `.env` variables:
+- `ALLY_USERNAME`
+- `ALLY_PASSWORD`
+
+`.env` file format:
+- `ALLY=ALLY_USERNAME:ALLY_PASSWORD`
+
 #### Chase
 Made by [MaxxRK](https://github.com/MaxxRK/) using the [chaseinvest-api](https://github.com/MaxxRK/chaseinvest-api). Go give them a ⭐
 - `CHASE_USERNAME`
