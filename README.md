@@ -95,6 +95,10 @@ To check your account holdings:
 
 `<prefix> holdings <accounts>`
 
+For example, to check your account holdings on Chase and Vanguard, but not Robinhood:
+
+`<prefix> holdings chase,vanguard not robinhood`
+
 To restart the Discord bot (only for the Docker Discord bot):
 
 `!restart` (without appending `!rsa` or prefix)
