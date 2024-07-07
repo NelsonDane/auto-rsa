@@ -196,6 +196,10 @@ def argParser(args: list) -> stockOrder:
         orderObj.set_brokers(SUPPORTED_BROKERS)
     elif args[3] == "day1":
         orderObj.set_brokers(DAY1_BROKERS)
+    elif args[3] == "most":
+        orderObj.set_brokers(list(filter(lambda x: x != 'vanguard', SUPPORTED_BROKERS)))
+    elif args[3] == "fast":
+        orderObj.set_brokers(DAY1_BROKERS + ["robinhood"])
     else:
         for broker in args[3].split(","):
             if nicknames(broker) in SUPPORTED_BROKERS:
