@@ -63,10 +63,10 @@ def wellsfargo_init(WELLSFARGO_EXTERNAL=None, DOCKER=False):
             try:
                 print("Username:", account[0], "Password:", (account[1]))
                 username_field = driver.find_element(By.XPATH, "//*[@id='j_username']")
-                type_slowly(username_field,account[0])
+                type_slowly(username_field, account[0])
                 # Wait for the password field and enter the password
                 password_field = driver.find_element(By.XPATH, "//*[@id='j_password']")
-                type_slowly(password_field,account[1])
+                type_slowly(password_field, account[1])
 
                 login_button = WebDriverWait(driver, 20).until(
                     EC.element_to_be_clickable(
@@ -75,7 +75,7 @@ def wellsfargo_init(WELLSFARGO_EXTERNAL=None, DOCKER=False):
                 )
                 login_button.click()
                 WebDriverWait(driver, 20).until(check_if_page_loaded)
-                #TODO check if auth needed
+                # TODO check if auth needed
                 sleep(10)
                 WELLSFARGO_obj.set_url(driver.current_url)
                 print(WELLSFARGO_obj.get_url())
@@ -93,6 +93,50 @@ def wellsfargo_init(WELLSFARGO_EXTERNAL=None, DOCKER=False):
     return WELLSFARGO_obj
 
 
+def wellsfargo_holdings(WELLSFARGO_o: Brokerage, loop=None):
+    print()
+    print("==============================")
+    print("Wells Fargo Holdings")
+    print("==============================")
+    print()
+    sleep(40)
+    # dont make this hardcoded
+    driver: webdriver = WELLSFARGO_o.get_logged_in_objects("WELLSFARGO 1")
+
+    data = driver.execute_script(
+            """
+const array_all = Array.from(document.querySelector('tbody').querySelectorAll('tr'));
+const data = [];
+
+for (let i = 0; i < array_all.length; i++) {
+    let curr = Array.from(array_all[i].querySelectorAll('td'));
+
+    // Extracting data
+    let name = curr[1].textContent.match(/([A-Z]+),popup/);
+    let amount = curr[3].textContent.replace(/\n/g, '').match(/-?\d+(\.\d+)?/);
+    let price = curr[4].textContent.replace(/\n/g, '').match(/-?\d+(\.\d+)?/);
+    let my_value = curr[5].textContent.replace(/\n/g, '').match(/-?\d+(\.\d+)?/);
+
+    // Checking if matches exist before accessing indices
+    name = name ? name[1] : '';
+    amount = amount ? amount[0] : '';
+    price = price ? price[0] : '';
+    my_value = my_value ? my_value[0] : '';
+
+    // Pushing data as JSON object to array
+    data.push({
+        name: name,
+        amount: amount,
+        price: price,
+        my_value: my_value
+    });
+}
+return data
+        """
+        )
+    print(data)
+
+
 def wellsfargo_transaction(
     WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=None, DOCKER=False
 ):
@@ -102,10 +146,8 @@ def wellsfargo_transaction(
     print("==============================")
     print()
 
-    #dont make this hardcoded
+    # dont make this hardcoded
     driver: webdriver = WELLSFARGO_o.get_logged_in_objects("WELLSFARGO 1")
-
-
 
     # Navigate to Trade
     try:
@@ -142,7 +184,7 @@ def wellsfargo_transaction(
         try:
             # choose account
             open_dropdown = WebDriverWait(driver, 20).until(
-            EC.element_to_be_clickable((By.XPATH, "//*[@id='dropdown2']"))
+                EC.element_to_be_clickable((By.XPATH, "//*[@id='dropdown2']"))
             )
             open_dropdown.click()
             driver.execute_script(
@@ -156,7 +198,7 @@ def wellsfargo_transaction(
 
         for s in orderObj.get_stocks():
 
-            #idk why doing it through selenium doesnt work sometimes
+            # idk why doing it through selenium doesnt work sometimes
             driver.execute_script('document.getElementById("BuySellBtn").click()')
             # Buy or Sell
             if orderObj.get_action().lower() == "buy":
@@ -178,25 +220,32 @@ def wellsfargo_transaction(
             tickerBox.send_keys(s)
             tickerBox.send_keys(Keys.ENTER)
 
-            # quantity            
-            driver.execute_script("document.querySelector('#OrderQuantity').value ="+ str(int(orderObj.get_amount())))
-            
-            #get price
-            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, 'qeval')))
-            price = driver.execute_script("return document.getElementsByClassName('qeval')[0].textContent;")
+            # quantity
+            driver.execute_script(
+                "document.querySelector('#OrderQuantity').value ="
+                + str(int(orderObj.get_amount()))
+            )
+
+            # get price
+            WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.CLASS_NAME, "qeval"))
+            )
+            price = driver.execute_script(
+                "return document.getElementsByClassName('qeval')[0].textContent;"
+            )
 
             # order type
             sleep(1)
             driver.execute_script("document.getElementById('OrderTypeBtnText').click()")
 
-            #limit price
+            # limit price
             order = driver.find_element(By.LINK_TEXT, "Limit")
             order.click()
 
             tickerBox = driver.find_element(By.ID, "Price")
             tickerBox.send_keys(price)
             tickerBox.send_keys(Keys.ENTER)
-            
+
             # timing
             driver.execute_script("document.getElementById('TIFBtn').click()")
 
