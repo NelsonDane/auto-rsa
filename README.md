@@ -163,6 +163,8 @@ Required `.env` variables:
 `.env` file format:
 - `ALLY=ALLY_USERNAME:ALLY_PASSWORD`
 
+Ally requires a few days after a split before you may sell the share. Even, if you see it in your account, give it 2-3 days before you are able to sell.
+
 #### Chase
 Made by [MaxxRK](https://github.com/MaxxRK/) using the [chaseinvest-api](https://github.com/MaxxRK/chaseinvest-api). Go give them a ⭐
 - `CHASE_USERNAME`
