@@ -4,7 +4,6 @@
 import asyncio
 import datetime
 import os
-import re
 import traceback
 from time import sleep
 
@@ -14,6 +13,7 @@ from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions
+from selenium.webdriver.support.select import Select
 from selenium.webdriver.support.wait import WebDriverWait
 
 from helperAPI import (
@@ -34,20 +34,6 @@ def ally_error(driver: webdriver, error: str):
     print(f"Ally Error: {error}")
     driver.save_screenshot(f"ally-error-{datetime.datetime.now()}.png")
     print(traceback.format_exc())
-
-
-def javascript_get_classname(driver: webdriver, className) -> list:
-    script = f"""
-    var accounts = document.getElementsByClassName("{className}");
-    var account_list = [];
-    for (var i = 0; i < accounts.length; i++) {{
-        account_list.push(accounts[i].textContent.trim());
-    }}
-    return account_list;
-    """
-    text = driver.execute_script(script)
-    sleep(1)
-    return text
 
 
 def ally_init(ALLY_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
@@ -142,6 +128,7 @@ def ally_init(ALLY_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
                     sleep(5)
                     WebDriverWait(driver, 10).until(check_if_page_loaded)
                     sleep(3)
+                    # TODO: Handle transitions to new URLS better. This one will always show up.
                     if "register-device" in driver.current_url.lower():
                         no_label_element = "//label[span[contains(text(), 'No')]]"
                         driver.find_element(by=By.XPATH, value=no_label_element).click()
@@ -253,35 +240,51 @@ def ally_holdings(ally_o: Brokerage, loop=None):
     print()
     for key in ally_o.get_account_numbers():
         driver: webdriver = ally_o.get_logged_in_objects(key)
+        driver.find_elements(By.CSS_SELECTOR, 'a[data-testid="account-link"]')[0].click()
+        # Wait for page load
+        WebDriverWait(driver, 10).until(check_if_page_loaded)
+        # This one takes a very long time to load sometimes.
+        WebDriverWait(driver, 30).until(
+            expected_conditions.element_to_be_clickable(
+                (By.CSS_SELECTOR, "label.select-trigger")
+            )
+        )
         for account in ally_o.get_account_numbers(key):
             try:
-                driver.get(
-                    f"https://digital.ally.com/ftgw/digital/portfolio/positions#{account}"
-                )
+                # Use the Select class to interact with the dropdown
+                change_account_element = driver.find_element(By.ID, "change-account-link-select")
+                select = Select(change_account_element)
+
+                account_select = None
+                account_formatted = account.replace("*", "")
+                for option in select.options:
+                    if account_formatted in option.text:
+                        account_select = option
+                        break
+
+                #               #Apply value
+                select.select_by_value(account_select.get_attribute("value"))
+
                 # Wait for page load
                 WebDriverWait(driver, 10).until(check_if_page_loaded)
-                # Get holdings via javascript
+                # TODO: Might not need this 1 sec sleep.
+                sleep(1)
                 WebDriverWait(driver, 10).until(
-                    expected_conditions.presence_of_element_located(
-                        (By.CLASS_NAME, "ag-pinned-left-cols-container")
+                    expected_conditions.element_to_be_clickable(
+                        (By.CSS_SELECTOR, "label.select-trigger")
                     )
                 )
-                stocks_list = javascript_get_classname(
-                    driver, "ag-pinned-left-cols-container"
-                )
-                # Find 3 or 4 letter words surrounded by 2 spaces on each side
-                for i in range(len(stocks_list)):
-                    stocks_list[i].replace(" \n ", "").replace("*", "")
-                    stocks_list[i] = re.findall(
-                        r"(?<=\s{2})[a-zA-Z]{3,4}(?=\s{2})", stocks_list[i]
-                    )
-                stocks_list = stocks_list[0]
-                # holdings_info = javascript_get_classname(
-                #     driver, "ag-center-cols-container"
-                # )
-                # print(f"Holdings Info: {holdings_info}")
-                for stock in stocks_list:
-                    ally_o.set_holdings(key, account, stock, "N/A", "N/A")
+
+                holdings_table = driver.find_elements(By.CSS_SELECTOR, ".table-container-wrapper tbody tr")
+                for holdings_element in holdings_table:
+                    stock = holdings_element.find_element(By.CSS_SELECTOR, ".symbol span").text
+                    quantity = holdings_element.find_element(By.CSS_SELECTOR, "td:nth-of-type(3) span").text
+                    price = holdings_element.find_element(By.CSS_SELECTOR, "td:nth-of-type(11) span").text.replace("$", "").replace("-", "")
+
+                    if "-" in quantity:
+                        continue
+
+                    ally_o.set_holdings(key, account, stock, quantity, price)
             except Exception as e:
                 ally_error(driver, e)
                 continue
