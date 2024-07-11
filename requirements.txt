@@ -10,7 +10,7 @@ python-dotenv==1.0.1
 requests==2.32.3
 robin-stocks==3.1.0
 # schwab-api==0.4.2
--e git+https://github.com/NelsonDane/schwab-api.git@ba6876eeb5638339abde01c291ed7fae7657b2ed#egg=schwab-api
+-e git+https://github.com/NelsonDane/schwab-api.git@d9185cda7d7211f0a8dd850a26f619472a441ca7#egg=schwab-api
 selenium==4.22.0
 setuptools==70.2.0
 tastytrade==8.0
