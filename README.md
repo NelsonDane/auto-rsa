@@ -289,7 +289,7 @@ Optional `.env` variables:
 - `VANGUARD=VANGUARD_USERNAME:VANGUARD_PASSWORD:PHONE_LAST_FOUR:DEBUG`
 
 
-### 🤷‍♂️ Maybe future brokerages 🤷‍♀️
+### Maybe future brokerages 🤷‍♀️
 #### SoFi
 In progress [here](https://github.com/NelsonDane/auto-rsa/pull/237).
 ### Never working brokerages 👎
