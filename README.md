@@ -9,13 +9,24 @@ A CLI tool and Discord bot to buy, sell, and monitor holdings across multiple br
 <img src="https://img.shields.io/badge/-docker-%232c2f33?style=for-the-badge&logo=docker&logoColor=white"/>
 </p>
 
-## 🤔 How Does It Work? 🤔
 This program uses APIs to interface with your brokerages. When available, official APIs are always used. If an official API is not available, then a third-party API is used. As a last resort, Selenium or Playwright Stealth are used to automate the browser.
 
-## 📝 Installation 📝
+## DISCLAIMER 😳
+DISCLAIMER: I am not a financial advisor and not affiliated with any of the brokerages listed below. Use this tool at your own risk. I am not responsible for any losses or damages you may incur by using this project. This tool is provided as-is with no warranty.
+
+## Having an Issue? 🤔
+I am not responding to issues on this repository. If you have an issue, please Sponsor me below and I will help you directly on Discord (for Sponsors and Contributors only).
+
+[![Sponsor](https://img.shields.io/badge/sponsor-30363D?style=for-the-badge&logo=GitHub-Sponsors&logoColor=#white)](https://github.com/sponsors/NelsonDane)
+[![ko-fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=white
+)](https://ko-fi.com/X8X6LFCI0)
+
+However, if you fix the issue yourself, please submit a pull request and I will review it.
+
+## Installation 📝
 There are two ways to use this program: as a Discord bot or as a CLI tool. The setup instructions will be a little different depending on which method you choose. However, both methods require the same pre-setup steps, and the same `.env` file format.
 
-### 🛠️ Pre-Setup 🛠️
+### Pre-Setup 🛠️
 1. Install `git` for your operating system.
 2. Clone this repository and cd into it:
 ```bash
@@ -30,12 +41,12 @@ cp .env.example .env
 
 Now follow the instructions for either the Discord Bot or CLI Tool. Once setup is complete, see the [Usage](#-usage-) section for how to use the program.
 
-### 🤖 Discord Bot Installation 🤖
+### Discord Bot Installation 🤖
 To create your Discord bot and get your `DISCORD_TOKEN` for your `.env`, follow this [guide](guides/discordBot.md).
 
 There are two ways to run the Discord bot: using Docker or running the Python script. When running the bot using the Python script, the bot will only be online when the script is running. With Docker, the bot will run in the background, restarting and updating automatically.
 
-### 🐳 Discord Bot: Docker 🐳
+### Discord Bot: Docker 🐳
 1. Add `DISCORD_TOKEN` and `DISCORD_CHANNEL` to your `.env` file.
 2. Create the container using the provided [docker-compose.yml](docker-compose.yml) file:
 ```bash
@@ -45,7 +56,7 @@ docker compose up -d
 
 Docker Note: If you make any changes to your `.env` file, you will need to restart the container by running `docker-compose up -d` again. The bot will also automatically stay up to date thanks to the included [Watchtower](https://containrrr.dev/watchtower/).
 
-### 🏃‍♂️ Discord Bot: Python Script 🏃‍♀️
+### Discord Bot: Python Script 🏃‍♀️
 1. Install Python 3.10 or higher
 2. Install the required packages:
 ```bash
@@ -58,7 +69,7 @@ python autoRSA.py discord
 ```
 5. The bot should appear online in Discord (You can also do `!ping` to check).
 
-### 💻 CLI Tool Installation 💻
+### CLI Tool Installation 💻
 To run the CLI tool, follow these steps:
 1. Install Python 3.10 or higher
 2. Install the required packages:
@@ -67,7 +78,7 @@ pip install -r requirements.txt
 ```
 4. Run the script using `python autoRSA.py`. It should say that no arguments were given, then exit. This is expected, and means everything was installed and set up correctly.
 
-## 👀 Usage 👀
+## Usage 👀
 
 To buy and sell stocks, use this command:
 
@@ -107,7 +118,7 @@ For help:
 
 `!help` (without appending `!rsa` or prefix)
 
-### ⚙️ Parameters Explanation ⚙️
+### Parameters Explanation ⚙️
 - `<prefix>`: string, The prefix for the command. For the Discord bot, this is `!rsa`. For the CLI tool, this is `python autoRSA.py`.
 - `<action>`: string, "buy" or "sell"
 - `<amount>`: integer, Amount to buy or sell.
@@ -135,19 +146,7 @@ More detailed guides for some of the difficult setups:
 - [Robinhood 2FA Setup](guides/robinhoodSetup.md)
 - [Schwab 2FA Setup](guides/schwabSetup.md)
 
-## 🤝 Contributing 🤝
-Found or fixed a bug? Have a feature request? Want to add support for a new brokerage? Feel free to open an issue or pull request!
-
-Enjoying the project? Feel free to Sponsor me on GitHub or Ko-fi!
-
-[![Sponsor](https://img.shields.io/badge/sponsor-30363D?style=for-the-badge&logo=GitHub-Sponsors&logoColor=#white)](https://github.com/sponsors/NelsonDane)
-[![ko-fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=white
-)](https://ko-fi.com/X8X6LFCI0)
-
-## 😳 DISCLAIMER 😳
-DISCLAIMER: I am not a financial advisor and not affiliated with any of the brokerages listed below. Use this tool at your own risk. I am not responsible for any losses or damages you may incur by using this project. This tool is provided as-is with no warranty.
-
-## 👍 Supported brokerages 👍
+## Supported brokerages 👍
 
 All brokers: separate account credentials with a colon (":"). For example, `SCHWAB_USERNAME:SCHWAB_PASSWORD`. Separate multiple logins with the same broker with a comma (","). For example, `SCHWAB_USERNAME:SCHWAB_PASSWORD,SCHWAB_USERNAME2:SCHWAB_PASSWORD2`.
 
@@ -293,6 +292,6 @@ Optional `.env` variables:
 ### 🤷‍♂️ Maybe future brokerages 🤷‍♀️
 #### SoFi
 In progress [here](https://github.com/NelsonDane/auto-rsa/pull/237).
-### 👎 Never working brokerages 👎
+### Never working brokerages 👎
 #### Stash
 Why.
