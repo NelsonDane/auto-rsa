@@ -8,7 +8,7 @@ on:
 
 jobs:
   call-workflow-dockerhub-build-push:
-    uses: NelsonDane/Custom-GitHub-Actions/.github/workflows/docker-registry-build-push.yml@ac3c1faf566a202b50264debfc6e5d9ff37c6ce4
+    uses: NelsonDane/Custom-GitHub-Actions/.github/workflows/docker-registry-build-push.yml@6729a5a9fba311fabe014c6b75ab58717efdbb17
     with:
       image_name: auto-rsa
       image_tag: ${{ github.ref_name == 'main' && 'latest' || startsWith(github.ref_name, 'develop') && github.ref_name }}
