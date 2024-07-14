@@ -15,5 +15,5 @@ jobs:
       should_push: ${{ github.ref_name == 'main' || startsWith(github.ref_name, 'develop') }}
       platforms: linux/amd64,linux/arm64
     secrets:
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKER_REGISTRY_USERNAME }}
-      DOCKERHUB_PASSWORD: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
+      DOCKER_REGISTRY_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKER_REGISTRY_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
