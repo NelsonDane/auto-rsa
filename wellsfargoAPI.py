@@ -1,17 +1,15 @@
 import datetime
 import os
-import re
 import traceback
 from time import sleep
 
 from dotenv import load_dotenv
 from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException, TimeoutException
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
-from selenium.webdriver.support.ui import Select
 
 
 from helperAPI import (
@@ -138,7 +136,7 @@ return data
 
 
 def wellsfargo_transaction(
-    WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=None, DOCKER=False
+    WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=None
 ):
     print()
     print("==============================")
