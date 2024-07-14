@@ -102,7 +102,7 @@ def wellsfargo_holdings(WELLSFARGO_o: Brokerage, loop=None):
     driver: webdriver = WELLSFARGO_o.get_logged_in_objects("WELLSFARGO 1")
 
     data = driver.execute_script(
-            """
+        """
 const array_all = Array.from(document.querySelector('tbody').querySelectorAll('tr'));
 const data = [];
 
@@ -131,13 +131,11 @@ for (let i = 0; i < array_all.length; i++) {
 }
 return data
         """
-        )
+    )
     print(data)
 
 
-def wellsfargo_transaction(
-    WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=None
-):
+def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=None):
     print()
     print("==============================")
     print("WELLS FARGO")
