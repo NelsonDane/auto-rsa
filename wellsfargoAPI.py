@@ -1,5 +1,6 @@
 import datetime
 import os
+import re
 import traceback
 from time import sleep
 
@@ -97,41 +98,42 @@ def wellsfargo_holdings(WELLSFARGO_o: Brokerage, loop=None):
     print("Wells Fargo Holdings")
     print("==============================")
     print()
-    sleep(40)
+    sleep(10)
     # dont make this hardcoded
     driver: webdriver = WELLSFARGO_o.get_logged_in_objects("WELLSFARGO 1")
 
-    data = driver.execute_script(
-        """
-const array_all = Array.from(document.querySelector('tbody').querySelectorAll('tr'));
-const data = [];
+    rows = driver.find_elements(By.CSS_SELECTOR, 'tbody tr')
+    data = []
+    print(len(rows))
+    # Iterate through each row
+    for row in rows:
+        # Find all cells in the current row
+        cells = row.find_elements(By.CSS_SELECTOR, 'td')
+        print(len(cells))
+        if len(cells) < 9:
+            sleep(50000)
+            break
+        # Extracting data
+        name_match = re.search(r'^[^\n]*', cells[1].text)
+        amount_match = re.search(r'-?\d+(\.\d+)?', cells[3].text.replace('\n', ''))
+        price_match = re.search(r'-?\d+(\.\d+)?', cells[4].text.replace('\n', ''))
+        my_value_match = re.search(r'-?\d+(\.\d+)?', cells[5].text.replace('\n', ''))
+        
+        # Checking if matches exist before accessing indices
+        name = name_match.group(0) if name_match else cells[1].text
+        amount = amount_match.group(0) if amount_match else ''
+        price = price_match.group(0) if price_match else ''
+        my_value = my_value_match.group(0) if my_value_match else ''
+        
+        # Pushing data as dictionary to the list
+        data.append({
+            'name': name,
+            'amount': amount,
+            'price': price,
+            'my_value': my_value
+        })
+        print(data)
 
-for (let i = 0; i < array_all.length; i++) {
-    let curr = Array.from(array_all[i].querySelectorAll('td'));
-
-    // Extracting data
-    let name = curr[1].textContent.match(/([A-Z]+),popup/);
-    let amount = curr[3].textContent.replace(/\n/g, '').match(/-?\d+(\.\d+)?/);
-    let price = curr[4].textContent.replace(/\n/g, '').match(/-?\d+(\.\d+)?/);
-    let my_value = curr[5].textContent.replace(/\n/g, '').match(/-?\d+(\.\d+)?/);
-
-    // Checking if matches exist before accessing indices
-    name = name ? name[1] : '';
-    amount = amount ? amount[0] : '';
-    price = price ? price[0] : '';
-    my_value = my_value ? my_value[0] : '';
-
-    // Pushing data as JSON object to array
-    data.push({
-        name: name,
-        amount: amount,
-        price: price,
-        my_value: my_value
-    });
-}
-return data
-        """
-    )
     print(data)
 
 
