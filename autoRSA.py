@@ -13,6 +13,7 @@ try:
     from dotenv import load_dotenv
 
     # Custom API libraries
+    from allyAPI import *
     from chaseAPI import *
     from fennelAPI import *
     from fidelityAPI import *
@@ -43,6 +44,7 @@ load_dotenv()
 
 # Global variables
 SUPPORTED_BROKERS = [
+    "ally",
     "chase",
     "fennel",
     "fidelity",
@@ -104,6 +106,11 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                     # Fidelity requires docker mode argument
                     orderObj.set_logged_in(
                         globals()[fun_name](DOCKER=DOCKER_MODE), broker
+                    )
+                elif broker.lower() == "ally":
+                    # Ally requires docker mode argument, bot object, and loop
+                    orderObj.set_logged_in(
+                        globals()[fun_name](DOCKER=DOCKER_MODE, botObj=botObj, loop=loop), broker
                     )
                 elif broker.lower() in ["fennel", "public"]:
                     # Requires bot object and loop
