@@ -160,8 +160,7 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                 print(f"Error in {fun_name} with {broker}: {ex}")
                 print(orderObj)
             print()
-        if not orderObj.get_holdings():
-            printAndDiscord("All transactions complete in all brokers", loop)
+        printAndDiscord("All commands complete in all brokers", loop)
     else:
         print(f"Error: {command} is not a valid command")
 
@@ -182,6 +181,11 @@ def argParser(args: list) -> stockOrder:
         else:
             for broker in args[1].split(","):
                 orderObj.set_brokers(nicknames(broker))
+        # If next argument is not, set not broker
+        if len(args) > 3 and args[2] == "not":
+            for broker in args[3].split(","):
+                if nicknames(broker) in SUPPORTED_BROKERS:
+                    orderObj.set_notbrokers(nicknames(broker))
         return orderObj
     # Otherwise: action, amount, stock, broker, (optional) not broker, (optional) dry
     orderObj.set_action(args[0])
@@ -294,6 +298,12 @@ if __name__ == "__main__":
                 os._exit(1)  # Special exit code to restart docker container
             await channel.send("Discord bot is started...")
 
+        # Process the message only if it's from the specified channel
+        @bot.event
+        async def on_message(message):
+            if message.channel.id == DISCORD_CHANNEL:
+                await bot.process_commands(message)
+
         # Bot ping-pong
         @bot.command(name="ping")
         async def ping(ctx):
@@ -308,7 +318,7 @@ if __name__ == "__main__":
                 "Available RSA commands:\n"
                 "!ping\n"
                 "!help\n"
-                "!rsa holdings [all|<broker1>,<broker2>,...]\n"
+                "!rsa holdings [all|<broker1>,<broker2>,...] [not broker1,broker2,...]\n"
                 "!rsa [buy|sell] [amount] [stock1|stock1,stock2] [all|<broker1>,<broker2>,...] [not broker1,broker2,...] [DRY: true|false]\n"
                 "!restart"
             )

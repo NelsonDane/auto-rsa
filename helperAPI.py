@@ -599,8 +599,7 @@ async def getOTPCodeDiscord(
         f"Please enter OTP code or type cancel within {timeout} seconds", loop
     )
     # Get OTP code from Discord
-    otp_code = None
-    while otp_code is None:
+    while True:
         try:
             code = await botObj.wait_for(
                 "message",
@@ -618,14 +617,16 @@ async def getOTPCodeDiscord(
             printAndDiscord(f"Cancelling OTP code for {brokerName}", loop)
             return None
         try:
-            otp_code = int(code.content)
+            # Check if code is numbers only
+            int(code.content)
         except ValueError:
             printAndDiscord("OTP code must be numbers only", loop)
             continue
+        # Check if code is correct length
         if len(code.content) != code_len:
             printAndDiscord(f"OTP code must be {code_len} digits", loop)
             continue
-    return otp_code
+        return code.content
 
 
 def maskString(string):
