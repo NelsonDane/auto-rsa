@@ -639,7 +639,7 @@ def maskString(string):
 
 def printHoldings(brokerObj: Brokerage, loop=None, mask=True):
     # Helper function for holdings formatting
-    
+
     printing = f"==============================\n{brokerObj.get_name()} Holdings\n==============================\n"
     for key in brokerObj.get_account_numbers():
         for account in brokerObj.get_account_numbers(key):
@@ -657,4 +657,4 @@ def printHoldings(brokerObj: Brokerage, loop=None, mask=True):
                 printing += print_string
             printing += f"Total: ${format(brokerObj.get_account_totals(key, account), '0.2f')}\n"
     printing += "=============================="
-    printAndDiscord(printing, loop,True)
+    printAndDiscord(printing, loop, True)
