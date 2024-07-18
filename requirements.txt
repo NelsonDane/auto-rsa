@@ -12,7 +12,7 @@ robin-stocks==3.1.0
 # schwab-api==0.4.2
 -e git+https://github.com/NelsonDane/schwab-api.git@d9185cda7d7211f0a8dd850a26f619472a441ca7#egg=schwab-api
 selenium==4.22.0
-setuptools==71.0.1
+setuptools==71.0.2
 tastytrade==8.0
 vanguard-api==0.1.9
 -e git+https://github.com/NelsonDane/webull.git@ef14ae63f9e1436fbea77fe864df54847cf2f730#egg=webull
