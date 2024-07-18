@@ -527,7 +527,7 @@ def killSeleniumDriver(brokerObj: Brokerage):
             print(f"Killed {count} {brokerObj.get_name()} drivers")
 
 
-async def processTasks(message):
+async def processTasks(message, embed=False):
     # Get details from env (they are used prior so we know they exist)
     load_dotenv()
     DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
@@ -538,9 +538,21 @@ async def processTasks(message):
         "Authorization": f"Bot {DISCORD_TOKEN}",
         "Content-Type": "application/json",
     }
-    PAYLOAD = {
-        "content": message,
-    }
+
+    if embed:
+        EMBED = {
+            "description": message,
+            "color": 3447003,
+        }
+        PAYLOAD = {
+            "content": "",
+            "embeds": [EMBED],
+        }
+    else:
+        PAYLOAD = {
+            "content": message,
+        }
+
     # Keep trying until success
     success = False
     while success is False:
@@ -561,12 +573,12 @@ async def processTasks(message):
     sleep(0.5)
 
 
-def printAndDiscord(message, loop=None):
+def printAndDiscord(message, loop=None, embed=False):
     # Print message
     print(message)
     # Add message to discord queue
     if loop is not None:
-        task_queue.put((message))
+        task_queue.put((message, embed))
         if task_queue.qsize() == 1:
             asyncio.run_coroutine_threadsafe(processQueue(), loop)
 
@@ -574,8 +586,8 @@ def printAndDiscord(message, loop=None):
 async def processQueue():
     # Process discord queue
     while not task_queue.empty():
-        message = task_queue.get()
-        await processTasks(message)
+        message, embed = task_queue.get()
+        await processTasks(message, embed)
         task_queue.task_done()
 
 
@@ -627,16 +639,14 @@ def maskString(string):
 
 def printHoldings(brokerObj: Brokerage, loop=None, mask=True):
     # Helper function for holdings formatting
-    printAndDiscord(
-        f"==============================\n{brokerObj.get_name()} Holdings\n==============================",
-        loop,
-    )
+    
+    printing = f"==============================\n{brokerObj.get_name()} Holdings\n==============================\n"
     for key in brokerObj.get_account_numbers():
         for account in brokerObj.get_account_numbers(key):
-            printAndDiscord(f"{key} ({maskString(account) if mask else account})", loop)
+            printing += f"{key} ({maskString(account) if mask else account})\n"
             holdings = brokerObj.get_holdings(key, account)
             if holdings == {}:
-                printAndDiscord("No holdings in Account\n", loop)
+                printing += "No holdings in Account\n"
             else:
                 print_string = ""
                 for stock in holdings:
@@ -644,9 +654,7 @@ def printHoldings(brokerObj: Brokerage, loop=None, mask=True):
                     price = holdings[stock]["price"]
                     total = holdings[stock]["total"]
                     print_string += f"{stock}: {quantity} @ ${format(price, '0.2f')} = ${format(total, '0.2f')}\n"
-                printAndDiscord(print_string, loop)
-            printAndDiscord(
-                f"Total: ${format(brokerObj.get_account_totals(key, account), '0.2f')}\n",
-                loop,
-            )
-    printAndDiscord("==============================", loop)
+                printing += print_string
+            printing += f"Total: ${format(brokerObj.get_account_totals(key, account), '0.2f')}\n"
+    printing += "=============================="
+    printAndDiscord(printing, loop,True)
