@@ -637,20 +637,23 @@ def maskString(string):
 def printHoldings(brokerObj: Brokerage, loop=None, mask=True):
     # Helper function for holdings formatting
     EMBED = {
-    "title": f"{brokerObj.get_name()} Holdings",
-    "color": 3447003,
+        "title": f"{brokerObj.get_name()} Holdings",
+        "color": 3447003,
     }
     printing = ""
     EMBED["fields"] = []
     for key in brokerObj.get_account_numbers():
         for account in brokerObj.get_account_numbers(key):
-            field = {"name" : f"{key} ({maskString(account) if mask else account})", "inline" : False,}
+            field = {
+                "name": f"{key} ({maskString(account) if mask else account})",
+                "inline": False,
+            }
             print_string = ""
             holdings = brokerObj.get_holdings(key, account)
             if holdings == {}:
                 print_string += "No holdings in Account\n"
             else:
-                
+
                 for stock in holdings:
                     quantity = holdings[stock]["quantity"]
                     price = holdings[stock]["price"]
