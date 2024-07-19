@@ -540,13 +540,9 @@ async def processTasks(message, embed=False):
     }
 
     if embed:
-        EMBED = {
-            "description": message,
-            "color": 3447003,
-        }
         PAYLOAD = {
             "content": "",
-            "embeds": [EMBED],
+            "embeds": [message],
         }
     else:
         PAYLOAD = {
@@ -640,22 +636,28 @@ def maskString(string):
 
 def printHoldings(brokerObj: Brokerage, loop=None, mask=True):
     # Helper function for holdings formatting
-
-    printing = f"==============================\n{brokerObj.get_name()} Holdings\n==============================\n"
+    EMBED = {
+    "title": f"{brokerObj.get_name()} Holdings",
+    "color": 3447003,
+    }
+    printing = ""
+    EMBED["fields"] = []
     for key in brokerObj.get_account_numbers():
         for account in brokerObj.get_account_numbers(key):
-            printing += f"{key} ({maskString(account) if mask else account})\n"
+            field = {"name" : f"{key} ({maskString(account) if mask else account})", "inline" : False,}
+            print_string = ""
             holdings = brokerObj.get_holdings(key, account)
             if holdings == {}:
-                printing += "No holdings in Account\n"
+                print_string += "No holdings in Account\n"
             else:
-                print_string = ""
+                
                 for stock in holdings:
                     quantity = holdings[stock]["quantity"]
                     price = holdings[stock]["price"]
                     total = holdings[stock]["total"]
                     print_string += f"{stock}: {quantity} @ ${format(price, '0.2f')} = ${format(total, '0.2f')}\n"
-                printing += print_string
-            printing += f"Total: ${format(brokerObj.get_account_totals(key, account), '0.2f')}\n"
-    printing += "=============================="
-    printAndDiscord(printing, loop, True)
+            print_string += f"Total: ${format(brokerObj.get_account_totals(key, account), '0.2f')}\n"
+            field["value"] = print_string
+            EMBED["fields"].append(field)
+    EMBED["description"] = printing
+    printAndDiscord(EMBED, loop, True)
