@@ -74,8 +74,6 @@ def wellsfargo_init(WELLSFARGO_EXTERNAL=None, DOCKER=False):
                 )
                 login_button.click()
                 WebDriverWait(driver, 20).until(check_if_page_loaded)
-                # TODO check if auth needed
-                sleep(10)
                 WELLSFARGO_obj.set_url(driver.current_url)
                 print(WELLSFARGO_obj.get_url())
                 print("=====================================================\n")
@@ -234,7 +232,6 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
         print("could not get to trade")
         killSeleniumDriver(WELLSFARGO_o)
 
-    sleep(10)
     for account in range(accounts):
         try:
             # choose account
@@ -252,7 +249,16 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
             killSeleniumDriver(WELLSFARGO_o)
         #TODO check for the error check
         for s in orderObj.get_stocks():
-
+            WebDriverWait(driver, 20).until(check_if_page_loaded)
+            try:
+                leave = WebDriverWait(driver, 10).until(
+                    EC.element_to_be_clickable((By.ID, "btn-continue"))
+                )
+                leave.click()
+            except Exception:
+                if account !=0:
+                    sleep(1000)
+                pass
             # idk why doing it through selenium doesnt work sometimes
             driver.execute_script('document.getElementById("BuySellBtn").click()')
             # Buy or Sell
@@ -266,17 +272,18 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                 )
             else:
                 print("no buy or sell set")
-            try:
-                action.click()
-            except:
-                #this is to check the incomplete order
-                sleep(700)
-                pass
+            action.click()
 
-            # ticker
+            
+            review = WebDriverWait(driver, 20).until(
+                EC.element_to_be_clickable((By.ID, "actionbtnContinue"))
+            )
+            driver.execute_script("arguments[0].scrollIntoView(true);", review)
+
             tickerBox = WebDriverWait(driver, 20).until(
                 EC.element_to_be_clickable((By.ID, "Symbol"))
             )
+            
             tickerBox.send_keys(s)
             tickerBox.send_keys(Keys.ENTER)
 
@@ -293,10 +300,8 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
 
             price = driver.find_element(By.CLASS_NAME, 'qeval').text
             print(price)
-            sleep(10)
 
             # order type
-            sleep(1)
             driver.execute_script("document.getElementById('OrderTypeBtnText').click()")
 
             # limit price
@@ -314,19 +319,15 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
             day.click()
 
             # preview
-            review = WebDriverWait(driver, 20).until(
-                EC.element_to_be_clickable((By.ID, "actionbtnContinue"))
-            )
             review.click()
 
             # submit
-            sleep(5)
-            submit = WebDriverWait(driver, 20).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, ".btn-wfa-submit"))
-            )
+            WebDriverWait(driver, 20).until(check_if_page_loaded)
+            submit = driver.find_element(By.CSS_SELECTOR, ".btn-wfa-submit")
+            driver.execute_script("arguments[0].scrollIntoView(true);", submit)
             submit.click()
-            sleep(5)
-            buy_next = WebDriverWait(driver, 20).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, ".btn-wfa-primary"))
-            )
+            
+            #buy next
+            buy_next = driver.find_element(By.CSS_SELECTOR, ".btn-wfa-primary")
+            driver.execute_script("arguments[0].scrollIntoView(true);", buy_next)
             buy_next.click()
