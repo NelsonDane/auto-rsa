@@ -6,10 +6,11 @@ import datetime
 import os
 import traceback
 from time import sleep
+import pickle
 
 from dotenv import load_dotenv
 from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions
@@ -49,8 +50,8 @@ def ally_init(ALLY_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
     )
     ally_obj = Brokerage("Ally")
     for account in accounts:
-        index = accounts.index(account) + 1
-        name = f"Ally {index}"
+        index = accounts.index(account)
+        name = f"Ally {index + 1}"
         account = account.split(":")
         try:
             print("Logging in to Ally...")
@@ -61,6 +62,7 @@ def ally_init(ALLY_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
             if driver is None:
                 raise Exception("Error: Unable to get driver")
             # Log in to Ally account
+            load_cookies(driver, filename=f"ally{index + 1}.pkl", path="./creds/")
             driver.get(
                 "https://secure.ally.com/?redirect=%2Faccount%2Flogin"
             )
@@ -90,52 +92,16 @@ def ally_init(ALLY_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
             type_slowly(password_field, account[1])
             driver.find_element(by=By.CSS_SELECTOR, value=login_btn_selector).click()
 
-            # Make sure the next page loads fully
-            if "send-code" not in driver.current_url:
-                WebDriverWait(driver, 30).until(
-                    expected_conditions.url_contains("send-code")
+            try:
+                get_sms(botObj, driver, loop, name, index)
+            except TimeoutException:
+                pass
+
+            # Wait for the dashboard page to load.
+            if "dashboard" not in driver.current_url:
+                WebDriverWait(driver, 5).until(
+                    expected_conditions.url_contains("dashboard")
                 )
-
-            code_btn_selector = 'button[type="submit"].sc-fIGJwM span.sc-iA-DsXs'
-            WebDriverWait(driver, 10).until(
-                expected_conditions.visibility_of_element_located(
-                    (By.CSS_SELECTOR, code_btn_selector))
-            )
-            driver.find_element(by=By.CSS_SELECTOR, value=code_btn_selector).click()
-            if botObj is not None and loop is not None:
-                code_field = "otpCode"
-                WebDriverWait(driver, 10).until(
-                    expected_conditions.presence_of_element_located(
-                        (By.ID, code_field)
-                    )
-                )
-                # Sometimes codes take a long time to arrive
-                timeout = 300  # 5 minutes
-                sms_code = asyncio.run_coroutine_threadsafe(
-                    getOTPCodeDiscord(botObj, name, timeout=timeout, loop=loop),
-                    loop,
-                ).result()
-                if sms_code is None:
-                    raise Exception("No SMS code found")
-
-                code_field = driver.find_element(
-                    by=By.ID, value=code_field
-                )
-                type_slowly(code_field, str(sms_code))
-
-                continue_btn_selector = 'button[type="submit"].sc-fIGJwM'
-                driver.find_element(by=By.CSS_SELECTOR, value=continue_btn_selector).click()
-
-                no_label_element = "//label[span[contains(text(), 'No')]]"
-                WebDriverWait(driver, 10).until(
-                    expected_conditions.presence_of_element_located(
-                        (By.XPATH, no_label_element)
-                    )
-                )
-                driver.find_element(by=By.XPATH, value=no_label_element).click()
-
-                continue_btn_selector = "//button[span[contains(text(), 'Continue')]]"
-                driver.find_element(by=By.XPATH, value=continue_btn_selector).click()
 
             # Wait for the dashboard page to load.
             if "dashboard" not in driver.current_url:
@@ -160,6 +126,7 @@ def ally_init(ALLY_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
                 ally_obj.set_account_totals(
                     name, acct, account_dict[acct]["balance"]
                 )
+            save_cookies(driver, filename=f"ally{index + 1}.pkl", path="./creds/")
             print(f"Logged in to {name}!")
         except Exception as e:
             ally_error(driver, e)
@@ -303,19 +270,20 @@ def ally_transaction(ally_o: Brokerage, orderObj: stockOrder, loop=None):
                 )
             )
 
+            driver.get(
+                "https://live.invest.ally.com/trading-full/stocks"
+            )
+
+            # Wait for page to load
+            WebDriverWait(driver, 30).until(check_if_page_loaded)
+            WebDriverWait(driver, 30).until(
+                expected_conditions.element_to_be_clickable(
+                    (By.CSS_SELECTOR, 'input[placeholder="Search"]')
+                )
+            )
+
             # Complete on each account
             for account in ally_o.get_account_numbers(key):
-                driver.get(
-                    "https://live.invest.ally.com/trading-full/stocks"
-                )
-
-                # Wait for page to load
-                WebDriverWait(driver, 30).until(check_if_page_loaded)
-                WebDriverWait(driver, 30).until(
-                    expected_conditions.element_to_be_clickable(
-                        (By.CSS_SELECTOR, 'input[placeholder="Search"]')
-                    )
-                )
                 try:
                     change_account_element = driver.find_element(By.CSS_SELECTOR, "#account-details-account-number select")
                     select = Select(change_account_element)
@@ -377,7 +345,6 @@ def ally_transaction(ally_o: Brokerage, orderObj: stockOrder, loop=None):
                         value=".company-info-last span",
                     ).text
                     last_price = last_price.replace("$", "")
-                    limit_price = None
                     difference_price = 0.01 if float(last_price) > 0.1 else 0.0001
                     if orderObj.get_action() == "buy":
                         limit_price = round(
@@ -457,6 +424,18 @@ def ally_transaction(ally_o: Brokerage, orderObj: stockOrder, loop=None):
                                 f"{key} {account}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}",
                                 loop,
                             )
+
+                            # Go back to trading screen
+                            close_trade_button = 'ally-button[text="Okay, got it"] button'
+                            WebDriverWait(driver, 10).until(
+                                expected_conditions.element_to_be_clickable(
+                                    (By.CSS_SELECTOR, close_trade_button)
+                                )
+                            )
+                            driver.find_element(
+                                by=By.CSS_SELECTOR,
+                                value=close_trade_button,
+                            ).click()
                         except NoSuchElementException:
                             printAndDiscord(
                                 f"{key} account {account}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}. DID NOT COMPLETE! \nEither this account does not have enough shares, or an order is already pending.",
@@ -468,9 +447,113 @@ def ally_transaction(ally_o: Brokerage, orderObj: stockOrder, loop=None):
                             f"DRY: {key} account {account}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}",
                             loop,
                         )
+
+                        # Go back to trading screen
+                        driver.get(
+                            "https://live.invest.ally.com/trading-full/stocks"
+                        )
+
+                    # Wait for page to load
+                    WebDriverWait(driver, 30).until(check_if_page_loaded)
+                    WebDriverWait(driver, 30).until(
+                        expected_conditions.element_to_be_clickable(
+                            (By.CSS_SELECTOR, 'input[placeholder="Search"]')
+                        )
+                    )
                     sleep(3)
                 except Exception as err:
                     ally_error(driver, err)
                     continue
             print()
     killSeleniumDriver(ally_o)
+
+
+def save_cookies(driver, filename="ally_credentials.pkl", path=None):
+    filename = filename
+    if path is not None:
+        filename = os.path.join(path, filename)
+    if path is not None and not os.path.exists(path):
+        os.makedirs(path)
+    with open(filename, "wb") as f:
+        pickle.dump(driver.get_cookies(), f)
+        
+        
+def load_cookies(driver, filename="ally_credentials.pkl", path=None):
+    if path is not None:
+        filename = os.path.join(path, filename)
+    if not os.path.exists(filename):
+        return False
+    try:
+        with open(filename, "rb") as f:
+            cookies = pickle.load(f)
+        for cookie in cookies:
+            driver.add_cookie(cookie)
+    except Exception:
+        return False
+    return True
+
+
+def clear_cookies(driver, filename="ally_credentials.pkl", path=None):
+    if path is not None:
+        filename = os.path.join(path, filename)
+    if os.path.exists(filename):
+        os.remove(filename)
+    driver.delete_all_cookies()
+
+
+def get_sms(botObj, driver, loop, name, index):
+    # Make sure the next page loads fully
+    if "send-code" not in driver.current_url:
+        WebDriverWait(driver, 5).until(
+            expected_conditions.url_contains("send-code")
+        )
+
+    clear_cookies(driver, filename=f"ally{index + 1}.pkl", path="./creds/")
+    code_btn_selector = 'button[type="submit"].sc-fIGJwM span.sc-iA-DsXs'
+    WebDriverWait(driver, 10).until(
+        expected_conditions.visibility_of_element_located(
+            (By.CSS_SELECTOR, code_btn_selector))
+    )
+    driver.find_element(by=By.CSS_SELECTOR, value=code_btn_selector).click()
+    if botObj is not None and loop is not None:
+        code_field = "otpCode"
+        WebDriverWait(driver, 10).until(
+            expected_conditions.presence_of_element_located(
+                (By.ID, code_field)
+            )
+        )
+        # Sometimes codes take a long time to arrive
+        timeout = 300  # 5 minutes
+        sms_code = asyncio.run_coroutine_threadsafe(
+            getOTPCodeDiscord(botObj, name, timeout=timeout, loop=loop),
+            loop,
+        ).result()
+        if sms_code is None:
+            raise Exception("No SMS code found")
+
+        code_field = driver.find_element(
+            by=By.ID, value=code_field
+        )
+        type_slowly(code_field, str(sms_code))
+
+        continue_btn_selector = 'button[type="submit"].sc-fIGJwM'
+        driver.find_element(by=By.CSS_SELECTOR, value=continue_btn_selector).click()
+
+        yes_label_element = "//label[span[contains(text(), 'Yes')]]"
+        WebDriverWait(driver, 10).until(
+            expected_conditions.presence_of_element_located(
+                (By.XPATH, yes_label_element)
+            )
+        )
+        driver.find_element(by=By.XPATH, value=yes_label_element).click()
+
+        continue_btn_selector = "//button[span[contains(text(), 'Continue')]]"
+        driver.find_element(by=By.XPATH, value=continue_btn_selector).click()
+
+        # Make sure all elements are loaded
+        WebDriverWait(driver, 10).until(
+            expected_conditions.presence_of_element_located(
+                (By.CSS_SELECTOR, 'a[data-testid="account-link"]')
+            )
+        )
+
