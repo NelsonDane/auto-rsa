@@ -566,7 +566,7 @@ async def processTasks(message, embed=False):
 
 def printAndDiscord(message, loop=None, embed=False):
     # Print message
-    print(message)
+    print(message) if not embed else None
     # Add message to discord queue
     if loop is not None:
         task_queue.put((message, embed))
@@ -635,14 +635,16 @@ def printHoldings(brokerObj: Brokerage, loop=None, mask=True):
         "title": f"{brokerObj.get_name()} Holdings",
         "color": 3447003,
     }
-    printing = ""
     EMBED["fields"] = []
+    print( f"==============================\n{brokerObj.get_name()} Holdings\n==============================")
     for key in brokerObj.get_account_numbers():
         for account in brokerObj.get_account_numbers(key):
+            acc_name = f"{key} ({maskString(account) if mask else account})"
             field = {
-                "name": f"{key} ({maskString(account) if mask else account})",
+                "name": acc_name,
                 "inline": False,
             }
+            print(acc_name)
             print_string = ""
             holdings = brokerObj.get_holdings(key, account)
             if holdings == {}:
@@ -655,6 +657,8 @@ def printHoldings(brokerObj: Brokerage, loop=None, mask=True):
                     total = holdings[stock]["total"]
                     print_string += f"{stock}: {quantity} @ ${format(price, '0.2f')} = ${format(total, '0.2f')}\n"
             print_string += f"Total: ${format(brokerObj.get_account_totals(key, account), '0.2f')}\n"
+            print(print_string)
             field["value"] = print_string
             EMBED["fields"].append(field)
     printAndDiscord(EMBED, loop, True)
+    print("==============================")
