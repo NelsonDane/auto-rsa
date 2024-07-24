@@ -636,7 +636,9 @@ def printHoldings(brokerObj: Brokerage, loop=None, mask=True):
         "color": 3447003,
     }
     EMBED["fields"] = []
-    print( f"==============================\n{brokerObj.get_name()} Holdings\n==============================")
+    print(
+        f"==============================\n{brokerObj.get_name()} Holdings\n=============================="
+    )
     for key in brokerObj.get_account_numbers():
         for account in brokerObj.get_account_numbers(key):
             acc_name = f"{key} ({maskString(account) if mask else account})"
