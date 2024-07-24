@@ -360,7 +360,7 @@ def ally_transaction(ally_o: Brokerage, orderObj: stockOrder, loop=None):
                         printAndDiscord(f"{key} Error: Symbol {s} not found", loop)
                         print()
                         killSeleniumDriver(ally_o)
-                        return None
+                        return
                     except NoSuchElementException:
                         pass
 
