@@ -288,7 +288,6 @@ def ally_transaction(ally_o: Brokerage, orderObj: stockOrder, loop=None):
     print("Ally")
     print("==============================")
     print()
-    new_style = False
     for s in orderObj.get_stocks():
         for key in ally_o.get_account_numbers():
             printAndDiscord(
@@ -296,22 +295,29 @@ def ally_transaction(ally_o: Brokerage, orderObj: stockOrder, loop=None):
                 loop,
             )
             driver = ally_o.get_logged_in_objects(key)
-            # Go to trade page
-            driver.get(
-                "https://live.invest.ally.com/trading-full/stocks"
-            )
-            # Wait for page to load
-            WebDriverWait(driver, 20).until(check_if_page_loaded)
-            WebDriverWait(driver, 10).until(
+            driver.find_elements(By.CSS_SELECTOR, 'a[data-testid="account-link"]')[0].click()
+            # This one takes a very long time to load sometimes.
+            WebDriverWait(driver, 30).until(
                 expected_conditions.element_to_be_clickable(
-                    (By.CSS_SELECTOR, 'input[placeholder="Search"]')
+                    (By.CSS_SELECTOR, "label.select-trigger")
                 )
             )
+
             # Complete on each account
             for account in ally_o.get_account_numbers(key):
+                driver.get(
+                    "https://live.invest.ally.com/trading-full/stocks"
+                )
+
+                # Wait for page to load
+                WebDriverWait(driver, 30).until(check_if_page_loaded)
+                WebDriverWait(driver, 30).until(
+                    expected_conditions.element_to_be_clickable(
+                        (By.CSS_SELECTOR, 'input[placeholder="Search"]')
+                    )
+                )
                 try:
-                    change_account_element = driver.find_element(By.CSS_SELECTOR,
-                                                                 "#account-details-account-number selector")
+                    change_account_element = driver.find_element(By.CSS_SELECTOR, "#account-details-account-number select")
                     select = Select(change_account_element)
 
                     account_select = None
@@ -334,15 +340,17 @@ def ally_transaction(ally_o: Brokerage, orderObj: stockOrder, loop=None):
                     )
 
                     # Type in ticker
-                    quantity_box = driver.find_element(
+                    ticker_box = driver.find_element(
                         by=By.CSS_SELECTOR, value='input[placeholder="Search"]'
                     )
                     WebDriverWait(driver, 10).until(
-                        expected_conditions.element_to_be_clickable(quantity_box)
+                        expected_conditions.element_to_be_clickable(ticker_box)
                     )
-                    quantity_box.send_keys(s)
-                    quantity_box.send_keys(Keys.RETURN)
+                    ticker_box.clear()
+                    ticker_box.send_keys(s)
+                    ticker_box.send_keys(Keys.RETURN)
                     sleep(1)
+
                     # Check if symbol not found is displayed
                     try:
                         driver.find_element(
@@ -353,102 +361,93 @@ def ally_transaction(ally_o: Brokerage, orderObj: stockOrder, loop=None):
                         print()
                         killSeleniumDriver(ally_o)
                         return None
-                    except Exception:
+                    except NoSuchElementException:
                         pass
+
+                    # Only have to click something if selling.
+                    if not orderObj.get_action() == "buy":
+                        driver.find_element(
+                            by=By.ID,
+                            value="stock-sell",
+                        ).click()
+
                     # Get last price
                     last_price = driver.find_element(
                         by=By.CSS_SELECTOR,
                         value=".company-info-last span",
                     ).text
                     last_price = last_price.replace("$", "")
+                    limit_price = None
+                    difference_price = 0.01 if float(last_price) > 0.1 else 0.0001
+                    if orderObj.get_action() == "buy":
+                        limit_price = round(
+                            float(last_price) + difference_price, 3
+                        )
+                    else:
+                        limit_price = round(
+                            float(last_price) - difference_price, 3
+                        )
 
-                    # Setup variables that will be used for both buy and sell
                     # Check if extended hours trade is shown
-                    extended_hours_element = None
                     try:
-                        extended_hours_element = driver.find_element(
+                        driver.find_element(
                             by=By.ID,
                             value="extended-hours-order-checkbox",
-                        )
+                        ).click()
                     except NoSuchElementException:
                         pass
 
-                    limit_button = driver.find_element(
+                    # Always make it limit to prevent unable to do market order for security errors
+                    driver.find_element(
                         by=By.ID,
                         value="stock-limit",
-                    )
+                    ).click()
+
+                    # Set quantity
                     quantity_box = driver.find_element(
-                        by=By.ID, value="stock-quantity"
+                        by=By.CSS_SELECTOR, value="#stock-quantity input"
                     )
-                    preview_trade_button = driver.find_element(
+                    quantity_box.clear()
+                    quantity_box.send_keys(str(int(orderObj.get_amount())))  # Ally doesn't support fractional shares
+
+                    # Set price
+                    limit_box = driver.find_element(
+                        by=By.CSS_SELECTOR, value="#stock-limit-input input"
+                    )
+                    limit_box.clear()
+                    limit_box.send_keys(limit_price)
+
+                    # Preview trade
+                    driver.find_element(
                         by=By.CSS_SELECTOR,
                         value='ally-button[data-track-name="Preview Trade"] button',
+                    ).click()
+
+                    # If errors-warnings has children, there was a mistake somewhere
+                    errors_warnings = driver.find_element(
+                        by=By.CLASS_NAME,
+                        value="errors-warnings",
                     )
-                    # Set buy/sell
-                    if orderObj.get_action() == "buy":
-                        # Check the extended hours trade button if it is shown
-                        if extended_hours_element is not None:
-                            extended_hours_element.click()
+                    children = errors_warnings.find_elements(
+                        by=By.XPATH,
+                        value=".//*",
+                    )
+                    if len(children) != 0:
+                        raise Exception("Unable to place Ally trade!")
 
-                        # Always make it limit to prevent unable to do market order for security errors
-                        limit_button.click()
-                        # Backspace twice to turn 100 -> 1
-                        quantity_box.clear()
-                        quantity_box.send_keys(str(orderObj.get_amount()))
-                        # Preview trade
-                        preview_trade_button.click()
-                        # Wait fo page to load
-                        submit_button = ".trade-submit button"
-                        WebDriverWait(driver, 10).until(
-                            expected_conditions.element_to_be_clickable(
-                                (By.CSS_SELECTOR, ".trade-submit button")
-                            )
-                        )
-                        # Submit the trade
-                        driver.find_element(
-                            by=By.CSS_SELECTOR,
-                            value=submit_button,
-                        ).click()
-                    else:
-                        # Check the extended hours trade button if it is shown
-                        if extended_hours_element is not None:
-                            extended_hours_element.click()
-
-                        sell_button = driver.find_element(
-                            by=By.ID,
-                            value="stock-sell",
-                        ).click()
-                        sell_button.click()
-
-                        # Always make it limit to prevent unable to do market order for security errors
-                        limit_button.click()
-                        # Backspace twice to turn 100 -> 1
-                        quantity_box.clear()
-                        quantity_box.send_keys(str(orderObj.get_amount()))
-                        # Preview trade
-                        preview_trade_button.click()
-                        # Wait fo page to load
-                        submit_button = ".trade-submit button"
-                        WebDriverWait(driver, 10).until(
-                            expected_conditions.element_to_be_clickable(
-                                (By.CSS_SELECTOR, ".trade-submit button")
-                            )
-                        )
-                        # Submit the trade
-                        driver.find_element(
-                            by=By.CSS_SELECTOR,
-                            value=submit_button,
-                        ).click()
-
-                    # Place order
                     if not orderObj.get_dry():
-                        # Check for error popup and clear it if the
-                        # account cannot sell the stock for some reason
+                        # Submit the trade
                         try:
-                            place_button = driver.find_element(
-                                by=By.CSS_SELECTOR, value="#placeOrderBtn"
+                            submit_button = ".trade-submit button"
+                            WebDriverWait(driver, 10).until(
+                                expected_conditions.element_to_be_clickable(
+                                    (By.CSS_SELECTOR, ".trade-submit button")
+                                )
                             )
-                            place_button.click()
+                            driver.find_element(
+                                by=By.CSS_SELECTOR,
+                                value=submit_button,
+                            ).click()
 
                             # Wait for page to load
                             WebDriverWait(driver, 10).until(check_if_page_loaded)
@@ -459,22 +458,6 @@ def ally_transaction(ally_o: Brokerage, orderObj: stockOrder, loop=None):
                                 loop,
                             )
                         except NoSuchElementException:
-                            # Check for error
-                            WebDriverWait(driver, 10).until(
-                                expected_conditions.presence_of_element_located(
-                                    (
-                                        By.XPATH,
-                                        "(//button[@class='pvd-modal__close-button'])[3]",
-                                    )
-                                )
-                            )
-                            error_dismiss = driver.find_element(
-                                by=By.XPATH,
-                                value="(//button[@class='pvd-modal__close-button'])[3]",
-                            )
-                            driver.execute_script(
-                                "arguments[0].click();", error_dismiss
-                            )
                             printAndDiscord(
                                 f"{key} account {account}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}. DID NOT COMPLETE! \nEither this account does not have enough shares, or an order is already pending.",
                                 loop,
