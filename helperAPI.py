@@ -539,15 +539,10 @@ async def processTasks(message, embed=False):
         "Content-Type": "application/json",
     }
 
-    if embed:
-        PAYLOAD = {
-            "content": "",
-            "embeds": [message],
-        }
-    else:
-        PAYLOAD = {
-            "content": message,
-        }
+    PAYLOAD = {
+        "content": "" if embed else message,
+        "embeds": [message] if embed else [],
+    }
 
     # Keep trying until success
     success = False
@@ -662,5 +657,4 @@ def printHoldings(brokerObj: Brokerage, loop=None, mask=True):
             print_string += f"Total: ${format(brokerObj.get_account_totals(key, account), '0.2f')}\n"
             field["value"] = print_string
             EMBED["fields"].append(field)
-    EMBED["description"] = printing
     printAndDiscord(EMBED, loop, True)
