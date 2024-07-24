@@ -96,7 +96,7 @@ def wellsfargo_holdings(WELLSFARGO_o: Brokerage, loop=None):
     print("Wells Fargo Holdings")
     print("==============================")
     print()
-    sleep(10)
+
     # dont make this hardcoded
     driver: webdriver = WELLSFARGO_o.get_logged_in_objects("WELLSFARGO 1")
 
@@ -112,26 +112,26 @@ def wellsfargo_holdings(WELLSFARGO_o: Brokerage, loop=None):
             )
             print(len(more))
             more.click()
-        except:
-            print("wtf")
+        except Exception:
+            pass
         try:
             more = WebDriverWait(driver, 20).until(
                 EC.element_to_be_clickable((By.CLASS_NAME, "iconafter"))
             )
             print(len(more))
             more.click()
-        except:
-            print("wtf")
+        except Exception:
+            pass
         try:
             driver.execute(
                 "document.getElementsByClassName('withicon holdingssnaphot')[0].click()"
             )
         except:
-            print("oof")
+            pass
         try:
             driver.find_element(By.CLASS_NAME, "iconafter").click()
-        except:
-            print("oof")
+        except Exception:
+            pass
 
         # Find accounts
         open_dropdown = WebDriverWait(driver, 20).until(
