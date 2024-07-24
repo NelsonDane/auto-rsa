@@ -634,8 +634,8 @@ def printHoldings(brokerObj: Brokerage, loop=None, mask=True):
     EMBED = {
         "title": f"{brokerObj.get_name()} Holdings",
         "color": 3447003,
+        "fields": []
     }
-    EMBED["fields"] = []
     print(
         f"==============================\n{brokerObj.get_name()} Holdings\n=============================="
     )
