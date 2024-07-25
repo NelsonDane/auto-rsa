@@ -515,8 +515,8 @@ def getDriver(DOCKER=False):
             """
              #! What I added
             chrome_options = Options()
-            chrome_options.add_argument('--ignore-certificate-errors')
-            chrome_options.add_argument('--ignore-ssl-errors')
+            # chrome_options.add_argument('--ignore-certificate-errors')
+            # chrome_options.add_argument('--ignore-ssl-errors')
             chrome_options.add_argument('--disable-blink-features=AutomationControlled')
             chrome_options.add_argument('--disable-notifications')
             chrome_options.add_argument('--disable-popup-blocking')
