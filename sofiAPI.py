@@ -240,7 +240,12 @@ def sofi_transaction(SOFI_o:Brokerage,orderObj:stockOrder,loop=None,DOCKER=False
                 sleep(2)
                 limit_price = WebDriverWait(driver, 20).until(
                     EC.element_to_be_clickable((By.NAME, "value")))
-                limit_price.send_keys(str(float(live_price) + 0.01))
+
+                if float(live_price)<0.1:
+                    limit_price.send_keys(str(float(live_price) + 0.005)) 
+                else: 
+                    limit_price.send_keys(str(float(live_price) + 0.01))
+
                 #//*[@id="mainContent"]/div[2]/div[2]/div[3]/div/div[8]/div/p
                 try:
                     #//*[@id="mainContent"]/div[2]/div[2]/div[3]/div/h2
@@ -310,7 +315,10 @@ def sofi_transaction(SOFI_o:Brokerage,orderObj:stockOrder,loop=None,DOCKER=False
                     submit_button = WebDriverWait(driver, 20).until(
                         EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/div[4]/button[1]")))
                     submit_button.click()
-                    print("Order submitted for", QUANTITY, "shares of", s, "at", str(float(live_price) + 0.01))
+                    if float(live_price)<0.1:
+                        print("Order submitted for", QUANTITY, "shares of", s, "at", str(float(live_price) + 0.005))
+                    else:
+                        print("Order submitted for", QUANTITY, "shares of", s, "at", str(float(live_price) + 0.01))
                     
                     # Confirm the order
                     done_button = WebDriverWait(driver, 20).until(
