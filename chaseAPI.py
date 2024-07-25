@@ -69,7 +69,7 @@ def chase_init(account, index, botObj=None, loop=None):
         account = account.split(":")
         debug = bool(account[3]) if len(account) == 4 else False
         ch_session = session.ChaseSession(
-            title=f"chase_{index}", headless=False, profile_path="./creds", debug=debug
+            title=f"chase_{index}", headless=True, profile_path="./creds", debug=debug
         )
         need_second = ch_session.login(account[0], account[1], account[2])
         if need_second:
