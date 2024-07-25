@@ -538,7 +538,6 @@ async def processTasks(message, embed=False):
         "Authorization": f"Bot {DISCORD_TOKEN}",
         "Content-Type": "application/json",
     }
-
     PAYLOAD = {
         "content": "" if embed else message,
         "embeds": [message] if embed else [],
@@ -566,7 +565,8 @@ async def processTasks(message, embed=False):
 
 def printAndDiscord(message, loop=None, embed=False):
     # Print message
-    print(message) if not embed else None
+    if not embed:
+        print(message)
     # Add message to discord queue
     if loop is not None:
         task_queue.put((message, embed))
