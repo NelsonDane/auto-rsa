@@ -340,11 +340,6 @@ class ThreadHandler:
 
 
 def updater():
-    # Check if disabled
-    if os.getenv("ENABLE_AUTO_UPDATE", "").lower() == "false":
-        print("Auto update disabled, skipping...")
-        print()
-        return
     # Check if git is installed
     try:
         import git
@@ -355,7 +350,7 @@ def updater():
         )
         print()
         return
-    print("Starting auto update. To disable, set ENABLE_AUTO_UPDATE to false in .env")
+    print("Starting auto update...")
     try:
         repo = Repo(".")
     except git.exc.InvalidGitRepositoryError:
@@ -384,6 +379,7 @@ def updater():
         print(
             "UPDATE ERROR: Conflicting changes found. Please commit, stash, or remove your changes before updating."
         )
+        print(f"Using commit {str(repo.head.commit)[:7]}")
         print()
         return
     if not repo.bare:
@@ -396,8 +392,7 @@ def updater():
             )
             print()
             return
-    revision_head = str(repo.head.commit)[:7]
-    print(f"Update complete! Using commit {revision_head}")
+    print(f"Update complete! Using commit {str(repo.head.commit)[:7]}")
     print()
     return
 
@@ -617,8 +612,7 @@ async def getOTPCodeDiscord(
         f"Please enter OTP code or type cancel within {timeout} seconds", loop
     )
     # Get OTP code from Discord
-    otp_code = None
-    while otp_code is None:
+    while True:
         try:
             code = await botObj.wait_for(
                 "message",
@@ -636,14 +630,16 @@ async def getOTPCodeDiscord(
             printAndDiscord(f"Cancelling OTP code for {brokerName}", loop)
             return None
         try:
-            otp_code = int(code.content)
+            # Check if code is numbers only
+            int(code.content)
         except ValueError:
             printAndDiscord("OTP code must be numbers only", loop)
             continue
+        # Check if code is correct length
         if len(code.content) != code_len:
             printAndDiscord(f"OTP code must be {code_len} digits", loop)
             continue
-    return otp_code
+        return code.content
 
 
 def maskString(string):
@@ -655,7 +651,7 @@ def maskString(string):
     return masked
 
 
-def printHoldings(brokerObj: Brokerage, loop=None):
+def printHoldings(brokerObj: Brokerage, loop=None, mask=True):
     # Helper function for holdings formatting
     printAndDiscord(
         f"==============================\n{brokerObj.get_name()} Holdings\n==============================",
@@ -663,7 +659,7 @@ def printHoldings(brokerObj: Brokerage, loop=None):
     )
     for key in brokerObj.get_account_numbers():
         for account in brokerObj.get_account_numbers(key):
-            printAndDiscord(f"{key} ({maskString(account)}):", loop)
+            printAndDiscord(f"{key} ({maskString(account) if mask else account})", loop)
             holdings = brokerObj.get_holdings(key, account)
             if holdings == {}:
                 printAndDiscord("No holdings in Account\n", loop)
