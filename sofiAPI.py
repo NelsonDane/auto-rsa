@@ -78,12 +78,14 @@ def sofi_init(SOFI_EXTERNAL=None,DOCKER=False):
                     EC.element_to_be_clickable((By.XPATH, "//*[@id='widget_block']/div/div[2]/div/div/main/section/div/div/div/form/div[2]/button")))
                 login_button.click()
                 #//*[@id="prompt-alert"]/p
+                '''
                 try:
                     tooManyAttempts=WebDriverWait(driver, 10).until(
                         EC.presence_of_element_located((By.XPATH, "//*[@id='prompt-alert']/p")))
                     print("Too many attempts, give it a break and come back later.")
                 except TimeoutException:
                     return
+                '''
                 print("=====================================================\n")
               
                 code2fa=input('Please enter code and press ENTER to continue:')
@@ -121,11 +123,12 @@ def sofi_transaction(SOFI_o:Brokerage,orderObj:stockOrder,loop=None,DOCKER=False
     driver=DRIVER
     #print(orderObj.get_stocks())
     investment_button = WebDriverWait(driver, 20).until(
-        EC.element_to_be_clickable((By.XPATH, "//*[@id='root']/div/header/nav/div[2]/a[4]")))
+        EC.element_to_be_clickable((By.XPATH, "//*[@id='root']/div/header/nav/div[3]/a[4]")))
     investment_button.click()
     
     for s in orderObj.get_stocks():
         try:
+            print('hello')
             search_field = WebDriverWait(driver, 20).until(
                 EC.element_to_be_clickable((By.XPATH, "//*[@id='page-wrap']/div[1]/div/div/div/div/input")))
             search_field.send_keys(s)
@@ -134,6 +137,7 @@ def sofi_transaction(SOFI_o:Brokerage,orderObj:stockOrder,loop=None,DOCKER=False
             total_items = len(dropdown_items)
         except TimeoutException:
             try:
+                print('hello2')
                 invest_search_field=WebDriverWait(driver, 20).until(
                     EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[2]/div[1]/div/div/div/input")))
                 invest_search_field.send_keys(s)
@@ -178,9 +182,12 @@ def sofi_transaction(SOFI_o:Brokerage,orderObj:stockOrder,loop=None,DOCKER=False
                 #//*[@id="shares"]
                 #//*[@id="shares"]
                 try:
+                    #! Commented this out
+                    '''
                     shares=WebDriverWait(driver, 10).until(
                         EC.element_to_be_clickable((By.XPATH, "//*[@id='shares']")))
                     shares.click()
+                    '''
                     #//*[@id="OrderTypedDropDown"]
                     OrderTypedDropDown=WebDriverWait(driver, 10).until(
                         EC.element_to_be_clickable((By.XPATH, "//*[@id='OrderTypedDropDown']")))
@@ -198,7 +205,8 @@ def sofi_transaction(SOFI_o:Brokerage,orderObj:stockOrder,loop=None,DOCKER=False
                 live_price = WebDriverWait(driver, 20).until(
                     EC.presence_of_element_located((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/p"))).text
                 live_price = live_price.split('$')[1]
-                #print("LIVE PRICE:", live_price)
+                # print("LIVE PRICE:", live_price)
+
 
                 # Handle account selection
                 accounts_dropdown = WebDriverWait(driver, 20).until(
@@ -210,7 +218,7 @@ def sofi_transaction(SOFI_o:Brokerage,orderObj:stockOrder,loop=None,DOCKER=False
                     value = option.get_attribute('value')
                     if value not in clicked_values:
                         select.select_by_value(value)
-                        #print("Selected account:", value)
+                        print("Selected account:", value)
                         clicked_values.add(value)
                         break
                 else:
@@ -225,11 +233,11 @@ def sofi_transaction(SOFI_o:Brokerage,orderObj:stockOrder,loop=None,DOCKER=False
 
                 # Input quantity and price
                 #print("Inputting quantity and price")
-                sleep(5)
+                sleep(2)
                 quant = WebDriverWait(driver, 20).until(
                     EC.element_to_be_clickable((By.NAME, "shares")))
                 quant.send_keys(QUANTITY)
-                sleep(5)
+                sleep(2)
                 limit_price = WebDriverWait(driver, 20).until(
                     EC.element_to_be_clickable((By.NAME, "value")))
                 limit_price.send_keys(str(float(live_price) + 0.01))
@@ -237,23 +245,68 @@ def sofi_transaction(SOFI_o:Brokerage,orderObj:stockOrder,loop=None,DOCKER=False
                 try:
                     #//*[@id="mainContent"]/div[2]/div[2]/div[3]/div/h2
                     available_funds = WebDriverWait(driver, 10).until(
-                        EC.presence_of_element_located((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/h2")))
-                    
-                    Insufficient_funds=WebDriverWait(driver, 10).until(
-                        EC.presence_of_element_located((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/div[8]/div/p")))
+                        EC.presence_of_element_located((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/h2"))).text
+                    available_funds = available_funds.split('$')[1]
+                    order_price=QUANTITY*(float(live_price)+0.01)
+                    if order_price > float(available_funds):
+                        print(f"Insufficient funds. {s}'s price is {live_price}, Order price ${order_price} Available funds ${available_funds}.")
+                        #//*[@id="mainContent"]/div[2]/div[2]/div[3]/a
+                        cancel_button = WebDriverWait(driver, 20).until(
+                            EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/a")))
+                        cancel_button.click() 
+                        continue
+                    else:
+                        # print("Sufficient")
+                        pass
+                    # Insufficient_funds=WebDriverWait(driver, 10).until(
+                    #     EC.presence_of_element_located((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/div[8]/div/p")))
+                    '''
                     print(f"Insufficient funds. {s}'s price is {live_price}, Available funds {available_funds.text}.")
                     #//*[@id="mainContent"]/div[2]/div[2]/div[3]/a
                     cancel_button = WebDriverWait(driver, 20).until(
                         EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/a")))
                     cancel_button.click()
-                    continue    
+                    continue 
+                    '''   
                 except TimeoutException:
                     pass
+
                 # Review and submit the order
-                review_button = WebDriverWait(driver, 20).until(
-                    EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/div[8]/button")))
-                review_button.click()
-                if DRY == 'False':
+                # review_button = WebDriverWait(driver, 20).until(
+                #     EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/div[8]/button")))
+                # review_button.click()
+
+                #! not too confident in this
+                try:
+                    # Define possible XPaths for the review button
+                    xpaths = [
+                        "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/div[8]/button",
+                        "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/div[7]/button",
+                        "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/div[6]/button"
+                    ]
+
+                    # Try each XPath until one works
+                    review_button = None
+                    for xpath in xpaths:
+                        try:
+                            review_button = WebDriverWait(driver, 3).until(
+                                EC.element_to_be_clickable((By.XPATH, xpath))
+                            )
+                            break  # Exit the loop if the button is found and clickable
+                        except TimeoutException:
+                            continue  # Try the next XPath
+
+                    if review_button is None:
+                        raise Exception("Review button not found")
+
+                    # Click the review button
+                    print('review button found')
+                    review_button.click()
+                except:
+                    # print('not supposed to happen')
+                    continue
+                # print('supposed to happen')
+                if DRY == False:
                     submit_button = WebDriverWait(driver, 20).until(
                         EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/div[4]/button[1]")))
                     submit_button.click()
@@ -264,15 +317,20 @@ def sofi_transaction(SOFI_o:Brokerage,orderObj:stockOrder,loop=None,DOCKER=False
                         EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/div[2]/button")))
                     done_button.click()
                     print("Order completed and confirmed.")
-                elif(DRY=='True'):
-                    #print("testing before back")
-                    sleep(5)
+                elif(DRY==True):
+                    print("testing before back")
+                    sleep(4)
                     back_button = WebDriverWait(driver, 20).until(
                         EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/div[4]/button[2]")))
                     back_button.click()
-                    sleep(3)
+                    sleep(2)
                     print("DRY MODE")
                     print("Submitting order BUY for", QUANTITY, "shares of", s, "at", str(float(live_price) + 0.01))
+                    #! I added
+                    cancel_button = WebDriverWait(driver, 20).until(
+                        EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/a")))
+                    cancel_button.click() 
+
         elif orderObj.get_action() == "sell":
                
 
