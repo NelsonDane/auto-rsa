@@ -255,11 +255,11 @@ def fidelity_holdings(fidelity_o: Brokerage, loop=None):
                 stocks_list = javascript_get_classname(
                     driver, "ag-pinned-left-cols-container"
                 )
-                # Find 3 or 4 letter words surrounded by 2 spaces on each side
+                # Find 1-5 letter words surrounded by 2 spaces on each side
                 for i in range(len(stocks_list)):
                     stocks_list[i].replace(" \n ", "").replace("*", "")
                     stocks_list[i] = re.findall(
-                        r"(?<=\s{2})[a-zA-Z]{3,4}(?=\s{2})", stocks_list[i]
+                        r"(?<=\s{2})[a-zA-Z]{1,5}(?=\s{2})", stocks_list[i]
                     )
                 stocks_list = stocks_list[0]
                 # holdings_info = javascript_get_classname(
