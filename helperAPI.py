@@ -542,7 +542,6 @@ async def processTasks(message, embed=False):
         "content": "" if embed else message,
         "embeds": [message] if embed else [],
     }
-
     # Keep trying until success
     success = False
     while success is False:
@@ -652,7 +651,6 @@ def printHoldings(brokerObj: Brokerage, loop=None, mask=True):
             if holdings == {}:
                 print_string += "No holdings in Account\n"
             else:
-
                 for stock in holdings:
                     quantity = holdings[stock]["quantity"]
                     price = holdings[stock]["price"]
