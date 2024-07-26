@@ -62,7 +62,6 @@ DAY1_BROKERS = [
     "fennel",
     "firstrade",
     "public",
-    "robinhood",
     "schwab",
     "tastytrade",
     "tradier",
@@ -182,6 +181,10 @@ def argParser(args: list) -> stockOrder:
             orderObj.set_brokers(SUPPORTED_BROKERS)
         elif args[1] == "day1":
             orderObj.set_brokers(DAY1_BROKERS)
+        elif args[1] == "most":
+            orderObj.set_brokers(list(filter(lambda x: x != 'vanguard', SUPPORTED_BROKERS)))
+        elif args[1] == "fast":
+            orderObj.set_brokers(DAY1_BROKERS + ["robinhood"])
         else:
             for broker in args[1].split(","):
                 orderObj.set_brokers(nicknames(broker))
@@ -201,6 +204,10 @@ def argParser(args: list) -> stockOrder:
         orderObj.set_brokers(SUPPORTED_BROKERS)
     elif args[3] == "day1":
         orderObj.set_brokers(DAY1_BROKERS)
+    elif args[3] == "most":
+        orderObj.set_brokers(list(filter(lambda x: x != 'vanguard', SUPPORTED_BROKERS)))
+    elif args[3] == "fast":
+        orderObj.set_brokers(DAY1_BROKERS + ["robinhood"])
     else:
         for broker in args[3].split(","):
             if nicknames(broker) in SUPPORTED_BROKERS:
