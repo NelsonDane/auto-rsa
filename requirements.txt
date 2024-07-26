@@ -11,7 +11,7 @@ requests==2.32.3
 robin-stocks==3.1.0
 schwab-api==0.4.3
 selenium==4.23.1
-setuptools==71.1.0
+setuptools==70.3.0
 tastytrade==8.0
 vanguard-api==0.1.9
 -e git+https://github.com/NelsonDane/webull.git@ef14ae63f9e1436fbea77fe864df54847cf2f730#egg=webull

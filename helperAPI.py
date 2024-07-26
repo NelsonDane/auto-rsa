@@ -340,7 +340,7 @@ def updater():
         from git import Repo
     except ImportError:
         print(
-            "UPDATE ERROR: Git is not installed. Please install Git and then run pip install -r requirements.txt"
+            "UPDATE ERROR: Git is not installed. Please install Git and then run python install_dependencies.py"
         )
         print()
         return
@@ -458,7 +458,7 @@ def check_package_versions():
             continue
     if not SHOULD_CONTINUE:
         print(
-            'Please run "pip install -r requirements.txt" to install/update required packages.'
+            'Please run "python install_dependencies.py" to install/update required packages.'
         )
         sys.exit(1)
     else:
