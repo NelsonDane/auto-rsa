@@ -158,18 +158,18 @@ def sofi_transaction(SOFI_o:Brokerage,orderObj:stockOrder,loop=None,DOCKER=False
         if total_items == 0:
             print("No stock found")
             return
-        else:
-            found_stock = False
-            for item in dropdown_items:
-                ticker_name = item.find_element(By.XPATH, "./a/div/p[1]").text
-                if ticker_name == s:
-                    found_stock = True
-                    item.click()
-                    break
+        
+        found_stock = False
+        for item in dropdown_items:
+            ticker_name = item.find_element(By.XPATH, "./a/div/p[1]").text
+            if ticker_name == s:
+                found_stock = True
+                item.click()
+                break
 
-            if not found_stock:
-                print(f"SOFI DOESN'T HAVE {s}")
-                return
+        if not found_stock:
+            print(f"SOFI DOESN'T HAVE {s}")
+            return
         #print(orderObj.get_action())
         if orderObj.get_action() == "buy":
             #print(f"Buying {orderObj.get_quantity(s)} shares of {s} at ${orderObj.get_price(s)}")
@@ -268,9 +268,8 @@ def sofi_transaction(SOFI_o:Brokerage,orderObj:stockOrder,loop=None,DOCKER=False
                             EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/a")))
                         cancel_button.click() 
                         continue
-                    else:
-                        # print("Sufficient")
-                        pass
+                    # print("Sufficient")
+                
                     # Insufficient_funds=WebDriverWait(driver, 10).until(
                     #     EC.presence_of_element_located((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/div[8]/div/p")))
                     '''
@@ -319,7 +318,7 @@ def sofi_transaction(SOFI_o:Brokerage,orderObj:stockOrder,loop=None,DOCKER=False
                     # print('not supposed to happen')
                     continue
                 # print('supposed to happen')
-                if DRY == False:
+                if DRY is False:
                     submit_button = WebDriverWait(driver, 20).until(
                         EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/div[4]/button[1]")))
                     submit_button.click()
@@ -333,7 +332,7 @@ def sofi_transaction(SOFI_o:Brokerage,orderObj:stockOrder,loop=None,DOCKER=False
                         EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/div[2]/button")))
                     done_button.click()
                     print("Order completed and confirmed.")
-                elif(DRY==True):
+                elif(DRY is True):
                     print("testing before back")
                     sleep(4)
                     back_button = WebDriverWait(driver, 20).until(
@@ -435,7 +434,7 @@ def sofi_transaction(SOFI_o:Brokerage,orderObj:stockOrder,loop=None,DOCKER=False
                         logger.info('neither review button worked')
                         continue
 
-                if(DRY==False):
+                if(DRY is False):
                     #//*[@id="mainContent"]/div[2]/div[2]/div[3]/div/div[5]/button[1]
                     sleep(2)
                     submit_button = WebDriverWait(driver, 20).until(
@@ -447,7 +446,7 @@ def sofi_transaction(SOFI_o:Brokerage,orderObj:stockOrder,loop=None,DOCKER=False
                     done.click()
                     print("Submitting order SELL for", QUANTITY, "shares of", s, "at", str(float(live_price) - 0.01))
                     
-                elif(DRY==True):   
+                elif(DRY is True):   
                     #print("testing before back")
                     #time.sleep(5)
                     try:
