@@ -97,7 +97,7 @@ def wellsfargo_holdings(WELLSFARGO_o: Brokerage, loop=None):
     print("==============================")
     print()
 
-    # dont make this hardcoded
+    # Don't make this hardcoded; adjust accordingly
     driver: webdriver = WELLSFARGO_o.get_logged_in_objects("WELLSFARGO 1")
 
     try:
@@ -110,26 +110,7 @@ def wellsfargo_holdings(WELLSFARGO_o: Brokerage, loop=None):
             more = WebDriverWait(driver, 20).until(
                 EC.element_to_be_clickable((By.CLASS_NAME, "withicon holdingssnaphot"))
             )
-            print(len(more))
             more.click()
-        except Exception:
-            pass
-        try:
-            more = WebDriverWait(driver, 20).until(
-                EC.element_to_be_clickable((By.CLASS_NAME, "iconafter"))
-            )
-            print(len(more))
-            more.click()
-        except Exception:
-            pass
-        try:
-            driver.execute(
-                "document.getElementsByClassName('withicon holdingssnaphot')[0].click()"
-            )
-        except:
-            pass
-        try:
-            driver.find_element(By.CLASS_NAME, "iconafter").click()
         except Exception:
             pass
 
@@ -142,28 +123,33 @@ def wellsfargo_holdings(WELLSFARGO_o: Brokerage, loop=None):
         accounts = driver.execute_script(
             "return document.getElementById('dropdownlist1').getElementsByTagName('li').length;"
         )
-        accounts = int(accounts / 2)
+        accounts = int(accounts / 2)  # Adjust based on actual implementation
     except TimeoutException:
-        print("could not get to holdings")
+        print("Could not get to holdings")
         killSeleniumDriver(WELLSFARGO_o)
+        return
 
-    for account in range(accounts):
+    for account_index in range(accounts):
         try:
-            # choose account
+            # Choose account
             open_dropdown = WebDriverWait(driver, 20).until(
                 EC.element_to_be_clickable((By.XPATH, "//*[@id='dropdown1']"))
             )
             open_dropdown.click()
             driver.execute_script(
                 "document.getElementById('dropdownlist1').getElementsByTagName('li')["
-                + str(account + 1)
-                + "].click()"
+                + str(account_index + 1) + "].click()"
             )
+
+            # Set account name
+            account_name = f"Wells Fargo {account_index + 1}"
+            WELLSFARGO_o.set_account_number(account_name, "1234")
         except:
-            print("could not change account")
+            print("Could not change account")
             killSeleniumDriver(WELLSFARGO_o)
+            continue
+
         rows = driver.find_elements(By.CSS_SELECTOR, "tbody tr")
-        data = []
         # Iterate through each row
         for row in rows:
             # Find all cells in the current row
@@ -171,34 +157,27 @@ def wellsfargo_holdings(WELLSFARGO_o: Brokerage, loop=None):
             if len(cells) >= 9:
                 # Extracting data
                 name_match = re.search(r"^[^\n]*", cells[1].text)
-                amount_match = re.search(
-                    r"-?\d+(\.\d+)?", cells[3].text.replace("\n", "")
-                )
-                price_match = re.search(
-                    r"-?\d+(\.\d+)?", cells[4].text.replace("\n", "")
-                )
-                my_value_match = re.search(
-                    r"-?\d+(\.\d+)?", cells[5].text.replace("\n", "")
-                )
+                amount_match = re.search(r"-?\d+(\.\d+)?", cells[3].text.replace("\n", ""))
+                price_match = re.search(r"-?\d+(\.\d+)?", cells[4].text.replace("\n", ""))
+                my_value_match = re.search(r"-?\d+(\.\d+)?", cells[5].text.replace("\n", ""))
 
                 # Checking if matches exist before accessing indices
                 name = name_match.group(0) if name_match else cells[1].text
-                amount = amount_match.group(0) if amount_match else ""
-                price = price_match.group(0) if price_match else ""
-                my_value = my_value_match.group(0) if my_value_match else ""
-
-                # Pushing data as dictionary to the list
-                data.append(
-                    {
-                        "name": name,
-                        "amount": amount,
-                        "price": price,
-                        "my_value": my_value,
-                    }
+                amount = amount_match.group(0) if amount_match else "0"
+                price = price_match.group(0) if price_match else "0"
+                my_value = my_value_match.group(0) if my_value_match else "0"
+                
+                # Assuming you want to store the quantity and price in the holdings
+                WELLSFARGO_o.set_holdings(
+                    account_name,  # Use the previously set account name
+                    account_name,  # account_name (you could use account index or name here)
+                    name.strip(),  # stock (ensure to strip whitespace)
+                    float(amount),  # quantity (ensure it's a number)
+                    float(price)  # price
                 )
 
-        print(data)
-    sleep(5000)
+    printHoldings(WELLSFARGO_o, loop)
+    killSeleniumDriver(WELLSFARGO_o)
 
 
 def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=None):
