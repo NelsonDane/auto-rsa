@@ -26,7 +26,6 @@ from helperAPI import (
     printAndDiscord,
     printHoldings,
     stockOrder,
-    type_slowly,
 )
 
 
@@ -85,11 +84,11 @@ def ally_init(ALLY_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
             username_field = driver.find_element(
                 by=By.CSS_SELECTOR, value=username_selector
             )
-            type_slowly(username_field, account[0])
+            username_field.send_keys(account[0])
             password_field = driver.find_element(
                 by=By.CSS_SELECTOR, value=password_selector
             )
-            type_slowly(password_field, account[1])
+            password_field.send_keys((account[1]))
             driver.find_element(by=By.CSS_SELECTOR, value=login_btn_selector).click()
 
             try:
@@ -534,7 +533,7 @@ def get_sms(botObj, driver, loop, name, index):
         code_field = driver.find_element(
             by=By.ID, value=code_field
         )
-        type_slowly(code_field, str(sms_code))
+        code_field.send_keys(str(sms_code))
 
         continue_btn_selector = 'button[type="submit"].sc-fIGJwM'
         driver.find_element(by=By.CSS_SELECTOR, value=continue_btn_selector).click()
