@@ -10,7 +10,7 @@ import pickle
 
 from dotenv import load_dotenv
 from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException, TimeoutException
+from selenium.common.exceptions import NoSuchElementException, TimeoutException, ElementClickInterceptedException
 from selenium.webdriver import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions
@@ -129,6 +129,7 @@ def ally_init(ALLY_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
             print(f"Logged in to {name}!")
         except Exception as e:
             ally_error(driver, e)
+            printAndDiscord(f"Error logging into Ally account: {account}", loop)
             driver.close()
             driver.quit()
             return None
@@ -254,6 +255,19 @@ def ally_transaction(ally_o: Brokerage, orderObj: stockOrder, loop=None):
     print("Ally")
     print("==============================")
     print()
+    # Go to trading page on each account.
+    for key in ally_o.get_account_numbers():
+        driver = ally_o.get_logged_in_objects(key)
+        driver.find_elements(By.CSS_SELECTOR, 'a[data-testid="account-link"]')[0].click()
+        # This one takes a very long time to load sometimes.
+        WebDriverWait(driver, 30).until(
+            expected_conditions.element_to_be_clickable(
+                (By.CSS_SELECTOR, "label.select-trigger")
+            )
+        )
+
+        go_to_trading_screen(driver)
+
     for s in orderObj.get_stocks():
         for key in ally_o.get_account_numbers():
             printAndDiscord(
@@ -261,26 +275,6 @@ def ally_transaction(ally_o: Brokerage, orderObj: stockOrder, loop=None):
                 loop,
             )
             driver = ally_o.get_logged_in_objects(key)
-            driver.find_elements(By.CSS_SELECTOR, 'a[data-testid="account-link"]')[0].click()
-            # This one takes a very long time to load sometimes.
-            WebDriverWait(driver, 30).until(
-                expected_conditions.element_to_be_clickable(
-                    (By.CSS_SELECTOR, "label.select-trigger")
-                )
-            )
-
-            driver.get(
-                "https://live.invest.ally.com/trading-full/stocks"
-            )
-
-            # Wait for page to load
-            WebDriverWait(driver, 30).until(check_if_page_loaded)
-            WebDriverWait(driver, 30).until(
-                expected_conditions.element_to_be_clickable(
-                    (By.CSS_SELECTOR, 'input[placeholder="Search"]')
-                )
-            )
-
             # Complete on each account
             for account in ally_o.get_account_numbers(key):
                 try:
@@ -357,17 +351,20 @@ def ally_transaction(ally_o: Brokerage, orderObj: stockOrder, loop=None):
                     # Check if extended hours trade is shown
                     try:
                         driver.find_element(
-                            by=By.ID,
-                            value="extended-hours-order-checkbox",
+                            by=By.CSS_SELECTOR,
+                            value='label[for="extended-hours-order-checkbox"]',
                         ).click()
                     except NoSuchElementException:
                         pass
 
                     # Always make it limit to prevent unable to do market order for security errors
-                    driver.find_element(
-                        by=By.ID,
-                        value="stock-limit",
-                    ).click()
+                    try:
+                        driver.find_element(
+                            by=By.ID,
+                            value="stock-limit",
+                        ).click()
+                    except ElementClickInterceptedException:  # If we get this error, it is already set to limit.
+                        pass
 
                     # Set quantity
                     quantity_box = driver.find_element(
@@ -389,17 +386,16 @@ def ally_transaction(ally_o: Brokerage, orderObj: stockOrder, loop=None):
                         value='ally-button[data-track-name="Preview Trade"] button',
                     ).click()
 
+                    sleep(1)
+
                     # If errors-warnings has children, there was a mistake somewhere
-                    errors_warnings = driver.find_element(
-                        by=By.CLASS_NAME,
-                        value="errors-warnings",
-                    )
-                    children = errors_warnings.find_elements(
-                        by=By.XPATH,
-                        value=".//*",
-                    )
-                    if len(children) != 0:
-                        raise Exception("Unable to place Ally trade!")
+                    for errors_warnings in driver.find_elements(By.CLASS_NAME, "errors-warnings"):
+                        children = errors_warnings.find_elements(By.XPATH, ".//*")
+                        if len(children) != 0:
+                            # Print errors Ally gives the user
+                            e = Exception(f"{key} {account} Unable to place Ally trade! Error message from Ally: \"{children[0].text}\"")
+                            printAndDiscord(f"{e}", loop)
+                            raise e
 
                     if not orderObj.get_dry():
                         # Submit the trade
@@ -435,33 +431,33 @@ def ally_transaction(ally_o: Brokerage, orderObj: stockOrder, loop=None):
                                 by=By.CSS_SELECTOR,
                                 value=close_trade_button,
                             ).click()
+                            # Wait for page to load
+                            WebDriverWait(driver, 30).until(check_if_page_loaded)
+                            WebDriverWait(driver, 30).until(
+                                expected_conditions.element_to_be_clickable(
+                                    (By.CSS_SELECTOR, 'input[placeholder="Search"]')
+                                )
+                            )
                         except NoSuchElementException:
                             printAndDiscord(
                                 f"{key} account {account}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}. DID NOT COMPLETE! \nEither this account does not have enough shares, or an order is already pending.",
                                 loop,
                             )
-                        # Send confirmation
+                            go_to_trading_screen(driver)
                     else:
+                        # Send confirmation
                         printAndDiscord(
                             f"DRY: {key} account {account}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}",
                             loop,
                         )
 
-                        # Go back to trading screen
-                        driver.get(
-                            "https://live.invest.ally.com/trading-full/stocks"
-                        )
+                        go_to_trading_screen(driver)
 
-                    # Wait for page to load
-                    WebDriverWait(driver, 30).until(check_if_page_loaded)
-                    WebDriverWait(driver, 30).until(
-                        expected_conditions.element_to_be_clickable(
-                            (By.CSS_SELECTOR, 'input[placeholder="Search"]')
-                        )
-                    )
                     sleep(3)
-                except Exception as err:
-                    ally_error(driver, err)
+                except Exception as e:
+                    ally_error(driver, e)
+
+                    go_to_trading_screen(driver)
                     continue
             print()
     killSeleniumDriver(ally_o)
@@ -475,8 +471,8 @@ def save_cookies(driver, filename="ally_credentials.pkl", path=None):
         os.makedirs(path)
     with open(filename, "wb") as f:
         pickle.dump(driver.get_cookies(), f)
-        
-        
+
+
 def load_cookies(driver, filename="ally_credentials.pkl", path=None):
     if path is not None:
         filename = os.path.join(path, filename)
@@ -556,3 +552,16 @@ def get_sms(botObj, driver, loop, name, index):
             )
         )
 
+
+def go_to_trading_screen(driver):
+    # Go back to trading screen
+    driver.get(
+        "https://live.invest.ally.com/trading-full/stocks"
+    )
+    # Wait for page to load
+    WebDriverWait(driver, 30).until(check_if_page_loaded)
+    WebDriverWait(driver, 30).until(
+        expected_conditions.element_to_be_clickable(
+            (By.CSS_SELECTOR, 'input[placeholder="Search"]')
+        )
+    )
