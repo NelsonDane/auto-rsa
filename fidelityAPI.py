@@ -2,6 +2,7 @@
 # API to Interface with Fidelity
 # Uses headless Selenium
 
+import asyncio
 import datetime
 import os
 import re
@@ -25,7 +26,7 @@ from helperAPI import (
     printAndDiscord,
     printHoldings,
     stockOrder,
-    type_slowly,
+    type_slowly, getOTPCodeDiscord,
 )
 
 
@@ -49,7 +50,7 @@ def javascript_get_classname(driver: webdriver, className) -> list:
     return text
 
 
-def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
+def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
     # Initialize .env file
     load_dotenv()
     # Import Fidelity account
@@ -130,6 +131,47 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
                 ).click()
             except TimeoutException:
                 pass
+            # Check for 2fa page
+            try:
+                driver.find_element(
+                    by=By.ID, value="dom-channel-list-primary-button"
+                ).click()
+                # Make sure the next page loads fully
+                code_field = "#dom-otp-code-input"
+                WebDriverWait(driver, 5).until(
+                    expected_conditions.visibility_of_element_located((By.CSS_SELECTOR, code_field))
+                )
+
+                # Sometimes codes take a long time to arrive
+                timeout = 300  # 5 minutes
+                if botObj is not None and loop is not None:
+                    sms_code = asyncio.run_coroutine_threadsafe(
+                        getOTPCodeDiscord(botObj, name, timeout=timeout, loop=loop),
+                        loop,
+                    ).result()
+                    if sms_code is None:
+                        raise Exception("No SMS code found")
+                else:
+                    sms_code = input("Enter security code: ")
+
+                code_field = driver.find_element(
+                    by=By.CSS_SELECTOR, value=code_field
+                )
+                code_field.send_keys(str(sms_code))
+
+                continue_btn_selector = "#dom-otp-code-submit-button"
+                driver.find_element(By.CSS_SELECTOR, continue_btn_selector).click()
+            except NoSuchElementException:
+                pass
+            if "summary" not in driver.current_url:
+                if "errorpage" in driver.current_url.lower():
+                    raise Exception(
+                        f"{name}: Login Failed. Got Error Page: Current URL: {driver.current_url}"
+                    )
+                print("Waiting for portfolio page to load...")
+                WebDriverWait(driver, 30).until(
+                    expected_conditions.url_contains("summary")
+                )
             # Wait for page to load to summary page
             if "summary" not in driver.current_url:
                 if "errorpage" in driver.current_url.lower():
