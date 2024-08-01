@@ -167,6 +167,7 @@ def vanguard_transaction(vanguard_o: Brokerage, orderObj: stockOrder, loop=None)
                         duration=order.Duration.DAY,
                         order_type=order_type,
                         dry_run=orderObj.get_dry(),
+                        after_hours=True,
                     )
                     print("The order verification produced the following messages: ")
                     if (
