@@ -232,11 +232,6 @@ def fidelity_account_info(driver: webdriver) -> dict | None:
 
 
 def fidelity_holdings(fidelity_o: Brokerage, loop=None):
-    print()
-    print("==============================")
-    print("Fidelity Holdings")
-    print("==============================")
-    print()
     for key in fidelity_o.get_account_numbers():
         driver: webdriver = fidelity_o.get_logged_in_objects(key)
         for account in fidelity_o.get_account_numbers(key):
