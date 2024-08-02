@@ -131,14 +131,27 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
                 ).click()
             except TimeoutException:
                 pass
-            # Check for 2fa page
+            # Check for mobile 2fa page
             try:
-                driver.find_element(
-                    by=By.ID, value="dom-channel-list-primary-button"
+                try_another_way = "a#dom-try-another-way-link"
+                WebDriverWait(driver, 10).until(
+                    expected_conditions.element_to_be_clickable(
+                        (By.CSS_SELECTOR, try_another_way)
+                    ),
+                ).click()
+            except TimeoutException:
+                pass
+            # Check for normal 2fa page
+            try:
+                text_me_button = "//*[@id='dom-channel-list-primary-button' and contains(string(.), 'Text me the code')]"  # Make sure it doesn't duplicate from mobile page
+                WebDriverWait(driver, 10).until(
+                    expected_conditions.element_to_be_clickable(
+                        (By.XPATH, text_me_button)
+                    ),
                 ).click()
                 # Make sure the next page loads fully
                 code_field = "#dom-otp-code-input"
-                WebDriverWait(driver, 5).until(
+                WebDriverWait(driver, 10).until(
                     expected_conditions.visibility_of_element_located((By.CSS_SELECTOR, code_field))
                 )
 
@@ -161,7 +174,7 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
 
                 continue_btn_selector = "#dom-otp-code-submit-button"
                 driver.find_element(By.CSS_SELECTOR, continue_btn_selector).click()
-            except NoSuchElementException:
+            except TimeoutException:
                 pass
             if "summary" not in driver.current_url:
                 if "errorpage" in driver.current_url.lower():
