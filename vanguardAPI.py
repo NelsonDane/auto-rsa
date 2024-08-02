@@ -112,7 +112,8 @@ def vanguard_holdings(vanguard_o: Brokerage, loop=None):
                         for stock in all_accounts.accounts_positions[account][
                             account_type
                         ]:
-                            if float(stock["quantity"]) != 0:
+                            if (float(stock["quantity"]) != 0
+                            and stock["symbol"] != "—"):
                                 vanguard_o.set_holdings(
                                     key,
                                     account,
