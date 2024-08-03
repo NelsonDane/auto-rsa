@@ -21,12 +21,13 @@ from helperAPI import (
     Brokerage,
     check_if_page_loaded,
     getDriver,
+    getOTPCodeDiscord,
     killSeleniumDriver,
     maskString,
     printAndDiscord,
     printHoldings,
     stockOrder,
-    type_slowly, getOTPCodeDiscord,
+    type_slowly,
 )
 
 
@@ -154,7 +155,6 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
                 WebDriverWait(driver, 10).until(
                     expected_conditions.visibility_of_element_located((By.CSS_SELECTOR, code_field))
                 )
-
                 # Sometimes codes take a long time to arrive
                 timeout = 300  # 5 minutes
                 if botObj is not None and loop is not None:
@@ -171,20 +171,10 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
                     by=By.CSS_SELECTOR, value=code_field
                 )
                 code_field.send_keys(str(sms_code))
-
                 continue_btn_selector = "#dom-otp-code-submit-button"
                 driver.find_element(By.CSS_SELECTOR, continue_btn_selector).click()
             except TimeoutException:
                 pass
-            if "summary" not in driver.current_url:
-                if "errorpage" in driver.current_url.lower():
-                    raise Exception(
-                        f"{name}: Login Failed. Got Error Page: Current URL: {driver.current_url}"
-                    )
-                print("Waiting for portfolio page to load...")
-                WebDriverWait(driver, 30).until(
-                    expected_conditions.url_contains("summary")
-                )
             # Wait for page to load to summary page
             if "summary" not in driver.current_url:
                 if "errorpage" in driver.current_url.lower():
