@@ -154,6 +154,21 @@ All brokers: separate account credentials with a colon (":"). For example, `SCHW
 
 Some brokerages require `Playwright` to run. On Windows, the `playwright install` command might not be recognized. If this is the case, run `python -m playwright install` instead.
 
+### Ally
+#### 🚨 WARNING 🚨 
+**Ally is known ban accounts that do RSA. *Do not use Ally unless you are okay having your accounts banned!***
+
+Made by yours truly using Selenium. Consider giving me a ⭐
+
+Required `.env` variables:
+- `ALLY_USERNAME`
+- `ALLY_PASSWORD`
+
+`.env` file format:
+- `ALLY=ALLY_USERNAME:ALLY_PASSWORD`
+
+Ally locks stocks from trading for a few days following a reverse split. Even, if you see it in your account, give it 2-3 days before you are able to sell.
+
 #### Chase
 Made by [MaxxRK](https://github.com/MaxxRK/) using the [chaseinvest-api](https://github.com/MaxxRK/chaseinvest-api). Go give them a ⭐
 - `CHASE_USERNAME`
