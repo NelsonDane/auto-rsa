@@ -31,6 +31,7 @@ try:
     from tradierAPI import *
     from vanguardAPI import *
     from webullAPI import *
+    from sofiAPI import *
 except Exception as e:
     print(f"Error importing libraries: {e}")
     print(traceback.format_exc())
@@ -54,6 +55,7 @@ SUPPORTED_BROKERS = [
     "tradier",
     "vanguard",
     "webull",
+    "sofi",
 ]
 DAY1_BROKERS = [
     "chase",
@@ -64,6 +66,7 @@ DAY1_BROKERS = [
     "tastytrade",
     "tradier",
     "webull",
+    "sofi",
 ]
 DISCORD_BOT = False
 DOCKER_MODE = False
@@ -104,8 +107,10 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                     orderObj.set_logged_in(
                         globals()[fun_name](DOCKER=DOCKER_MODE, botObj=botObj, loop=loop), broker
                     )
-                elif broker.lower() in ["fennel", "public"]:
-                    # Requires bot object and loop
+                elif broker.lower() == "sofi":
+                    orderObj.set_logged_in(globals()[fun_name](DOCKER=DOCKER_MODE), broker)
+                elif broker.lower() == "public":
+                    # Public requires bot object
                     orderObj.set_logged_in(
                         globals()[fun_name](botObj=botObj, loop=loop), broker
                     )
