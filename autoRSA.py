@@ -102,10 +102,7 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                 if broker.lower() == "fidelity":
                     # Fidelity requires docker mode argument, botObj, and loop
                     orderObj.set_logged_in(
-                        globals()[fun_name](
-                            DOCKER=DOCKER_MODE, botObj=botObj, loop=loop
-                        ),
-                        broker,
+                        globals()[fun_name](DOCKER=DOCKER_MODE, botObj=botObj, loop=loop), broker
                     )
                 elif broker.lower() in ["fennel", "public"]:
                     # Requires bot object and loop
@@ -182,7 +179,7 @@ def argParser(args: list) -> stockOrder:
             orderObj.set_brokers(DAY1_BROKERS)
         elif args[1] == "most":
             orderObj.set_brokers(
-                list(filter(lambda x: x != "vanguard", SUPPORTED_BROKERS))
+                list(filter(lambda x: x != 'vanguard', SUPPORTED_BROKERS))
             )
         elif args[1] == "fast":
             orderObj.set_brokers(DAY1_BROKERS + ["robinhood"])
@@ -206,7 +203,7 @@ def argParser(args: list) -> stockOrder:
     elif args[3] == "day1":
         orderObj.set_brokers(DAY1_BROKERS)
     elif args[3] == "most":
-        orderObj.set_brokers(list(filter(lambda x: x != "vanguard", SUPPORTED_BROKERS)))
+        orderObj.set_brokers(list(filter(lambda x: x != 'vanguard', SUPPORTED_BROKERS)))
     elif args[3] == "fast":
         orderObj.set_brokers(DAY1_BROKERS + ["robinhood"])
     else:
