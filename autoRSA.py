@@ -372,7 +372,10 @@ if __name__ == "__main__":
             print()
             await ctx.send("Restarting...")
             await bot.close()
-            os._exit(0)  # Special exit code to restart docker container
+            if DOCKER_MODE:
+                os._exit(0)  # Special exit code to restart docker container
+            else:
+                os.execv(sys.executable, [sys.executable] + sys.argv)
 
         # Catch bad commands
         @bot.event
