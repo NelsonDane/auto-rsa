@@ -107,7 +107,7 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                     print('jalbhsdkjassdjkadhk')
                     # Fidelity requires docker mode argument
                     orderObj.set_logged_in(
-                        globals()[fun_name](DOCKER=DOCKER_MODE), broker
+                        globals()[fun_name](DOCKER=DOCKER_MODE, botObj=botObj, loop=loop), broker
                     )
                 elif broker.lower() in ["fennel", "public"]:
                     # Requires bot object and loop
