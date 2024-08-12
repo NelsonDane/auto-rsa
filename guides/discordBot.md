@@ -2,7 +2,7 @@
 In order to use this bot in Discord, you have to create a bot account and invite it to your server. This guide will show you how to do that.
 
 1. Go to the [Discord Developer Portal](https://discord.com/developers/applications) and click `New Application`.
-2. Enter a name for your bot, like `AutoRSA` and click `Create.
+2. Enter a name for your bot, like `AutoRSA` and click `Create`.
 3. Click on `Installation` in the left sidebar, then uncheck `Guild Install` on the `Installation Contexts`.
 4. Click on `Bot` in the left sidebar, then give it a name and profile picture if you want.
 5. Disable `Public Bot`.
