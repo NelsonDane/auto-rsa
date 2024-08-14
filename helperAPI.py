@@ -539,28 +539,34 @@ async def processTasks(message, embed=False):
         "Authorization": f"Bot {DISCORD_TOKEN}",
         "Content-Type": "application/json",
     }
-    PAYLOAD = {
-        "content": "" if embed else message,
-        "embeds": [message] if embed else [],
-    }
-    # Keep trying until success
-    success = False
-    while success is False:
-        try:
-            response = requests.post(BASE_URL, headers=HEADERS, json=PAYLOAD)
-            # Process response
-            if response.status_code == 200:
-                success = True
-            elif response.status_code == 429:
-                rate_limit = response.json()["retry_after"] * 2
-                await asyncio.sleep(rate_limit)
-            else:
-                print(f"Error: {response.status_code}: {response.text}")
+    embed_length = len(message["fields"]) if embed else 1
+    for i in range(0, embed_length, 25):
+        PAYLOAD = {
+            "content": "" if embed else message,
+            "embeds": [{
+                "title": message["title"] if i == 0 else "",
+                "color": message["color"],
+                "fields": message["fields"][i:i + 25]
+            }] if embed else []
+        }
+        # Keep trying until success
+        success = False
+        while success is False:
+            try:
+                response = requests.post(BASE_URL, headers=HEADERS, json=PAYLOAD)
+                # Process response
+                if response.status_code == 200:
+                    success = True
+                elif response.status_code == 429:
+                    rate_limit = response.json()["retry_after"] * 2
+                    await asyncio.sleep(rate_limit)
+                else:
+                    print(f"Error: {response.status_code}: {response.text}")
+                    break
+            except Exception as e:
+                print(f"Error Sending Message: {e}")
                 break
-        except Exception as e:
-            print(f"Error Sending Message: {e}")
-            break
-    sleep(0.5)
+        await asyncio.sleep(0.5)
 
 
 def printAndDiscord(message, loop=None, embed=False):
@@ -659,7 +665,11 @@ def printHoldings(brokerObj: Brokerage, loop=None, mask=True):
                     print_string += f"{stock}: {quantity} @ ${format(price, '0.2f')} = ${format(total, '0.2f')}\n"
             print_string += f"Total: ${format(brokerObj.get_account_totals(key, account), '0.2f')}\n"
             print(print_string)
-            field["value"] = print_string
+            # If somehow longer than 1024, chop and add ...
+            field["value"] = print_string[:1020] + "..." if len(print_string) > 1024 else print_string
             EMBED["fields"].append(field)
+    # for i in range(30):
+    #     EMBED["fields"].append(field)
+
     printAndDiscord(EMBED, loop, True)
     print("==============================")
