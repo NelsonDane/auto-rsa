@@ -378,7 +378,7 @@ def updater():
         return
     if not repo.bare:
         try:
-            repo.remotes.origin.pull(repo.active_branch)
+            repo.git.pull()
             print(f"Pulled latest changes from {repo.active_branch}")
         except Exception as e:
             print(
@@ -386,7 +386,8 @@ def updater():
             )
             print()
             return
-    print(f"Update complete! Using commit {str(repo.head.commit)[:7]}")
+    print(f"Update complete! Now using commit {str(repo.head.commit)[:7]}")
+    print(f"Check if you're up to date here: https://github.com/NelsonDane/auto-rsa/commits/{repo.active_branch}")
     print()
     return
 
