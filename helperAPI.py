@@ -21,6 +21,11 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromiumService
 from selenium.webdriver.edge.service import Service as EdgeService
 
+import undetected_chromedriver as uc
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
+import logging
+
 # Create task queue
 task_queue = Queue()
 
@@ -497,6 +502,7 @@ def getDriver(DOCKER=False):
                 options=options,
             )
         else:
+            """
             # Otherwise use Edge
             options = webdriver.EdgeOptions()
             options.add_argument("--disable-blink-features=AutomationControlled")
@@ -505,6 +511,26 @@ def getDriver(DOCKER=False):
                 service=EdgeService(),
                 options=options,
             )
+            """
+            chrome_options = Options()
+            chrome_options.add_argument('--disable-blink-features=AutomationControlled')
+            chrome_options.add_argument('--disable-notifications')
+            chrome_options.add_argument('--disable-popup-blocking')
+            chrome_options.add_argument('--disable-infobars')
+            chrome_options.add_argument('--disable-extensions')
+            chrome_options.add_argument("--no-sandbox")
+            chrome_options.add_argument("--disable-dev-shm-usage")
+            chrome_options.add_argument("--incognito")
+            
+            chrome_options.add_argument('--disable-gpu')
+            chrome_options.add_argument('--disable-software-rasterizer')
+            chrome_options.add_argument('--remote-debugging-port=9222')
+            # chrome_options.add_argument('--headless=new')
+            
+            # driver = uc.Chrome(version_main=127, options=chrome_options)
+            driver = uc.Chrome(options=chrome_options)
+            driver.set_page_load_timeout(60)
+            
     except Exception as e:
         print(f"Error getting Driver: {e}")
         return None
