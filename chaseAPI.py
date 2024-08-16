@@ -67,8 +67,9 @@ def chase_init(account, index, botObj=None, loop=None):
     name = f"Chase {index}"
     try:
         account = account.split(":")
+        debug = bool(account[3]) if len(account) == 4 else False
         ch_session = session.ChaseSession(
-            title=f"chase_{index}", headless=False, profile_path="./creds"
+            title=f"chase_{index}", headless=True, profile_path="./creds", debug=debug
         )
         need_second = ch_session.login(account[0], account[1], account[2])
         if need_second:
@@ -246,11 +247,10 @@ def chase_transaction(chase_o: Brokerage, orderObj: stockOrder, loop=None):
                                 loop,
                             )
             except Exception as e:
-                obj.close_browser()
                 printAndDiscord(f"{key} {account}: Error submitting order: {e}", loop)
                 print(traceback.format_exc())
                 continue
-        obj.close_browser()
+    obj.close_browser()
     printAndDiscord(
         "All Chase transactions complete",
         loop,

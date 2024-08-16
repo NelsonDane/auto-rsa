@@ -8,12 +8,12 @@ on:
 
 jobs:
   call-workflow-dockerhub-build-push:
-    uses: NelsonDane/Custom-GitHub-Actions/.github/workflows/dockerhub-build-push.yml@e3876788a573bfb35bac32593c4075b87c37e774
+    uses: NelsonDane/Custom-GitHub-Actions/.github/workflows/docker-registry-build-push.yml@6729a5a9fba311fabe014c6b75ab58717efdbb17
     with:
       image_name: auto-rsa
       image_tag: ${{ github.ref_name == 'main' && 'latest' || startsWith(github.ref_name, 'develop') && github.ref_name }}
       should_push: ${{ github.ref_name == 'main' || startsWith(github.ref_name, 'develop') }}
       platforms: linux/amd64,linux/arm64
     secrets:
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-      DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+      DOCKER_REGISTRY_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKER_REGISTRY_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}

@@ -31,7 +31,7 @@ def schwab_init(SCHWAB_EXTERNAL=None):
         name = f"Schwab {index}"
         try:
             account = account.split(":")
-            schwab = Schwab()
+            schwab = Schwab(session_cache=f"./creds/schwab{index}.json")
             schwab.login(
                 username=account[0],
                 password=account[1],

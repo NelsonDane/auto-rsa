@@ -334,11 +334,6 @@ class ThreadHandler:
 
 
 def updater():
-    # Check if disabled
-    if os.getenv("ENABLE_AUTO_UPDATE", "").lower() == "false":
-        print("Auto update disabled, skipping...")
-        print()
-        return
     # Check if git is installed
     try:
         import git
@@ -349,7 +344,7 @@ def updater():
         )
         print()
         return
-    print("Starting auto update. To disable, set ENABLE_AUTO_UPDATE to false in .env")
+    print("Starting auto update...")
     try:
         repo = Repo(".")
     except git.exc.InvalidGitRepositoryError:
@@ -378,11 +373,12 @@ def updater():
         print(
             "UPDATE ERROR: Conflicting changes found. Please commit, stash, or remove your changes before updating."
         )
+        print(f"Using commit {str(repo.head.commit)[:7]}")
         print()
         return
     if not repo.bare:
         try:
-            repo.remotes.origin.pull(repo.active_branch)
+            repo.git.pull()
             print(f"Pulled latest changes from {repo.active_branch}")
         except Exception as e:
             print(
@@ -390,8 +386,8 @@ def updater():
             )
             print()
             return
-    revision_head = str(repo.head.commit)[:7]
-    print(f"Update complete! Using commit {revision_head}")
+    print(f"Update complete! Now using commit {str(repo.head.commit)[:7]}")
+    print(f"Check if you're up to date here: https://github.com/NelsonDane/auto-rsa/commits/{repo.active_branch}")
     print()
     return
 
@@ -532,7 +528,7 @@ def killSeleniumDriver(brokerObj: Brokerage):
             print(f"Killed {count} {brokerObj.get_name()} drivers")
 
 
-async def processTasks(message):
+async def processTasks(message, embed=False):
     # Get details from env (they are used prior so we know they exist)
     load_dotenv()
     DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
@@ -543,35 +539,43 @@ async def processTasks(message):
         "Authorization": f"Bot {DISCORD_TOKEN}",
         "Content-Type": "application/json",
     }
-    PAYLOAD = {
-        "content": message,
-    }
-    # Keep trying until success
-    success = False
-    while success is False:
-        try:
-            response = requests.post(BASE_URL, headers=HEADERS, json=PAYLOAD)
-            # Process response
-            if response.status_code == 200:
-                success = True
-            elif response.status_code == 429:
-                rate_limit = response.json()["retry_after"] * 2
-                await asyncio.sleep(rate_limit)
-            else:
-                print(f"Error: {response.status_code}: {response.text}")
+    embed_length = len(message["fields"]) if embed else 1
+    for i in range(0, embed_length, 25):
+        PAYLOAD = {
+            "content": "" if embed else message,
+            "embeds": [{
+                "title": message["title"] if i == 0 else "",
+                "color": message["color"],
+                "fields": message["fields"][i:i + 25]
+            }] if embed else []
+        }
+        # Keep trying until success
+        success = False
+        while success is False:
+            try:
+                response = requests.post(BASE_URL, headers=HEADERS, json=PAYLOAD)
+                # Process response
+                if response.status_code == 200:
+                    success = True
+                elif response.status_code == 429:
+                    rate_limit = response.json()["retry_after"] * 2
+                    await asyncio.sleep(rate_limit)
+                else:
+                    print(f"Error: {response.status_code}: {response.text}")
+                    break
+            except Exception as e:
+                print(f"Error Sending Message: {e}")
                 break
-        except Exception as e:
-            print(f"Error Sending Message: {e}")
-            break
-    sleep(0.5)
+        await asyncio.sleep(0.5)
 
 
-def printAndDiscord(message, loop=None):
+def printAndDiscord(message, loop=None, embed=False):
     # Print message
-    print(message)
+    if not embed:
+        print(message)
     # Add message to discord queue
     if loop is not None:
-        task_queue.put((message))
+        task_queue.put((message, embed))
         if task_queue.qsize() == 1:
             asyncio.run_coroutine_threadsafe(processQueue(), loop)
 
@@ -579,8 +583,8 @@ def printAndDiscord(message, loop=None):
 async def processQueue():
     # Process discord queue
     while not task_queue.empty():
-        message = task_queue.get()
-        await processTasks(message)
+        message, embed = task_queue.get()
+        await processTasks(message, embed)
         task_queue.task_done()
 
 
@@ -592,8 +596,7 @@ async def getOTPCodeDiscord(
         f"Please enter OTP code or type cancel within {timeout} seconds", loop
     )
     # Get OTP code from Discord
-    otp_code = None
-    while otp_code is None:
+    while True:
         try:
             code = await botObj.wait_for(
                 "message",
@@ -611,14 +614,16 @@ async def getOTPCodeDiscord(
             printAndDiscord(f"Cancelling OTP code for {brokerName}", loop)
             return None
         try:
-            otp_code = int(code.content)
+            # Check if code is numbers only
+            int(code.content)
         except ValueError:
             printAndDiscord("OTP code must be numbers only", loop)
             continue
+        # Check if code is correct length
         if len(code.content) != code_len:
             printAndDiscord(f"OTP code must be {code_len} digits", loop)
             continue
-    return otp_code
+        return code.content
 
 
 def maskString(string):
@@ -630,28 +635,41 @@ def maskString(string):
     return masked
 
 
-def printHoldings(brokerObj: Brokerage, loop=None):
+def printHoldings(brokerObj: Brokerage, loop=None, mask=True):
     # Helper function for holdings formatting
-    printAndDiscord(
-        f"==============================\n{brokerObj.get_name()} Holdings\n==============================",
-        loop,
+    EMBED = {
+        "title": f"{brokerObj.get_name()} Holdings",
+        "color": 3447003,
+        "fields": []
+    }
+    print(
+        f"==============================\n{brokerObj.get_name()} Holdings\n=============================="
     )
     for key in brokerObj.get_account_numbers():
         for account in brokerObj.get_account_numbers(key):
-            printAndDiscord(f"{key} ({maskString(account)}):", loop)
+            acc_name = f"{key} ({maskString(account) if mask else account})"
+            field = {
+                "name": acc_name,
+                "inline": False,
+            }
+            print(acc_name)
+            print_string = ""
             holdings = brokerObj.get_holdings(key, account)
             if holdings == {}:
-                printAndDiscord("No holdings in Account\n", loop)
+                print_string += "No holdings in Account\n"
             else:
-                print_string = ""
                 for stock in holdings:
                     quantity = holdings[stock]["quantity"]
                     price = holdings[stock]["price"]
                     total = holdings[stock]["total"]
                     print_string += f"{stock}: {quantity} @ ${format(price, '0.2f')} = ${format(total, '0.2f')}\n"
-                printAndDiscord(print_string, loop)
-            printAndDiscord(
-                f"Total: ${format(brokerObj.get_account_totals(key, account), '0.2f')}\n",
-                loop,
-            )
-    printAndDiscord("==============================", loop)
+            print_string += f"Total: ${format(brokerObj.get_account_totals(key, account), '0.2f')}\n"
+            print(print_string)
+            # If somehow longer than 1024, chop and add ...
+            field["value"] = print_string[:1020] + "..." if len(print_string) > 1024 else print_string
+            EMBED["fields"].append(field)
+    # for i in range(30):
+    #     EMBED["fields"].append(field)
+
+    printAndDiscord(EMBED, loop, True)
+    print("==============================")
