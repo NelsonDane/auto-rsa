@@ -1,7 +1,7 @@
 import datetime
 import os
 import traceback
-from time import sleep,time
+from time import sleep
 import logging
 
 from dotenv import load_dotenv
@@ -28,9 +28,11 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 def sofi_error(driver, loop=None):
     driver.save_screenshot(f"SOFI-error-{datetime.datetime.now()}.png")
     printAndDiscord(f"SOFI Error: {traceback.format_exc()}", loop, embed=False)
+
 
 def get_2fa_code(secret):
     totp = pyotp.TOTP(secret)
@@ -177,6 +179,7 @@ def sofi_init(SOFI_EXTERNAL=None, loop=None):
             return None
     return SOFI_obj
 
+
 def sofi_account_info(driver: webdriver) -> dict | None:
     try:
         logger.info("Navigating to SOFI account overview page...")
@@ -246,6 +249,7 @@ def sofi_account_info(driver: webdriver) -> dict | None:
         sofi_error(driver, e)
         return None
 
+
 def sofi_holdings(SOFI_o: Brokerage, loop=None):
     # Get holdings on each account
     for key in list(SOFI_o.get_account_numbers()):
@@ -305,6 +309,7 @@ def sofi_holdings(SOFI_o: Brokerage, loop=None):
     killSeleniumDriver(SOFI_o)
     logger.info("Completed SOFI holdings processing.")
 
+
 def extract_holdings(driver, loop=None):
     holdings_data = []
     try:
@@ -341,11 +346,12 @@ def extract_holdings(driver, loop=None):
 
     return holdings_data
 
+
 def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None):
     print("\n==============================")
     print("SOFI")
     print("==============================\n")
-    
+
     for s in orderObj.get_stocks():
         for key in SOFI_o.get_account_numbers():
             driver = SOFI_o.get_logged_in_objects(key)
@@ -401,13 +407,13 @@ def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None):
 
             if orderObj.get_action() == "buy":
                 clicked_values = set()  # Set to keep track of processed accounts
-            
+
                 DRY = orderObj.get_dry()
                 QUANTITY = orderObj.get_amount()
                 print("DRY MODE:", DRY)
                 account_number = 1
                 sleep(4)
-                
+
                 while True:
                     sleep(1)
                     try:
@@ -470,7 +476,7 @@ def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None):
                         print(f"Failed to enter quantity for {s}. Moving to next stock.")
                         printAndDiscord(f"SOFI failed to enter quantity for {s}.", loop)
                         break
-                    
+
                     try:
                         print("Entering limit price")
                         limit_price = WebDriverWait(driver, 20).until(
@@ -485,7 +491,7 @@ def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None):
                     review_button = WebDriverWait(driver, 3).until(
                         EC.element_to_be_clickable((By.CSS_SELECTOR, "button[data-mjs='inv-trade-buy-review']")))
                     review_button.click()
-                    
+
                     if DRY is False:
                         try:
                             submit_button = WebDriverWait(driver, 20).until(
@@ -548,7 +554,7 @@ def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None):
                     else:
                         print(f"All accounts have been processed for {s}.")
                         break
-                    
+
                     try:
                         print(f"Checking available shares for {s}")
                         available_shares = WebDriverWait(driver, 20).until(
@@ -558,7 +564,7 @@ def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None):
                         print(f"Failed to fetch available shares for {s}. Moving to next stock.")
                         printAndDiscord(f"SOFI failed to fetch available shares for {s}.", loop)
                         break
-                    
+
                     if QUANTITY > float(available_shares):
                         QUANTITY = float(available_shares) if float(available_shares) > 0 else 0
                         if QUANTITY == 0:
@@ -616,12 +622,12 @@ def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None):
                             printAndDiscord(f"SOFI account {key}: sell {QUANTITY} shares of {s} at {float(live_price) - 0.01}", loop)
                             done_button = WebDriverWait(driver, 20).until(
                                 EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/div[2]/button")))
-                            done_button.click()                            
+                            done_button.click()                           
                         except TimeoutException:
                             print(f"Failed to submit sell order for {s}. Moving to next stock.")
                             printAndDiscord(f"SOFI failed to submit sell order for {s}.", loop)
                             break
-    
+
     print("Completed all transactions, Exiting...")
     driver.close()  # Close the driver window
     driver.quit()  # Quit the driver entirely
