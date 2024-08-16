@@ -38,6 +38,7 @@ def get_2fa_code(secret):
     totp = pyotp.TOTP(secret)
     return totp.now()
 
+
 def sofi_init(SOFI_EXTERNAL=None, loop=None):
     load_dotenv()
 
@@ -172,8 +173,8 @@ def sofi_init(SOFI_EXTERNAL=None, loop=None):
                 printAndDiscord(f"TimeoutException: Login failed for {name}.", loop)
                 return False
 
-        except Exception as e:
-            sofi_error(driver, e, loop)
+        except Exception:
+            sofi_error(driver, loop)
             driver.close()
             driver.quit()
             return None
@@ -197,7 +198,7 @@ def sofi_account_info(driver: webdriver) -> dict | None:
             try:
                 # Open the account link in a new tab
                 account_link = account_box.get_attribute('href')
-                driver.execute_script("window.open('{}', '_blank');".format(account_link))
+                driver.execute_script(f"window.open('{account_link}', '_blank');")
                 driver.switch_to.window(driver.window_handles[-1])  # Switch to the newly opened tab
 
                 # Wait for the account page to load
@@ -216,7 +217,7 @@ def sofi_account_info(driver: webdriver) -> dict | None:
                     EC.presence_of_element_located((By.CSS_SELECTOR, '#page-wrap > section:nth-child(6) > div:nth-child(3) > div > span:nth-child(2)'))
                 )
                 current_value = current_value_element.text.strip().replace('$', '').replace(',', '')
-                logger.info(f"Current value for account {account_number}: {current_value}")
+                logger.info("Current value for account %s: %s", account_number, current_value)
 
                 # Assuming a default account type, you can adjust this if needed
                 account_type = "Investment Account"
@@ -255,7 +256,7 @@ def sofi_holdings(SOFI_o: Brokerage, loop=None):
     for key in list(SOFI_o.get_account_numbers()):
         driver: webdriver = SOFI_o.get_logged_in_objects(key)
         try:
-            logger.info(f"Processing holdings for account: {key}")
+            logger.info("Processing holdings for account: %s", key)
 
             # Process each account link one by one
             account_boxes = driver.find_elements(By.CSS_SELECTOR, '.AccountCardWrapper-PyEjZ .linked-card > a')
@@ -264,9 +265,9 @@ def sofi_holdings(SOFI_o: Brokerage, loop=None):
 
             for index, link in enumerate(account_links):
                 try:
-                    logger.info(f"Processing account link {index + 1}/{len(account_links)}: {link}")
+                    logger.info("Processing account link %d/%d: %s", index + 1, len(account_links), link)
 
-                    driver.execute_script("window.open('{}', '_blank');".format(link))
+                    driver.execute_script(f"window.open('{link}', '_blank');")
                     driver.switch_to.window(driver.window_handles[-1])  # Switch to the newly opened tab
 
                     sleep(5)
@@ -283,7 +284,7 @@ def sofi_holdings(SOFI_o: Brokerage, loop=None):
                         EC.presence_of_element_located((By.CSS_SELECTOR, '#page-wrap > section:nth-child(6) > div:nth-child(3) > div > span:nth-child(2)'))
                     )
                     current_value = current_value_element.text.strip()
-                    logger.info(f"Current value for account {account_number}: {current_value}")
+                    logger.info("Current value for account %s: %s", account_number, current_value)
 
                     holdings_data = extract_holdings(driver, loop)
 
@@ -300,7 +301,7 @@ def sofi_holdings(SOFI_o: Brokerage, loop=None):
                 driver.switch_to.window(driver.window_handles[0])
 
         except Exception as e:
-            logger.error(f"Error processing SOFI holdings for account {key}: {e}")
+            logger.error("Error processing SOFI holdings for account %s: %s", key, e)
             printAndDiscord(f"{key}: Error processing SOFI holdings: {e}", loop)
             continue
 
@@ -314,7 +315,7 @@ def extract_holdings(driver, loop=None):
     holdings_data = []
     try:
         holdings_elements = driver.find_elements(By.CSS_SELECTOR, "#page-wrap > section:nth-child(6) > div:nth-child(2) > a")
-        logger.info(f"Found {len(holdings_elements)} holdings elements to process.")
+        logger.info("Found %d holdings elements to process.", len(holdings_elements))
         if len(holdings_elements) == 0:
             logger.error("No holdings elements found, double-check the CSS selector.")
 
@@ -331,7 +332,7 @@ def extract_holdings(driver, loop=None):
 
                 price_float = float(price.replace('$', '').replace(',', ''))
 
-                logger.info(f"Scraped holding: {company_name}, Shares: {shares}, Price: {price_float}")
+                logger.info("Scraped holding: %s, Shares: %s, Price: %f", company_name, shares, price_float)
 
                 holdings_data.append({
                     'company_name': company_name,
@@ -339,10 +340,10 @@ def extract_holdings(driver, loop=None):
                     'price': price_float
                 })
             except Exception as e:
-                logger.error(f"Error scraping a holding element: {str(e)}")
+                logger.error("Error scraping a holding element: %s", e)
                 continue
-    except Exception as e:
-        sofi_error(driver, e, loop)
+    except Exception:
+        sofi_error(driver, loop)
 
     return holdings_data
 
@@ -622,7 +623,7 @@ def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None):
                             printAndDiscord(f"SOFI account {key}: sell {QUANTITY} shares of {s} at {float(live_price) - 0.01}", loop)
                             done_button = WebDriverWait(driver, 20).until(
                                 EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/div[2]/button")))
-                            done_button.click()                           
+                            done_button.click()
                         except TimeoutException:
                             print(f"Failed to submit sell order for {s}. Moving to next stock.")
                             printAndDiscord(f"SOFI failed to submit sell order for {s}.", loop)
