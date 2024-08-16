@@ -210,7 +210,7 @@ def sofi_account_info(driver: webdriver) -> dict | None:
                 )
                 account_number_text = account_number_element.text.strip()
                 account_number = account_number_text.split("#")[1].split(")")[0].strip()
-                logger.info(f"Account number: {account_number}")
+                logger.info("Account number: %s", account_number)
 
                 # Extract total value
                 current_value_element = WebDriverWait(driver, 60).until(
@@ -233,7 +233,7 @@ def sofi_account_info(driver: webdriver) -> dict | None:
                 driver.switch_to.window(driver.window_handles[0])
 
             except Exception as e:
-                logger.error(f"Error processing account information for account {index + 1}: {str(e)}")
+                logger.error("Error processing account information for account %d: %s", index + 1, e)
                 # Close the tab if any error occurs and switch back
                 driver.close()
                 driver.switch_to.window(driver.window_handles[0])
@@ -261,7 +261,7 @@ def sofi_holdings(SOFI_o: Brokerage, loop=None):
             # Process each account link one by one
             account_boxes = driver.find_elements(By.CSS_SELECTOR, '.AccountCardWrapper-PyEjZ .linked-card > a')
             account_links = [box.get_attribute('href') for box in account_boxes]
-            logger.info(f"Found {len(account_links)} account links to process.")
+            logger.info("Found %d account links to process.", len(account_links))
 
             for index, link in enumerate(account_links):
                 try:
@@ -278,7 +278,7 @@ def sofi_holdings(SOFI_o: Brokerage, loop=None):
                     )
                     account_number_text = account_number_element.text.strip()
                     account_number = account_number_text.split("#")[1].split(")")[0].strip()
-                    logger.info(f"Account number: {account_number}")
+                    logger.info("Account number: %s", account_number)
 
                     current_value_element = WebDriverWait(driver, 60).until(
                         EC.presence_of_element_located((By.CSS_SELECTOR, '#page-wrap > section:nth-child(6) > div:nth-child(3) > div > span:nth-child(2)'))
@@ -293,7 +293,7 @@ def sofi_holdings(SOFI_o: Brokerage, loop=None):
                     SOFI_o.set_account_totals(key, account_number, current_value)
 
                 except Exception as extract_e:
-                    logger.error(f"Error extracting account information for account {key}: {extract_e}")
+                    logger.error("Error extracting account information for account %s: %s", key, extract_e)
                     printAndDiscord(f"Error extracting account information: {extract_e}", loop)
                     continue
 
