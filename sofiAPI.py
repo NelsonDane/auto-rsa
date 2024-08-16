@@ -552,7 +552,7 @@ def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None, DOCKER=
                     try:
                         print(f"Checking available shares for {s}")
                         available_shares = WebDriverWait(driver, 20).until(
-                            EC.presence_of_element_located((By.XPATH, '//*[@id="mainContent"]/div[2]/div[3]/div/h2'))).text.split(' ')[0]
+                            EC.presence_of_element_located((By.XPATH, '/html/body/div[1]/div/main/div[2]/div[2]/div[3]/div/h2'))).text.split(' ')[0]
                         print(f"Available shares: {available_shares}")
                     except TimeoutException:
                         print(f"Failed to fetch available shares for {s}. Moving to next stock.")
@@ -579,32 +579,44 @@ def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None, DOCKER=
                     try:
                         print("Fetching live price for the stock")
                         live_price = WebDriverWait(driver, 20).until(
-                            EC.presence_of_element_located((By.CSS_SELECTOR, "#mainContent > div.ContentWrapper-gCrJnh.fVzQlj > div.StyledFlex-hyCQyL.ieyEyN > div.SideDrawerContainer-gtDLxn.gjJMkk > div > p"))).text.split('$')[1]
+                            EC.presence_of_element_located((By.XPATH, '/html/body/div/div/main/div[2]/div[2]/div[3]/div/div[4]/div[2]'))).text.split('$')[1]
                         print(f"Live price fetched: {live_price}")
                     except TimeoutException:
                         print(f"Failed to fetch live price for {s}. Moving to next stock.")
                         printAndDiscord(f"SOFI failed to fetch live price for {s}.", loop)
                         break
-                    
+
+                    try:
+                        print("Clicking sell button")
+                        sell_button = WebDriverWait(driver, 20).until(
+                            EC.element_to_be_clickable((By.XPATH, "/html/body/div/div/main/div[2]/div[2]/div[3]/div/div[7]/button")))
+                        sell_button.click()
+                    except TimeoutException:
+                        print(f"Failed to click sell button for {s}. Moving to next stock.")
+                        printAndDiscord(f"SOFI failed to click sell button for {s}.", loop)
+                        break
+
                     if DRY:
-                        print(f"DRY MODE: Simulated order SELL for {QUANTITY} shares of {s} at {float(live_price) - 0.01}")
-                        printAndDiscord(f"SOFI account {key}: dry run sell {QUANTITY} shares of {s} at {float(live_price) - 0.01}", loop)
-                        back_button = WebDriverWait(driver, 10).until(
-                            EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[3]/div/div[5]/button[2]")))
-                        back_button.click()
-                        cancel_button = WebDriverWait(driver, 20).until(
-                            EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[3]/a")))
-                        cancel_button.click()
+                        try:
+                            cancel_button = WebDriverWait(driver, 20).until(
+                                EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/a")))
+                            cancel_button.click()
+                            print(f"DRY MODE: Simulated order SELL for {QUANTITY} shares of {s} at {float(live_price) - 0.01}")
+                            printAndDiscord(f"SOFI account {key}: dry run sell {QUANTITY} shares of {s} at {float(live_price) - 0.01}", loop)
+                        except TimeoutException:
+                            print(f"Failed to click cancel button on sell order for {s}. Moving to next stock.")
+                            printAndDiscord(f"SOFI failed to click cancel button on sell order for {s}.", loop)
+                            break
                     else:
                         try:
                             submit_button = WebDriverWait(driver, 20).until(
-                                EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[3]/div/div[5]/button[1]")))
+                                EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/div[5]/button[1]")))
                             submit_button.click()
                             print(f"Order submitted for {QUANTITY} shares of {s} at {float(live_price) - 0.01}")
                             printAndDiscord(f"SOFI account {key}: sell {QUANTITY} shares of {s} at {float(live_price) - 0.01}", loop)
                             done_button = WebDriverWait(driver, 20).until(
-                                EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[3]/div/div[2]/button")))
-                            done_button.click()
+                                EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/div[2]/button")))
+                            done_button.click()                            
                         except TimeoutException:
                             print(f"Failed to submit sell order for {s}. Moving to next stock.")
                             printAndDiscord(f"SOFI failed to submit sell order for {s}.", loop)
