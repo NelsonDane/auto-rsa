@@ -14,6 +14,7 @@ try:
 
     # Custom API libraries
     from chaseAPI import *
+    from fennelAPI import *
     from fidelityAPI import *
     from firstradeAPI import *
     from helperAPI import (
@@ -28,6 +29,7 @@ try:
     from schwabAPI import *
     from tastyAPI import *
     from tradierAPI import *
+    from vanguardAPI import *
     from webullAPI import *
     from sofiAPI import *
 except Exception as e:
@@ -43,6 +45,7 @@ load_dotenv()
 # Global variables
 SUPPORTED_BROKERS = [
     "chase",
+    "fennel",
     "fidelity",
     "firstrade",
     "public",
@@ -50,14 +53,15 @@ SUPPORTED_BROKERS = [
     "schwab",
     "tastytrade",
     "tradier",
+    "vanguard",
     "webull",
     "sofi",
 ]
 DAY1_BROKERS = [
     "chase",
+    "fennel",
     "firstrade",
     "public",
-    "robinhood",
     "schwab",
     "tastytrade",
     "tradier",
@@ -79,6 +83,8 @@ def nicknames(broker):
         return "robinhood"
     if broker == "tasty":
         return "tastytrade"
+    if broker == "vg":
+        return "vanguard"
     if broker == "wb":
         return "webull"
     return broker
@@ -97,18 +103,18 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                 # Initialize broker
                 fun_name = broker + first_command
                 if broker.lower() == "fidelity":
-                    # Fidelity requires docker mode argument
+                    # Fidelity requires docker mode argument, botObj, and loop
                     orderObj.set_logged_in(
-                        globals()[fun_name](DOCKER=DOCKER_MODE), broker
+                        globals()[fun_name](DOCKER=DOCKER_MODE, botObj=botObj, loop=loop), broker
                     )
                 elif broker.lower() == "sofi":
                     orderObj.set_logged_in(globals()[fun_name](DOCKER=DOCKER_MODE), broker)
-                elif broker.lower() == "public":
-                    # Public requires bot object
+                elif broker.lower() in ["fennel", "public"]:
+                    # Requires bot object and loop
                     orderObj.set_logged_in(
                         globals()[fun_name](botObj=botObj, loop=loop), broker
                     )
-                elif broker.lower() == "chase":
+                elif broker.lower() in ["chase", "vanguard"]:
                     fun_name = broker + "_run"
                     # PLAYWRIGHT_BROKERS have to run all transactions with one function
                     th = ThreadHandler(
@@ -131,7 +137,7 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                     orderObj.set_logged_in(globals()[fun_name](), broker)
 
                 print()
-                if broker.lower() != "chase":
+                if broker.lower() not in ["chase", "vanguard"]:
                     # Verify broker is logged in
                     orderObj.order_validate(preLogin=False)
                     logged_in_broker = orderObj.get_logged_in(broker)
@@ -158,8 +164,7 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                 print(f"Error in {fun_name} with {broker}: {ex}")
                 print(orderObj)
             print()
-        if not orderObj.get_holdings():
-            printAndDiscord("All transactions complete in all brokers", loop)
+        printAndDiscord("All commands complete in all brokers", loop)
     else:
         print(f"Error: {command} is not a valid command")
 
@@ -177,9 +182,18 @@ def argParser(args: list) -> stockOrder:
             orderObj.set_brokers(SUPPORTED_BROKERS)
         elif args[1] == "day1":
             orderObj.set_brokers(DAY1_BROKERS)
+        elif args[1] == "most":
+            orderObj.set_brokers(list(filter(lambda x: x != 'vanguard', SUPPORTED_BROKERS)))
+        elif args[1] == "fast":
+            orderObj.set_brokers(DAY1_BROKERS + ["robinhood"])
         else:
             for broker in args[1].split(","):
                 orderObj.set_brokers(nicknames(broker))
+        # If next argument is not, set not broker
+        if len(args) > 3 and args[2] == "not":
+            for broker in args[3].split(","):
+                if nicknames(broker) in SUPPORTED_BROKERS:
+                    orderObj.set_notbrokers(nicknames(broker))
         return orderObj
     # Otherwise: action, amount, stock, broker, (optional) not broker, (optional) dry
     orderObj.set_action(args[0])
@@ -191,6 +205,10 @@ def argParser(args: list) -> stockOrder:
         orderObj.set_brokers(SUPPORTED_BROKERS)
     elif args[3] == "day1":
         orderObj.set_brokers(DAY1_BROKERS)
+    elif args[3] == "most":
+        orderObj.set_brokers(list(filter(lambda x: x != 'vanguard', SUPPORTED_BROKERS)))
+    elif args[3] == "fast":
+        orderObj.set_brokers(DAY1_BROKERS + ["robinhood"])
     else:
         for broker in args[3].split(","):
             if nicknames(broker) in SUPPORTED_BROKERS:
@@ -292,6 +310,12 @@ if __name__ == "__main__":
                 os._exit(1)  # Special exit code to restart docker container
             await channel.send("Discord bot is started...")
 
+        # Process the message only if it's from the specified channel
+        @bot.event
+        async def on_message(message):
+            if message.channel.id == DISCORD_CHANNEL:
+                await bot.process_commands(message)
+
         # Bot ping-pong
         @bot.command(name="ping")
         async def ping(ctx):
@@ -306,7 +330,7 @@ if __name__ == "__main__":
                 "Available RSA commands:\n"
                 "!ping\n"
                 "!help\n"
-                "!rsa holdings [all|<broker1>,<broker2>,...]\n"
+                "!rsa holdings [all|<broker1>,<broker2>,...] [not broker1,broker2,...]\n"
                 "!rsa [buy|sell] [amount] [stock1|stock1,stock2] [all|<broker1>,<broker2>,...] [not broker1,broker2,...] [DRY: true|false]\n"
                 "!restart"
             )
@@ -353,7 +377,10 @@ if __name__ == "__main__":
             print()
             await ctx.send("Restarting...")
             await bot.close()
-            os._exit(0)  # Special exit code to restart docker container
+            if DOCKER_MODE:
+                os._exit(0)  # Special exit code to restart docker container
+            else:
+                os.execv(sys.executable, [sys.executable] + sys.argv)
 
         # Catch bad commands
         @bot.event

@@ -3,6 +3,7 @@
 
 import os
 import traceback
+from time import sleep
 
 from dotenv import load_dotenv
 from webull import webull
@@ -148,26 +149,32 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
                             orderObj.set_price("MKT")
                         # If buy stock price < $1 or $0.10,
                         # buy 100/1000 shares and sell 100/1000 - amount
-                        askList = obj.get_quote(s)["askList"]
-                        bidList = obj.get_quote(s)["bidList"]
+                        quote = obj.get_quote(s)
+                        askList = quote.get("askList", [])
+                        bidList = quote.get("bidList", [])
                         if askList == [] and bidList == []:
-                            printAndDiscord(f"{key} {account}: {s} not found", loop)
-                            continue
+                            printAndDiscord(f"{key}: {s} is not available for trading", loop)
+                            raise Exception(f"{s} is not available for trading")
                         askPrice = float(askList[0]["price"]) if askList != [] else 0
                         bidPrice = float(bidList[0]["price"]) if bidList != [] else 0
                         should_dance = False
-                        if (askPrice * orderObj.get_amount()) < 1 or (
-                            bidPrice * orderObj.get_amount()
-                        ) < 1:
+                        # Dance if:
+                        # amount < 100 and price < $1
+                        # amount < 1000 and price < $0.10
+                        if (
+                            (askPrice < 1 or bidPrice < 1) and orderObj.get_amount() < 100
+                        ) or (
+                            (askPrice < 0.1 or bidPrice < 0.1) and orderObj.get_amount() < 1000
+                        ):
                             should_dance = True
                         if should_dance and orderObj.get_action() == "buy":
+                            # 100 shares if < $1, 1000 shares if < $0.10
                             big_amount = (
-                                1000 if askPrice < 0.1 or bidPrice < 0.1 else 100
+                                1000 if (askPrice < 0.1 or bidPrice < 0.1) else 100
                             )
                             print(
                                 f"Buying {big_amount} then selling {big_amount - orderObj.get_amount()} of {s}"
                             )
-                            # Under $1, buy 100 shares and sell 100 - amount
                             orderObj.set_amount(big_amount)
                             buy_success = place_order(
                                 obj, internal_account, orderObj, s
@@ -176,6 +183,7 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
                                 raise Exception(f"Error buying {big_amount} of {s}")
                             orderObj.set_amount(big_amount - old_amount)
                             orderObj.set_action("sell")
+                            sleep(1)
                             order = place_order(obj, internal_account, orderObj, s)
                             if not order:
                                 raise Exception(
