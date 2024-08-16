@@ -9,6 +9,17 @@ from time import sleep
 from dotenv import load_dotenv
 from firstrade import account as ft_account
 from firstrade import order, symbols
+from firstrade.exceptions import (
+    PreviewOrderError,
+    PlaceOrderError,
+    QuoteRequestError,
+    QuoteResponseError,
+    LoginError,
+    LoginRequestError,
+    LoginResponseError,
+    AccountRequestError,
+    AccountResponseError
+)
 
 from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder
 
@@ -36,17 +47,23 @@ def firstrade_init(FIRSTRADE_EXTERNAL=None):
             firstrade = ft_account.FTSession(
                 username=account[0],
                 password=account[1],
-                pin=account[2],
+                pin=account[2] if len(account[2]) == 4 else None,
+                phone = account[2][-4:] if len(account[2]) == 10 else None,
+                email = account[2] if "@" in account[2] else None,
+                mfa_secret=account[3] if len(account[2]) > 14 else None,                
                 profile_path="./creds/",
             )
-            account_info = ft_account.FTAccountData(firstrade)
+            need_code = firstrade.login()
+            if need_code:
+                code = input("Please enter the pin sent to your email/phone: ")
+                firstrade.login_two(code)
             print("Logged in to Firstrade!")
+            account_info = ft_account.FTAccountData(firstrade) 
             firstrade_obj.set_logged_in_object(name, firstrade)
-            for entry in account_info.all_accounts:
-                account = list(entry.keys())[0]
+            for account in account_info.account_numbers:
                 firstrade_obj.set_account_number(name, account)
                 firstrade_obj.set_account_totals(
-                    name, account, str(entry[account]["Balance"])
+                    name, account, account_info.account_balances[account]
                 )
             print_accounts = [maskString(a) for a in account_info.account_numbers]
             print(f"The following Firstrade accounts were found: {print_accounts}")
@@ -64,13 +81,14 @@ def firstrade_holdings(firstrade_o: Brokerage, loop=None):
             obj: ft_account.FTSession = firstrade_o.get_logged_in_objects(key)
             try:
                 data = ft_account.FTAccountData(obj).get_positions(account=account)
-                for item in data:
-                    sym = item
-                    if sym == "":
-                        sym = "Unknown"
-                    qty = float(data[item]["quantity"])
-                    current_price = float(data[item]["price"])
-                    firstrade_o.set_holdings(key, account, sym, qty, current_price)
+                for item in data["items"]:
+                    firstrade_o.set_holdings(
+                        key,
+                        account,
+                        item.get("symbol") or "Unknown",
+                        item["quantity"],
+                        item["market_value"],
+                    )
             except Exception as e:
                 printAndDiscord(f"{key} {account}: Error getting holdings: {e}", loop)
                 print(traceback.format_exc())

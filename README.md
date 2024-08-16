@@ -152,6 +152,7 @@ More detailed guides for some of the difficult setups:
 
 All brokers: separate account credentials with a colon (":"). For example, `SCHWAB_USERNAME:SCHWAB_PASSWORD`. Separate multiple logins with the same broker with a comma (","). For example, `SCHWAB_USERNAME:SCHWAB_PASSWORD,SCHWAB_USERNAME2:SCHWAB_PASSWORD2`.
 
+
 Some brokerages require `Playwright` to run. On Windows, the `playwright install` command might not be recognized. If this is the case, run `python -m playwright install` instead.
 
 #### Chase
@@ -192,10 +193,10 @@ Made by [MaxxRK](https://github.com/MaxxRK/) using the [firstrade-api](https://g
 Required `.env` variables:
 - `FIRSTRADE_USERNAME`
 - `FIRSTRADE_PASSWORD`
-- `FIRSTRADE_PIN`
+- `FIRSTRADE_OTP`
 
 `.env` file format:
-- `FIRSTRADE=FIRSTRADE_USERNAME:FIRSTRADE_PASSWORD:FIRSTRADE_PIN`
+- `FIRSTRADE=FIRSTRADE_USERNAME:FIRSTRADE_PASSWORD:FIRSTRADE_OTP`
 
 ### Public
 Made by yours truly using using [public-invest-api](https://github.com/NelsonDane/public-invest-api). Consider giving me a ⭐
