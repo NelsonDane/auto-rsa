@@ -28,7 +28,7 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def sofi_error(driver, e, loop=None):
+def sofi_error(driver, loop=None):
     driver.save_screenshot(f"SOFI-error-{datetime.datetime.now()}.png")
     printAndDiscord(f"SOFI Error: {traceback.format_exc()}", loop, embed=False)
 
@@ -36,7 +36,7 @@ def get_2fa_code(secret):
     totp = pyotp.TOTP(secret)
     return totp.now()
 
-def sofi_init(SOFI_EXTERNAL=None, DOCKER=False, loop=None):
+def sofi_init(SOFI_EXTERNAL=None, loop=None):
     load_dotenv()
 
     if not os.getenv("SOFI") and SOFI_EXTERNAL is None:
@@ -341,7 +341,7 @@ def extract_holdings(driver, loop=None):
 
     return holdings_data
 
-def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None, DOCKER=False):
+def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None):
     print("\n==============================")
     print("SOFI")
     print("==============================\n")
