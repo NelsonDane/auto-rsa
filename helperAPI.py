@@ -680,8 +680,5 @@ def printHoldings(brokerObj: Brokerage, loop=None, mask=True):
                 else print_string
             )
             EMBED["fields"].append(field)
-    # for i in range(30):
-    #     EMBED["fields"].append(field)
-
     printAndDiscord(EMBED, loop, True)
     print("==============================")
