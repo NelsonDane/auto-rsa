@@ -28,11 +28,10 @@ try:
     from robinhoodAPI import *
     from schwabAPI import *
     from tastyAPI import *
+    from tornadoAPI import *
     from tradierAPI import *
     from vanguardAPI import *
     from webullAPI import *
-    from sofiAPI import *
-    from tornadoAPI import *
 except Exception as e:
     print(f"Error importing libraries: {e}")
     print(traceback.format_exc())
@@ -53,11 +52,10 @@ SUPPORTED_BROKERS = [
     "robinhood",
     "schwab",
     "tastytrade",
+    "tornado",
     "tradier",
     "vanguard",
     "webull",
-    "sofi",
-    "tornado",
 ]
 DAY1_BROKERS = [
     "chase",
@@ -68,7 +66,6 @@ DAY1_BROKERS = [
     "tastytrade",
     "tradier",
     "webull",
-    "sofi",
 ]
 DISCORD_BOT = False
 DOCKER_MODE = False
@@ -138,6 +135,7 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                     orderObj.set_logged_in(tornado_init(), broker)
                 else:
                     orderObj.set_logged_in(globals()[fun_name](), broker)
+
                 print()
                 if broker.lower() not in ["chase", "vanguard"]:
                     # Verify broker is logged in
@@ -379,10 +377,7 @@ if __name__ == "__main__":
             print()
             await ctx.send("Restarting...")
             await bot.close()
-            if DOCKER_MODE:
-                os._exit(0)  # Special exit code to restart docker container
-            else:
-                os.execv(sys.executable, [sys.executable] + sys.argv)
+            os._exit(0)  # Special exit code to restart docker container
 
         # Catch bad commands
         @bot.event

@@ -97,6 +97,10 @@ def tornado_extract_holdings(driver):
         # Locate all the individual stock holdings elements
         holdings_elements = driver.find_elements(By.XPATH, ".//div[@class='sc-jEWLvH evXkie']")
 
+        if len(holdings_elements) == 0:
+            logger.warning("No holdings found in the account.")
+            return holdings_data
+
         logger.info("Found %d holdings elements to process.", len(holdings_elements))
 
         for holding_element in holdings_elements:
@@ -151,6 +155,10 @@ def tornado_holdings(TORNADO_o: Brokerage, loop=None):
             # Extract holdings data
             holdings_data = tornado_extract_holdings(driver)
 
+            if not holdings_data:
+                logger.warning(f"No holdings found for {account_name}. Skipping account.")
+                continue  # Skip to the next account
+
             for holding in holdings_data:
                 TORNADO_o.set_holdings(account_name, account_name, holding['stock_ticker'], holding['shares'], holding['price'])
 
@@ -158,7 +166,7 @@ def tornado_holdings(TORNADO_o: Brokerage, loop=None):
             TORNADO_o.set_account_totals(account_name, account_name, account_value_float)
 
     except Exception as e:
-        logger.error(f"Error processing Tornado holdings: %s", e)
+        logger.error(f"Error processing Tornado holdings: {e}")
         printAndDiscord(f"Tornado Account: Error processing holdings: {e}", loop)
 
     logger.info("Finished processing Tornado account, sending holdings to Discord.")
