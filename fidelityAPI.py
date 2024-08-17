@@ -153,7 +153,9 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
                 # Make sure the next page loads fully
                 code_field = "#dom-otp-code-input"
                 WebDriverWait(driver, 10).until(
-                    expected_conditions.visibility_of_element_located((By.CSS_SELECTOR, code_field))
+                    expected_conditions.visibility_of_element_located(
+                        (By.CSS_SELECTOR, code_field)
+                    )
                 )
                 # Sometimes codes take a long time to arrive
                 timeout = 300  # 5 minutes
@@ -167,9 +169,7 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
                 else:
                     sms_code = input("Enter security code: ")
 
-                code_field = driver.find_element(
-                    by=By.CSS_SELECTOR, value=code_field
-                )
+                code_field = driver.find_element(by=By.CSS_SELECTOR, value=code_field)
                 code_field.send_keys(str(sms_code))
                 continue_btn_selector = "#dom-otp-code-submit-button"
                 driver.find_element(By.CSS_SELECTOR, continue_btn_selector).click()
