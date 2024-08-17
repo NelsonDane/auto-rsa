@@ -392,7 +392,9 @@ def updater():
             print()
             return
     print(f"Update complete! Now using commit {str(repo.head.commit)[:7]}")
-    print(f"Check if you're up to date here: https://github.com/NelsonDane/auto-rsa/commits/{repo.active_branch}")
+    print(
+        f"Check if you're up to date here: https://github.com/NelsonDane/auto-rsa/commits/{repo.active_branch}"
+    )
     print()
     return
 
@@ -545,11 +547,17 @@ async def processTasks(message, embed=False):
     for i in range(0, embed_length, 25):
         PAYLOAD = {
             "content": "" if embed else message,
-            "embeds": [{
-                "title": message["title"] if i == 0 else "",
-                "color": message["color"],
-                "fields": message["fields"][i:i + 25]
-            }] if embed else []
+            "embeds": (
+                [
+                    {
+                        "title": message["title"] if i == 0 else "",
+                        "color": message["color"],
+                        "fields": message["fields"][i : i + 25],
+                    }
+                ]
+                if embed
+                else []
+            ),
         }
         # Keep trying until success
         success = False
@@ -642,7 +650,7 @@ def printHoldings(brokerObj: Brokerage, loop=None, mask=True):
     EMBED = {
         "title": f"{brokerObj.get_name()} Holdings",
         "color": 3447003,
-        "fields": []
+        "fields": [],
     }
     print(
         f"==============================\n{brokerObj.get_name()} Holdings\n=============================="
@@ -668,7 +676,11 @@ def printHoldings(brokerObj: Brokerage, loop=None, mask=True):
             print_string += f"Total: ${format(brokerObj.get_account_totals(key, account), '0.2f')}\n"
             print(print_string)
             # If somehow longer than 1024, chop and add ...
-            field["value"] = print_string[:1020] + "..." if len(print_string) > 1024 else print_string
+            field["value"] = (
+                print_string[:1020] + "..."
+                if len(print_string) > 1024
+                else print_string
+            )
             EMBED["fields"].append(field)
     # for i in range(30):
     #     EMBED["fields"].append(field)
