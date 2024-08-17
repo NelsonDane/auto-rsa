@@ -110,7 +110,7 @@ For example, to check your account holdings on Chase and Vanguard, but not Robin
 
 `<prefix> holdings chase,vanguard not robinhood`
 
-To restart the Discord bot (only for the Docker Discord bot):
+To restart the Discord bot:
 
 `!restart` (without appending `!rsa` or prefix)
 
@@ -132,13 +132,15 @@ Note: There are two special keywords you can use when specifying accounts: `all`
 - Fennel
 - Firstrade
 - Public
-- Robinhood
 - Schwab
 - Tastytrade
 - Tradier
 - Webull
 
 This is useful for brokers that provide quick turnaround times, hence the nickname "day 1".
+A couple other keywords that can be used:
+- `most`: will use every account you have setup except for vanguard.
+- `fast`: will use every "day 1" broker + robinhood.
 
 ## 🗺️ Other Guides 🗺️
 More detailed guides for some of the difficult setups:

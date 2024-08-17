@@ -60,7 +60,6 @@ DAY1_BROKERS = [
     "fennel",
     "firstrade",
     "public",
-    "robinhood",
     "schwab",
     "tastytrade",
     "tradier",
@@ -101,9 +100,12 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                 # Initialize broker
                 fun_name = broker + first_command
                 if broker.lower() == "fidelity":
-                    # Fidelity requires docker mode argument
+                    # Fidelity requires docker mode argument, botObj, and loop
                     orderObj.set_logged_in(
-                        globals()[fun_name](DOCKER=DOCKER_MODE), broker
+                        globals()[fun_name](
+                            DOCKER=DOCKER_MODE, botObj=botObj, loop=loop
+                        ),
+                        broker,
                     )
                 elif broker.lower() in ["fennel", "public"]:
                     # Requires bot object and loop
@@ -178,6 +180,12 @@ def argParser(args: list) -> stockOrder:
             orderObj.set_brokers(SUPPORTED_BROKERS)
         elif args[1] == "day1":
             orderObj.set_brokers(DAY1_BROKERS)
+        elif args[1] == "most":
+            orderObj.set_brokers(
+                list(filter(lambda x: x != "vanguard", SUPPORTED_BROKERS))
+            )
+        elif args[1] == "fast":
+            orderObj.set_brokers(DAY1_BROKERS + ["robinhood"])
         else:
             for broker in args[1].split(","):
                 orderObj.set_brokers(nicknames(broker))
@@ -197,6 +205,10 @@ def argParser(args: list) -> stockOrder:
         orderObj.set_brokers(SUPPORTED_BROKERS)
     elif args[3] == "day1":
         orderObj.set_brokers(DAY1_BROKERS)
+    elif args[3] == "most":
+        orderObj.set_brokers(list(filter(lambda x: x != "vanguard", SUPPORTED_BROKERS)))
+    elif args[3] == "fast":
+        orderObj.set_brokers(DAY1_BROKERS + ["robinhood"])
     else:
         for broker in args[3].split(","):
             if nicknames(broker) in SUPPORTED_BROKERS:
@@ -365,7 +377,10 @@ if __name__ == "__main__":
             print()
             await ctx.send("Restarting...")
             await bot.close()
-            os._exit(0)  # Special exit code to restart docker container
+            if DOCKER_MODE:
+                os._exit(0)  # Special exit code to restart docker container
+            else:
+                os.execv(sys.executable, [sys.executable] + sys.argv)
 
         # Catch bad commands
         @bot.event

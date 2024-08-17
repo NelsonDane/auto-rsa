@@ -2,6 +2,7 @@
 # API to Interface with Fidelity
 # Uses headless Selenium
 
+import asyncio
 import datetime
 import os
 import re
@@ -20,6 +21,7 @@ from helperAPI import (
     Brokerage,
     check_if_page_loaded,
     getDriver,
+    getOTPCodeDiscord,
     killSeleniumDriver,
     maskString,
     printAndDiscord,
@@ -49,7 +51,7 @@ def javascript_get_classname(driver: webdriver, className) -> list:
     return text
 
 
-def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
+def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
     # Initialize .env file
     load_dotenv()
     # Import Fidelity account
@@ -128,6 +130,49 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False):
                 driver.find_element(
                     by=By.CSS_SELECTOR, value=login_btn_selector
                 ).click()
+            except TimeoutException:
+                pass
+            # Check for mobile 2fa page
+            try:
+                try_another_way = "a#dom-try-another-way-link"
+                WebDriverWait(driver, 10).until(
+                    expected_conditions.element_to_be_clickable(
+                        (By.CSS_SELECTOR, try_another_way)
+                    ),
+                ).click()
+            except TimeoutException:
+                pass
+            # Check for normal 2fa page
+            try:
+                text_me_button = "//*[@id='dom-channel-list-primary-button' and contains(string(.), 'Text me the code')]"  # Make sure it doesn't duplicate from mobile page
+                WebDriverWait(driver, 10).until(
+                    expected_conditions.element_to_be_clickable(
+                        (By.XPATH, text_me_button)
+                    ),
+                ).click()
+                # Make sure the next page loads fully
+                code_field = "#dom-otp-code-input"
+                WebDriverWait(driver, 10).until(
+                    expected_conditions.visibility_of_element_located(
+                        (By.CSS_SELECTOR, code_field)
+                    )
+                )
+                # Sometimes codes take a long time to arrive
+                timeout = 300  # 5 minutes
+                if botObj is not None and loop is not None:
+                    sms_code = asyncio.run_coroutine_threadsafe(
+                        getOTPCodeDiscord(botObj, name, timeout=timeout, loop=loop),
+                        loop,
+                    ).result()
+                    if sms_code is None:
+                        raise Exception("No SMS code found")
+                else:
+                    sms_code = input("Enter security code: ")
+
+                code_field = driver.find_element(by=By.CSS_SELECTOR, value=code_field)
+                code_field.send_keys(str(sms_code))
+                continue_btn_selector = "#dom-otp-code-submit-button"
+                driver.find_element(By.CSS_SELECTOR, continue_btn_selector).click()
             except TimeoutException:
                 pass
             # Wait for page to load to summary page
@@ -232,11 +277,6 @@ def fidelity_account_info(driver: webdriver) -> dict | None:
 
 
 def fidelity_holdings(fidelity_o: Brokerage, loop=None):
-    print()
-    print("==============================")
-    print("Fidelity Holdings")
-    print("==============================")
-    print()
     for key in fidelity_o.get_account_numbers():
         driver: webdriver = fidelity_o.get_logged_in_objects(key)
         for account in fidelity_o.get_account_numbers(key):
@@ -255,11 +295,11 @@ def fidelity_holdings(fidelity_o: Brokerage, loop=None):
                 stocks_list = javascript_get_classname(
                     driver, "ag-pinned-left-cols-container"
                 )
-                # Find 3 or 4 letter words surrounded by 2 spaces on each side
+                # Find 1-5 letter words surrounded by 2 spaces on each side
                 for i in range(len(stocks_list)):
                     stocks_list[i].replace(" \n ", "").replace("*", "")
                     stocks_list[i] = re.findall(
-                        r"(?<=\s{2})[a-zA-Z]{3,4}(?=\s{2})", stocks_list[i]
+                        r"(?<=\s{2})[a-zA-Z]{1,5}(?=\s{2})", stocks_list[i]
                     )
                 stocks_list = stocks_list[0]
                 # holdings_info = javascript_get_classname(
