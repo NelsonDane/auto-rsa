@@ -31,6 +31,8 @@ try:
     from tradierAPI import *
     from vanguardAPI import *
     from webullAPI import *
+    from sofiAPI import *
+    from tornadoAPI import *
 except Exception as e:
     print(f"Error importing libraries: {e}")
     print(traceback.format_exc())
@@ -54,6 +56,8 @@ SUPPORTED_BROKERS = [
     "tradier",
     "vanguard",
     "webull",
+    "sofi",
+    "tornado",
 ]
 DAY1_BROKERS = [
     "chase",
@@ -64,6 +68,7 @@ DAY1_BROKERS = [
     "tastytrade",
     "tradier",
     "webull",
+    "sofi",
 ]
 DISCORD_BOT = False
 DOCKER_MODE = False
@@ -128,9 +133,11 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                             + fun_name
                             + ": Function did not complete successfully."
                         )
+                elif broker.lower() == "tornado":
+                    # Initialize Tornado
+                    orderObj.set_logged_in(tornado_init(), broker)
                 else:
                     orderObj.set_logged_in(globals()[fun_name](), broker)
-
                 print()
                 if broker.lower() not in ["chase", "vanguard"]:
                     # Verify broker is logged in
