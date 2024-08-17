@@ -21,6 +21,12 @@ from selenium import webdriver
 from selenium_stealth import stealth
 from selenium.webdriver.chrome.service import Service as ChromiumService
 
+
+load_dotenv()
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+DISCORD_CHANNEL = os.getenv("DISCORD_CHANNEL")
+HEADLESS = os.getenv("HEADLESS", "true").lower() == "true"
+
 # Create task queue
 task_queue = Queue()
 
@@ -491,12 +497,13 @@ def getDriver(DOCKER=False):
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_argument("--disable-extensions")
         options.add_argument("--disable-notifications")
-        options.add_argument("--headless")
         if DOCKER:
             # Special Docker options
             options.add_argument("--disable-dev-shm-usage")
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-gpu")
+        if DOCKER or HEADLESS:
+            options.add_argument("--headless")
         driver = webdriver.Chrome(
             options=options,
             # Docker uses specific chromedriver installed via apt
@@ -529,10 +536,6 @@ def killSeleniumDriver(brokerObj: Brokerage):
 
 
 async def processTasks(message, embed=False):
-    # Get details from env (they are used prior so we know they exist)
-    load_dotenv()
-    DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-    DISCORD_CHANNEL = os.getenv("DISCORD_CHANNEL")
     # Send message to discord via request post
     BASE_URL = f"https://discord.com/api/v10/channels/{DISCORD_CHANNEL}/messages"
     HEADERS = {
