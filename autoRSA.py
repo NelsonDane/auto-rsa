@@ -27,6 +27,7 @@ try:
     from publicAPI import *
     from robinhoodAPI import *
     from schwabAPI import *
+    from sofiAPI import *
     from tastyAPI import *
     from tradierAPI import *
     from vanguardAPI import *
