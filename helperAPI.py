@@ -18,9 +18,8 @@ import requests
 from discord.ext import commands
 from dotenv import load_dotenv
 from selenium import webdriver
-from selenium_stealth import stealth
 from selenium.webdriver.chrome.service import Service as ChromiumService
-
+from selenium_stealth import stealth
 
 load_dotenv()
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
