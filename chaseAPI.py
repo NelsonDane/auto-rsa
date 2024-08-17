@@ -214,8 +214,8 @@ def chase_transaction(chase_o: Brokerage, orderObj: stockOrder, loop=None):
                             loop,
                         )
                         if (
-                            not messages["ORDER INVALID"]
-                            == "No invalid order message found."
+                            messages["ORDER INVALID"]
+                            != "No invalid order message found."
                         ):
                             printAndDiscord(
                                 f"{key} account {account}: The order verification produced the following messages: {messages['ORDER INVALID']}",
@@ -239,8 +239,8 @@ def chase_transaction(chase_o: Brokerage, orderObj: stockOrder, loop=None):
                             loop,
                         )
                         if (
-                            not messages["ORDER INVALID"]
-                            == "No invalid order message found."
+                            messages["ORDER INVALID"]
+                            != "No invalid order message found."
                         ):
                             printAndDiscord(
                                 f"{key} account {account}: The order verification produced the following messages: {messages['ORDER INVALID']}",
