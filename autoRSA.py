@@ -32,7 +32,6 @@ try:
     from tradierAPI import *
     from vanguardAPI import *
     from webullAPI import *
-    from sofiAPI import *
 except Exception as e:
     print(f"Error importing libraries: {e}")
     print(traceback.format_exc())
@@ -41,7 +40,6 @@ except Exception as e:
 
 # Initialize .env file
 load_dotenv()
-
 
 # Global variables
 SUPPORTED_BROKERS = [
@@ -52,11 +50,11 @@ SUPPORTED_BROKERS = [
     "public",
     "robinhood",
     "schwab",
+    "sofi",
     "tastytrade",
     "tradier",
     "vanguard",
     "webull",
-    "sofi",
 ]
 DAY1_BROKERS = [
     "chase",
@@ -64,10 +62,10 @@ DAY1_BROKERS = [
     "firstrade",
     "public",
     "schwab",
+    "sofi",
     "tastytrade",
     "tradier",
     "webull",
-    "sofi",
 ]
 DISCORD_BOT = False
 DOCKER_MODE = False
@@ -109,7 +107,10 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                         globals()[fun_name](DOCKER=DOCKER_MODE, botObj=botObj, loop=loop), broker
                     )
                 elif broker.lower() == "sofi":
-                    orderObj.set_logged_in(globals()[fun_name](DOCKER=DOCKER_MODE), broker)
+                    # Sofi doesn't require DOCKER, so don't pass it
+                    orderObj.set_logged_in(
+                        globals()[fun_name](botObj=botObj, loop=loop), broker
+                    )
                 elif broker.lower() in ["fennel", "public"]:
                     # Requires bot object and loop
                     orderObj.set_logged_in(
@@ -378,10 +379,7 @@ if __name__ == "__main__":
             print()
             await ctx.send("Restarting...")
             await bot.close()
-            if DOCKER_MODE:
-                os._exit(0)  # Special exit code to restart docker container
-            else:
-                os.execv(sys.executable, [sys.executable] + sys.argv)
+            os._exit(0)  # Special exit code to restart docker container
 
         # Catch bad commands
         @bot.event
