@@ -85,7 +85,7 @@ def tornado_init(TORNADO_EXTERNAL=None, loop=None):
                 return False
 
         except Exception as e:
-            tornado_error(driver, e, loop)
+            tornado_error(driver, loop)
             driver.close()
             driver.quit()
             return None
