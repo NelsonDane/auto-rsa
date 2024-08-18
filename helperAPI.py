@@ -383,7 +383,6 @@ def updater():
         return
     if not repo.bare:
         try:
-            # Ensure we're pulling from the correct branch
             branch_name = repo.active_branch.name
             if branch_name not in repo.remotes.origin.refs:
                 print(
