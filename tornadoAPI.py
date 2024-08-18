@@ -84,7 +84,7 @@ def tornado_init(TORNADO_EXTERNAL=None, loop=None):
                 printAndDiscord(f"TimeoutException: Login failed for {account_name}.", loop)
                 return False
 
-        except Exception as e:
+        except Exception:
             tornado_error(driver, loop)
             driver.close()
             driver.quit()
