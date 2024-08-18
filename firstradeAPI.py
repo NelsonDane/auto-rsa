@@ -1,6 +1,7 @@
 # Donald Ryan Gullett(MaxxRK)
 # Firstrade API
 
+import asyncio
 import os
 import pprint
 import traceback
@@ -10,20 +11,16 @@ from dotenv import load_dotenv
 from firstrade import account as ft_account
 from firstrade import order, symbols
 
-from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder
+from helperAPI import Brokerage, getOTPCodeDiscord, maskString, printAndDiscord, printHoldings, stockOrder
 
-
-def firstrade_init(FIRSTRADE_EXTERNAL=None):
+def firstrade_init(botObj=None, loop=None):
     # Initialize .env file
     load_dotenv()
-    # Import Firstrade account
-    if not os.getenv("FIRSTRADE") and FIRSTRADE_EXTERNAL is None:
+    if not os.getenv("FIRSTRADE"):
         print("Firstrade not found, skipping...")
         return None
     accounts = (
         os.environ["FIRSTRADE"].strip().split(",")
-        if FIRSTRADE_EXTERNAL is None
-        else FIRSTRADE_EXTERNAL.strip().split(",")
     )
     # Log in to Firstrade account
     print("Logging in to Firstrade...")
@@ -36,16 +33,25 @@ def firstrade_init(FIRSTRADE_EXTERNAL=None):
             firstrade = ft_account.FTSession(
                 username = account[0],
                 password = account[1],
-                pin = account[2] if len(account[2]) == 4 else None,
-                phone = account[2][-4:] if len(account[2]) == 10 else None,
+                pin = account[2] if len(account[2]) == 4 and account[2].isdigit() else None,
+                phone = account[2][-4:] if len(account[2]) == 10 and account[2].isdigit() else None,
                 email = account[2] if "@" in account[2] else None,
                 mfa_secret = account[2] if len(account[2]) > 14 and "@" not in account[2] else None,              
                 profile_path="./creds/",
             )
             need_code = firstrade.login()
             if need_code:
-                code = input("Please enter the pin sent to your email/phone: ")
-                firstrade.login_two(code)
+                if botObj is None and loop is None:
+                    firstrade.login_two(input("Enter code: "))
+                else:
+                    sms_code = asyncio.run_coroutine_threadsafe(
+                        getOTPCodeDiscord(botObj, name, timeout=300, loop=loop), loop
+                    ).result()
+                    if sms_code is None:
+                        raise Exception(
+                            f"Firstrade {index} code not received in time...", loop
+                        )
+                    firstrade.login_two(sms_code)
             print("Logged in to Firstrade!")
             account_info = ft_account.FTAccountData(firstrade) 
             firstrade_obj.set_logged_in_object(name, firstrade)
