@@ -13,6 +13,7 @@ from firstrade import order, symbols
 
 from helperAPI import Brokerage, getOTPCodeDiscord, maskString, printAndDiscord, printHoldings, stockOrder
 
+
 def firstrade_init(botObj=None, loop=None):
     # Initialize .env file
     load_dotenv()
@@ -31,12 +32,12 @@ def firstrade_init(botObj=None, loop=None):
         try:
             account = account.split(":")
             firstrade = ft_account.FTSession(
-                username = account[0],
-                password = account[1],
-                pin = account[2] if len(account[2]) == 4 and account[2].isdigit() else None,
-                phone = account[2][-4:] if len(account[2]) == 10 and account[2].isdigit() else None,
-                email = account[2] if "@" in account[2] else None,
-                mfa_secret = account[2] if len(account[2]) > 14 and "@" not in account[2] else None,              
+                username=account[0],
+                password=account[1],
+                pin=account[2] if len(account[2]) == 4 and account[2].isdigit() else None,
+                phone=account[2][-4:] if len(account[2]) == 10 and account[2].isdigit() else None,
+                email=account[2] if "@" in account[2] else None,
+                mfa_secret=account[2] if len(account[2]) > 14 and "@" not in account[2] else None,
                 profile_path="./creds/",
             )
             need_code = firstrade.login()
@@ -53,7 +54,7 @@ def firstrade_init(botObj=None, loop=None):
                         )
                     firstrade.login_two(sms_code)
             print("Logged in to Firstrade!")
-            account_info = ft_account.FTAccountData(firstrade) 
+            account_info = ft_account.FTAccountData(firstrade)
             firstrade_obj.set_logged_in_object(name, firstrade)
             for account in account_info.account_numbers:
                 firstrade_obj.set_account_number(name, account)
@@ -138,7 +139,7 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
                         price=price,
                         dry_run=orderObj.get_dry(),
                     )
-                    
+
                     print("The order verification produced the following messages: ")
                     pprint.pprint(order_conf)
                     printAndDiscord(
