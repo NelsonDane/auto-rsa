@@ -9,17 +9,6 @@ from time import sleep
 from dotenv import load_dotenv
 from firstrade import account as ft_account
 from firstrade import order, symbols
-from firstrade.exceptions import (
-    PreviewOrderError,
-    PlaceOrderError,
-    QuoteRequestError,
-    QuoteResponseError,
-    LoginError,
-    LoginRequestError,
-    LoginResponseError,
-    AccountRequestError,
-    AccountResponseError
-)
 
 from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder
 
@@ -45,12 +34,12 @@ def firstrade_init(FIRSTRADE_EXTERNAL=None):
         try:
             account = account.split(":")
             firstrade = ft_account.FTSession(
-                username=account[0],
-                password=account[1],
-                pin=account[2] if len(account[2]) == 4 else None,
+                username = account[0],
+                password = account[1],
+                pin = account[2] if len(account[2]) == 4 else None,
                 phone = account[2][-4:] if len(account[2]) == 10 else None,
                 email = account[2] if "@" in account[2] else None,
-                mfa_secret=account[3] if len(account[2]) > 14 else None,                
+                mfa_secret = account[2] if len(account[2]) > 14 and "@" not in account[2] else None,              
                 profile_path="./creds/",
             )
             need_code = firstrade.login()
@@ -118,7 +107,7 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
                         "Running in DRY mode. No transactions will be made.", loop
                     )
                 try:
-                    symbol_data = symbols.SymbolQuote(obj, s)
+                    symbol_data = symbols.SymbolQuote(obj, account, s)
                     if symbol_data.last < 1.00:
                         price_type = order.PriceType.LIMIT
                         if orderObj.get_action().capitalize() == "Buy":
@@ -133,7 +122,7 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
                     else:
                         order_type = order.OrderType.SELL
                     ft_order = order.Order(obj)
-                    ft_order.place_order(
+                    order_conf = ft_order.place_order(
                         account=account,
                         symbol=s,
                         price_type=price_type,
@@ -143,20 +132,21 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
                         price=price,
                         dry_run=orderObj.get_dry(),
                     )
+                    
                     print("The order verification produced the following messages: ")
-                    pprint.pprint(ft_order.order_confirmation)
+                    pprint.pprint(order_conf)
                     printAndDiscord(
                         (
                             f"{key} account {print_account}: The order verification was "
                             + "successful"
-                            if ft_order.order_confirmation["success"] == "Yes"
+                            if order_conf["error"] == ""
                             else "unsuccessful"
                         ),
                         loop,
                     )
-                    if not ft_order.order_confirmation["success"] == "Yes":
+                    if not order_conf["error"] == "":
                         printAndDiscord(
-                            f"{key} account {print_account}: The order verification produced the following messages: {ft_order.order_confirmation['actiondata']}",
+                            f"{key} account {print_account}: The order verification produced the following messages: {order_conf}",
                             loop,
                         )
                 except Exception as e:
