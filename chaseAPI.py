@@ -214,11 +214,11 @@ def chase_transaction(chase_obj: Brokerage, all_accounts: ch_account.AllAccount,
         # This loop should only run once, but it provides easy access to the chase session by using key to get it back from
         # the chase_obj via get_logged_in_objects
         for key in chase_obj.get_account_numbers():
-            
+
             # Declare for later
             price_type = order.PriceType.MARKET
             limit_price = 0.0
-            
+
             # Determine limit or market for buy orders
             if orderObj.get_action().capitalize() == "Buy":
                 account_ids = list(all_accounts.account_connectors.keys())
