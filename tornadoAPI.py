@@ -26,7 +26,8 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def tornado_error(driver, e, loop=None):
+
+def tornado_error(driver, loop=None):
     driver.save_screenshot(f"Tornado-error-{datetime.datetime.now()}.png")
     printAndDiscord(f"Tornado Error: {traceback.format_exc()}", loop, embed=False)
 
@@ -44,7 +45,7 @@ def tornado_init(TORNADO_EXTERNAL=None, loop=None):
         else TORNADO_EXTERNAL.strip().split(",")
     )
     TORNADO_obj = Brokerage("TORNADO")
-    
+
     for index, account in enumerate(accounts):
         account_name = f"Tornado {index + 1}"
         try:
@@ -77,7 +78,7 @@ def tornado_init(TORNADO_EXTERNAL=None, loop=None):
 
                 # Set the account name
                 TORNADO_obj.set_account_number(account_name, account_name)
-                logger.info(f"Set account name for {account_name}")
+                logger.info("Set account name for %s", account_name)
 
             except TimeoutException:
                 printAndDiscord(f"TimeoutException: Login failed for {account_name}.", loop)
@@ -143,7 +144,7 @@ def tornado_holdings(TORNADO_o: Brokerage, loop=None):
         for account_name in account_names:
             driver: webdriver = TORNADO_o.get_logged_in_objects(account_name)
 
-            logger.info(f"Processing holdings for {account_name}")
+            logger.info("Processing holdings for %s", account_name)
 
             # Fetch the total account value
             account_value_element = WebDriverWait(driver, 60).until(
@@ -156,7 +157,7 @@ def tornado_holdings(TORNADO_o: Brokerage, loop=None):
             holdings_data = tornado_extract_holdings(driver)
 
             if not holdings_data:
-                logger.warning(f"No holdings found for {account_name}. Skipping account.")
+                logger.warning("No holdings found for %s. Skipping account.", account_name)
                 continue  # Skip to the next account
 
             for holding in holdings_data:
@@ -166,7 +167,7 @@ def tornado_holdings(TORNADO_o: Brokerage, loop=None):
             TORNADO_o.set_account_totals(account_name, account_name, account_value_float)
 
     except Exception as e:
-        logger.error(f"Error processing Tornado holdings: {e}")
+        logger.error("Error processing Tornado holdings: %s", e)
         printAndDiscord(f"Tornado Account: Error processing holdings: {e}", loop)
 
     logger.info("Finished processing Tornado account, sending holdings to Discord.")
