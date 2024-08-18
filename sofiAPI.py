@@ -254,7 +254,7 @@ def sofi_account_info(driver: webdriver, loop=None) -> dict | None:
 
         return account_dict
 
-    except Exception as e:
+    except Exception:
         sofi_error(driver, loop)
         return None
 
