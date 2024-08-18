@@ -215,25 +215,26 @@ def chase_transaction(chase_obj: Brokerage, all_accounts: ch_account.AllAccount,
         # the chase_obj via get_logged_in_objects
         for key in chase_obj.get_account_numbers():
             
-            account_ids = list(all_accounts.account_connectors.keys())
-            # Load the chase session
-            ch_session: session.ChaseSession = chase_obj.get_logged_in_objects(key)
+            # Declare for later
+            price_type = order.PriceType.MARKET
+            limit_price = 0.0
+            
+            # Determine limit or market for buy orders
+            if orderObj.get_action().capitalize() == "Buy":
+                account_ids = list(all_accounts.account_connectors.keys())
+                # Load the chase session
+                ch_session: session.ChaseSession = chase_obj.get_logged_in_objects(key)
 
-            # Get the ask price and determine whether to use MARKET or LIMIT order
-            # Enter an account number, the chase session, and the stock ticker
-            symbol_quote = symbols.SymbolQuote(account_id=account_ids[0], session=ch_session, symbol=ticker)
+                # Get the ask price and determine whether to use MARKET or LIMIT order
+                symbol_quote = symbols.SymbolQuote(account_id=account_ids[0], session=ch_session, symbol=ticker)
 
-            # Declare type for later
-            price_type = None
-
-            # Determine type
-            if symbol_quote.ask_price < 1 and orderObj.get_action().capitalize() == "Buy":
-                price_type = order.PriceType.LIMIT
-            else:
-                price_type = order.PriceType.MARKET
-
-            # Set the price difference
-            difference_price = 0.01 if float(symbol_quote.ask_price) > 0.1 else 0.0001
+                # If it should be limit
+                if symbol_quote.ask_price < 1:
+                    price_type = order.PriceType.LIMIT
+                    # Set the price difference
+                    difference_price = 0.01 if float(symbol_quote.ask_price) > 0.1 else 0.0001
+                    # Set limit price
+                    limit_price = symbol_quote.ask_price + difference_price
 
             printAndDiscord(
                 f"{key} {orderObj.get_action()}ing {orderObj.get_amount()} {ticker} @ {price_type.value}",
@@ -267,7 +268,7 @@ def chase_transaction(chase_obj: Brokerage, all_accounts: ch_account.AllAccount,
                         duration=order.Duration.DAY,
                         order_type=order_type,
                         dry_run=orderObj.get_dry(),
-                        limit_price=symbol_quote.ask_price + difference_price
+                        limit_price=limit_price,
                     )
                     print("The order verification produced the following messages: ")
                     if orderObj.get_dry():
