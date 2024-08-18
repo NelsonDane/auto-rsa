@@ -67,7 +67,7 @@ def get_account_id(account_connectors, value):
 def chase_init(account: str, index: int, botObj=None, loop=None):
     '''
     Logs into chase. Checks for 2FA and gathers details on the chase accounts
-    
+
     Args:
         account (str): The chase username, password, last 4 of phone #, and possible debug flag, seperated by ':'.
         index (int): The index of this chase account in a list of accounts.
@@ -144,7 +144,7 @@ def chase_holdings(chase_o: Brokerage, all_accounts: ch_account.AllAccount, loop
     for key in chase_o.get_account_numbers():
         try:
             # Retrieve account masks and iterate through them
-            for h, account in enumerate(chase_o.get_account_numbers(key)):
+            for _, account in enumerate(chase_o.get_account_numbers(key)):
                 # Retrieve the chase session
                 ch_session: session.ChaseSession = chase_o.get_logged_in_objects(key)
                 # Get the account ID accociated with mask
@@ -194,7 +194,7 @@ def chase_transaction(chase_obj: Brokerage, all_accounts: ch_account.AllAccount,
     '''
     Executes transactions on all accounts.
 
-    Args: 
+    Args:
         chase_obj (Brokerage): The brokerage class object related to the chase session.
         all_accounts (AllAccount): AllAccount object that holds account information.
         orderObj (stockOrder): The order(s) to be executed.
@@ -207,35 +207,34 @@ def chase_transaction(chase_obj: Brokerage, all_accounts: ch_account.AllAccount,
     print("Chase")
     print("==============================")
     print()
-    
+
     # Buy on each account
     for ticker in orderObj.get_stocks():
-        
-        # This loop should only run once, but it provides easy access to the chase session by using key to get it back from 
+
+        # This loop should only run once, but it provides easy access to the chase session by using key to get it back from
         # the chase_obj via get_logged_in_objects
         for key in chase_obj.get_account_numbers():
             
             account_ids = list(all_accounts.account_connectors.keys())
             # Load the chase session
             ch_session: session.ChaseSession = chase_obj.get_logged_in_objects(key)
-            
+
             # Get the ask price and determine whether to use MARKET or LIMIT order
             # Enter an account number, the chase session, and the stock ticker
             symbol_quote = symbols.SymbolQuote(account_id=account_ids[0], session=ch_session, symbol=ticker)
-            
+
             # Declare type for later
             price_type = None
-            
+
             # Determine type
             if symbol_quote.ask_price < 1 and orderObj.get_action().capitalize() == "Buy":
                 price_type = order.PriceType.LIMIT
             else:
                 price_type = order.PriceType.MARKET
-            
+
             # Set the price difference
             difference_price = 0.01 if float(symbol_quote.ask_price) > 0.1 else 0.0001
-            
-            
+
             printAndDiscord(
                 f"{key} {orderObj.get_action()}ing {orderObj.get_amount()} {ticker} @ {price_type.value}",
                 loop,
@@ -244,8 +243,6 @@ def chase_transaction(chase_obj: Brokerage, all_accounts: ch_account.AllAccount,
                 print(chase_obj.get_account_numbers())
                 # For each account number "mask" attached to "Chase_#" complete the order
                 for account in chase_obj.get_account_numbers(key):
-                    
-                    
                     target_account_id = get_account_id(
                         all_accounts.account_connectors, account
                     )
@@ -254,7 +251,7 @@ def chase_transaction(chase_obj: Brokerage, all_accounts: ch_account.AllAccount,
                         printAndDiscord(
                             "Running in DRY mode. No transactions will be made.", loop
                         )
-                        
+
                     if orderObj.get_action().capitalize() == "Buy":
                         order_type = order.OrderSide.BUY
                     else:
