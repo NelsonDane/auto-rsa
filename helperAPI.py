@@ -19,7 +19,12 @@ from discord.ext import commands
 from dotenv import load_dotenv
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromiumService
-from selenium.webdriver.edge.service import Service as EdgeService
+from selenium_stealth import stealth
+
+load_dotenv()
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+DISCORD_CHANNEL = os.getenv("DISCORD_CHANNEL")
+HEADLESS = os.getenv("HEADLESS", "true").lower() == "true"
 
 # Create task queue
 task_queue = Queue()
@@ -387,7 +392,9 @@ def updater():
             print()
             return
     print(f"Update complete! Now using commit {str(repo.head.commit)[:7]}")
-    print(f"Check if you're up to date here: https://github.com/NelsonDane/auto-rsa/commits/{repo.active_branch}")
+    print(
+        f"Check if you're up to date here: https://github.com/NelsonDane/auto-rsa/commits/{repo.active_branch}"
+    )
     print()
     return
 
@@ -484,32 +491,33 @@ def check_if_page_loaded(driver):
 def getDriver(DOCKER=False):
     # Init webdriver options
     try:
+        options = webdriver.ChromeOptions()
+        options.add_argument("start-maximized")
+        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        options.add_experimental_option("useAutomationExtension", False)
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_argument("--disable-extensions")
+        options.add_argument("--disable-notifications")
         if DOCKER:
-            # Docker uses Chromium
-            options = webdriver.ChromeOptions()
-            options.add_argument("--disable-blink-features=AutomationControlled")
-            options.add_argument("--disable-notifications")
+            # Special Docker options
             options.add_argument("--disable-dev-shm-usage")
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-gpu")
+        if DOCKER or HEADLESS:
+            options.add_argument("--headless")
+        driver = webdriver.Chrome(
+            options=options,
             # Docker uses specific chromedriver installed via apt
-            driver = webdriver.Chrome(
-                service=ChromiumService("/usr/bin/chromedriver"),
-                options=options,
-            )
-        else:
-            # Otherwise use Edge
-            options = webdriver.EdgeOptions()
-            options.add_argument("--disable-blink-features=AutomationControlled")
-            options.add_argument("--disable-notifications")
-            driver = webdriver.Edge(
-                service=EdgeService(),
-                options=options,
-            )
+            service=ChromiumService("/usr/bin/chromedriver") if DOCKER else None,
+        )
+        stealth(
+            driver=driver,
+            platform="Win32",
+            fix_hairline=True,
+        )
     except Exception as e:
         print(f"Error getting Driver: {e}")
         return None
-    driver.maximize_window()
     return driver
 
 
@@ -529,10 +537,6 @@ def killSeleniumDriver(brokerObj: Brokerage):
 
 
 async def processTasks(message, embed=False):
-    # Get details from env (they are used prior so we know they exist)
-    load_dotenv()
-    DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-    DISCORD_CHANNEL = os.getenv("DISCORD_CHANNEL")
     # Send message to discord via request post
     BASE_URL = f"https://discord.com/api/v10/channels/{DISCORD_CHANNEL}/messages"
     HEADERS = {
@@ -543,11 +547,17 @@ async def processTasks(message, embed=False):
     for i in range(0, embed_length, 25):
         PAYLOAD = {
             "content": "" if embed else message,
-            "embeds": [{
-                "title": message["title"] if i == 0 else "",
-                "color": message["color"],
-                "fields": message["fields"][i:i + 25]
-            }] if embed else []
+            "embeds": (
+                [
+                    {
+                        "title": message["title"] if i == 0 else "",
+                        "color": message["color"],
+                        "fields": message["fields"][i : i + 25],
+                    }
+                ]
+                if embed
+                else []
+            ),
         }
         # Keep trying until success
         success = False
@@ -640,7 +650,7 @@ def printHoldings(brokerObj: Brokerage, loop=None, mask=True):
     EMBED = {
         "title": f"{brokerObj.get_name()} Holdings",
         "color": 3447003,
-        "fields": []
+        "fields": [],
     }
     print(
         f"==============================\n{brokerObj.get_name()} Holdings\n=============================="
@@ -666,10 +676,11 @@ def printHoldings(brokerObj: Brokerage, loop=None, mask=True):
             print_string += f"Total: ${format(brokerObj.get_account_totals(key, account), '0.2f')}\n"
             print(print_string)
             # If somehow longer than 1024, chop and add ...
-            field["value"] = print_string[:1020] + "..." if len(print_string) > 1024 else print_string
+            field["value"] = (
+                print_string[:1020] + "..."
+                if len(print_string) > 1024
+                else print_string
+            )
             EMBED["fields"].append(field)
-    # for i in range(30):
-    #     EMBED["fields"].append(field)
-
     printAndDiscord(EMBED, loop, True)
     print("==============================")
