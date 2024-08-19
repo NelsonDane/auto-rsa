@@ -232,10 +232,8 @@ def chase_transaction(chase_obj: Brokerage, all_accounts: ch_account.AllAccount,
                 # If it should be limit
                 if symbol_quote.ask_price < 1:
                     price_type = order.PriceType.LIMIT
-                    # Set the price difference
-                    difference_price = 0.01 if float(symbol_quote.ask_price) > 0.1 else 0.0001
                     # Set limit price
-                    limit_price = symbol_quote.ask_price + difference_price
+                    limit_price = round(symbol_quote.ask_price + 0.01, 2)
 
             printAndDiscord(
                 f"{key} {orderObj.get_action()}ing {orderObj.get_amount()} {ticker} @ {price_type.value}",
