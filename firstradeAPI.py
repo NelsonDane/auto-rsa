@@ -11,7 +11,14 @@ from dotenv import load_dotenv
 from firstrade import account as ft_account
 from firstrade import order, symbols
 
-from helperAPI import Brokerage, getOTPCodeDiscord, maskString, printAndDiscord, printHoldings, stockOrder
+from helperAPI import (
+    Brokerage,
+    getOTPCodeDiscord,
+    maskString,
+    printAndDiscord,
+    printHoldings,
+    stockOrder,
+)
 
 
 def firstrade_init(botObj=None, loop=None):
@@ -20,9 +27,7 @@ def firstrade_init(botObj=None, loop=None):
     if not os.getenv("FIRSTRADE"):
         print("Firstrade not found, skipping...")
         return None
-    accounts = (
-        os.environ["FIRSTRADE"].strip().split(",")
-    )
+    accounts = os.environ["FIRSTRADE"].strip().split(",")
     # Log in to Firstrade account
     print("Logging in to Firstrade...")
     firstrade_obj = Brokerage("Firstrade")
@@ -34,10 +39,22 @@ def firstrade_init(botObj=None, loop=None):
             firstrade = ft_account.FTSession(
                 username=account[0],
                 password=account[1],
-                pin=account[2] if len(account[2]) == 4 and account[2].isdigit() else None,
-                phone=account[2][-4:] if len(account[2]) == 10 and account[2].isdigit() else None,
+                pin=(
+                    account[2]
+                    if len(account[2]) == 4 and account[2].isdigit()
+                    else None
+                ),
+                phone=(
+                    account[2][-4:]
+                    if len(account[2]) == 10 and account[2].isdigit()
+                    else None
+                ),
                 email=account[2] if "@" in account[2] else None,
-                mfa_secret=account[2] if len(account[2]) > 14 and "@" not in account[2] else None,
+                mfa_secret=(
+                    account[2]
+                    if len(account[2]) > 14 and "@" not in account[2]
+                    else None
+                ),
                 profile_path="./creds/",
             )
             need_code = firstrade.login()
