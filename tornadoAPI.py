@@ -44,7 +44,7 @@ def tornado_init(TORNADO_EXTERNAL=None, loop=None):
         if TORNADO_EXTERNAL is None
         else TORNADO_EXTERNAL.strip().split(",")
     )
-    TORNADO_obj = Brokerage("TORNADO")
+    TORNADO_obj = Brokerage("Tornado")
 
     for index, account in enumerate(accounts):
         account_name = f"Tornado {index + 1}"
