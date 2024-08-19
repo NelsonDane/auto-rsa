@@ -53,7 +53,9 @@ def chase_run(
                 chase_holdings(chase_details[0], chase_details[1], loop=loop)
             # Only other option is _transaction
             else:
-                chase_transaction(chase_details[0], chase_details[1], orderObj, loop=loop)
+                chase_transaction(
+                    chase_details[0], chase_details[1], orderObj, loop=loop
+                )
     return None
 
 
@@ -65,7 +67,7 @@ def get_account_id(account_connectors, value):
 
 
 def chase_init(account: str, index: int, botObj=None, loop=None):
-    '''
+    """
     Logs into chase. Checks for 2FA and gathers details on the chase accounts
 
     Args:
@@ -78,7 +80,7 @@ def chase_init(account: str, index: int, botObj=None, loop=None):
     Returns:
         Brokerage object which represents the chase session and data.
         AllAccounts object which holds account information.
-    '''
+    """
     # Log in to Chase account
     print("Logging in to Chase...")
     # Create brokerage class object and call it chase
@@ -132,14 +134,14 @@ def chase_init(account: str, index: int, botObj=None, loop=None):
 
 
 def chase_holdings(chase_o: Brokerage, all_accounts: ch_account.AllAccount, loop=None):
-    '''
+    """
     Get the holdings of chase account
 
     Args:
         chase_o (Brokerage): Brokerage object associated with the current session.
         all_accounts (AllAccount): AllAccount object that holds account information.
         loop (AbstractEventLoop): The event loop to be used if present.
-    '''
+    """
     # Get holdings on each account. This loop only ever runs once.
     for key in chase_o.get_account_numbers():
         try:
@@ -190,8 +192,13 @@ def chase_holdings(chase_o: Brokerage, all_accounts: ch_account.AllAccount, loop
     ch_session.close_browser()
 
 
-def chase_transaction(chase_obj: Brokerage, all_accounts: ch_account.AllAccount, orderObj: stockOrder, loop=None):
-    '''
+def chase_transaction(
+    chase_obj: Brokerage,
+    all_accounts: ch_account.AllAccount,
+    orderObj: stockOrder,
+    loop=None,
+):
+    """
     Executes transactions on all accounts.
 
     Args:
@@ -201,7 +208,7 @@ def chase_transaction(chase_obj: Brokerage, all_accounts: ch_account.AllAccount,
         loop (AbstractEventLoop): The event loop to be used if present.
     Returns:
         None
-    '''
+    """
     print()
     print("==============================")
     print("Chase")
@@ -227,7 +234,9 @@ def chase_transaction(chase_obj: Brokerage, all_accounts: ch_account.AllAccount,
                 account_ids = list(all_accounts.account_connectors.keys())
 
                 # Get the ask price and determine whether to use MARKET or LIMIT order
-                symbol_quote = symbols.SymbolQuote(account_id=account_ids[0], session=ch_session, symbol=ticker)
+                symbol_quote = symbols.SymbolQuote(
+                    account_id=account_ids[0], session=ch_session, symbol=ticker
+                )
 
                 # If it should be limit
                 if symbol_quote.ask_price < 1:
