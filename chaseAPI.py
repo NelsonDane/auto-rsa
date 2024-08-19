@@ -219,11 +219,12 @@ def chase_transaction(chase_obj: Brokerage, all_accounts: ch_account.AllAccount,
             price_type = order.PriceType.MARKET
             limit_price = 0.0
 
+            # Load the chase session
+            ch_session: session.ChaseSession = chase_obj.get_logged_in_objects(key)
+
             # Determine limit or market for buy orders
             if orderObj.get_action().capitalize() == "Buy":
                 account_ids = list(all_accounts.account_connectors.keys())
-                # Load the chase session
-                ch_session: session.ChaseSession = chase_obj.get_logged_in_objects(key)
 
                 # Get the ask price and determine whether to use MARKET or LIMIT order
                 symbol_quote = symbols.SymbolQuote(account_id=account_ids[0], session=ch_session, symbol=ticker)
