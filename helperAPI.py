@@ -383,7 +383,7 @@ def updater():
         return
     if not repo.bare:
         try:
-            repo.git.pull()
+            repo.git.pull("origin", repo.active_branch)
             print(f"Pulled latest changes from {repo.active_branch}")
         except Exception as e:
             print(
