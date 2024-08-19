@@ -383,13 +383,7 @@ def updater():
         return
     if not repo.bare:
         try:
-            branch_name = repo.active_branch.name
-            if branch_name not in repo.remotes.origin.refs:
-                print(
-                    f"UPDATE ERROR: Cannot pull from {branch_name}. Local repository is not set up correctly."
-                )
-                return
-            repo.git.pull('origin', branch_name)
+            repo.git.pull("origin", repo.active_branch)
             print(f"Pulled latest changes from {repo.active_branch}")
         except Exception as e:
             print(
