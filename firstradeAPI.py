@@ -135,9 +135,9 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
                     if symbol_data.last < 1.00:
                         price_type = order.PriceType.LIMIT
                         if orderObj.get_action().capitalize() == "Buy":
-                            price = symbol_data.bid + 0.01
+                            price = symbol_data.last + 0.01
                         else:
-                            price = symbol_data.ask - 0.01
+                            price = symbol_data.last - 0.01
                     else:
                         price_type = order.PriceType.MARKET
                         price = 0.00
