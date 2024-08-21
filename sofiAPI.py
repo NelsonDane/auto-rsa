@@ -30,6 +30,7 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 def sofi_error(driver, loop=None):
     if driver is not None:
         try:
@@ -498,7 +499,7 @@ def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None):
                     try:
                         # Check if the order type is already set to "Limit price"
                         limit_price_label_present = driver.find_elements(By.XPATH, "//p[contains(text(), 'Limit price')]")
-                        
+
                         if limit_price_label_present:
                             print("Order type already set to 'Limit price'. Skipping JavaScript execution.")
                         else:
