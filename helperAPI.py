@@ -341,6 +341,7 @@ class ThreadHandler:
 def isUpToDate(remote, branch):
     # Assume succeeded in updater()
     import git
+
     # Check if local branch is up to date with ls-remote
     up_to_date = False
     try:
@@ -360,6 +361,7 @@ def isUpToDate(remote, branch):
             f"WARNING: YOU ARE OUT OF DATE. Please run 'git pull {remote} {branch}' to update. Local hash: {local_commit}, Remote hash: {remote_hash}"
         )
     return up_to_date
+
 
 def updater():
     # Check if git is installed
