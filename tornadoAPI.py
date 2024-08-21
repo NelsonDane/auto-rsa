@@ -44,12 +44,12 @@ def tornado_init(TORNADO_EXTERNAL=None, loop=None):
         if TORNADO_EXTERNAL is None
         else TORNADO_EXTERNAL.strip().split(",")
     )
-    TORNADO_obj = Brokerage("Tornado")
+    TORNADO_obj = Brokerage("TORNADO")
 
     for index, account in enumerate(accounts):
         account_name = f"Tornado {index + 1}"
         try:
-            driver = getDriver(DOCKER=False)
+            driver = getDriver()
             if driver is None:
                 raise Exception("Driver not found.")
             driver.get('https://tornado.com/app/login')
@@ -338,11 +338,10 @@ def handle_buy(driver, stock, orderObj, loop):
         return
 
     if not DRY:
-        print("Pausing for 5 seconds before submitting the order...")
 
         try:
             submit_button = WebDriverWait(driver, 20).until(
-                EC.element_to_be_clickable((By.XPATH, '//*[@id="main-router"]/div[1]/div/div[10]/div/button')))
+                EC.element_to_be_clickable((By.XPATH, '//*[@id="main-router"]/div[1]/div/div[10]/div/button | //*[@id="main-router"]/div[1]/div/div[9]/div/button')))
             submit_button.click()
             print(f"Successfully bought {QUANTITY} shares of {stock}")
             printAndDiscord(f"Tornado account: buy {QUANTITY} shares of {stock} at {cost}", loop)
