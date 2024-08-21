@@ -185,21 +185,23 @@ def tornado_transaction(TORNADO_o: Brokerage, orderObj: stockOrder, loop=None):
         for key in TORNADO_o.get_account_numbers():
             driver = TORNADO_o.get_logged_in_objects(key)
 
-            # Check if already on the dashboard after login
-            current_url = driver.current_url
-            if "dashboard" not in current_url:
-                driver.get("https://tornado.com/app/dashboard")
-                print(f"Navigated to Tornado dashboard page for account {key}")
-                sleep(3)  # Added delay to ensure page loads
-            else:
-                print(f"Already on the Tornado dashboard page for account {key}")
-                sleep(2)  # Slight delay for stability
+            # Ensure we are on the Tornado dashboard or navigate to it
+            try:
+                current_url = driver.current_url
+                if "app" not in current_url:
+                    driver.get("https://tornado.com/app/")
+                    print(f"Navigated to Tornado dashboard page for account {key}")
+                    WebDriverWait(driver, 30).until(check_if_page_loaded)
+                else:
+                    print(f"Already on the Tornado dashboard page for account {key}")
+            except Exception as e:
+                print(f"Failed to navigate to dashboard for {key}: {e}")
+                continue
 
             try:
-                # Wait for the search bar and interact with it
+                # Interact with the search bar
                 search_field = WebDriverWait(driver, 20).until(
                     EC.element_to_be_clickable((By.CSS_SELECTOR, '#nav_securities_search')))
-                print("Search bar found, attempting to enter stock symbol.")
                 search_field.click()
                 sleep(1)
                 search_field.send_keys(s)
@@ -210,14 +212,14 @@ def tornado_transaction(TORNADO_o: Brokerage, orderObj: stockOrder, loop=None):
                 continue
 
             try:
-                # Wait for the search results to load
+                # Wait for and process search results
                 WebDriverWait(driver, 10).until(
                     EC.presence_of_all_elements_located((By.XPATH, '//*[@id="nav_securities_search_container"]/div[2]/ul/li'))
                 )
                 dropdown_items = driver.find_elements(By.XPATH, '//*[@id="nav_securities_search_container"]/div[2]/ul/li')
                 total_items = len(dropdown_items)
                 print(f"Found {total_items} search results for {s}")
-                sleep(2)  # Added delay to ensure the dropdown items load
+                sleep(2)
 
                 if total_items == 0:
                     print(f"No stock found for {s}. Moving to next stock.")
@@ -226,10 +228,10 @@ def tornado_transaction(TORNADO_o: Brokerage, orderObj: stockOrder, loop=None):
 
                 found_stock = False
                 for item in dropdown_items:
-                    ticker_name = item.find_element(By.CLASS_NAME, 'bold').text.strip()  # Extract ticker name
+                    ticker_name = item.find_element(By.CLASS_NAME, 'bold').text.strip()
                     if ticker_name == s:
                         found_stock = True
-                        sleep(1)  # Short pause before clicking the correct stock
+                        sleep(1)
                         item.click()
                         print(f"Found and selected stock {s}")
                         break
@@ -249,10 +251,10 @@ def tornado_transaction(TORNADO_o: Brokerage, orderObj: stockOrder, loop=None):
             elif orderObj.get_action() == "sell":
                 handle_sell(driver, s, orderObj, loop)
 
-            # Return to the dashboard
+            # Ensure to return to the dashboard after every transaction
             try:
                 dashboard_link = WebDriverWait(driver, 30).until(
-                    EC.presence_of_element_located((By.XPATH, '//*[@id="root"]/div/div/div[4]/div/div[1]/div/div/div[2]/div[1]/div[2]/span[1]/a/span')))
+                    EC.element_to_be_clickable((By.XPATH, '//*[@id="root"]/div/div/div[4]/div/div[1]/div/div/div[2]/div[1]/div[2]/span[1]/a/span')))
                 dashboard_link.click()
                 WebDriverWait(driver, 60).until(
                     EC.presence_of_element_located((By.XPATH, '//*[@id="main-router"]/div/div/div/div[1]/div/div/div/div[1]/div[1]/div/span'))
@@ -263,8 +265,8 @@ def tornado_transaction(TORNADO_o: Brokerage, orderObj: stockOrder, loop=None):
                 printAndDiscord(f"Tornado failed to return to dashboard after processing {s}.", loop)
 
     print("Completed all transactions, Exiting...")
-    driver.close()  # Close the driver window
-    driver.quit()  # Quit the driver entirely
+    driver.close()
+    driver.quit()
 
 
 def handle_buy(driver, stock, orderObj, loop):
@@ -338,16 +340,21 @@ def handle_buy(driver, stock, orderObj, loop):
         return
 
     if not DRY:
-
         try:
             submit_button = WebDriverWait(driver, 20).until(
                 EC.element_to_be_clickable((By.XPATH, '//*[@id="main-router"]/div[1]/div/div[10]/div/button | //*[@id="main-router"]/div[1]/div/div[9]/div/button')))
             submit_button.click()
             print(f"Successfully bought {QUANTITY} shares of {stock}")
             printAndDiscord(f"Tornado account: buy {QUANTITY} shares of {stock} at {cost}", loop)
+            
+            # Click the "Continue" button after placing the order
+            continue_button = WebDriverWait(driver, 20).until(
+                EC.element_to_be_clickable((By.XPATH, '//*[@id="main-router"]/div[1]/div/div[2]/div/button')))
+            continue_button.click()
+            print("Clicked the Continue button after placing the order.")
         except TimeoutException:
-            print(f"Failed to submit buy order for {stock}. Moving to next stock.")
-            printAndDiscord(f"Tornado failed to submit buy order for {stock}.", loop)
+            print(f"Failed to submit buy order for {stock} or click Continue. Moving to next stock.")
+            printAndDiscord(f"Tornado failed to submit buy order for {stock} or click Continue.", loop)
     else:
         sleep(5)
         print(f"DRY MODE: Simulated order BUY for {QUANTITY} shares of {stock} at {cost}")
@@ -420,10 +427,15 @@ def handle_sell(driver, stock, orderObj, loop):
             submit_button.click()
             print(f"Successfully sold {QUANTITY} shares of {stock}")
             printAndDiscord(f"Tornado account: sell {QUANTITY} shares of {stock} at {sell_price}", loop)
+            
+            # Click the "Continue" button after placing the order
+            continue_button = WebDriverWait(driver, 20).until(
+                EC.element_to_be_clickable((By.XPATH, '//*[@id="main-router"]/div[1]/div/div[2]/div/button')))
+            continue_button.click()
+            print("Clicked the Continue button after placing the order.")
         except TimeoutException:
-            print(f"Failed to submit sell order for {stock}. Moving to next stock.")
-            printAndDiscord(f"Tornado failed to submit sell order for {stock}.", loop)
+            print(f"Failed to submit sell order for {stock} or click Continue. Moving to next stock.")
+            printAndDiscord(f"Tornado failed to submit sell order for {stock} or click Continue.", loop)
     else:
-        sleep(5)
         print(f"DRY MODE: Simulated order SELL for {QUANTITY} shares of {stock} at {sell_price}")
         printAndDiscord(f"Tornado account: dry run sell {QUANTITY} shares of {stock} at {sell_price}", loop)
