@@ -227,6 +227,12 @@ def argParser(args: list) -> stockOrder:
 
 
 if __name__ == "__main__":
+    # Check Python version (minimum 3.10)
+    print("Python version:", sys.version)
+    if sys.version_info < (3, 10):
+        print("Python 3.10 or newer is required")
+        sys.exit(1)
+    print()
     # Determine if ran from command line
     if len(sys.argv) == 1:  # If no arguments, do nothing
         print("No arguments given, see README for usage")
