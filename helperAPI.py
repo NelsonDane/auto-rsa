@@ -384,18 +384,16 @@ def updater():
         # Always create main branch
         repo.create_head("main", repo.remotes.origin.refs.main)
         repo.heads.main.set_tracking_branch(repo.remotes.origin.refs.main)
-        # If downloaded from other branch, zip has branch name
-        current_dir = Path.cwd()
-        if current_dir.name != "auto-rsa-main":
-            branch = str.replace(current_dir.name, "auto-rsa-", "")
+        repo.heads.main.checkout(True)
+        # When downloaded as zip, it contains the branch name
+        branch = str(Path.cwd().name).split("-")[-1]
+        if branch != "main":
             try:
                 repo.create_head(branch, repo.remotes.origin.refs[branch])
                 repo.heads[branch].set_tracking_branch(repo.remotes.origin.refs[branch])
                 repo.heads[branch].checkout(True)
             except:
-                print(f"No branch {branch} found, using main")
-        else:
-            repo.heads.main.checkout(True)
+                print(f"No branch named {branch} found, using main")
         print(f"Cloned repo from {repo.active_branch}")
     if repo.is_dirty():
         # Print warning and let users take care of changes themselves
