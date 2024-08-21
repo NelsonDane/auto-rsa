@@ -32,8 +32,8 @@ def wellsfargo_error(driver: webdriver, error: str):
     print(traceback.format_exc())
 
 
-def wellsfargo_init(WELLSFARGO_EXTERNAL=None, DOCKER=False):
-    DRIVER = getDriver(DOCKER=False)
+def wellsfargo_init(WELLSFARGO_EXTERNAL=None, botObj=None, loop=None, DOCKER=False):
+    #DRIVER = getDriver(DOCKER=False)
     load_dotenv()
 
     if not os.getenv("WELLSFARGO"):
@@ -89,92 +89,95 @@ def wellsfargo_init(WELLSFARGO_EXTERNAL=None, DOCKER=False):
 
 
 def wellsfargo_holdings(WELLSFARGO_o: Brokerage, loop=None):
-    for key in WELLSFARGO_o.get_account_numbers():
-        driver: webdriver = WELLSFARGO_o.get_logged_in_objects(key)
+    print("wtf")
+    print(WELLSFARGO_o.get_account_numbers())
+    #for key in WELLSFARGO_o.get_account_numbers():
+    print("help")
+    driver: webdriver = WELLSFARGO_o.get_logged_in_objects("WELLSFARGO 1")
+    try:
+        brokerage = WebDriverWait(driver, 20).until(
+            EC.element_to_be_clickable((By.XPATH, "//*[@id='BROKERAGE_LINK7P']"))
+        )
+        brokerage.click()
+
         try:
-            brokerage = WebDriverWait(driver, 20).until(
-                EC.element_to_be_clickable((By.XPATH, "//*[@id='BROKERAGE_LINK7P']"))
-            )
-            brokerage.click()
-
-            try:
-                more = WebDriverWait(driver, 20).until(
-                    EC.element_to_be_clickable(
-                        (By.CLASS_NAME, "withicon holdingssnaphot")
-                    )
+            more = WebDriverWait(driver, 20).until(
+                EC.element_to_be_clickable(
+                    (By.CLASS_NAME, "withicon holdingssnaphot")
                 )
-                more.click()
-            except Exception:
-                print("error :(")
-                sleep(10)
-                pass
+            )
+            more.click()
+        except Exception:
+            print("error :(")
+            sleep(10)
+            pass
 
-            # Find accounts
+        # Find accounts
+        open_dropdown = WebDriverWait(driver, 20).until(
+            EC.element_to_be_clickable((By.XPATH, "//*[@id='dropdown1']"))
+        )
+        open_dropdown.click()
+
+        accounts = driver.execute_script(
+            "return document.getElementById('dropdownlist1').getElementsByTagName('li').length;"
+        )
+        accounts = int(accounts / 2)  # Adjust based on actual implementation
+    except TimeoutException:
+        print("Could not get to holdings")
+        killSeleniumDriver(WELLSFARGO_o)
+        return
+
+    for account in len(accounts):
+        try:
+            # Choose account
             open_dropdown = WebDriverWait(driver, 20).until(
                 EC.element_to_be_clickable((By.XPATH, "//*[@id='dropdown1']"))
             )
             open_dropdown.click()
-
-            accounts = driver.execute_script(
-                "return document.getElementById('dropdownlist1').getElementsByTagName('li').length;"
+            driver.execute_script(
+                "document.getElementById('dropdownlist1').getElementsByTagName('li')["
+                + str(account_index + 1)
+                + "].click()"
             )
-            accounts = int(accounts / 2)  # Adjust based on actual implementation
-        except TimeoutException:
-            print("Could not get to holdings")
+
+        except:
+            print("Could not change account")
             killSeleniumDriver(WELLSFARGO_o)
-            return
+            continue
 
-        for account in len(accounts):
-            try:
-                # Choose account
-                open_dropdown = WebDriverWait(driver, 20).until(
-                    EC.element_to_be_clickable((By.XPATH, "//*[@id='dropdown1']"))
+        rows = driver.find_elements(By.CSS_SELECTOR, "tbody tr")
+        # Iterate through each row
+        for row in rows:
+            # Find all cells in the current row
+            cells = row.find_elements(By.CSS_SELECTOR, "td")
+            if len(cells) >= 9:
+                # Extracting data
+                name_match = re.search(r"^[^\n]*", cells[1].text)
+                amount_match = re.search(
+                    r"-?\d+(\.\d+)?", cells[3].text.replace("\n", "")
                 )
-                open_dropdown.click()
-                driver.execute_script(
-                    "document.getElementById('dropdownlist1').getElementsByTagName('li')["
-                    + str(account_index + 1)
-                    + "].click()"
+                price_match = re.search(
+                    r"-?\d+(\.\d+)?", cells[4].text.replace("\n", "")
                 )
-
-            except:
-                print("Could not change account")
-                killSeleniumDriver(WELLSFARGO_o)
-                continue
-
-            rows = driver.find_elements(By.CSS_SELECTOR, "tbody tr")
-            # Iterate through each row
-            for row in rows:
-                # Find all cells in the current row
-                cells = row.find_elements(By.CSS_SELECTOR, "td")
-                if len(cells) >= 9:
-                    # Extracting data
-                    name_match = re.search(r"^[^\n]*", cells[1].text)
-                    amount_match = re.search(
-                        r"-?\d+(\.\d+)?", cells[3].text.replace("\n", "")
-                    )
-                    price_match = re.search(
-                        r"-?\d+(\.\d+)?", cells[4].text.replace("\n", "")
-                    )
-                    my_value_match = re.search(
-                        r"-?\d+(\.\d+)?", cells[5].text.replace("\n", "")
-                    )
-                    # Checking if matches exist before accessing indices
-                    name = name_match.group(0) if name_match else cells[1].text
-                    amount = amount_match.group(0) if amount_match else "0"
-                    price = price_match.group(0) if price_match else "0"
-                    my_value = my_value_match.group(0) if my_value_match else "0"
-                    # Assuming you want to store the quantity and price in the holdings
-                    WELLSFARGO_o.set_holdings(
-                        key,  # Use the previously set account name
-                        account_index,  # account_name (you could use account index or name here)
-                        name.strip(),  # stock (ensure to strip whitespace)
-                        float(amount),  # quantity (ensure it's a number)
-                        float(price),  # price
-                    )
-                    print(WELLSFARGO_o.get_holdings(key, account_index))
-        printHoldings(WELLSFARGO_o, loop)
-        killSeleniumDriver(WELLSFARGO_o)
+                my_value_match = re.search(
+                    r"-?\d+(\.\d+)?", cells[5].text.replace("\n", "")
+                )
+                # Checking if matches exist before accessing indices
+                name = name_match.group(0) if name_match else cells[1].text
+                amount = amount_match.group(0) if amount_match else "0"
+                price = price_match.group(0) if price_match else "0"
+                my_value = my_value_match.group(0) if my_value_match else "0"
+                # Assuming you want to store the quantity and price in the holdings
+                WELLSFARGO_o.set_holdings(
+                    key,  # Use the previously set account name
+                    account_index,  # account_name (you could use account index or name here)
+                    name.strip(),  # stock (ensure to strip whitespace)
+                    float(amount),  # quantity (ensure it's a number)
+                    float(price),  # price
+                )
+                print(WELLSFARGO_o.get_holdings(key, account_index))
+    printHoldings(WELLSFARGO_o, loop)
+    killSeleniumDriver(WELLSFARGO_o)
 
 
 def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=None):
@@ -242,8 +245,7 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                 )
                 leave.click()
             except Exception:
-                if account != 0:
-                    sleep(1000)
+                print("??")
                 pass
             # idk why doing it through selenium doesnt work sometimes
             driver.execute_script('document.getElementById("BuySellBtn").click()')
@@ -264,7 +266,8 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                 EC.element_to_be_clickable((By.ID, "actionbtnContinue"))
             )
             driver.execute_script("arguments[0].scrollIntoView(true);", review)
-
+            print("doneee")
+            sleep(10)
             tickerBox = WebDriverWait(driver, 20).until(
                 EC.element_to_be_clickable((By.ID, "Symbol"))
             )
@@ -310,9 +313,11 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
             WebDriverWait(driver, 20).until(check_if_page_loaded)
             submit = driver.find_element(By.CSS_SELECTOR, ".btn-wfa-submit")
             driver.execute_script("arguments[0].scrollIntoView(true);", submit)
+            sleep(5)
             submit.click()
 
             # buy next
             buy_next = driver.find_element(By.CSS_SELECTOR, ".btn-wfa-primary")
             driver.execute_script("arguments[0].scrollIntoView(true);", buy_next)
+            sleep(5)
             buy_next.click()
