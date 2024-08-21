@@ -684,3 +684,15 @@ def printHoldings(brokerObj: Brokerage, loop=None, mask=True):
             EMBED["fields"].append(field)
     printAndDiscord(EMBED, loop, True)
     print("==============================")
+
+    def printConfirm(key, account, action, amount, ticker, loop, success):
+        if success:
+            printAndDiscord(
+                f"{key} {account}: {action} {amount} shares of {ticker}",
+                loop,
+            )
+        else:
+            printAndDiscord(
+                f"{key} {account}: {action} {amount} shares of {ticker} DID NOT COMPLETE!",
+                loop,
+            )
