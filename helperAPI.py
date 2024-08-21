@@ -685,14 +685,10 @@ def printHoldings(brokerObj: Brokerage, loop=None, mask=True):
     printAndDiscord(EMBED, loop, True)
     print("==============================")
 
-    def printConfirm(key, account, action, amount, ticker, loop, success):
-        if success:
-            printAndDiscord(
-                f"{key} {account}: {action} {amount} shares of {ticker}",
-                loop,
-            )
-        else:
-            printAndDiscord(
-                f"{key} {account}: {action} {amount} shares of {ticker} DID NOT COMPLETE!",
-                loop,
-            )
+    def printConfirm(key, account, action, amount, ticker, loop, error, print=None):
+        message = f"{':green_square:' if not error else ':red_square:'} {key} {account}: {action} {amount} shares of {ticker}"
+        if error:
+            message += "DID NOT COMPLETE!"
+        if print is not None:
+            message += f": {print}"
+        printAndDiscord(message)
