@@ -691,4 +691,4 @@ def printHoldings(brokerObj: Brokerage, loop=None, mask=True):
             message += "DID NOT COMPLETE!"
         if print is not None:
             message += f": {print}"
-        printAndDiscord(message)
+        printAndDiscord(message, loop)
