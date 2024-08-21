@@ -197,14 +197,9 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
                             # Place normal order
                             order = place_order(obj, internal_account, orderObj, s)
                         if order:
-                            printAndDiscord(
-                                f"{key}: {orderObj.get_action()} {orderObj.get_amount()} of {s} in {print_account}: Success",
-                                loop,
-                            )
+                            printConfirm(key, print_account, orderObj.get_action, orderObj.get_amount, s, loop, False)
                     except Exception as e:
-                        printAndDiscord(
-                            f"{key} {print_account}: Error placing order: {e}", loop
-                        )
+                        printConfirm(key, print_account, orderObj.get_action, orderObj.get_amount, s, loop, True, e)
                         print(traceback.format_exc())
                         continue
                     finally:
