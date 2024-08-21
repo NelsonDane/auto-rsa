@@ -8,7 +8,7 @@ from time import sleep
 from dotenv import load_dotenv
 from webull import webull
 
-from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder
+from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder, printConfirm
 
 MAX_WB_RETRIES = 3  # Number of times to retry logging in if not successful
 MAX_WB_ACCOUNTS = 11  # Different account types
@@ -197,9 +197,9 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
                             # Place normal order
                             order = place_order(obj, internal_account, orderObj, s)
                         if order:
-                            printConfirm(key, print_account, orderObj.get_action, orderObj.get_amount, s, loop, False)
+                            printConfirm(key, print_account, orderObj.get_action(), orderObj.get_amount(), s, loop, False)
                     except Exception as e:
-                        printConfirm(key, print_account, orderObj.get_action, orderObj.get_amount, s, loop, True, e)
+                        printConfirm(key, print_account, orderObj.get_action(), orderObj.get_amount(), s, loop, True, e)
                         print(traceback.format_exc())
                         continue
                     finally:

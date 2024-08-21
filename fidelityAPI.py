@@ -28,6 +28,7 @@ from helperAPI import (
     printHoldings,
     stockOrder,
     type_slowly,
+    printConfirm,
 )
 
 
@@ -556,7 +557,7 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                             WebDriverWait(driver, 10).until(check_if_page_loaded)
                             sleep(1)
                             # Send confirmation
-                            printConfirm(key, account_label, orderObj.get_action, orderObj.get_amount, s, loop, False)
+                            printConfirm(key, account_label, orderObj.get_action(), orderObj.get_amount(), s, loop, False)
                         except NoSuchElementException:
                             # Check for error
                             WebDriverWait(driver, 10).until(
@@ -574,7 +575,7 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                             driver.execute_script(
                                 "arguments[0].click();", error_dismiss
                             )
-                            printConfirm(key, print_account, orderObj.get_action, orderObj.get_amount, s, loop, True, "\nEither this account does not have enough shares, or an order is already pending.")
+                            printConfirm(key, account_label, orderObj.get_action(), orderObj.get_amount(), s, loop, True, "\nEither this account does not have enough shares, or an order is already pending.")
                         # Send confirmation
                     else:
                         printAndDiscord(

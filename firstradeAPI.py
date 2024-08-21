@@ -18,6 +18,7 @@ from helperAPI import (
     printAndDiscord,
     printHoldings,
     stockOrder,
+    printConfirm,
 )
 
 
@@ -159,20 +160,10 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
 
                     print("The order verification produced the following messages: ")
                     pprint.pprint(order_conf)
-                    printAndDiscord(
-                        (
-                            f"{key} account {print_account}: The order verification was "
-                            + "successful"
-                            if order_conf["error"] == ""
-                            else "unsuccessful"
-                        ),
-                        loop,
-                    )
-                    if not order_conf["error"] == "":
-                        printAndDiscord(
-                            f"{key} account {print_account}: The order verification produced the following messages: {order_conf}",
-                            loop,
-                        )
+                    if order_conf["error"] == "":
+                        printConfirm(key, print_account, orderObj.get_action(), orderObj.get_amount(), s, loop, False)
+                    else:
+                        printConfirm(key, print_account(), orderObj.get_action, orderObj.get_amount(), s, loop, True, order_conf)
                 except Exception as e:
                     printAndDiscord(
                         f"{key} {print_account}: Error submitting order: {e}", loop

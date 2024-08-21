@@ -110,15 +110,10 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
                         account_id=account,
                         dry_run=orderObj.get_dry(),
                     )
-                    printAndDiscord(
-                        (
-                            f"{key} account {print_account}: The order verification was "
-                            + "successful"
-                            if success
-                            else "unsuccessful, retrying..."
-                        ),
-                        loop,
-                    )
+                    if success:
+                        printConfirm(key, print_account, orderObj.get_action(), orderObj.get_amount(), s, loop, False, messages)
+                    else:
+                        printConfirm(key, print_account, orderObj.get_action(), orderObj.get_amount(), s, loop, True, "unsuccessful, retrying...")
                     if not success:
                         messages, success = obj.trade(
                             ticker=s,
@@ -127,22 +122,11 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
                             account_id=account,
                             dry_run=orderObj.get_dry(),
                         )
-                        printAndDiscord(
-                            (
-                                f"{key} account {print_account}: The order verification was "
-                                + "retry successful"
-                                if success
-                                else "retry unsuccessful"
-                            ),
-                            loop,
-                        )
-                        printAndDiscord(
-                            f"{key} account {print_account}: The order verification produced the following messages: {messages}",
-                            loop,
-                        )
+                        if success:
+                            printConfirm(key, print_account, orderObj.get_action(), orderObj.get_amount(), s, loop, False, messages)
+                        else:
+                            printConfirm(key, print_account, orderObj.get_action(), orderObj.get_amount(), s, loop, True, messages)
                 except Exception as e:
-                    printAndDiscord(
-                        f"{key} {print_account}: Error submitting order: {e}", loop
-                    )
+                    printConfirm(key, print_account, orderObj.get_action(), orderObj.get_amount(), s, loop, True, e)
                     print(traceback.format_exc())
                 sleep(1)

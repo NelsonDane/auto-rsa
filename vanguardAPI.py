@@ -17,6 +17,7 @@ from helperAPI import (
     printAndDiscord,
     printHoldings,
     stockOrder,
+    printConfirm,
 )
 
 
@@ -215,29 +216,14 @@ def vanguard_transaction(vanguard_o: Brokerage, orderObj: stockOrder, loop=None)
                     else:
                         if messages["ORDER CONFIRMATION"] != "":
                             pprint.pprint(messages["ORDER CONFIRMATION"])
-                        printAndDiscord(
-                            (
-                                f"{key} account {print_account}: The order verification was "
-                                + (
-                                    "successful"
-                                    if messages["ORDER CONFIRMATION"]
-                                    not in [
+                        if messages["ORDER CONFIRMATION"] not in [
                                         "",
                                         "No order confirmation page found. Order Failed.",
-                                    ]
-                                    else "unsuccessful"
-                                )
-                            ),
-                            loop,
-                        )
-                        if (
-                            messages["ORDER INVALID"]
-                            != "No invalid order message found."
-                        ):
-                            printAndDiscord(
-                                f"{key} account {print_account}: The order verification produced the following messages: {messages['ORDER INVALID']}",
-                                loop,
-                            )
+                                    ]:
+                            printConfirm(key, print_account, orderObj.get_action(), orderObj.get_amount(), s, loop, False)
+                        else:
+                            printConfirm(key, print_account, orderObj.get_action(), orderObj.get_amount(), s, loop, True, messages['ORDER INVALID'])
+
             except Exception as e:
                 printAndDiscord(
                     f"{key} {print_account}: Error submitting order: {e}", loop
