@@ -30,10 +30,24 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
 def sofi_error(driver, loop=None):
-    driver.save_screenshot(f"SOFI-error-{datetime.datetime.now()}.png")
-    printAndDiscord(f"SOFI Error: {traceback.format_exc()}", loop, embed=False)
+    if driver is not None:
+        try:
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            screenshot_name = f"SOFI-error-{timestamp}.png"
+            driver.save_screenshot(screenshot_name)
+            print(f"Screenshot saved as {screenshot_name}")
+        except Exception as e:
+            print(f"Failed to take screenshot: {e}")
+    else:
+        print("WebDriver not initialized; skipping screenshot.")
+
+    # Proceed with error reporting
+    try:
+        error_message = f"SOFI Error: {traceback.format_exc()}"
+        printAndDiscord(error_message, loop, embed=False)
+    except Exception as e:
+        print(f"Failed to send error message: {e}")
 
 
 def get_2fa_code(secret):
@@ -60,7 +74,7 @@ def sofi_init(SOFI_EXTERNAL=None, botObj=None, loop=None):
         account = account.split(":")
 
         try:
-            driver = getDriver(DOCKER=False)
+            driver = getDriver()
             if driver is None:
                 raise Exception("Driver not found.")
             driver.get(
@@ -482,26 +496,32 @@ def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None):
                         break
 
                     try:
-                        # Ensure the order type is set to "Limit price" using the working JavaScript
-                        driver.execute_script("""
-                            var dropdown = document.querySelector("#OrderTypedDropDown");
-                            dropdown.focus();
-                            var event = new MouseEvent('mousedown', {
-                                'view': window,
-                                'bubbles': true,
-                                'cancelable': true
-                            });
-                            dropdown.dispatchEvent(event);
-                            dropdown.value = 'LIMIT';
-                            dropdown.dispatchEvent(new Event('change', { bubbles: true }));
-                            dropdown.dispatchEvent(new MouseEvent('mouseup', {
-                                'view': window,
-                                'bubbles': true,
-                                'cancelable': true
-                            }));
-                            dropdown.dispatchEvent(new Event('focusout', { bubbles: true }));
-                        """)
-                        print("Order type set to 'Limit price'")
+                        # Check if the order type is already set to "Limit price"
+                        limit_price_label_present = driver.find_elements(By.XPATH, "//p[contains(text(), 'Limit price')]")
+                        
+                        if limit_price_label_present:
+                            print("Order type already set to 'Limit price'. Skipping JavaScript execution.")
+                        else:
+                            # Ensure the order type is set to "Limit price" using JavaScript
+                            driver.execute_script("""
+                                var dropdown = document.querySelector("#OrderTypedDropDown");
+                                dropdown.focus();
+                                var event = new MouseEvent('mousedown', {
+                                    'view': window,
+                                    'bubbles': true,
+                                    'cancelable': true
+                                });
+                                dropdown.dispatchEvent(event);
+                                dropdown.value = 'LIMIT';
+                                dropdown.dispatchEvent(new Event('change', { bubbles: true }));
+                                dropdown.dispatchEvent(new MouseEvent('mouseup', {
+                                    'view': window,
+                                    'bubbles': true,
+                                    'cancelable': true
+                                }));
+                                dropdown.dispatchEvent(new Event('focusout', { bubbles: true }));
+                            """)
+                            print("Order type set to 'Limit price'")
 
                         print("Entering limit price")
                         rounded_price = round(float(live_price) + 0.01 if float(live_price) >= 0.11 else float(live_price), 2)
@@ -520,20 +540,25 @@ def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None):
 
                     if DRY is False:
                         try:
-                            submit_button = WebDriverWait(driver, 20).until(
-                                EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[3]/div/div[4]/button[1]")))
+                            sleep(2)
+                            submit_button = WebDriverWait(driver, 5).until(
+                                EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/div[4]/button[1]")))
+                            driver.execute_script("arguments[0].scrollIntoView(true);", submit_button)
                             submit_button.click()
-                            done_button = WebDriverWait(driver, 20).until(
-                                EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[3]/div/div[2]/button")))
-                            done_button.click()
                             print(f"Order submitted for {QUANTITY} shares of {s} at {rounded_price}")
+                            done_button = WebDriverWait(driver, 5).until(
+                                EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/div[2]/button")))
+                            done_button.click()
                             printAndDiscord(f"SOFI account {key}: buy {QUANTITY} shares of {s} at {rounded_price}", loop)
                         except TimeoutException:
                             print(f"Failed to submit buy order for {s}. Moving to next stock.")
                             printAndDiscord(f"SOFI failed to submit buy order for {s}.", loop)
                             break
+                        except Exception as e:
+                            print(f"Encountered an unexpected error when submitting the buy order for {s}: {e}")
+                            printAndDiscord(f"SOFI unexpected error when submitting buy order for {s}: {e}", loop)
+                            break
                     else:
-                        sleep(3)
                         back_button = WebDriverWait(driver, 20).until(
                             EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/div[4]/button[2]")))
                         back_button.click()
@@ -632,12 +657,24 @@ def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None):
 
                         print("Fetching live price for the stock")
                         live_price = WebDriverWait(driver, 20).until(
-                            EC.presence_of_element_located((By.XPATH, '/html/body/div/div/main/div[2]/div[2]/div[3]/div/div[4]/div[2]'))).text.split('$')[1]
+                            EC.presence_of_element_located((By.XPATH, '//*[@id="mainContent"]/div[2]/div[2]/div[3]/div/div[5]/div[2]'))).text.split('$')[1]
                         print(f"Live price fetched: {live_price}")
+
+                        try:
+                            # Click to activate the limit price input field
+                            limit_price_input = WebDriverWait(driver, 10).until(
+                                EC.element_to_be_clickable((By.CSS_SELECTOR, "input[name='value']"))
+                            )
+                            limit_price_input.click()  # Click to activate the field
+                            limit_price_input.send_keys(live_price)
+                            print("Limit price entered successfully")
+                        except TimeoutException:
+                            print("Failed to locate the limit price input field.")
 
                         print("Clicking sell button")
                         sell_button = WebDriverWait(driver, 20).until(
-                            EC.element_to_be_clickable((By.XPATH, "/html/body/div/div/main/div[2]/div[2]/div[3]/div/div[7]/button")))
+                            EC.element_to_be_clickable((By.XPATH, "//button[@class='sc-fKVqWL gkmrQz StyledActionButton-hdOdyk iUbDdu' and @data-mjs='inv-trade-sell-review' and @type='button']")))
+
                         sell_button.click()
                     except TimeoutException:
                         print(f"Failed to click sell button for {s}. Moving to next stock.")
@@ -647,7 +684,7 @@ def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None):
                     if DRY:
                         try:
                             cancel_button = WebDriverWait(driver, 20).until(
-                                EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/a")))
+                                EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/div[4]/button[1]")))
                             cancel_button.click()
                             print(f"DRY MODE: Simulated order SELL for {QUANTITY} shares of {s} at {float(live_price) - 0.01}")
                             printAndDiscord(f"SOFI account {key}: dry run sell {QUANTITY} shares of {s} at {float(live_price) - 0.01}", loop)
@@ -658,7 +695,7 @@ def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None):
                     else:
                         try:
                             submit_button = WebDriverWait(driver, 20).until(
-                                EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/div[5]/button[1]")))
+                                EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/a")))
                             submit_button.click()
                             print(f"Order submitted for {QUANTITY} shares of {s} at {float(live_price) - 0.01}")
                             printAndDiscord(f"SOFI account {key}: sell {QUANTITY} shares of {s} at {float(live_price) - 0.01}", loop)
