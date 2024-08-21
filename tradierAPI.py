@@ -9,7 +9,7 @@ from time import sleep
 import requests
 from dotenv import load_dotenv
 
-from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder
+from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder, printConfirm
 
 
 def make_request(
@@ -203,10 +203,7 @@ def tradier_transaction(tradier_o: Brokerage, orderObj: stockOrder, loop=None):
                             )
                             continue
                         if json_response.get("order", {}).get("status") is not None:
-                            printAndDiscord(
-                                f"Tradier account {print_account}: {orderObj.get_action()} {orderObj.get_amount()} of {s}: {json_response['order']['status']}",
-                                loop=loop,
-                            )
+                            printConfirm(key, print_account, orderObj.get_action, orderObj.get_amount, s, loop, False, json_response['order']['status'])
                             continue
                         printAndDiscord(
                             f"Tradier account {print_account} Error: This order did not route. JSON response: {json.dumps(json_response, indent=2)}",
