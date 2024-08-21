@@ -205,10 +205,7 @@ def tradier_transaction(tradier_o: Brokerage, orderObj: stockOrder, loop=None):
                         if json_response.get("order", {}).get("status") is not None:
                             printConfirm(key, print_account, orderObj.get_action, orderObj.get_amount, s, loop, False, json_response['order']['status'])
                             continue
-                        printAndDiscord(
-                            f"Tradier account {print_account} Error: This order did not route. JSON response: {json.dumps(json_response, indent=2)}",
-                            loop=loop,
-                        )
+                        printConfirm(key, print_account, orderObj.get_action, orderObj.get_amount, s, loop, True, f"Error: This order did not route. JSON response: {json.dumps(json_response, indent=2)}")
                     except Exception as e:
                         printAndDiscord(
                             f"Tradier account {print_account} Error: {e}", loop=loop
