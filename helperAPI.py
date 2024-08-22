@@ -338,7 +338,7 @@ class ThreadHandler:
         return self.queue.get()
 
 
-def isUpToDate(remote, branch):
+def is_up_to_date(remote, branch):
     # Assume succeeded in updater()
     import git
 
@@ -401,7 +401,7 @@ def updater():
             "UPDATE ERROR: Conflicting changes found. Please commit, stash, or remove your changes before updating."
         )
         print(f"Using commit {str(repo.head.commit)[:7]}")
-        isUpToDate("origin", repo.active_branch)
+        is_up_to_date("origin", repo.active_branch)
         print()
         return
     if not repo.bare:
@@ -415,7 +415,7 @@ def updater():
             print()
             return
     print(f"Update complete! Now using commit {str(repo.head.commit)[:7]}")
-    isUpToDate("origin", repo.active_branch)
+    is_up_to_date("origin", repo.active_branch)
     print()
     return
 
