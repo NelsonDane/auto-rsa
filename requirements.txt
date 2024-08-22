@@ -1,5 +1,5 @@
 asyncio==3.4.3
-chaseinvest-api==0.2.3
+chaseinvest-api==0.2.4
 discord.py==2.4.0
 fennel-invest-api==1.1.0
 firstrade==0.0.30
@@ -13,5 +13,5 @@ schwab-api==0.4.3
 selenium-stealth==1.0.6
 setuptools==73.0.1
 tastytrade==8.2
-vanguard-api==0.2.3
+vanguard-api==0.2.4
 -e git+https://github.com/NelsonDane/webull.git@ef14ae63f9e1436fbea77fe864df54847cf2f730#egg=webull
