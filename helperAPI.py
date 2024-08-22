@@ -345,12 +345,12 @@ def is_up_to_date(remote, branch):
     # Check if local branch is up to date with ls-remote
     up_to_date = False
     remote_hash = ""
+    local_commit = git.Repo(".").head.commit.hexsha
     try:
         g = git.cmd.Git()
         ls_remote = g.ls_remote(remote, branch)
-        remote_hash = ls_remote.split("\t")[0]
-        local_commit = git.Repo(".").head.commit.hexsha
-        if str(local_commit) == str(remote_hash):
+        remote_hash = str(ls_remote.split("\t")[0])
+        if local_commit == remote_hash:
             up_to_date = True
             print(f"You are up to date with {remote}/{branch}")
     except Exception as e:
