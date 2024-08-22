@@ -393,7 +393,7 @@ def updater():
                 repo.create_head(branch, repo.remotes.origin.refs[branch])
                 repo.heads[branch].set_tracking_branch(repo.remotes.origin.refs[branch])
                 repo.heads[branch].checkout(True)
-            except:
+            except Exception:
                 print(f"No branch named {branch} found, using main")
         print(f"Cloned repo from {repo.active_branch}")
     if repo.is_dirty():
