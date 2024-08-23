@@ -346,7 +346,7 @@ def handle_buy(driver, stock, orderObj, loop):
             submit_button.click()
             print(f"Successfully bought {QUANTITY} shares of {stock}")
             printAndDiscord(f"Tornado account: buy {QUANTITY} shares of {stock} at {cost}", loop)
-            
+
             # Click the "Continue" button after placing the order
             continue_button = WebDriverWait(driver, 20).until(
                 EC.element_to_be_clickable((By.XPATH, '//*[@id="main-router"]/div[1]/div/div[2]/div/button')))
@@ -427,7 +427,7 @@ def handle_sell(driver, stock, orderObj, loop):
             submit_button.click()
             print(f"Successfully sold {QUANTITY} shares of {stock}")
             printAndDiscord(f"Tornado account: sell {QUANTITY} shares of {stock} at {sell_price}", loop)
-            
+
             # Click the "Continue" button after placing the order
             continue_button = WebDriverWait(driver, 20).until(
                 EC.element_to_be_clickable((By.XPATH, '//*[@id="main-router"]/div[1]/div/div[2]/div/button')))
