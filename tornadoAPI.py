@@ -36,7 +36,7 @@ def tornado_init(TORNADO_EXTERNAL=None, loop=None):
     load_dotenv()
 
     if not os.getenv("TORNADO") and TORNADO_EXTERNAL is None:
-        printAndDiscord("TORNADO environment variable not found.", loop)
+        printAndDiscord("Tornado environment variable not found.", loop)
         return None
 
     accounts = (
@@ -44,7 +44,7 @@ def tornado_init(TORNADO_EXTERNAL=None, loop=None):
         if TORNADO_EXTERNAL is None
         else TORNADO_EXTERNAL.strip().split(",")
     )
-    TORNADO_obj = Brokerage("TORNADO")
+    TORNADO_obj = Brokerage("Tornado")
 
     for index, account in enumerate(accounts):
         account_name = f"Tornado {index + 1}"
@@ -137,12 +137,12 @@ def tornado_extract_holdings(driver):
     return holdings_data
 
 
-def tornado_holdings(TORNADO_o: Brokerage, loop=None):
+def tornado_holdings(Tornado_o: Brokerage, loop=None):
     try:
         # Ensure we are using the correct account name
-        account_names = TORNADO_o.get_account_numbers()
+        account_names = Tornado_o.get_account_numbers()
         for account_name in account_names:
-            driver: webdriver = TORNADO_o.get_logged_in_objects(account_name)
+            driver: webdriver = Tornado_o.get_logged_in_objects(account_name)
 
             logger.info("Processing holdings for %s", account_name)
 
@@ -161,29 +161,29 @@ def tornado_holdings(TORNADO_o: Brokerage, loop=None):
                 continue  # Skip to the next account
 
             for holding in holdings_data:
-                TORNADO_o.set_holdings(account_name, account_name, holding['stock_ticker'], holding['shares'], holding['price'])
+                Tornado_o.set_holdings(account_name, account_name, holding['stock_ticker'], holding['shares'], holding['price'])
 
             # Set the account total using the fetched account value
-            TORNADO_o.set_account_totals(account_name, account_name, account_value_float)
+            Tornado_o.set_account_totals(account_name, account_name, account_value_float)
 
     except Exception as e:
         logger.error("Error processing Tornado holdings: %s", e)
         printAndDiscord(f"Tornado Account: Error processing holdings: {e}", loop)
 
     logger.info("Finished processing Tornado account, sending holdings to Discord.")
-    printHoldings(TORNADO_o, loop)  # Send the holdings to Discord
-    killSeleniumDriver(TORNADO_o)  # Close the browser after processing
+    printHoldings(Tornado_o, loop)  # Send the holdings to Discord
+    killSeleniumDriver(Tornado_o)  # Close the browser after processing
     logger.info("Completed Tornado holdings processing.")
 
 
-def tornado_transaction(TORNADO_o: Brokerage, orderObj: stockOrder, loop=None):
+def tornado_transaction(Tornado_o: Brokerage, orderObj: stockOrder, loop=None):
     print("\n==============================")
-    print("TORNADO")
+    print("Tornado")
     print("==============================\n")
 
     for s in orderObj.get_stocks():
-        for key in TORNADO_o.get_account_numbers():
-            driver = TORNADO_o.get_logged_in_objects(key)
+        for key in Tornado_o.get_account_numbers():
+            driver = Tornado_o.get_logged_in_objects(key)
 
             # Ensure we are on the Tornado dashboard or navigate to it
             try:
