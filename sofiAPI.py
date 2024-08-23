@@ -35,7 +35,7 @@ def sofi_error(driver, loop=None):
     if driver is not None:
         try:
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            screenshot_name = f"SOFI-error-{timestamp}.png"
+            screenshot_name = f"SoFi-error-{timestamp}.png"
             driver.save_screenshot(screenshot_name)
             print(f"Screenshot saved as {screenshot_name}")
         except Exception as e:
@@ -45,7 +45,7 @@ def sofi_error(driver, loop=None):
 
     # Proceed with error reporting
     try:
-        error_message = f"SOFI Error: {traceback.format_exc()}"
+        error_message = f"SoFi Error: {traceback.format_exc()}"
         printAndDiscord(error_message, loop, embed=False)
     except Exception as e:
         print(f"Failed to send error message: {e}")
@@ -60,7 +60,7 @@ def sofi_init(SOFI_EXTERNAL=None, botObj=None, loop=None):
     load_dotenv()
 
     if not os.getenv("SOFI") and SOFI_EXTERNAL is None:
-        printAndDiscord("SOFI environment variable not found.", loop)
+        printAndDiscord("SoFi environment variable not found.", loop)
         return None
 
     accounts = (
@@ -68,7 +68,7 @@ def sofi_init(SOFI_EXTERNAL=None, botObj=None, loop=None):
         if SOFI_EXTERNAL is None
         else SOFI_EXTERNAL.strip().split(",")
     )
-    SOFI_obj = Brokerage("SOFI")
+    SOFI_obj = Brokerage("SoFi")
     for account in accounts:
         index = accounts.index(account) + 1
         name = f"SOFI {index}"
@@ -208,7 +208,7 @@ def sofi_init(SOFI_EXTERNAL=None, botObj=None, loop=None):
 
 def sofi_account_info(driver: webdriver, loop=None) -> dict | None:
     try:
-        logger.info("Navigating to SOFI account overview page...")
+        logger.info("Navigating to SoFi account overview page...")
         driver.get('https://www.sofi.com/wealth/app/overview')
         WebDriverWait(driver, 60).until(check_if_page_loaded)
 
@@ -274,10 +274,10 @@ def sofi_account_info(driver: webdriver, loop=None) -> dict | None:
         return None
 
 
-def sofi_holdings(SOFI_o: Brokerage, loop=None):
+def sofi_holdings(SoFi_o: Brokerage, loop=None):
     # Get holdings on each account
-    for key in list(SOFI_o.get_account_numbers()):
-        driver: webdriver = SOFI_o.get_logged_in_objects(key)
+    for key in list(SoFi_o.get_account_numbers()):
+        driver: webdriver = SoFi_o.get_logged_in_objects(key)
         try:
             logger.info("Processing holdings for account: %s", key)
 
@@ -312,8 +312,8 @@ def sofi_holdings(SOFI_o: Brokerage, loop=None):
                     holdings_data = extract_holdings(driver, loop)
 
                     for holding in holdings_data:
-                        SOFI_o.set_holdings(key, account_number, holding['company_name'], holding['shares'], holding['price'])
-                    SOFI_o.set_account_totals(key, account_number, current_value)
+                        SoFi_o.set_holdings(key, account_number, holding['company_name'], holding['shares'], holding['price'])
+                    SoFi_o.set_account_totals(key, account_number, current_value)
 
                 except Exception as extract_e:
                     logger.error("Error extracting account information for account %s: %s", key, extract_e)
@@ -324,14 +324,14 @@ def sofi_holdings(SOFI_o: Brokerage, loop=None):
                 driver.switch_to.window(driver.window_handles[0])
 
         except Exception as e:
-            logger.error("Error processing SOFI holdings for account %s: %s", key, e)
-            printAndDiscord(f"{key}: Error processing SOFI holdings: {e}", loop)
+            logger.error("Error processing SoFi holdings for account %s: %s", key, e)
+            printAndDiscord(f"{key}: Error processing SoFi holdings: {e}", loop)
             continue
 
     logger.info("Finished processing all accounts, sending holdings to Discord.")
-    printHoldings(SOFI_o, loop)
-    killSeleniumDriver(SOFI_o)
-    logger.info("Completed SOFI holdings processing.")
+    printHoldings(SoFi_o, loop)
+    killSeleniumDriver(SoFi_o)
+    logger.info("Completed SoFi holdings processing.")
 
 
 def extract_holdings(driver, loop=None):
@@ -371,16 +371,16 @@ def extract_holdings(driver, loop=None):
     return holdings_data
 
 
-def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None):
+def sofi_transaction(SoFi_o: Brokerage, orderObj: stockOrder, loop=None):
     print("\n==============================")
-    print("SOFI")
+    print("SoFi")
     print("==============================\n")
 
     for s in orderObj.get_stocks():
-        for key in SOFI_o.get_account_numbers():
-            driver = SOFI_o.get_logged_in_objects(key)
+        for key in SoFi_o.get_account_numbers():
+            driver = SoFi_o.get_logged_in_objects(key)
             driver.get("https://www.sofi.com/wealth/app/overview")
-            print(f"Navigated to SOFI overview page for account {key}")
+            print(f"Navigated to SoFi overview page for account {key}")
 
             try:
                 search_field = WebDriverWait(driver, 10).until(
@@ -395,7 +395,7 @@ def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None):
                     print(f"Entered stock symbol {s} into the alternative search field")
                 except TimeoutException:
                     print(f"Search field for {s} not found.")
-                    printAndDiscord(f"SOFI search field not found for {s}.", loop)
+                    printAndDiscord(f"SoFi search field not found for {s}.", loop)
                     continue
 
             try:
@@ -408,7 +408,7 @@ def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None):
 
                 if total_items == 0:
                     print(f"No stock found for {s}. Moving to next stock.")
-                    printAndDiscord(f"SOFI doesn't have {s}.", loop)
+                    printAndDiscord(f"SoFi doesn't have {s}.", loop)
                     continue
 
                 found_stock = False
@@ -421,12 +421,12 @@ def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None):
                         break
 
                 if not found_stock:
-                    print(f"SOFI doesn't have {s}. Moving to next stock.")
-                    printAndDiscord(f"SOFI doesn't have {s}.", loop)
+                    print(f"SoFi doesn't have {s}. Moving to next stock.")
+                    printAndDiscord(f"SoFi doesn't have {s}.", loop)
                     continue
             except TimeoutException:
                 print(f"Search results did not appear for {s}. Moving to next stock.")
-                printAndDiscord(f"SOFI search results did not appear for {s}.", loop)
+                printAndDiscord(f"SoFi search results did not appear for {s}.", loop)
                 continue
 
             if orderObj.get_action() == "buy":
@@ -448,7 +448,7 @@ def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None):
                         print("Buy button clicked")
                     except TimeoutException:
                         print(f"Buy button not found for {s}. Moving to next stock.")
-                        printAndDiscord(f"SOFI buy button not found for {s}.", loop)
+                        printAndDiscord(f"SoFi buy button not found for {s}.", loop)
                         break
 
                     try:
@@ -481,7 +481,7 @@ def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None):
                         print(f"Live price fetched: {live_price}")
                     except TimeoutException:
                         print(f"Failed to fetch live price for {s}. Moving to next stock.")
-                        printAndDiscord(f"SOFI failed to fetch live price for {s}.", loop)
+                        printAndDiscord(f"SoFi failed to fetch live price for {s}.", loop)
                         break
 
                     try:
@@ -493,7 +493,7 @@ def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None):
                         print(f"Quantity {QUANTITY} entered")
                     except TimeoutException:
                         print(f"Failed to enter quantity for {s}. Moving to next stock.")
-                        printAndDiscord(f"SOFI failed to enter quantity for {s}.", loop)
+                        printAndDiscord(f"SoFi failed to enter quantity for {s}.", loop)
                         break
 
                     try:
@@ -532,7 +532,7 @@ def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None):
                         print(f"Limit price entered: {rounded_price}")
                     except TimeoutException:
                         print(f"Failed to enter limit price for {s}. Moving to next stock.")
-                        printAndDiscord(f"SOFI failed to enter limit price for {s}.", loop)
+                        printAndDiscord(f"SoFi failed to enter limit price for {s}.", loop)
                         break
 
                     review_button = WebDriverWait(driver, 3).until(
@@ -550,14 +550,14 @@ def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None):
                             done_button = WebDriverWait(driver, 5).until(
                                 EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/div[2]/button")))
                             done_button.click()
-                            printAndDiscord(f"SOFI account {key}: buy {QUANTITY} shares of {s} at {rounded_price}", loop)
+                            printAndDiscord(f"SoFi account {key}: buy {QUANTITY} shares of {s} at {rounded_price}", loop)
                         except TimeoutException:
                             print(f"Failed to submit buy order for {s}. Moving to next stock.")
-                            printAndDiscord(f"SOFI failed to submit buy order for {s}.", loop)
+                            printAndDiscord(f"SoFi failed to submit buy order for {s}.", loop)
                             break
                         except Exception as e:
                             print(f"Encountered an unexpected error when submitting the buy order for {s}: {e}")
-                            printAndDiscord(f"SOFI unexpected error when submitting buy order for {s}: {e}", loop)
+                            printAndDiscord(f"SoFi unexpected error when submitting buy order for {s}: {e}", loop)
                             break
                     else:
                         back_button = WebDriverWait(driver, 20).until(
@@ -565,7 +565,7 @@ def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None):
                         back_button.click()
                         sleep(2)
                         print(f"DRY MODE: Simulated order BUY for {QUANTITY} shares of {s} at {rounded_price}")
-                        printAndDiscord(f"SOFI account {key}: dry run buy {QUANTITY} shares of {s} at {rounded_price}", loop)
+                        printAndDiscord(f"SoFi account {key}: dry run buy {QUANTITY} shares of {s} at {rounded_price}", loop)
                         cancel_button = WebDriverWait(driver, 20).until(
                             EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/a")))
                         cancel_button.click()
@@ -588,7 +588,7 @@ def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None):
                         print("Sell button clicked")
                     except TimeoutException:
                         print(f"Sell button not found for {s}. Moving to next stock.")
-                        printAndDiscord(f"SOFI sell button not found for {s}.", loop)
+                        printAndDiscord(f"SoFi sell button not found for {s}.", loop)
                         break
 
                     try:
@@ -615,7 +615,7 @@ def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None):
                             print(f"Available shares: {available_shares}")
                         except TimeoutException:
                             print(f"Failed to fetch available shares for {s}. Moving to next stock.")
-                            printAndDiscord(f"SOFI failed to fetch available shares for {s}.", loop)
+                            printAndDiscord(f"SoFi failed to fetch available shares for {s}.", loop)
                             break
 
                         if QUANTITY > float(available_shares):
@@ -632,7 +632,7 @@ def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None):
                             print(f"Quantity {QUANTITY} entered")
                         except TimeoutException:
                             print(f"Failed to enter quantity for {s}. Moving to next stock.")
-                            printAndDiscord(f"SOFI failed to enter quantity for {s}.", loop)
+                            printAndDiscord(f"SoFi failed to enter quantity for {s}.", loop)
                             break
 
                         # Ensure the order type is set to "Limit price" using the working JavaScript
@@ -679,7 +679,7 @@ def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None):
                         sell_button.click()
                     except TimeoutException:
                         print(f"Failed to click sell button for {s}. Moving to next stock.")
-                        printAndDiscord(f"SOFI failed to click sell button for {s}.", loop)
+                        printAndDiscord(f"SoFi failed to click sell button for {s}.", loop)
                         break
 
                     if DRY:
@@ -688,10 +688,10 @@ def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None):
                                 EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/div[4]/button[1]")))
                             cancel_button.click()
                             print(f"DRY MODE: Simulated order SELL for {QUANTITY} shares of {s} at {float(live_price) - 0.01}")
-                            printAndDiscord(f"SOFI account {key}: dry run sell {QUANTITY} shares of {s} at {float(live_price) - 0.01}", loop)
+                            printAndDiscord(f"SoFi account {key}: dry run sell {QUANTITY} shares of {s} at {float(live_price) - 0.01}", loop)
                         except TimeoutException:
                             print(f"Failed to click cancel button on sell order for {s}. Moving to next stock.")
-                            printAndDiscord(f"SOFI failed to click cancel button on sell order for {s}.", loop)
+                            printAndDiscord(f"SoFi failed to click cancel button on sell order for {s}.", loop)
                             break
                     else:
                         try:
@@ -699,14 +699,14 @@ def sofi_transaction(SOFI_o: Brokerage, orderObj: stockOrder, loop=None):
                                 EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/a")))
                             submit_button.click()
                             print(f"Order submitted for {QUANTITY} shares of {s} at {float(live_price) - 0.01}")
-                            printAndDiscord(f"SOFI account {key}: sell {QUANTITY} shares of {s} at {float(live_price) - 0.01}", loop)
+                            printAndDiscord(f"SoFi account {key}: sell {QUANTITY} shares of {s} at {float(live_price) - 0.01}", loop)
                             done_button = WebDriverWait(driver, 20).until(
                                 EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/div[2]/button")))
                             done_button.click()
                         except TimeoutException:
                             print(f"Failed to submit sell order for {s}. Moving to next stock.")
-                            printAndDiscord(f"SOFI failed to submit sell order for {s}.", loop)
+                            printAndDiscord(f"SoFi failed to submit sell order for {s}.", loop)
                             break
 
     print("Completed all transactions, Exiting...")
-    killSeleniumDriver(SOFI_o)  # Properly close and quit the Selenium driver
+    killSeleniumDriver(SoFi_o)  # Properly close and quit the Selenium driver
