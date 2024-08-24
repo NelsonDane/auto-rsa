@@ -204,6 +204,7 @@ class Brokerage:
         self.__holdings: dict = {}  # Dictionary of holdings under parent
         self.__account_totals: dict = {}  # Dictionary of account totals
         self.__account_types: dict = {}  # Dictionary of account types
+        self.__login_credentials: dict = {}  # Dictionary of login credentials
 
     def set_name(self, name: str):
         if not isinstance(name, str):
@@ -298,6 +299,19 @@ class Brokerage:
             return self.__account_types.get(parent_name, {})
         return self.__account_types.get(parent_name, {}).get(account_name, "")
 
+    # Login credentials stored in order to repeat log in to call holdings()
+    def set_login_credentials(self, parent_name: str, username: str, password: str, mfa_code: str):
+        """Store login credentials for a specific parent account."""
+        self.__login_credentials[parent_name] = {
+        "username": username,
+        "password": password,
+        "mfa_code": mfa_code
+    }
+
+    def get_login_credentials(self, parent_name: str) -> dict:
+        """Retrieve login credentials for a specific parent account."""
+        return self.__login_credentials.get(parent_name, {})
+
     def __str__(self) -> str:
         return textwrap.dedent(
             f"""
@@ -307,6 +321,7 @@ class Brokerage:
             Holdings: {self.__holdings}
             Account Totals: {self.__account_totals}
             Account Types: {self.__account_types}
+            Login Credentials: {self.__login_credentials} # Added for debugging, consider removing in production
         """
         )
 
