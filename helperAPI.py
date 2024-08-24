@@ -338,40 +338,63 @@ class ThreadHandler:
         return self.queue.get()
 
 
+def is_up_to_date(remote, branch):
+    # Assume succeeded in updater()
+    import git
+
+    # Check if local branch is up to date with ls-remote
+    up_to_date = False
+    remote_hash = ""
+    local_commit = git.Repo(".").head.commit.hexsha
+    try:
+        g = git.cmd.Git()
+        ls_remote = g.ls_remote(remote, branch)
+        remote_hash = str(ls_remote.split("\t")[0])
+        if local_commit == remote_hash:
+            up_to_date = True
+            print(f"You are up to date with {remote}/{branch}")
+    except Exception as e:
+        print(f"Error running ls-remote: {e}")
+    if not up_to_date:
+        if remote_hash == "":
+            remote_hash = "NOT FOUND"
+        print(
+            f"WARNING: YOU ARE OUT OF DATE. Please run 'git pull {remote} {branch}' to update. Local hash: {local_commit}, Remote hash: {remote_hash}"
+        )
+    return up_to_date
+
+
 def updater():
     # Check if git is installed
     try:
         import git
-        from git import Repo
     except ImportError:
         print(
             "UPDATE ERROR: Git is not installed. Please install Git and then run pip install -r requirements.txt"
         )
         print()
         return
-    print("Starting auto update...")
+    print("Starting Git auto update...")
     try:
-        repo = Repo(".")
+        repo = git.Repo(".")
     except git.exc.InvalidGitRepositoryError:
         # If downloaded as zip, repo won't exist, so create it
-        repo = Repo.init(".")
+        repo = git.Repo.init(".")
         repo.create_remote("origin", "https://github.com/NelsonDane/auto-rsa")
         repo.remotes.origin.fetch()
         # Always create main branch
         repo.create_head("main", repo.remotes.origin.refs.main)
         repo.heads.main.set_tracking_branch(repo.remotes.origin.refs.main)
-        # If downloaded from other branch, zip has branch name
-        current_dir = Path.cwd()
-        if current_dir.name != "auto-rsa-main":
-            branch = str.replace(current_dir.name, "auto-rsa-", "")
+        repo.heads.main.checkout(True)
+        # When downloaded as zip, it contains the branch name
+        branch = str(Path.cwd().name).split("-")[-1]
+        if branch != "main":
             try:
                 repo.create_head(branch, repo.remotes.origin.refs[branch])
                 repo.heads[branch].set_tracking_branch(repo.remotes.origin.refs[branch])
                 repo.heads[branch].checkout(True)
-            except:
-                print(f"No branch {branch} found, using main")
-        else:
-            repo.heads.main.checkout(True)
+            except Exception:
+                print(f"No branch named {branch} found, using main")
         print(f"Cloned repo from {repo.active_branch}")
     if repo.is_dirty():
         # Print warning and let users take care of changes themselves
@@ -379,11 +402,12 @@ def updater():
             "UPDATE ERROR: Conflicting changes found. Please commit, stash, or remove your changes before updating."
         )
         print(f"Using commit {str(repo.head.commit)[:7]}")
+        is_up_to_date("origin", repo.active_branch)
         print()
         return
     if not repo.bare:
         try:
-            repo.git.pull()
+            repo.git.pull("origin", repo.active_branch)
             print(f"Pulled latest changes from {repo.active_branch}")
         except Exception as e:
             print(
@@ -392,15 +416,13 @@ def updater():
             print()
             return
     print(f"Update complete! Now using commit {str(repo.head.commit)[:7]}")
-    print(
-        f"Check if you're up to date here: https://github.com/NelsonDane/auto-rsa/commits/{repo.active_branch}"
-    )
+    is_up_to_date("origin", repo.active_branch)
     print()
     return
 
 
 def check_package_versions():
-    print("Checking package versions...")
+    print("Checking Python pip package versions...")
     # Check if pip packages are up to date
     required_packages = []
     required_repos = []
