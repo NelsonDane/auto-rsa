@@ -30,16 +30,26 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
         index = RH.index(account) + 1
         name = f"Robinhood {index}"
         try:
-            account = account.split(":")
+                        account = account.split(":")
+
+            account_details = account.split(":") # Specifies credentials to be stored in 'Brokerage' class 
+            username = account_details[0]
+            password = account_details[1]
+            mfa_code = account_details[2] if len(account_details) > 2 else "NA"
+
             rh.login(
                 username=account[0],
                 password=account[1],
+                username=username,
+                password=password,
                 mfa_code=(
                     None if account[2].upper() == "NA" else pyotp.TOTP(account[2]).now()
                 ),
+                    None if mfa_code.upper() == "NA" elsepyotp.TOTP(mfa_code).now()),
                 store_session=False,
             )
             rh_obj.set_logged_in_object(name, rh)
+            rh_obj.set_login_credentials(name, username, password, mfa_code) # Log in credentials to be returned with rh_obj
             # Load all accounts
             all_accounts = rh.account.load_account_profile(dataType="results")
             for a in all_accounts:
@@ -63,12 +73,20 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
     return rh_obj
 
 
+# Changed robinhood_holdings() to iterate through accounts in order to log in and pull position details for multiple accounts. Retrieves login_credentials saved to 'Brokerage' in init
 def robinhood_holdings(rho: Brokerage, loop=None):
-    for key in rho.get_account_numbers():
-        for account in rho.get_account_numbers(key):
-            obj: rh = rho.get_logged_in_objects(key)
+    for key in rho.get_logged_in_objects():
+        print(f"Processing holdings for {key}...")
+        rh_session = rho.get_logged_in_objects(key)
+        credentials = rho.get_login_credentials(key)
             try:
-                # Get account holdings
+            # Re-login to each account using stored credentials
+            rh_session.login(
+                username=credentials["username"],
+                password=credentials["password"],
+                mfa_code=(None if credentials["mfa_code"].upper() == "NA" else pyotp.TOTP(credentials["mfa_code"]).now()),
+                store_session=False,
+            )
                 positions = obj.get_open_stock_positions(account_number=account)
                 if positions != []:
                     for item in positions:
@@ -83,10 +101,17 @@ def robinhood_holdings(rho: Brokerage, loop=None):
                             if "NoneType" in str(e):
                                 current_price = "N/A"
                         rho.set_holdings(key, account, sym, qty, current_price)
+                        rho.set_holdings(key, account["account_number"], sym, qty, current_price)
             except Exception as e:
                 printAndDiscord(f"{key}: Error getting account holdings: {e}", loop)
                 traceback.format_exc()
                 continue
+            
+            finally:
+            # Log out after processing this account
+            rh_session.logout()
+            print(f"Completed holdings processing for {key} and logged out.")
+                
     printHoldings(rho, loop)
 
 
