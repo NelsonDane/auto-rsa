@@ -30,8 +30,6 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
         index = RH.index(account) + 1
         name = f"Robinhood {index}"
         try:
-                        account = account.split(":")
-
             account_details = account.split(":") # Specifies credentials to be stored in 'Brokerage' class 
             username = account_details[0]
             password = account_details[1]
