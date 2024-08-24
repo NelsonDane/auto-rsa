@@ -11,6 +11,14 @@ from dotenv import load_dotenv
 from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder
 
 
+def login_with_cache(pickle_path, pickle_name):
+    rh.login(
+        expiresIn=86400 * 30, # 30 days
+        pickle_path=pickle_path,
+        pickle_name=pickle_name,
+    )
+
+
 def robinhood_init(ROBINHOOD_EXTERNAL=None):
     # Initialize .env file
     load_dotenv()
@@ -26,9 +34,9 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
     )
     # Log in to Robinhood account
     for account in RH:
-        print("Logging in to Robinhood...")
         index = RH.index(account) + 1
         name = f"Robinhood {index}"
+        print(f"Logging in to {name}...")
         try:
             account = account.split(":")
             rh.login(
@@ -37,7 +45,10 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
                 mfa_code=(
                     None if account[2].upper() == "NA" else pyotp.TOTP(account[2]).now()
                 ),
-                store_session=False,
+                store_session=True,
+                expiresIn=86400 * 30, # 30 days
+                pickle_path="./creds/",
+                pickle_name=name,
             )
             rh_obj.set_logged_in_object(name, rh)
             # Load all accounts
@@ -59,7 +70,7 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
             print(f"Error: Unable to log in to Robinhood: {e}")
             traceback.format_exc()
             return None
-        print("Logged in to Robinhood!")
+        print(f"Logged in to {name}")
     return rh_obj
 
 
@@ -67,6 +78,9 @@ def robinhood_holdings(rho: Brokerage, loop=None):
     for key in rho.get_account_numbers():
         for account in rho.get_account_numbers(key):
             obj: rh = rho.get_logged_in_objects(key)
+            login_with_cache(
+                pickle_path="./creds/", pickle_name=key
+            )
             try:
                 # Get account holdings
                 positions = obj.get_open_stock_positions(account_number=account)
@@ -104,6 +118,9 @@ def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, loop=None):
             )
             for account in rho.get_account_numbers(key):
                 obj: rh = rho.get_logged_in_objects(key)
+                login_with_cache(
+                    pickle_path="./creds/", pickle_name=key
+                )
                 print_account = maskString(account)
                 if not orderObj.get_dry():
                     try:
