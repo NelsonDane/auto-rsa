@@ -34,10 +34,11 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
             rh.login(
                 username=account[0],
                 password=account[1],
+                expiresIn=86400 * 30,
                 mfa_code=(
                     None if account[2].upper() == "NA" else pyotp.TOTP(account[2]).now()
                 ),
-                store_session=False,
+                store_session=True,
             )
             rh_obj.set_logged_in_object(name, rh)
             # Load all accounts
