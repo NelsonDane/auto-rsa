@@ -33,6 +33,7 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
         else ROBINHOOD_EXTERNAL.strip().split(",")
     )
     # Log in to Robinhood account
+    all_account_numbers = []
     for account in RH:
         index = RH.index(account) + 1
         name = f"Robinhood {index}"
@@ -54,6 +55,9 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
             # Load all accounts
             all_accounts = rh.account.load_account_profile(dataType="results")
             for a in all_accounts:
+                if a["account_number"] in all_account_numbers:
+                    continue
+                all_account_numbers.append(a["account_number"])
                 rh_obj.set_account_number(name, a["account_number"])
                 rh_obj.set_account_totals(
                     name,
