@@ -8,7 +8,7 @@ from time import sleep
 from dotenv import load_dotenv
 from schwab_api import Schwab
 
-from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder
+from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder, printConfirm
 
 
 def schwab_init(SCHWAB_EXTERNAL=None):

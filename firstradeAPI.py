@@ -163,7 +163,7 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
                     if order_conf["error"] == "":
                         printConfirm(key, print_account, orderObj.get_action(), orderObj.get_amount(), s, loop, False)
                     else:
-                        printConfirm(key, print_account(), orderObj.get_action, orderObj.get_amount(), s, loop, True, order_conf)
+                        printConfirm(key, print_account, orderObj.get_action(), orderObj.get_amount(), s, loop, True, order_conf)
                 except Exception as e:
                     printAndDiscord(
                         f"{key} {print_account}: Error submitting order: {e}", loop

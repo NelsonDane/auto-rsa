@@ -308,9 +308,9 @@ def chase_transaction(
                                         "",
                                         "No order confirmation page found. Order Failed.",
                                     ]:
-                            printConfirm(key, print_account, orderObj.get_action(), orderObj.get_amount(), s, loop, False)
+                            printConfirm(key, account, orderObj.get_action(), orderObj.get_amount(), ticker, loop, False)
                         else:
-                            printConfirm(key, print_account, orderObj.get_action(), orderObj.get_amount(), s, loop, True, messages['ORDER INVALID'])
+                            printConfirm(key, account, orderObj.get_action(), orderObj.get_amount(), ticker, loop, True, messages['ORDER INVALID'])
 
             except Exception as e:
                 printAndDiscord(f"{key} {account}: Error submitting order: {e}", loop)

@@ -8,7 +8,7 @@ import pyotp
 import robin_stocks.robinhood as rh
 from dotenv import load_dotenv
 
-from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder
+from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder, printConfirm
 
 
 def robinhood_init(ROBINHOOD_EXTERNAL=None):
