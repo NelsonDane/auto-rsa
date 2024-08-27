@@ -266,6 +266,8 @@ Required `.env` variables:
 
 Configuring 2fa can be tricky, so follow this [guide](guides/robinhoodSetup.md).
 
+Note: Robinhood saves token cookies in the `creds` folder. These take precedence over the username/password set in the `.env` file. If you want to change accounts, you will need to delete the cookies in the `creds` folder for it to update.
+
 ### Schwab
 Made using the [schwab-api](https://github.com/itsjafer/schwab-api). Go give them a ⭐
 
