@@ -33,22 +33,7 @@ There are two ways to use this program: as a Discord bot or as a CLI tool. The s
 git clone https://github.com/NelsonDane/auto-rsa.git
 cd auto-rsa
 ```
-3. Create a Python virtual environment:
-```bash
-python -m venv autorsa-venv
-```
-4. Activate the virtual environment:
-#### MacOS & Linux
-```bash
-source ./autorsa-venv/bin/activate
-```
-#### Windows
-```powershell
-.\autorsa-venv\Scripts\activate
-```
-You should see `(autorsa-venv)` in your terminal prompt now. You will need to activate this virtual environment every time you close and reopen your terminal.
-
-5. Copy the `.env.example` file to a new file called `.env`:
+3. Copy the `.env.example` file to a new file called `.env`:
 #### MacOS & Linux
 ```bash
 cp .env.example .env
@@ -57,7 +42,7 @@ cp .env.example .env
 ```powershell
 copy .env.example .env
 ```
-6. Fill in the `.env` file with your brokerage credentials. See the [Supported Brokerages](#-supported-brokerages-) section for more information.
+4. Fill in the `.env` file with your brokerage credentials. See the [Supported Brokerages](#-supported-brokerages-) section for more information.
 
 Now follow the instructions for either the Discord Bot or CLI Tool. Once setup is complete, see the [Usage](#-usage-) section for how to use the program.
 
@@ -78,27 +63,55 @@ Docker Note: If you make any changes to your `.env` file, you will need to resta
 
 ### Discord Bot: Python Script 🏃‍♀️
 1. Install Python 3.10 or higher
-2. Create a python virtual environment if you haven't already (see [Pre-Setup](#pre-setup-️))
-3. Install the required packages:
+2. Create a Python virtual environment:
+```bash
+python -m venv autorsa-venv
+```
+3. Activate the virtual environment:
+#### MacOS & Linux
+```bash
+source ./autorsa-venv/bin/activate
+```
+#### Windows
+```powershell
+.\autorsa-venv\Scripts\activate
+```
+You should see `(autorsa-venv)` in your terminal prompt now. You will need to activate this virtual environment every time you close and reopen your terminal.
+
+4. Install the required packages:
 ```bash
 pip install -r requirements.txt
 ```
-4. Add `DISCORD_TOKEN` and `DISCORD_CHANNEL` to your `.env` file.
-5. Start the bot using the following command:
+5. Add `DISCORD_TOKEN` and `DISCORD_CHANNEL` to your `.env` file.
+6. Start the bot using the following command:
 ```bash
 python autoRSA.py discord
 ```
-6. The bot should appear online in Discord (You can also do `!ping` to check).
+7. The bot should appear online in Discord (You can also do `!ping` to check).
 
 ### CLI Tool Installation 💻
 To run the CLI tool, follow these steps:
 1. Install Python 3.10 or higher
-2. Create a python virtual environment if you haven't already (see [Pre-Setup](#pre-setup-️))
-3. Install the required packages:
+2. Create a Python virtual environment:
+```bash
+python -m venv autorsa-venv
+```
+3. Activate the virtual environment:
+#### MacOS & Linux
+```bash
+source ./autorsa-venv/bin/activate
+```
+#### Windows
+```powershell
+.\autorsa-venv\Scripts\activate
+```
+You should see `(autorsa-venv)` in your terminal prompt now. You will need to activate this virtual environment every time you close and reopen your terminal.
+
+4. Install the required packages:
 ```bash
 pip install -r requirements.txt
 ```
-4. Run the script using `python autoRSA.py`. It should say that no arguments were given, then exit. This is expected, and means everything was installed and set up correctly.
+5. Run the script using `python autoRSA.py`. It should say that no arguments were given, then exit. This is expected, and means everything was installed and set up correctly.
 
 ## Usage 👀
 
