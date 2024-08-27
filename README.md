@@ -59,18 +59,24 @@ Docker Note: If you make any changes to your `.env` file, you will need to resta
 ### Discord Bot: Python Script 🏃‍♀️
 1. Install Python 3.10 or higher
 2. Setup a python virtual environment:
+#### Linux & Mac
 ```bash
 python -m venv autorsa
-./autorsa/Scripts/activate
+source ./autorsa/Scripts/activate
+```
+#### Windows
+```powershell
+python -m venv autorsa
+.\autorsa\Scripts\activate
 ```
 3. Install the required packages:
 ```bash
-./autorsa/Scripts/pip install -r requirements.txt
+pip install -r requirements.txt
 ```
 4. Add `DISCORD_TOKEN` and `DISCORD_CHANNEL` to your `.env` file.
 5. Start the bot using the following command:
 ```bash
-./autorsa/Scripts/python autoRSA.py discord
+python autoRSA.py discord
 ```
 6. The bot should appear online in Discord (You can also do `!ping` to check).
 
