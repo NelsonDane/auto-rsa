@@ -4,6 +4,7 @@
 
 import asyncio
 import os
+import pickle
 import subprocess
 import sys
 import textwrap
@@ -706,3 +707,36 @@ def printHoldings(brokerObj: Brokerage, loop=None, mask=True):
             EMBED["fields"].append(field)
     printAndDiscord(EMBED, loop, True)
     print("==============================")
+
+
+def save_cookies(driver, filename, path=None):
+    filename = filename
+    if path is not None:
+        filename = os.path.join(path, filename)
+    if path is not None and not os.path.exists(path):
+        os.makedirs(path)
+    with open(filename, "wb") as f:
+        pickle.dump(driver.get_cookies(), f)
+
+
+def load_cookies(driver, filename, path=None):
+    if path is not None:
+        filename = os.path.join(path, filename)
+    if not os.path.exists(filename):
+        return False
+    try:
+        with open(filename, "rb") as f:
+            cookies = pickle.load(f)
+        for cookie in cookies:
+            driver.add_cookie(cookie)
+    except Exception:
+        return False
+    return True
+
+
+def clear_cookies(driver, filename, path=None):
+    if path is not None:
+        filename = os.path.join(path, filename)
+    if os.path.exists(filename):
+        os.remove(filename)
+    driver.delete_all_cookies()
