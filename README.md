@@ -33,11 +33,31 @@ There are two ways to use this program: as a Discord bot or as a CLI tool. The s
 git clone https://github.com/NelsonDane/auto-rsa.git
 cd auto-rsa
 ```
-3. Copy the `.env.example` file to a new file called `.env`:
+3. Create a Python virtual environment:
+```bash
+python -m venv autorsa-venv
+```
+4. Activate the virtual environment:
+#### MacOS & Linux
+```bash
+source ./autorsa-venv/bin/activate
+```
+#### Windows
+```powershell
+.\autorsa-venv\Scripts\activate
+```
+You should see `(autorsa-venv)` in your terminal prompt now. You will need to activate this virtual environment every time you close and reopen your terminal.
+
+5. Copy the `.env.example` file to a new file called `.env`:
+#### MacOS & Linux
 ```bash
 cp .env.example .env
 ```
-4. Fill in the `.env` file with your brokerage credentials. See the [Supported Brokerages](#-supported-brokerages-) section for more information.
+#### Windows
+```powershell
+copy .env.example .env
+```
+6. Fill in the `.env` file with your brokerage credentials. See the [Supported Brokerages](#-supported-brokerages-) section for more information.
 
 Now follow the instructions for either the Discord Bot or CLI Tool. Once setup is complete, see the [Usage](#-usage-) section for how to use the program.
 
@@ -58,17 +78,7 @@ Docker Note: If you make any changes to your `.env` file, you will need to resta
 
 ### Discord Bot: Python Script 🏃‍♀️
 1. Install Python 3.10 or higher
-2. Setup a python virtual environment:
-#### Linux & Mac
-```bash
-python -m venv autorsa-venv
-source ./autorsa-venv/Scripts/activate
-```
-#### Windows
-```powershell
-python -m venv autorsa-venv
-.\autorsa-venv\Scripts\activate
-```
+2. Create a python virtual environment if you haven't already (see [Pre-Setup](#pre-setup-️))
 3. Install the required packages:
 ```bash
 pip install -r requirements.txt
@@ -83,7 +93,8 @@ python autoRSA.py discord
 ### CLI Tool Installation 💻
 To run the CLI tool, follow these steps:
 1. Install Python 3.10 or higher
-2. Install the required packages:
+2. Create a python virtual environment if you haven't already (see [Pre-Setup](#pre-setup-️))
+3. Install the required packages:
 ```bash
 pip install -r requirements.txt
 ```
