@@ -30,6 +30,7 @@ try:
         printAndDiscord,
         stockOrder,
         updater,
+        printFinalTransactions,
     )
     from publicAPI import *
     from robinhoodAPI import *
@@ -169,6 +170,8 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                 print(f"Error in {fun_name} with {broker}: {ex}")
                 print(orderObj)
             print()
+        if second_command == "_transaction":
+            printFinalTransactions(loop)
         printAndDiscord("All commands complete in all brokers", loop)
     else:
         print(f"Error: {command} is not a valid command")
