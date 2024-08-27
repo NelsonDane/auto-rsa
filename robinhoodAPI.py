@@ -13,7 +13,7 @@ from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, sto
 
 def login_with_cache(pickle_path, pickle_name):
     rh.login(
-        expiresIn=86400 * 30, # 30 days
+        expiresIn=86400 * 30,  # 30 days
         pickle_path=pickle_path,
         pickle_name=pickle_name,
     )
@@ -47,7 +47,7 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
                     None if account[2].upper() == "NA" else pyotp.TOTP(account[2]).now()
                 ),
                 store_session=True,
-                expiresIn=86400 * 30, # 30 days
+                expiresIn=86400 * 30,  # 30 days
                 pickle_path="./creds/",
                 pickle_name=name,
             )
@@ -82,9 +82,7 @@ def robinhood_holdings(rho: Brokerage, loop=None):
     for key in rho.get_account_numbers():
         for account in rho.get_account_numbers(key):
             obj: rh = rho.get_logged_in_objects(key)
-            login_with_cache(
-                pickle_path="./creds/", pickle_name=key
-            )
+            login_with_cache(pickle_path="./creds/", pickle_name=key)
             try:
                 # Get account holdings
                 positions = obj.get_open_stock_positions(account_number=account)
@@ -122,9 +120,7 @@ def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, loop=None):
             )
             for account in rho.get_account_numbers(key):
                 obj: rh = rho.get_logged_in_objects(key)
-                login_with_cache(
-                    pickle_path="./creds/", pickle_name=key
-                )
+                login_with_cache(pickle_path="./creds/", pickle_name=key)
                 print_account = maskString(account)
                 if not orderObj.get_dry():
                     try:
