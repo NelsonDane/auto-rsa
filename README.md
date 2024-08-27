@@ -61,13 +61,13 @@ Docker Note: If you make any changes to your `.env` file, you will need to resta
 2. Setup a python virtual environment:
 #### Linux & Mac
 ```bash
-python -m venv autorsa
-source ./autorsa/Scripts/activate
+python -m venv autorsa-venv
+source ./autorsa-venv/Scripts/activate
 ```
 #### Windows
 ```powershell
-python -m venv autorsa
-.\autorsa\Scripts\activate
+python -m venv autorsa-venv
+.\autorsa-venv\Scripts\activate
 ```
 3. Install the required packages:
 ```bash
