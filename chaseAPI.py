@@ -97,7 +97,10 @@ def chase_init(account: str, index: int, headless=True, botObj=None, loop=None):
         debug = bool(account[3]) if len(account) == 4 else False
         # Create a ChaseSession class object which automatically configures and opens a browser
         ch_session = session.ChaseSession(
-            title=f"chase_{index}", headless=headless, profile_path="./creds", debug=debug
+            title=f"chase_{index}",
+            headless=headless,
+            profile_path="./creds",
+            debug=debug,
         )
         # Login to chase
         need_second = ch_session.login(account[0], account[1], account[2])
