@@ -584,6 +584,7 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                         )
                     sleep(3)
                 except Exception as err:
+                    printConfirm(key, account_label, orderObj.get_action(), orderObj.get_amount(), s, loop, True, err)
                     fidelity_error(driver, err)
                     continue
             print()

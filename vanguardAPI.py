@@ -225,9 +225,7 @@ def vanguard_transaction(vanguard_o: Brokerage, orderObj: stockOrder, loop=None)
                             printConfirm(key, print_account, orderObj.get_action(), orderObj.get_amount(), s, loop, True, messages['ORDER INVALID'])
 
             except Exception as e:
-                printAndDiscord(
-                    f"{key} {print_account}: Error submitting order: {e}", loop
-                )
+                printConfirm(key, print_account, orderObj.get_action(), orderObj.get_amount(), s, loop, True, f"Error submitting order: {e}")
                 print(traceback.format_exc())
                 continue
     obj.close_browser()

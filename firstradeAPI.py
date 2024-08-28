@@ -168,6 +168,7 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
                     printAndDiscord(
                         f"{key} {print_account}: Error submitting order: {e}", loop
                     )
+                    printConfirm(key, print_account, orderObj.get_action(), orderObj.get_amount(), s, loop, True, f"Error submitting order: {e}")
                     print(traceback.format_exc())
                     continue
                 sleep(1)

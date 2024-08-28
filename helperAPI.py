@@ -29,6 +29,8 @@ HEADLESS = os.getenv("HEADLESS", "true").lower() == "true"
 # Create task queue
 task_queue = Queue()
 
+transactions = {}
+
 
 class stockOrder:
     def __init__(self):
@@ -707,14 +709,14 @@ def printHoldings(brokerObj: Brokerage, loop=None, mask=True):
     printAndDiscord(EMBED, loop, True)
     print("==============================")
 
-transactions = {}
+
 def printConfirm(key, account, action, amount, ticker, loop, error, prints=None):
     if key not in transactions:
         transactions[key] = [0, 1] if error else [1, 1]
     else:
         if not error:
             transactions[key][0] += 1
-        transactions[key][1] += 1  
+        transactions[key][1] += 1
 
     message = f"{':green_square:' if not error else ':red_square:'} {key} {account}: {action} {amount} shares of {ticker}"
     if error:
@@ -730,7 +732,6 @@ def printFinalTransactions(loop):
         "color": 3447003,
         "fields": [],
     }
-    print_string = ""
     for key, value in transactions.items():
         field = {
             "name": key,
@@ -745,7 +746,6 @@ def printFinalTransactions(loop):
         else:
             message = "?????"
 
-        field["value"] = (f"{message} {value[0]}/{value[1]}")
-    
+        field["value"] = f"{message} {value[0]}/{value[1]}"
         EMBED["fields"].append(field)
     printAndDiscord(EMBED, loop, True)

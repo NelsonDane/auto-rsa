@@ -313,7 +313,7 @@ def chase_transaction(
                             printConfirm(key, account, orderObj.get_action(), orderObj.get_amount(), ticker, loop, True, messages['ORDER INVALID'])
 
             except Exception as e:
-                printAndDiscord(f"{key} {account}: Error submitting order: {e}", loop)
+                printConfirm(key, account, orderObj.get_action(), orderObj.get_amount(), ticker, loop, True, e)
                 print(traceback.format_exc())
                 continue
     ch_session.close_browser()
