@@ -28,6 +28,9 @@ from helperAPI import (
     printHoldings,
     stockOrder,
     type_slowly,
+    save_cookies,
+    load_cookies,
+    clear_cookies,
 )
 
 
@@ -75,6 +78,7 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
             if driver is None:
                 raise Exception("Error: Unable to get driver")
             # Log in to Fidelity account
+            load_cookies(driver, filename=f"fidelity{index}.pkl", path="./creds/")
             driver.get(
                 "https://digital.fidelity.com/prgw/digital/login/full-page?AuthRedUrl=digital.fidelity.com/ftgw/digital/portfolio/summary"
             )
@@ -150,6 +154,8 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
                         (By.XPATH, text_me_button)
                     ),
                 ).click()
+                # Clear cookies if 2fa page loads
+                clear_cookies(driver, filename=f"fidelity{index}.pkl", path="./creds/")
                 # Make sure the next page loads fully
                 code_field = "#dom-otp-code-input"
                 WebDriverWait(driver, 10).until(
@@ -171,6 +177,8 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
 
                 code_field = driver.find_element(by=By.CSS_SELECTOR, value=code_field)
                 code_field.send_keys(str(sms_code))
+                remember_device_checkbox = "#dom-trust-device-checkbox + label"
+                driver.find_element(By.CSS_SELECTOR, remember_device_checkbox).click()
                 continue_btn_selector = "#dom-otp-code-submit-button"
                 driver.find_element(By.CSS_SELECTOR, continue_btn_selector).click()
             except TimeoutException:
@@ -214,6 +222,7 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
                 fidelity_obj.set_account_totals(
                     name, acct, account_dict[acct]["balance"]
                 )
+            save_cookies(driver, filename=f"fidelity{index}.pkl", path="./creds/")
             print(f"Logged in to {name}!")
         except Exception as e:
             fidelity_error(driver, e)
@@ -242,8 +251,8 @@ def fidelity_account_info(driver: webdriver) -> dict | None:
         account_types = javascript_get_classname(driver, "acct-selector__acct-name")
         # Make sure all lists are the same length
         if not (
-            len(account_numbers) == len(account_values)
-            and len(account_numbers) == len(account_types)
+                len(account_numbers) == len(account_values)
+                and len(account_numbers) == len(account_types)
         ):
             shortest = min(
                 len(account_numbers), len(account_values), len(account_types)

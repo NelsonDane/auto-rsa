@@ -710,7 +710,6 @@ def printHoldings(brokerObj: Brokerage, loop=None, mask=True):
 
 
 def save_cookies(driver, filename, path=None):
-    filename = filename
     if path is not None:
         filename = os.path.join(path, filename)
     if path is not None and not os.path.exists(path):
@@ -729,9 +728,9 @@ def load_cookies(driver, filename, path=None):
             cookies = pickle.load(f)
         for cookie in cookies:
             driver.add_cookie(cookie)
+        return True
     except Exception:
         return False
-    return True
 
 
 def clear_cookies(driver, filename, path=None):
