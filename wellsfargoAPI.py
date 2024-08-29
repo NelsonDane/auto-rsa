@@ -65,7 +65,7 @@ def wellsfargo_init(WELLSFARGO_EXTERNAL=None, botObj=None, loop=None, DOCKER=Fal
             type_slowly(password_field, account[1])
 
             login_button = WebDriverWait(driver, 20).until(
-                EC.elemeNt_to_be_clickable(
+                EC.element_to_be_clickable(
                         (By.CSS_SELECTOR, ".Button__modern___cqCp7")
                     )
                 )
