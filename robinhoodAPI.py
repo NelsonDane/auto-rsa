@@ -3,6 +3,7 @@
 
 import os
 import traceback
+import csv
 
 import pyotp
 import robin_stocks.robinhood as rh
@@ -105,6 +106,19 @@ def robinhood_holdings(rho: Brokerage, loop=None):
                 continue
     printHoldings(rho, loop)
 
+def save_execution_price(broker, account, symbol, action, quantity, price, filename="execution_prices.csv"):
+    try:
+        # Ensure the file directory exists
+        directory = os.path.dirname(filename)
+        if directory and not os.path.exists(directory):
+            os.makedirs(directory)
+
+        with open(filename, mode='a', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow([broker, account, symbol, action, quantity, price])
+            print(f"Saved execution price to {filename}")
+    except Exception as e:
+        print(f"Error saving execution price: {e}")
 
 def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, loop=None):
     print()
@@ -131,6 +145,10 @@ def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, loop=None):
                             side=orderObj.get_action(),
                             account_number=account,
                             timeInForce="gfd",
+                        )
+                        execution_price = obj.stocks.get_latest_price(s)[0]
+                        save_execution_price(
+                            key, account, s, orderObj.get_action(), orderObj.get_amount(), execution_price
                         )
                         # Limit order fallback
                         if market_order is None:
@@ -169,6 +187,10 @@ def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, loop=None):
                                 limitPrice=price,
                                 account_number=account,
                                 timeInForce="gfd",
+                            )
+                            execution_price = obj.stocks.get_latest_price(s)[0]
+                            save_execution_price(
+                                key, account, s, orderObj.get_action(), orderObj.get_amount(), execution_price
                             )
                             if limit_order is None:
                                 printAndDiscord(
