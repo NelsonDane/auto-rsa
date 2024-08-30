@@ -34,8 +34,13 @@ git clone https://github.com/NelsonDane/auto-rsa.git
 cd auto-rsa
 ```
 3. Copy the `.env.example` file to a new file called `.env`:
+#### MacOS & Linux
 ```bash
 cp .env.example .env
+```
+#### Windows
+```powershell
+copy .env.example .env
 ```
 4. Fill in the `.env` file with your brokerage credentials. See the [Supported Brokerages](#-supported-brokerages-) section for more information.
 
@@ -58,25 +63,55 @@ Docker Note: If you make any changes to your `.env` file, you will need to resta
 
 ### Discord Bot: Python Script 🏃‍♀️
 1. Install Python 3.10 or higher
-2. Install the required packages:
+2. Create a Python virtual environment:
+```bash
+python -m venv autorsa-venv
+```
+3. Activate the virtual environment:
+#### MacOS & Linux
+```bash
+source ./autorsa-venv/bin/activate
+```
+#### Windows
+```powershell
+.\autorsa-venv\Scripts\activate
+```
+You should see `(autorsa-venv)` in your terminal prompt now. You will need to activate this virtual environment every time you close and reopen your terminal.
+
+4. Install the required packages:
 ```bash
 pip install -r requirements.txt
 ```
-3. Add `DISCORD_TOKEN` and `DISCORD_CHANNEL` to your `.env` file.
-4. Start the bot using the following command:
+5. Add `DISCORD_TOKEN` and `DISCORD_CHANNEL` to your `.env` file.
+6. Start the bot using the following command:
 ```bash
 python autoRSA.py discord
 ```
-5. The bot should appear online in Discord (You can also do `!ping` to check).
+7. The bot should appear online in Discord (You can also do `!ping` to check).
 
 ### CLI Tool Installation 💻
 To run the CLI tool, follow these steps:
 1. Install Python 3.10 or higher
-2. Install the required packages:
+2. Create a Python virtual environment:
+```bash
+python -m venv autorsa-venv
+```
+3. Activate the virtual environment:
+#### MacOS & Linux
+```bash
+source ./autorsa-venv/bin/activate
+```
+#### Windows
+```powershell
+.\autorsa-venv\Scripts\activate
+```
+You should see `(autorsa-venv)` in your terminal prompt now. You will need to activate this virtual environment every time you close and reopen your terminal.
+
+4. Install the required packages:
 ```bash
 pip install -r requirements.txt
 ```
-4. Run the script using `python autoRSA.py`. It should say that no arguments were given, then exit. This is expected, and means everything was installed and set up correctly.
+5. Run the script using `python autoRSA.py`. It should say that no arguments were given, then exit. This is expected, and means everything was installed and set up correctly.
 
 ## Usage 👀
 
@@ -230,6 +265,8 @@ Required `.env` variables:
 - Without 2fa: `ROBINHOOD=ROBINHOOD_USERNAME:ROBINHOOD_PASSWORD:NA`
 
 Configuring 2fa can be tricky, so follow this [guide](guides/robinhoodSetup.md).
+
+Note: Robinhood saves token cookies in the `creds` folder. These take precedence over the username/password set in the `.env` file. If you want to change accounts, you will need to delete the cookies in the `creds` folder for it to update.
 
 ### Schwab
 Made using the [schwab-api](https://github.com/itsjafer/schwab-api). Go give them a ⭐
