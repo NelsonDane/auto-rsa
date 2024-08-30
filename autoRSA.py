@@ -20,6 +20,7 @@ try:
     from dotenv import load_dotenv
 
     # Custom API libraries
+    from bbaeAPI import *
     from chaseAPI import *
     from fennelAPI import *
     from fidelityAPI import *
@@ -50,6 +51,7 @@ load_dotenv()
 
 # Global variables
 SUPPORTED_BROKERS = [
+    "bbae"
     "chase",
     "fennel",
     "fidelity",
@@ -63,6 +65,7 @@ SUPPORTED_BROKERS = [
     "webull",
 ]
 DAY1_BROKERS = [
+    "bbae"
     "chase",
     "fennel",
     "firstrade",
@@ -91,6 +94,8 @@ def nicknames(broker):
         return "vanguard"
     if broker == "wb":
         return "webull"
+    if broker == "bb":
+        return "bbae"
     return broker
 
 
@@ -114,7 +119,7 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                         ),
                         broker,
                     )
-                elif broker.lower() in ["fennel", "firstrade", "public"]:
+                elif broker.lower() in ["fennel", "firstrade", "public", "bbae"]:
                     # Requires bot object and loop
                     orderObj.set_logged_in(
                         globals()[fun_name](botObj=botObj, loop=loop), broker
