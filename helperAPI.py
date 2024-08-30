@@ -678,7 +678,7 @@ async def getUserInputDiscord(botObj, prompt, timeout=60, loop=None):
     return code.content
 
 
-async def send_captcha_to_discord(botObj, file, loop):
+async def send_captcha_to_discord(file):
     BASE_URL = f"https://discord.com/api/v10/channels/{DISCORD_CHANNEL}/messages"
     HEADERS = {
         "Authorization": f"Bot {DISCORD_TOKEN}",

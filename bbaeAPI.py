@@ -140,7 +140,7 @@ def login_with_sms(bb, botObj, name, loop):
         return False
 
 
-def login_with_email(bb, botObj, name, loop):
+def login_with_email(name):
     try:
         # Implement the email login logic here
         print(f"{name}: Generating login ticket (Email)...")
