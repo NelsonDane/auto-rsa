@@ -51,7 +51,7 @@ load_dotenv()
 
 # Global variables
 SUPPORTED_BROKERS = [
-    "bbae"
+    "bbae",
     "chase",
     "fennel",
     "fidelity",
@@ -65,7 +65,7 @@ SUPPORTED_BROKERS = [
     "webull",
 ]
 DAY1_BROKERS = [
-    "bbae"
+    "bbae",
     "chase",
     "fennel",
     "firstrade",
