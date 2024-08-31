@@ -39,7 +39,7 @@ def bbae_init(BBAE_EXTERNAL=None, botObj=None, loop=None):
         try:
             user, password = account.split(":")
             bb = BBAEAPI(user, password, creds_path="./creds/")
-            
+
             # Initial API call to establish session and get initial cookies
             print(f"{name}: Making initial request to establish session...")
             bb.make_initial_request()
@@ -74,7 +74,6 @@ def bbae_init(BBAE_EXTERNAL=None, botObj=None, loop=None):
             continue
     print("Logged into BBAE!")
     return bbae_obj
-
 
 
 def login_with_sms(bb, botObj, name, loop):
@@ -163,7 +162,7 @@ def solve_captcha(bb, botObj, name, loop, login_type="sms"):
             file.seek(0)
 
             asyncio.run_coroutine_threadsafe(
-                send_captcha_to_discord(botObj, file, loop),
+                send_captcha_to_discord(file),
                 loop,
             ).result()
 
@@ -183,8 +182,8 @@ def solve_captcha(bb, botObj, name, loop, login_type="sms"):
                 if ticket_response.get("Message") == "Incorrect verification code.":
                     print("Incorrect CAPTCHA, requesting a new one...")
                     continue
-                else:
-                    return captcha_input  # CAPTCHA was correct, return the input
+
+                return captcha_input  # CAPTCHA was correct, return the input
         else:
             print("Failed to get CAPTCHA image, retrying...")
 
