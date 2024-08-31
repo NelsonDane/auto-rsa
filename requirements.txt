@@ -4,6 +4,7 @@ discord.py==2.4.0
 fennel-invest-api==1.1.0
 firstrade==0.0.30
 GitPython==3.1.43
+pillow==10.4.0
 public-invest-api==1.0.4
 pyotp==2.9.0
 python-dotenv==1.0.1

@@ -1,6 +1,11 @@
 import asyncio
 import os
 import traceback
+from io import BytesIO
+
+from dotenv import load_dotenv
+
+from bbae_investing_API import BBAEAPI
 from helperAPI import (
     Brokerage,
     printAndDiscord,
@@ -11,9 +16,6 @@ from helperAPI import (
     send_captcha_to_discord,
     getUserInputDiscord,
 )
-from bbae_investing_API import BBAEAPI
-from dotenv import load_dotenv
-from io import BytesIO
 
 load_dotenv()
 
@@ -25,9 +27,6 @@ def bbae_init(BBAE_EXTERNAL=None, botObj=None, loop=None):
         print("BBAE not found, skipping...")
         return None
 
-    # Determine if SMS or Email login should be used
-    login_method = os.getenv("BBAE_LOGIN_METHOD", "SMS").upper()
-
     BBAE = (
         os.environ["BBAE"].strip().split(",")
         if BBAE_EXTERNAL is None
@@ -37,19 +36,18 @@ def bbae_init(BBAE_EXTERNAL=None, botObj=None, loop=None):
     for index, account in enumerate(BBAE):
         name = f"BBAE {index + 1}"
         try:
-            user, password = account.split(":")
+            user, password, use_email = account.split(":")
+            use_email = use_email.upper()
             bb = BBAEAPI(user, password, creds_path="./creds/")
-            
+
             # Initial API call to establish session and get initial cookies
             print(f"{name}: Making initial request to establish session...")
             bb.make_initial_request()
 
-            if login_method == "SMS":
-                login_with_sms(bb, botObj, name, loop)
-            elif login_method == "EMAIL":
+            if use_email == "TRUE":
                 login_with_email(bb, botObj, name, loop)
             else:
-                raise Exception(f"Invalid login method specified: {login_method}")
+                login_with_sms(bb, botObj, name, loop)
 
             print(f"{name}: Retrieving account assets...")
             account_assets = bb.get_account_assets()
@@ -76,7 +74,6 @@ def bbae_init(BBAE_EXTERNAL=None, botObj=None, loop=None):
     return bbae_obj
 
 
-
 def login_with_sms(bb, botObj, name, loop):
     try:
         # API call to generate the login ticket (SMS)
@@ -87,42 +84,30 @@ def login_with_sms(bb, botObj, name, loop):
         print(f"{name}: Initial ticket response: {ticket_response}")
 
         # Ensure 'Data' key exists and proceed with verification if necessary
-        if 'Data' in ticket_response:
-            data = ticket_response['Data']
+        if 'Data' not in ticket_response:
+            raise Exception("Invalid response from generating login ticket")
 
-            # Check if CAPTCHA and SMS verification are required
-            if data.get('needCaptchaCode', False):
-                print(f"{name}: CAPTCHA required. Requesting CAPTCHA image...")
-                captcha_input = solve_captcha(bb, botObj, name, loop, login_type="sms")
-                if not captcha_input:
-                    raise Exception("CAPTCHA input timed out or was canceled.")
-                print(f"{name}: CAPTCHA solved. Input: {captcha_input}")
+        # Check if SMS or CAPTCHA verification are required
+        data = ticket_response['Data']
+        if data.get('needSmsVerifyCode', False):
+            # TODO 8/30/24: CAPTCHA should only be needed if SMS is needed. Is this true?
+            sms_and_captcha_response = handle_captcha_and_sms(bb, botObj, data, loop, name)
+            if not sms_and_captcha_response:
+                raise Exception("Error solving SMS or Captcha")
 
-            if data.get('needSmsVerifyCode', False):
-                print(f"{name}: Requesting SMS code after CAPTCHA is solved...")
-                sms_code_response = bb.request_sms_code(captcha_input=captcha_input)
-                print(f"{name}: SMS code request response: {sms_code_response}")
+            print(f"{name}: Waiting for OTP code from user...")
+            otp_code = asyncio.run_coroutine_threadsafe(
+                getOTPCodeDiscord(botObj, name, timeout=300, loop=loop),
+                loop,
+            ).result()
+            if otp_code is None:
+                raise Exception("No SMS code received")
 
-                if sms_code_response.get("Message") == "Incorrect verification code.":
-                    print(f"{name}: Incorrect CAPTCHA code, retrying...")
-                    return False
+            print(f"{name}: OTP code received: {otp_code}")
+            ticket_response = bb.generate_login_ticket_sms(sms_code=otp_code)
 
-                print(f"{name}: Waiting for OTP code from user...")
-                otp_code = asyncio.run_coroutine_threadsafe(
-                    getOTPCodeDiscord(botObj, name, timeout=300, loop=loop),
-                    loop,
-                ).result()
-                if otp_code is None:
-                    raise Exception("No SMS code received.")
-                print(f"{name}: OTP code received: {otp_code}")
-
-                print(f"{name}: Generating login ticket with SMS code...")
-                ticket_response = bb.generate_login_ticket_sms(captcha_input=captcha_input, sms_code=otp_code)
-                print(f"{name}: Ticket response after SMS code: {ticket_response}")
-
-                if "Message" in ticket_response and ticket_response["Message"] == "Incorrect verification code.":
-                    print(f"{name}: Incorrect OTP code, retrying...")
-                    return False
+            if "Message" in ticket_response and ticket_response["Message"] == "Incorrect verification code.":
+                raise Exception("Incorrect OTP code")
 
         # Handle the login ticket
         if 'Data' in ticket_response and 'ticket' in ticket_response['Data']:
@@ -140,7 +125,44 @@ def login_with_sms(bb, botObj, name, loop):
         return False
 
 
-def login_with_email(name):
+def handle_captcha_and_sms(bb, botObj, data, loop, name):
+    try:
+        max_attempts = 3
+        attempts = 0
+        while attempts < max_attempts:
+            # If CAPTCHA is needed it will generate an SMS code as well
+            if data.get('needCaptchaCode', False):
+                print(f"{name}: CAPTCHA required. Requesting CAPTCHA image...")
+                sms_response = solve_captcha(bb, botObj, name, loop, False)
+                if not sms_response:
+                    attempts += 1
+                    if attempts >= max_attempts:
+                        print("Too many attempts. Please try again later.")
+                        raise Exception("Max CAPTCHA attempts reached. Exiting...")
+                    else:
+                        continue
+                print(f"{name}: CAPTCHA solved. SMS response is: {sms_response}")
+                break
+            else:
+                print(f"{name}: Requesting SMS code after CAPTCHA is solved...")
+                sms_response = send_sms_code(bb, name)
+                if not sms_response:
+                    attempts += 1
+                    if attempts >= max_attempts:
+                        print("Too many attempts. Please try again later.")
+                        raise Exception("Max SMS attempts reached. Exiting...")
+                    else:
+                        continue
+                print(f"{name}: SMS response is: {sms_response}")
+                break
+        return True
+    except Exception as e:
+        print(f"Error in CAPTCHA or SMS: {e}")
+        print(traceback.format_exc())
+        return False
+
+
+def login_with_email(bb, botObj, name, loop):
     try:
         # Implement the email login logic here
         print(f"{name}: Generating login ticket (Email)...")
@@ -153,44 +175,62 @@ def login_with_email(name):
         return False
 
 
-def solve_captcha(bb, botObj, name, loop, login_type="sms"):
-    while True:
+def solve_captcha(bb, botObj, name, loop, use_email):
+    try:
         captcha_image = bb.request_captcha()
-        if captcha_image:
-            print("Sending CAPTCHA to Discord for user input...")
-            file = BytesIO()
-            captcha_image.save(file, format="PNG")
-            file.seek(0)
+        if not captcha_image:
+            # Unable to get Image
+            raise Exception("Unable to request CAPTCHA image, aborting...")
 
-            asyncio.run_coroutine_threadsafe(
-                send_captcha_to_discord(botObj, file, loop),
-                loop,
-            ).result()
 
-            captcha_input = asyncio.run_coroutine_threadsafe(
-                getUserInputDiscord(botObj, f"{name} requires CAPTCHA input", timeout=60, loop=loop),
-                loop,
-            ).result()
+        print("Sending CAPTCHA to Discord for user input...")
+        file = BytesIO()
+        captcha_image.save(file, format="PNG")
+        file.seek(0)
 
-            if captcha_input:
-                # Send the CAPTCHA to the appropriate API based on login type
-                if login_type == "email":
-                    ticket_response = bb.generate_login_ticket_email(captcha_input=captcha_input)
-                else:
-                    ticket_response = bb.generate_login_ticket_sms(captcha_input=captcha_input)
+        asyncio.run_coroutine_threadsafe(
+            send_captcha_to_discord(file),
+            loop,
+        ).result()
 
-                # If the CAPTCHA was incorrect, request a new one
-                if ticket_response.get("Message") == "Incorrect verification code.":
-                    print("Incorrect CAPTCHA, requesting a new one...")
-                    continue
-                else:
-                    return captcha_input  # CAPTCHA was correct, return the input
+        captcha_input = asyncio.run_coroutine_threadsafe(
+            getUserInputDiscord(botObj, f"{name} requires CAPTCHA input", timeout=300, loop=loop),
+            loop,
+        ).result()
+
+        if captcha_input:
+            # Send the CAPTCHA to the appropriate API based on login type
+            if use_email == "TRUE":
+                sms_request_response = bb.request_email_code(captcha_input=captcha_input)
+            else:
+                sms_request_response = bb.request_sms_code(captcha_input=captcha_input)
+
+            print(f"{name}: SMS code request response: {sms_request_response}")
+
+            if sms_request_response.get("Message") == "Incorrect verification code.":
+                print(f"{name}: Incorrect CAPTCHA code, retrying...")
+                return None
+            else:
+                return sms_request_response  # CAPTCHA was correct, return the response
         else:
-            print("Failed to get CAPTCHA image, retrying...")
+            return None
+    except Exception as e:
+        print(f"{name}: Error during CAPTCHA code step: {e}")
+        print(traceback.format_exc())
 
-        # If timeout, abort
-        print("CAPTCHA input timed out, aborting...")
-        return None
+
+def send_sms_code(bb, name, use_email, captcha_input=None):
+    if use_email == "TRUE":
+        sms_code_response = bb.request_email_code(captcha_input=captcha_input)
+    else:
+        sms_code_response = bb.request_sms_code(captcha_input=captcha_input)
+    print(f"{name}: SMS code request response: {sms_code_response}")
+
+    if sms_code_response.get("Message") == "Incorrect verification code.":
+        print(f"{name}: Incorrect CAPTCHA code, retrying...")
+        return False
+
+    return sms_code_response
 
 
 def bbae_holdings(bbo: Brokerage, loop=None):
