@@ -127,34 +127,19 @@ def login_with_sms(bb, botObj, name, loop):
 
 def handle_captcha_and_sms(bb, botObj, data, loop, name):
     try:
-        max_attempts = 3
-        attempts = 0
-        while attempts < max_attempts:
-            # If CAPTCHA is needed it will generate an SMS code as well
-            if data.get('needCaptchaCode', False):
-                print(f"{name}: CAPTCHA required. Requesting CAPTCHA image...")
-                sms_response = solve_captcha(bb, botObj, name, loop, False)
-                if not sms_response:
-                    attempts += 1
-                    if attempts >= max_attempts:
-                        print("Too many attempts. Please try again later.")
-                        raise Exception("Max CAPTCHA attempts reached. Exiting...")
-                    else:
-                        continue
-                print(f"{name}: CAPTCHA solved. SMS response is: {sms_response}")
-                break
-            else:
-                print(f"{name}: Requesting SMS code after CAPTCHA is solved...")
-                sms_response = send_sms_code(bb, name)
-                if not sms_response:
-                    attempts += 1
-                    if attempts >= max_attempts:
-                        print("Too many attempts. Please try again later.")
-                        raise Exception("Max SMS attempts reached. Exiting...")
-                    else:
-                        continue
-                print(f"{name}: SMS response is: {sms_response}")
-                break
+        # If CAPTCHA is needed it will generate an SMS code as well
+        if data.get('needCaptchaCode', False):
+            print(f"{name}: CAPTCHA required. Requesting CAPTCHA image...")
+            sms_response = solve_captcha(bb, botObj, name, loop, False)
+            if not sms_response:
+                raise Exception("Failure solving CAPTCHA!")
+            print(f"{name}: CAPTCHA solved. SMS response is: {sms_response}")
+        else:
+            print(f"{name}: Requesting SMS code...")
+            sms_response = send_sms_code(bb, name, False)
+            if not sms_response:
+                raise Exception("Unable to retrieve sms code!")
+            print(f"{name}: SMS response is: {sms_response}")
         return True
     except Exception as e:
         print(f"Error in CAPTCHA or SMS: {e}")
@@ -182,7 +167,6 @@ def solve_captcha(bb, botObj, name, loop, use_email):
             # Unable to get Image
             raise Exception("Unable to request CAPTCHA image, aborting...")
 
-
         print("Sending CAPTCHA to Discord for user input...")
         file = BytesIO()
         captcha_image.save(file, format="PNG")
@@ -208,15 +192,13 @@ def solve_captcha(bb, botObj, name, loop, use_email):
             print(f"{name}: SMS code request response: {sms_request_response}")
 
             if sms_request_response.get("Message") == "Incorrect verification code.":
-                print(f"{name}: Incorrect CAPTCHA code, retrying...")
-                return None
-            else:
-                return sms_request_response  # CAPTCHA was correct, return the response
-        else:
-            return None
+                raise Exception("Incorrect CAPTCHA code!")
+
+            return sms_request_response  # CAPTCHA was correct, return the response
     except Exception as e:
         print(f"{name}: Error during CAPTCHA code step: {e}")
         print(traceback.format_exc())
+        return None
 
 
 def send_sms_code(bb, name, use_email, captcha_input=None):
