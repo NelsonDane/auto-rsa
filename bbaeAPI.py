@@ -38,16 +38,15 @@ def bbae_init(BBAE_EXTERNAL=None, botObj=None, loop=None):
         try:
             user, password, use_email = account.split(":")
             use_email = use_email.upper()
-            bb = BBAEAPI(user, password, creds_path="./creds/")
+            bb = BBAEAPI(user, password, filename=f"BBAE_{index + 1}.txt", creds_path="./creds/")
 
             # Initial API call to establish session and get initial cookies
             print(f"{name}: Making initial request to establish session...")
             bb.make_initial_request()
 
-            if use_email == "TRUE":
-                login_with_email(bb, botObj, name, loop)
-            else:
-                login_with_sms(bb, botObj, name, loop)
+            # All the rest of the requests responsible for getting authenticated
+            print(f"{name}: Attempting to login...")
+            login(bb, botObj, name, loop, use_email)
 
             print(f"{name}: Retrieving account assets...")
             account_assets = bb.get_account_assets()
@@ -74,11 +73,15 @@ def bbae_init(BBAE_EXTERNAL=None, botObj=None, loop=None):
     return bbae_obj
 
 
-def login_with_sms(bb, botObj, name, loop):
+def login(bb, botObj, name, loop, use_email):
     try:
-        # API call to generate the login ticket (SMS)
-        print(f"{name}: Generating login ticket (SMS)...")
-        ticket_response = bb.generate_login_ticket_sms()
+        # API call to generate the login ticket
+        if use_email == "TRUE":
+            print(f"{name}: Generating login ticket (Email)...")
+            ticket_response = bb.generate_login_ticket_email()
+        else:
+            print(f"{name}: Generating login ticket (SMS)...")
+            ticket_response = bb.generate_login_ticket_sms()
 
         # Log the raw response details
         print(f"{name}: Initial ticket response: {ticket_response}")
@@ -91,7 +94,7 @@ def login_with_sms(bb, botObj, name, loop):
         data = ticket_response['Data']
         if data.get('needSmsVerifyCode', False):
             # TODO 8/30/24: CAPTCHA should only be needed if SMS is needed. Is this true?
-            sms_and_captcha_response = handle_captcha_and_sms(bb, botObj, data, loop, name)
+            sms_and_captcha_response = handle_captcha_and_sms(bb, botObj, data, loop, name, use_email)
             if not sms_and_captcha_response:
                 raise Exception("Error solving SMS or Captcha")
 
@@ -125,37 +128,24 @@ def login_with_sms(bb, botObj, name, loop):
         return False
 
 
-def handle_captcha_and_sms(bb, botObj, data, loop, name):
+def handle_captcha_and_sms(bb, botObj, data, loop, name, use_email):
     try:
         # If CAPTCHA is needed it will generate an SMS code as well
         if data.get('needCaptchaCode', False):
             print(f"{name}: CAPTCHA required. Requesting CAPTCHA image...")
-            sms_response = solve_captcha(bb, botObj, name, loop, False)
+            sms_response = solve_captcha(bb, botObj, name, loop, use_email)
             if not sms_response:
                 raise Exception("Failure solving CAPTCHA!")
             print(f"{name}: CAPTCHA solved. SMS response is: {sms_response}")
         else:
             print(f"{name}: Requesting SMS code...")
-            sms_response = send_sms_code(bb, name, False)
+            sms_response = send_sms_code(bb, name, use_email)
             if not sms_response:
                 raise Exception("Unable to retrieve sms code!")
             print(f"{name}: SMS response is: {sms_response}")
         return True
     except Exception as e:
         print(f"Error in CAPTCHA or SMS: {e}")
-        print(traceback.format_exc())
-        return False
-
-
-def login_with_email(bb, botObj, name, loop):
-    try:
-        # Implement the email login logic here
-        print(f"{name}: Generating login ticket (Email)...")
-        # Call relevant methods for email login process
-        # Handle CAPTCHA, OTP, and ticket generation similarly to SMS login
-        raise NotImplementedError("Email login functionality is not yet implemented.")
-    except Exception as e:
-        print(f"Error in Email login: {e}")
         print(traceback.format_exc())
         return False
 
