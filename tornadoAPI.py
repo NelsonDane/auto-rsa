@@ -39,11 +39,11 @@ def tornado_init(TORNADO_EXTERNAL=None, loop=None):
         printAndDiscord("Tornado environment variable not found.", loop)
         return None
 
-    accounts = (
-        os.environ["TORNADO"].strip().split(",")
-        if TORNADO_EXTERNAL is None
-        else TORNADO_EXTERNAL.strip().split(",")
-    )
+    if TORNADO_EXTERNAL is None:
+        accounts = os.environ["TORNADO"].strip().split(",")
+    else:
+        accounts = TORNADO_EXTERNAL.strip().split(",")
+
     TORNADO_obj = Brokerage("Tornado")
 
     for index, account in enumerate(accounts):
@@ -126,12 +126,12 @@ def tornado_extract_holdings(driver):
                     'price': price_float
                 })
 
-            except Exception as e:
-                logger.error("Error scraping a holding element: %s", e)
+            except Exception:
+                tornado_error(driver)
                 continue
 
-    except Exception as e:
-        logger.error("Error extracting holdings: %s", e)
+    except Exception:
+        tornado_error(driver)
         return []
 
     return holdings_data
@@ -167,7 +167,7 @@ def tornado_holdings(Tornado_o: Brokerage, loop=None):
             Tornado_o.set_account_totals(account_name, account_name, account_value_float)
 
     except Exception as e:
-        logger.error("Error processing Tornado holdings: %s", e)
+        tornado_error(driver, loop)
         printAndDiscord(f"Tornado Account: Error processing holdings: {e}", loop)
 
     logger.info("Finished processing Tornado account, sending holdings to Discord.")
@@ -195,6 +195,7 @@ def tornado_transaction(Tornado_o: Brokerage, orderObj: stockOrder, loop=None):
                 else:
                     print(f"Already on the Tornado dashboard page for account {key}")
             except Exception as e:
+                tornado_error(driver, loop)
                 print(f"Failed to navigate to dashboard for {key}: {e}")
                 continue
 
@@ -207,6 +208,7 @@ def tornado_transaction(Tornado_o: Brokerage, orderObj: stockOrder, loop=None):
                 search_field.send_keys(s)
                 print(f"Entered stock symbol {s} into the search bar")
             except TimeoutException:
+                tornado_error(driver, loop)
                 print(f"Search field for {s} not found.")
                 printAndDiscord(f"Tornado search field not found for {s}.", loop)
                 continue
@@ -241,6 +243,7 @@ def tornado_transaction(Tornado_o: Brokerage, orderObj: stockOrder, loop=None):
                     printAndDiscord(f"Tornado doesn't have {s}.", loop)
                     continue
             except TimeoutException:
+                tornado_error(driver, loop)
                 print(f"Search results did not appear for {s}. Moving to next stock.")
                 printAndDiscord(f"Tornado search results did not appear for {s}.", loop)
                 continue
@@ -261,12 +264,12 @@ def tornado_transaction(Tornado_o: Brokerage, orderObj: stockOrder, loop=None):
                 )
                 print(f"Returned to dashboard after processing {s}")
             except TimeoutException:
+                tornado_error(driver, loop)
                 print(f"Failed to return to dashboard after processing {s}.")
                 printAndDiscord(f"Tornado failed to return to dashboard after processing {s}.", loop)
 
     print("Completed all transactions, Exiting...")
-    driver.close()
-    driver.quit()
+    killSeleniumDriver(driver)
 
 
 def handle_buy(driver, stock, orderObj, loop):
@@ -280,6 +283,7 @@ def handle_buy(driver, stock, orderObj, loop):
         driver.execute_script("arguments[0].click();", buy_button)
         print("Buy button clicked")
     except TimeoutException:
+        tornado_error(driver, loop)
         print(f"Buy button not found for {stock}. Moving to next stock.")
         printAndDiscord(f"Tornado buy button not found for {stock}.", loop)
         return
@@ -292,6 +296,7 @@ def handle_buy(driver, stock, orderObj, loop):
         quant.send_keys(str(QUANTITY))
         print(f"Quantity {QUANTITY} entered")
     except TimeoutException:
+        tornado_error(driver, loop)
         print(f"Failed to enter quantity for {stock}. Moving to next stock.")
         printAndDiscord(f"Tornado failed to enter quantity for {stock}.", loop)
         return
@@ -303,6 +308,7 @@ def handle_buy(driver, stock, orderObj, loop):
         print(f"Current shares for {stock}: {current_shares_text}")
         has_current_shares = True
     except NoSuchElementException:
+        tornado_error(driver, loop)
         print(f"No current shares for {stock}.")
         has_current_shares = False
 
@@ -317,6 +323,7 @@ def handle_buy(driver, stock, orderObj, loop):
         market_order_option.click()
         print("Market order selected")
     except TimeoutException:
+        tornado_error(driver, loop)
         print(f"Failed to select market order for {stock}. Moving to next stock.")
         printAndDiscord(f"Tornado failed to select market order for {stock}.", loop)
         return
@@ -329,12 +336,14 @@ def handle_buy(driver, stock, orderObj, loop):
         cost_float = float(cost.replace('$', '').replace(',', ''))
 
         if buy_power_float < cost_float:
+            tornado_error(driver, loop)
             print(f"Insufficient funds to complete the purchase for {stock}.")
             printAndDiscord(f"Tornado insufficient funds to buy {stock}. Required: ${cost_float}, Available: ${buy_power_float}", loop)
             return
 
         print(f"Buying power: ${buy_power_float}, Cost: ${cost_float}")
     except TimeoutException:
+        tornado_error(driver, loop)
         print(f"Failed to fetch buying power or cost for {stock}. Moving to next stock.")
         printAndDiscord(f"Tornado failed to fetch buying power or cost for {stock}.", loop)
         return
@@ -353,6 +362,7 @@ def handle_buy(driver, stock, orderObj, loop):
             continue_button.click()
             print("Clicked the Continue button after placing the order.")
         except TimeoutException:
+            tornado_error(driver, loop)
             print(f"Failed to submit buy order for {stock} or click Continue. Moving to next stock.")
             printAndDiscord(f"Tornado failed to submit buy order for {stock} or click Continue.", loop)
     else:
@@ -372,6 +382,7 @@ def handle_sell(driver, stock, orderObj, loop):
         driver.execute_script("arguments[0].click();", sell_button)
         print("Sell button clicked")
     except TimeoutException:
+        tornado_error(driver, loop)
         print(f"Sell button not found for {stock}. Moving to next stock.")
         printAndDiscord(f"Tornado sell button not found for {stock}.", loop)
         return
@@ -381,6 +392,7 @@ def handle_sell(driver, stock, orderObj, loop):
         current_shares = float(current_shares_element.text.strip().replace(" sh", ""))
         print(f"Current shares for {stock}: {current_shares}")
     except NoSuchElementException:
+        tornado_error(driver, loop)
         print(f"No current shares found for {stock}. Unable to sell.")
         printAndDiscord(f"Tornado no current shares to sell for {stock}.", loop)
         return
@@ -397,6 +409,7 @@ def handle_sell(driver, stock, orderObj, loop):
         quant.send_keys(str(QUANTITY))
         print(f"Quantity {QUANTITY} entered")
     except TimeoutException:
+        tornado_error(driver, loop)
         print(f"Failed to enter quantity for {stock}. Moving to next stock.")
         printAndDiscord(f"Tornado failed to enter quantity for {stock}.", loop)
         return
@@ -408,6 +421,7 @@ def handle_sell(driver, stock, orderObj, loop):
         market_order_option.click()
         print("Market order selected")
     except TimeoutException:
+        tornado_error(driver, loop)
         print(f"Failed to select market order for {stock}. Moving to next stock.")
         printAndDiscord(f"Tornado failed to select market order for {stock}.", loop)
         return
@@ -416,6 +430,7 @@ def handle_sell(driver, stock, orderObj, loop):
         sell_price = driver.find_element(By.XPATH, '//*[@id="main-router"]/div[1]/div/div[7]/div').text.strip()
         print(f"Sell price for {stock}: {sell_price}")
     except TimeoutException:
+        tornado_error(driver, loop)
         print(f"Failed to fetch sell price for {stock}. Moving to next stock.")
         printAndDiscord(f"Tornado failed to fetch sell price for {stock}.", loop)
         return
@@ -434,6 +449,7 @@ def handle_sell(driver, stock, orderObj, loop):
             continue_button.click()
             print("Clicked the Continue button after placing the order.")
         except TimeoutException:
+            tornado_error(driver, loop)
             print(f"Failed to submit sell order for {stock} or click Continue. Moving to next stock.")
             printAndDiscord(f"Tornado failed to submit sell order for {stock} or click Continue.", loop)
     else:
