@@ -285,7 +285,7 @@ To get your TOTP secret, follow this [guide](guides/schwabSetup.md).
 Note 1: Think or Swim must be enabled on all accounts. To enable, go to `Trade` > `Trading Platforms` > `Learn how to enable thinkorswim`. Then press `Continue` and expand the `thinkorswim Access Agreement` and accept it. Then press `Continue` again. Then select the checkbox for all available accounts and press `Submit`. It may take a day or two for the accounts to be enabled.
 
 ### Tornado
-Made by [ImNotOssy](https://github.com/ImNotOssy) using Selenium. Go give him a follow 👇
+Made by [ImNotOssy](https://github.com/ImNotOssy) using Selenium. Go give them a ⭐
 
 Required `.env` variables:
 - `TORNADO_EMAIL`
