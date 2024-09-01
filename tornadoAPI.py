@@ -274,8 +274,6 @@ def handle_buy(driver, stock, orderObj, loop):
 
     # Now check for current shares and adjust XPaths accordingly
     try:
-        current_shares_element = driver.find_element(By.XPATH, '//*[@id="main-router"]/div[1]/div/div[4]/div')
-        current_shares_text = current_shares_element.text.strip()
         has_current_shares = True
     except NoSuchElementException:
         tornado_error(driver, loop)
