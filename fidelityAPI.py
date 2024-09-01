@@ -234,7 +234,9 @@ def fidelity_account_info(driver: webdriver) -> dict | None:
                 (By.ID, "posweb-grid_top-settings-button")
             )
         ).click()
-        checkbox = driver.find_element(By.ID, "posweb-settings-modal-pinned-symbol-checkbox")
+        checkbox = driver.find_element(
+            By.ID, "posweb-settings-modal-pinned-symbol-checkbox"
+        )
         if checkbox.is_selected():
             driver.execute_script("arguments[0].click();", checkbox)
         WebDriverWait(driver, 10).until(
@@ -294,27 +296,47 @@ def fidelity_holdings(fidelity_o: Brokerage, loop=None):
         driver: webdriver = fidelity_o.get_logged_in_objects(key)
         for account in fidelity_o.get_account_numbers(key):
             try:
-                driver.get(f"https://digital.fidelity.com/ftgw/digital/portfolio/positions#{account}")
+                driver.get(
+                    f"https://digital.fidelity.com/ftgw/digital/portfolio/positions#{account}"
+                )
                 sleep(2)
-                holdings_rows = driver.find_elements(By.XPATH, "//*[@id='posweb-grid']//div[contains(@class, 'posweb-row-position')]")
+                holdings_rows = driver.find_elements(
+                    By.XPATH,
+                    "//*[@id='posweb-grid']//div[contains(@class, 'posweb-row-position')]",
+                )
                 for row in holdings_rows:
                     try:
-                        stock_ticker = row.find_element(By.XPATH, ".//div[contains(@col-id, 'sym')]//button").text
+                        stock_ticker = row.find_element(
+                            By.XPATH, ".//div[contains(@col-id, 'sym')]//button"
+                        ).text
                         if stock_ticker == "Cash":
                             continue
-                        price_raw = row.find_element(By.XPATH, ".//div[@col-id='lstPrc']//span[@class='ag-cell-value']").text
-                        quantity_raw = row.find_element(By.XPATH, ".//div[@col-id='qty']//span[@class='ag-cell-value']").text
+                        price_raw = row.find_element(
+                            By.XPATH,
+                            ".//div[@col-id='lstPrc']//span[@class='ag-cell-value']",
+                        ).text
+                        quantity_raw = row.find_element(
+                            By.XPATH,
+                            ".//div[@col-id='qty']//span[@class='ag-cell-value']",
+                        ).text
                         # Clean up price and quantity
                         invalid_strings = ["n/a", ""]
                         if price_raw.lower() not in invalid_strings:
-                            price = round(float(price_raw.replace("$", "").replace(",", "").strip()), 2)
+                            price = round(
+                                float(
+                                    price_raw.replace("$", "").replace(",", "").strip()
+                                ),
+                                2,
+                            )
                         else:
                             price = "N/A"
                         if quantity_raw.lower() not in invalid_strings:
                             quantity = float(quantity_raw.replace(",", "").strip())
                         else:
                             quantity = "N/A"
-                        fidelity_o.set_holdings(key, account, stock_ticker, quantity, price)
+                        fidelity_o.set_holdings(
+                            key, account, stock_ticker, quantity, price
+                        )
                     except Exception as e:
                         print(f"Unexpected error processing row, skipping it: {str(e)}")
                         continue
