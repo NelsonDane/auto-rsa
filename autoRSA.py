@@ -35,6 +35,7 @@ try:
     from robinhoodAPI import *
     from schwabAPI import *
     from tastyAPI import *
+    from tornadoAPI import *
     from tradierAPI import *
     from vanguardAPI import *
     from webullAPI import *
@@ -59,6 +60,7 @@ SUPPORTED_BROKERS = [
     "robinhood",
     "schwab",
     "tastytrade",
+    "tornado",
     "tradier",
     "vanguard",
     "webull",
@@ -143,6 +145,9 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                             + fun_name
                             + ": Function did not complete successfully."
                         )
+                elif broker.lower() == "tornado":
+                    # Initialize Tornado
+                    orderObj.set_logged_in(tornado_init(), broker)
                 else:
                     orderObj.set_logged_in(globals()[fun_name](), broker)
 
