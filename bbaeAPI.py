@@ -184,7 +184,8 @@ def solve_captcha(bb, botObj, name, loop, use_email):
             if sms_request_response.get("Message") == "Incorrect verification code.":
                 raise Exception("Incorrect CAPTCHA code!")
 
-            return sms_request_response  # CAPTCHA was correct, return the response
+            return sms_request_response
+        return None
     except Exception as e:
         print(f"{name}: Error during CAPTCHA code step: {e}")
         print(traceback.format_exc())
