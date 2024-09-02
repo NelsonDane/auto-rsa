@@ -71,13 +71,11 @@ def wellsfargo_init(WELLSFARGO_EXTERNAL=None, botObj=None, loop=None, DOCKER=Fal
                 )
             login_button.click()
             WebDriverWait(driver, 20).until(check_if_page_loaded)
-            WELLSFARGO_obj.set_url(driver.current_url)
             print("=====================================================\n")
         except TimeoutException:
             print("TimeoutException: Login failed.")
             return False
         WELLSFARGO_obj.set_logged_in_object(name, driver)
-
     except Exception as e:
         wellsfargo_error(driver, e)
         driver.close()
@@ -87,10 +85,8 @@ def wellsfargo_init(WELLSFARGO_EXTERNAL=None, botObj=None, loop=None, DOCKER=Fal
 
 
 def wellsfargo_holdings(WELLSFARGO_o: Brokerage, loop=None):
-    print("wtf")
-    print(WELLSFARGO_o.get_account_numbers())
+    #print(WELLSFARGO_o.get_account_numbers())
     #for key in WELLSFARGO_o.get_account_numbers():
-    print("help")
     driver: webdriver = WELLSFARGO_o.get_logged_in_objects("WELLSFARGO 1")
     try:
         brokerage = WebDriverWait(driver, 20).until(
@@ -125,16 +121,17 @@ def wellsfargo_holdings(WELLSFARGO_o: Brokerage, loop=None):
         killSeleniumDriver(WELLSFARGO_o)
         return
 
-    for account in len(accounts):
+    for account_index in range(accounts):
         try:
             # Choose account
             open_dropdown = WebDriverWait(driver, 20).until(
                 EC.element_to_be_clickable((By.XPATH, "//*[@id='dropdown1']"))
             )
             open_dropdown.click()
+            sleep(1)
             driver.execute_script(
                 "document.getElementById('dropdownlist1').getElementsByTagName('li')["
-                + str(account_index + 1)
+                + str(account_index + 2)
                 + "].click()"
             )
 
@@ -167,13 +164,16 @@ def wellsfargo_holdings(WELLSFARGO_o: Brokerage, loop=None):
                 my_value = my_value_match.group(0) if my_value_match else "0"
                 # Assuming you want to store the quantity and price in the holdings
                 WELLSFARGO_o.set_holdings(
-                    key,  # Use the previously set account name
+                    "WELLSFARGO 1",  # Use the previously set account name
                     account_index,  # account_name (you could use account index or name here)
                     name.strip(),  # stock (ensure to strip whitespace)
                     float(amount),  # quantity (ensure it's a number)
                     float(price),  # price
                 )
-                print(WELLSFARGO_o.get_holdings(key, account_index))
+    print(WELLSFARGO_o.get_holdings("WELLSFARGO 1", 0))
+    print(WELLSFARGO_o.get_holdings("WELLSFARGO 1", 1))
+    print(WELLSFARGO_o.get_holdings("WELLSFARGO 1", 2))
+    print(WELLSFARGO_o.get_account_numbers())
     printHoldings(WELLSFARGO_o, loop)
     killSeleniumDriver(WELLSFARGO_o)
 
@@ -313,7 +313,11 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
             driver.execute_script("arguments[0].scrollIntoView(true);", submit)
             sleep(5)
             submit.click()
-
+            # Send confirmation
+            printAndDiscord(
+                f"{key} {account_label}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}",
+                loop,
+            )
             # buy next
             buy_next = driver.find_element(By.CSS_SELECTOR, ".btn-wfa-primary")
             driver.execute_script("arguments[0].scrollIntoView(true);", buy_next)
