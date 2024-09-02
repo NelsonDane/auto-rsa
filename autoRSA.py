@@ -116,6 +116,14 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                         ),
                         broker,
                     )
+                elif broker.lower == "tornado":
+                    # Requires docker mode argument and loop
+                    orderObj.set_logged_in(
+                        globals()[fun_name](
+                            DOCKER=DOCKER_MODE, loop=loop
+                        ),
+                        broker,
+                    )
                 elif broker.lower() in ["fennel", "firstrade", "public"]:
                     # Requires bot object and loop
                     orderObj.set_logged_in(
@@ -140,9 +148,6 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                             + fun_name
                             + ": Function did not complete successfully."
                         )
-                elif broker.lower() == "tornado":
-                    # Initialize Tornado
-                    orderObj.set_logged_in(tornado_init(), broker)
                 else:
                     orderObj.set_logged_in(globals()[fun_name](), broker)
 
