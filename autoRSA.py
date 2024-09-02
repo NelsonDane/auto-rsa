@@ -52,6 +52,7 @@ load_dotenv()
 # Global variables
 SUPPORTED_BROKERS = [
     "chase",
+    "dspac",
     "fennel",
     "fidelity",
     "firstrade",
@@ -66,6 +67,7 @@ SUPPORTED_BROKERS = [
 ]
 DAY1_BROKERS = [
     "chase",
+    "dspac",
     "fennel",
     "firstrade",
     "public",
@@ -81,6 +83,8 @@ DANGER_MODE = False
 
 # Account nicknames
 def nicknames(broker):
+    if broker == "ds":
+        return "dspac"
     if broker in ["fid", "fido"]:
         return "fidelity"
     if broker == "ft":
@@ -122,7 +126,7 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                         globals()[fun_name](DOCKER=DOCKER_MODE, loop=loop),
                         broker,
                     )
-                elif broker.lower() in ["fennel", "firstrade", "public"]:
+                elif broker.lower() in ["fennel", "firstrade", "public" "dspac"]:
                     # Requires bot object and loop
                     orderObj.set_logged_in(
                         globals()[fun_name](botObj=botObj, loop=loop), broker
