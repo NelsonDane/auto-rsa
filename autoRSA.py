@@ -2,6 +2,7 @@
 # Script to automate RSA stock purchases
 
 # Import libraries
+import asyncio
 import os
 import sys
 import traceback
