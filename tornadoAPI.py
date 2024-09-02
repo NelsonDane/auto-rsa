@@ -28,7 +28,7 @@ def tornado_error(driver, loop=None):
     printAndDiscord(f"Tornado Error: {traceback.format_exc()}", loop, embed=False)
 
 
-def tornado_init(TORNADO_EXTERNAL=None, loop=None):
+def tornado_init(TORNADO_EXTERNAL=None, DOCKER=False, loop=None):
     load_dotenv()
 
     if not os.getenv("TORNADO") and TORNADO_EXTERNAL is None:
@@ -45,7 +45,7 @@ def tornado_init(TORNADO_EXTERNAL=None, loop=None):
     for index, account in enumerate(accounts):
         account_name = f"Tornado {index + 1}"
         try:
-            driver = getDriver()
+            driver = getDriver(DOCKER)
             if driver is None:
                 raise Exception("Driver not found.")
             driver.get("https://tornado.com/app/login")
