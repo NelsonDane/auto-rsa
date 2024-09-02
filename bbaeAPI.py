@@ -238,8 +238,9 @@ def bbae_transaction(bbo: Brokerage, orderObj: stockOrder, loop=None):
     print()
     for s in orderObj.get_stocks():
         for key in bbo.get_account_numbers():
+            action = orderObj.get_action().lower()
             printAndDiscord(
-                f"{key}: {orderObj.get_action()}ing {orderObj.get_amount()} of {s}",
+                f"{key}: {action}ing {orderObj.get_amount()} of {s}",
                 loop,
             )
             for account in bbo.get_account_numbers(key):
@@ -248,21 +249,63 @@ def bbae_transaction(bbo: Brokerage, orderObj: stockOrder, loop=None):
                     quantity = orderObj.get_amount()
                     is_dry_run = orderObj.get_dry()
 
-                    # Execute the buy/sell transaction
-                    response = obj.execute_buy(
-                        symbol=s,
-                        amount=quantity,
-                        account_number=account,
-                        dry_run=is_dry_run
-                    )
+                    if action == "buy":
+                        # Validate the buy transaction
+                        validation_response = obj.validate_buy(symbol=s, amount=quantity, order_side=1, account_number=account)
+                        print(f"Validate Buy Response: {validation_response}")
+                        if validation_response['Outcome'] != 'Success':
+                            printAndDiscord(f"{key} {account}: Validation failed for buying {quantity} of {s}: {validation_response['Message']}", loop)
+                            continue
 
-                    # Handle the result
-                    if is_dry_run:
-                        message = "Dry Run Success"
-                        if not response.get("Outcome") == "Success":
-                            message = f"Dry Run Failed: {response.get('Message')}"
-                    else:
-                        message = response.get('Message', "Success")
+                        # Proceed to execute the buy if not in dry run mode
+                        if not is_dry_run:
+                            buy_response = obj.execute_buy(
+                                symbol=s,
+                                amount=quantity,
+                                account_number=account,
+                                dry_run=is_dry_run
+                            )
+                            print(f"Execute Buy Response: {buy_response}")
+                            message = buy_response['Message']
+                        else:
+                            message = "Dry Run Success"
+
+                    elif action == "sell":
+                        # Check stock holdings before attempting to sell
+                        holdings_response = obj.check_stock_holdings(symbol=s, account_number=account)
+                        print(f"Check Holdings Response: {holdings_response}")
+                        if holdings_response["Outcome"] != "Success":
+                            printAndDiscord(f"{key} {account}: Error checking holdings: {holdings_response['Message']}", loop)
+                            continue
+
+                        available_amount = float(holdings_response["Data"]["enableAmount"])
+
+                        # If trying to sell more than available, skip to the next
+                        if quantity > available_amount:
+                            printAndDiscord(f"{key} {account}: Not enough shares to sell {quantity} of {s}. Available: {available_amount}", loop)
+                            continue
+
+                        # Validate the sell transaction
+                        validation_response = obj.validate_sell(symbol=s, amount=quantity, account_number=account)
+                        print(f"Validate Sell Response: {validation_response}")
+                        if validation_response['Outcome'] != 'Success':
+                            printAndDiscord(f"{key} {account}: Validation failed for selling {quantity} of {s}: {validation_response['Message']}", loop)
+                            continue
+
+                        # Proceed to execute the sell if not in dry run mode
+                        if not is_dry_run:
+                            entrust_price = validation_response['Data']['entrustPrice']
+                            sell_response = obj.execute_sell(
+                                symbol=s,
+                                amount=quantity,
+                                account_number=account,
+                                entrust_price=entrust_price,
+                                dry_run=is_dry_run
+                            )
+                            print(f"Execute Sell Response: {sell_response}")
+                            message = sell_response['Message']
+                        else:
+                            message = "Dry Run Success"
 
                     printAndDiscord(
                         f"{key}: {orderObj.get_action().capitalize()} {quantity} of {s} in {account}: {message}",
