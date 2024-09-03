@@ -359,7 +359,9 @@ def is_up_to_date(remote, branch):
         if isinstance(remote_hash, list):
             remote_hash = ""
             is_fork = True
-            raise Exception(f"Branch {branch} not found in remote {remote}. Perhaps you are on a fork?")
+            raise Exception(
+                f"Branch {branch} not found in remote {remote}. Perhaps you are on a fork?"
+            )
         if local_commit == remote_hash:
             up_to_date = True
             print(f"You are up to date with {remote}/{branch}")
