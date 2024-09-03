@@ -1,4 +1,5 @@
 asyncio==3.4.3
+-e git+https://github.com/ImNotOssy/BBAE_investing_API#egg=BBAE-investing-API
 chaseinvest-api==0.2.4
 discord.py==2.4.0
 fennel-invest-api==1.1.0
@@ -17,4 +18,3 @@ setuptools==74.1.0
 tastytrade==8.2
 vanguard-api==0.2.5
 -e git+https://github.com/NelsonDane/webull.git@ef14ae63f9e1436fbea77fe864df54847cf2f730#egg=webull
--e git+https://github.com/ImNotOssy/BBAE_investing_API#egg=BBAE-investing-API

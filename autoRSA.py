@@ -84,6 +84,8 @@ DANGER_MODE = False
 
 # Account nicknames
 def nicknames(broker):
+    if broker == "bb":
+        return "bbae"
     if broker in ["fid", "fido"]:
         return "fidelity"
     if broker == "ft":
@@ -96,8 +98,6 @@ def nicknames(broker):
         return "vanguard"
     if broker == "wb":
         return "webull"
-    if broker == "bb":
-        return "bbae"
     return broker
 
 
