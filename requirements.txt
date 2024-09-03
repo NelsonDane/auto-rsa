@@ -17,3 +17,4 @@ setuptools==74.0.0
 tastytrade==8.2
 vanguard-api==0.2.5
 -e git+https://github.com/NelsonDane/webull.git@ef14ae63f9e1436fbea77fe864df54847cf2f730#egg=webull
+-e git+https://github.com/ImNotOssy/BBAE_investing_API#egg=BBAE-investing-API
