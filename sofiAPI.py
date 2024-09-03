@@ -31,13 +31,14 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 def sofi_error(driver, loop=None):
     if driver is not None:
         try:
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             screenshot_name = f"SoFi-error-{timestamp}.png"
             driver.save_screenshot(screenshot_name)
-        except Exception as e:
+        except Exception:
             pass
 
     try:
@@ -46,9 +47,11 @@ def sofi_error(driver, loop=None):
     except Exception:
         pass
 
+
 def get_2fa_code(secret):
     totp = pyotp.TOTP(secret)
     return totp.now()
+
 
 def sofi_init(SOFI_EXTERNAL=None, botObj=None, loop=None):
     load_dotenv()
