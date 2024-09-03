@@ -5,7 +5,7 @@ from io import BytesIO
 
 from dotenv import load_dotenv
 
-from bbae_investing_API import BBAEAPI
+from bbae_invest_api import BBAEAPI
 from helperAPI import (
     Brokerage,
     printAndDiscord,
