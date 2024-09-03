@@ -12,6 +12,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support.ui import Select
+from selenium.webdriver.common.keys import Keys
 import pyotp
 
 from helperAPI import (
@@ -30,31 +31,24 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
 def sofi_error(driver, loop=None):
     if driver is not None:
         try:
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             screenshot_name = f"SoFi-error-{timestamp}.png"
             driver.save_screenshot(screenshot_name)
-            print(f"Screenshot saved as {screenshot_name}")
         except Exception as e:
-            print(f"Failed to take screenshot: {e}")
-    else:
-        print("WebDriver not initialized; skipping screenshot.")
+            pass
 
-    # Proceed with error reporting
     try:
         error_message = f"SoFi Error: {traceback.format_exc()}"
         printAndDiscord(error_message, loop, embed=False)
-    except Exception as e:
-        print(f"Failed to send error message: {e}")
-
+    except Exception:
+        pass
 
 def get_2fa_code(secret):
     totp = pyotp.TOTP(secret)
     return totp.now()
-
 
 def sofi_init(SOFI_EXTERNAL=None, botObj=None, loop=None):
     load_dotenv()
@@ -68,10 +62,11 @@ def sofi_init(SOFI_EXTERNAL=None, botObj=None, loop=None):
         if SOFI_EXTERNAL is None
         else SOFI_EXTERNAL.strip().split(",")
     )
-    SOFI_obj = Brokerage("SoFi")
+    sofi_obj = Brokerage("SoFi")
+
     for account in accounts:
         index = accounts.index(account) + 1
-        name = f"SOFI {index}"
+        name = f"SoFi {index}"
         account = account.split(":")
 
         try:
@@ -84,126 +79,121 @@ def sofi_init(SOFI_EXTERNAL=None, botObj=None, loop=None):
             WebDriverWait(driver, 30).until(check_if_page_loaded)
 
             # Log in with username and password
-            try:
-                username_field = WebDriverWait(driver, 30).until(
-                    EC.element_to_be_clickable((By.XPATH, "//*[@id='username']")))
-                username_field.send_keys(account[0])
+            username_field = WebDriverWait(driver, 30).until(
+                EC.element_to_be_clickable((By.XPATH, "//*[@id='username']"))
+            )
+            username_field.send_keys(account[0])
 
-                password_field = WebDriverWait(driver, 30).until(
-                    EC.element_to_be_clickable((By.XPATH, "//*[@id='password']")))
-                password_field.send_keys(account[1])
+            password_field = WebDriverWait(driver, 30).until(
+                EC.element_to_be_clickable((By.XPATH, "//*[@id='password']"))
+            )
+            password_field.send_keys(account[1])
 
-                login_button = WebDriverWait(driver, 30).until(
-                    EC.element_to_be_clickable((By.XPATH, "//*[@id='widget_block']/div/div[2]/div/div/main/section/div/div/div/form/div[2]/button")))
-                driver.execute_script("arguments[0].click();", login_button)
+            login_button = WebDriverWait(driver, 30).until(
+                EC.element_to_be_clickable((By.XPATH, "//*[@id='widget_block']/div/div[2]/div/div/main/section/div/div/div/form/div[2]/button"))
+            )
+            driver.execute_script("arguments[0].click();", login_button)
 
-                # Determine if authenticator 2FA is needed
-                secret = account[2] if len(account) > 2 else None
+            # Determine if authenticator 2FA is needed
+            secret = account[2] if len(account) > 2 else None
 
-                if secret:
+            if secret:
+                try:
+                    # Use the authenticator 2FA code if the secret exists
+                    two_fa_code = get_2fa_code(secret)
+                    code_field = WebDriverWait(driver, 10).until(
+                        EC.element_to_be_clickable((By.ID, "code"))  # ID for the authenticator code
+                    )
+                    code_field.send_keys(two_fa_code)
+
+                    # Simulate hitting the "Enter" key after entering the 2FA code
+                    code_field.send_keys(Keys.RETURN)
+
+                    # Wait for successful login URL
+                    WebDriverWait(driver, 30).until(
+                        EC.url_contains("https://www.sofi.com/member-home/")  # The URL after successful login
+                    )
+
+                except Exception:
+                    sofi_error(driver, loop)
+                    return None
+
+            else:
+                # Check if the SMS 2FA element is present
+                try:
+                    WebDriverWait(driver, 5).until(
+                        EC.presence_of_element_located((By.ID, "code"))  # Check if the 2FA SMS code field is present
+                    )
+                except TimeoutException:
+                    return None
+
+                # Proceed with SMS 2FA
+                max_attempts = 3
+                attempts = 0
+
+                while attempts < max_attempts:
                     try:
-                        # Use the authenticator 2FA code if the secret exists
-                        two_fa_code = get_2fa_code(secret)
-                        code_field = WebDriverWait(driver, 10).until(
-                            EC.element_to_be_clickable((By.ID, "code")))  # ID for the authenticator code
-                        code_field.send_keys(two_fa_code)
+                        # Retrieve the SMS code via Discord or manual input
+                        if botObj is not None and loop is not None:
+                            sms_code = asyncio.run_coroutine_threadsafe(
+                                getOTPCodeDiscord(botObj, name, timeout=300, loop=loop),
+                                loop,
+                            ).result()
+                            if sms_code is None:
+                                raise Exception("No SMS code found")
+                        else:
+                            sms_code = input("Enter security code: ")
 
-                        code_button = WebDriverWait(driver, 30).until(
-                            EC.element_to_be_clickable((By.CSS_SELECTOR, "#widget_block > div > div.right-column > div > div > main > section > div > div > div > form > div.cc199ae96 > button")))
-                        code_button.click()
-
-                        # Wait for successful login URL
-                        WebDriverWait(driver, 30).until(
-                            EC.url_contains("https://www.sofi.com/member-home/")  # The URL after successful login
+                        # Wait for the code field to be clickable and enter the code
+                        code_field = WebDriverWait(driver, 60).until(
+                            EC.element_to_be_clickable((By.XPATH, "//*[@id='code']"))
                         )
+                        code_field.send_keys(sms_code)
 
-                    except TimeoutException:
-                        print("Authenticator 2FA code failed or timed out.")
-                        return None  # If authenticator 2FA fails, don't proceed with SMS 2FA
+                        # Simulate hitting the "Enter" key after entering the SMS code
+                        code_field.send_keys(Keys.RETURN)
 
-                else:
-                    # Check if the SMS 2FA element is present
-                    try:
-                        WebDriverWait(driver, 5).until(
-                            EC.presence_of_element_located((By.ID, "code"))  # Check if the 2FA SMS code field is present
-                        )
-                        print("SMS 2FA required.")
-                    except TimeoutException:
-                        print("No 2FA required or no SMS 2FA element detected.")
-                        return None
+                        # Wait briefly to allow the page to process the input
+                        sleep(3)
 
-                    # Proceed with SMS 2FA
-                    max_attempts = 3
-                    attempts = 0
+                        # Check if the 2FA input field is still present
+                        if driver.find_elements(By.XPATH, "//*[@id='code']"):
+                            attempts += 1
 
-                    while attempts < max_attempts:
-                        try:
-                            # Retrieve the SMS code via Discord or manual input
-                            if botObj is not None and loop is not None:
-                                sms_code = asyncio.run_coroutine_threadsafe(
-                                    getOTPCodeDiscord(botObj, name, timeout=300, loop=loop),
-                                    loop,
-                                ).result()
-                                if sms_code is None:
-                                    raise Exception("No SMS code found")
-                            else:
-                                sms_code = input("Enter security code: ")
-
-                            # Wait for the code field to be clickable and enter the code
-                            code_field = WebDriverWait(driver, 60).until(
-                                EC.element_to_be_clickable((By.XPATH, "//*[@id='code']")))
-                            code_field.send_keys(sms_code)
-
-                            # Click the submit button or the appropriate element to continue
-                            code_button = WebDriverWait(driver, 20).until(
-                                EC.element_to_be_clickable((By.XPATH, "//*[@id='widget_block']/div/div[2]/div/div/main/section/div/div/div/div[1]/div/form/div[3]/button")))
-                            code_button.click()
-
-                            # Wait briefly to allow the page to process the input
-                            sleep(3)
-
-                            # Check if the 2FA input field is still present
-                            if driver.find_elements(By.XPATH, "//*[@id='code']"):
-                                attempts += 1
-                                print(f"Attempt {attempts} failed. Incorrect code.")
-
-                                # If max attempts are reached, print a message and exit the loop
-                                if attempts >= max_attempts:
-                                    print("Too many attempts. Please try again later.")
-                                    raise TimeoutException("Max 2FA attempts reached. Exiting...")
-
-                            else:
-                                print("2FA code accepted. Proceeding...")
-                                break  # Exit the loop if the 2FA code is correct and accepted
-
-                        except TimeoutException:
+                            # If max attempts are reached, print a message and exit the loop
                             if attempts >= max_attempts:
-                                print("Too many attempts. Please try again later.")
-                                raise TimeoutException("Max 2FA attempts reached due to timeouts. Exiting...")
+                                raise TimeoutException("Max 2FA attempts reached. Exiting...")
 
-                WebDriverWait(driver, 60).until(check_if_page_loaded)
+                        else:
+                            break  # Exit the loop if the 2FA code is correct and accepted
 
-                # Retrieve and set account information
-                account_dict = sofi_account_info(driver)
-                if account_dict is None:
-                    raise Exception(f"{name}: Error getting account info")
+                    except TimeoutException:
+                        if attempts >= max_attempts:
+                            raise TimeoutException("Max 2FA attempts reached due to timeouts. Exiting...")
 
-                for acct in account_dict:
-                    SOFI_obj.set_account_number(name, acct)
-                    SOFI_obj.set_account_totals(name, acct, account_dict[acct]["balance"])
+            WebDriverWait(driver, 60).until(check_if_page_loaded)
 
-                SOFI_obj.set_logged_in_object(name, driver)
+            # Retrieve and set account information
+            account_dict = sofi_account_info(driver)
+            if account_dict is None:
+                raise Exception(f"{name}: Error getting account info")
 
-            except TimeoutException:
-                printAndDiscord(f"TimeoutException: Login failed for {name}.", loop)
-                return False
+            for acct in account_dict:
+                sofi_obj.set_account_number(name, acct)
+                sofi_obj.set_account_totals(name, acct, account_dict[acct]["balance"])
+
+            sofi_obj.set_logged_in_object(name, driver)
+
+        except TimeoutException:
+            printAndDiscord(f"TimeoutException: Login failed for {name}.", loop)
+            return False
 
         except Exception:
             sofi_error(driver, loop)
             driver.close()
             driver.quit()
             return None
-    return SOFI_obj
+    return sofi_obj
 
 
 def sofi_account_info(driver: webdriver, loop=None) -> dict | None:
