@@ -5,7 +5,7 @@ from io import BytesIO
 
 from dotenv import load_dotenv
 
-from dspac_investing_API import DSPACAPI
+from dspac_invest_api import DSPACAPI
 from helperAPI import (
     Brokerage,
     printAndDiscord,
