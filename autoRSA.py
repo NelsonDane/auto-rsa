@@ -36,6 +36,7 @@ try:
     from robinhoodAPI import *
     from schwabAPI import *
     from tastyAPI import *
+    from tornadoAPI import *
     from tradierAPI import *
     from vanguardAPI import *
     from webullAPI import *
@@ -60,6 +61,7 @@ SUPPORTED_BROKERS = [
     "robinhood",
     "schwab",
     "tastytrade",
+    "tornado",
     "tradier",
     "vanguard",
     "webull",
@@ -117,6 +119,12 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                         globals()[fun_name](
                             DOCKER=DOCKER_MODE, botObj=botObj, loop=loop
                         ),
+                        broker,
+                    )
+                elif broker.lower() == "tornado":
+                    # Requires docker mode argument and loop
+                    orderObj.set_logged_in(
+                        globals()[fun_name](DOCKER=DOCKER_MODE, loop=loop),
                         broker,
                     )
                 elif broker.lower() in ["fennel", "firstrade", "public", "bbae"]:
