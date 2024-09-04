@@ -41,30 +41,24 @@ def bbae_init(BBAE_EXTERNAL=None, botObj=None, loop=None):
             bb = BBAEAPI(user, password, filename=f"BBAE_{index + 1}.txt", creds_path="./creds/")
 
             # Initial API call to establish session and get initial cookies
-            print(f"{name}: Making initial request to establish session...")
             bb.make_initial_request()
 
             # All the rest of the requests responsible for getting authenticated
-            print(f"{name}: Attempting to login...")
             login(bb, botObj, name, loop, use_email)
 
-            print(f"{name}: Retrieving account assets...")
             account_assets = bb.get_account_assets()
 
-            print(f"{name}: Retrieving account information...")
             account_info = bb.get_account_info()
 
             account_number = str(account_info['Data']['accountNumber'])
 
             # Mask the account number before printing it
             masked_account_number = maskString(account_number)
-            print(f"{name}: Found account {masked_account_number}")
 
             bbae_obj.set_account_number(name, masked_account_number)
             bbae_obj.set_account_totals(name, masked_account_number, float(account_assets['Data']['totalAssets']))
 
             bbae_obj.set_logged_in_object(name, bb, "bb")
-            print(f"{name}: Logged in with account number {masked_account_number}")
         except Exception as e:
             print(f"Error logging into BBAE: {e}")
             print(traceback.format_exc())
@@ -77,14 +71,9 @@ def login(bb, botObj, name, loop, use_email):
     try:
         # API call to generate the login ticket
         if use_email == "TRUE":
-            print(f"{name}: Generating login ticket (Email)...")
             ticket_response = bb.generate_login_ticket_email()
         else:
-            print(f"{name}: Generating login ticket (SMS)...")
             ticket_response = bb.generate_login_ticket_sms()
-
-        # Log the raw response details
-        print(f"{name}: Initial ticket response: {ticket_response}")
 
         # Ensure 'Data' key exists and proceed with verification if necessary
         if 'Data' not in ticket_response:
@@ -98,15 +87,17 @@ def login(bb, botObj, name, loop, use_email):
             if not sms_and_captcha_response:
                 raise Exception("Error solving SMS or Captcha")
 
-            print(f"{name}: Waiting for OTP code from user...")
-            otp_code = asyncio.run_coroutine_threadsafe(
-                getOTPCodeDiscord(botObj, name, timeout=300, loop=loop),
-                loop,
-            ).result()
+            if botObj is not None and loop is not None:
+                otp_code = asyncio.run_coroutine_threadsafe(
+                    getOTPCodeDiscord(botObj, name, timeout=300, loop=loop),
+                    loop,
+                ).result()
+            else:
+                otp_code = input("Enter security code: ")
+
             if otp_code is None:
                 raise Exception("No SMS code received")
 
-            print(f"{name}: OTP code received: {otp_code}")
             ticket_response = bb.generate_login_ticket_sms(sms_code=otp_code)
 
             if "Message" in ticket_response and ticket_response["Message"] == "Incorrect verification code.":
@@ -119,7 +110,6 @@ def login(bb, botObj, name, loop, use_email):
             print(f"{name}: Raw response object: {ticket_response}")
             raise Exception(f"Login failed. No ticket generated. Response: {ticket_response}")
 
-        print(f"{name}: Logging in with ticket...")
         bb.login_with_ticket(ticket)
         return True
     except Exception as e:
@@ -136,13 +126,11 @@ def handle_captcha_and_sms(bb, botObj, data, loop, name, use_email):
             sms_response = solve_captcha(bb, botObj, name, loop, use_email)
             if not sms_response:
                 raise Exception("Failure solving CAPTCHA!")
-            print(f"{name}: CAPTCHA solved. SMS response is: {sms_response}")
         else:
             print(f"{name}: Requesting SMS code...")
             sms_response = send_sms_code(bb, name, use_email)
             if not sms_response:
                 raise Exception("Unable to retrieve sms code!")
-            print(f"{name}: SMS response is: {sms_response}")
         return True
     except Exception as e:
         print(f"Error in CAPTCHA or SMS: {e}")
@@ -157,37 +145,40 @@ def solve_captcha(bb, botObj, name, loop, use_email):
             # Unable to get Image
             raise Exception("Unable to request CAPTCHA image, aborting...")
 
-        print("Sending CAPTCHA to Discord for user input...")
         file = BytesIO()
         captcha_image.save(file, format="PNG")
         file.seek(0)
 
-        asyncio.run_coroutine_threadsafe(
-            send_captcha_to_discord(file),
-            loop,
-        ).result()
+        if botObj is not None and loop is not None:
+            asyncio.run_coroutine_threadsafe(
+                send_captcha_to_discord(file),
+                loop,
+            ).result()
 
-        captcha_input = asyncio.run_coroutine_threadsafe(
-            getUserInputDiscord(botObj, f"{name} requires CAPTCHA input", timeout=300, loop=loop),
-            loop,
-        ).result()
+            captcha_input = asyncio.run_coroutine_threadsafe(
+                getUserInputDiscord(botObj, f"{name} requires CAPTCHA input", timeout=300, loop=loop),
+                loop,
+            ).result()
+        else:
+            # TODO 9/4/24: This has not been tested yet. Might not work ¯\_(ツ)_/¯
+            captcha_image.save("./captcha.png", format="PNG")
+            captcha_input = input("CAPTCHA image saved to ./captcha.png. Please open it and type in the code: ")
 
-        if captcha_input:
-            # Send the CAPTCHA to the appropriate API based on login type
-            if use_email == "TRUE":
-                sms_request_response = bb.request_email_code(captcha_input=captcha_input)
-            else:
-                sms_request_response = bb.request_sms_code(captcha_input=captcha_input)
+        if captcha_input is None:
+            raise Exception("No CAPTCHA code found")
 
-            print(f"{name}: SMS code request response: {sms_request_response}")
+        # Send the CAPTCHA to the appropriate API based on login type
+        if use_email == "TRUE":
+            sms_request_response = bb.request_email_code(captcha_input=captcha_input)
+        else:
+            sms_request_response = bb.request_sms_code(captcha_input=captcha_input)
 
-            if sms_request_response.get("Message") == "Incorrect verification code.":
-                raise Exception("Incorrect CAPTCHA code!")
+        if sms_request_response.get("Message") == "Incorrect verification code.":
+            raise Exception("Incorrect CAPTCHA code!")
 
-            return sms_request_response
-        return None
+        return sms_request_response
     except Exception as e:
-        print(f"{name}: Error during CAPTCHA code step: {e}")
+        print(f"{name}: Error solving CAPTCHA code: {e}")
         print(traceback.format_exc())
         return None
 
@@ -197,12 +188,8 @@ def send_sms_code(bb, name, use_email, captcha_input=None):
         sms_code_response = bb.request_email_code(captcha_input=captcha_input)
     else:
         sms_code_response = bb.request_sms_code(captcha_input=captcha_input)
-    print(f"{name}: SMS code request response: {sms_code_response}")
-
     if sms_code_response.get("Message") == "Incorrect verification code.":
-        print(f"{name}: Incorrect CAPTCHA code, retrying...")
         return False
-
     return sms_code_response
 
 
@@ -212,7 +199,6 @@ def bbae_holdings(bbo: Brokerage, loop=None):
             obj: BBAEAPI = bbo.get_logged_in_objects(key, "bb")
             try:
                 positions = obj.get_account_holdings()
-                print(f"Raw holdings data: {positions}")
 
                 if 'Data' in positions:
                     for holding in positions['Data']:
@@ -221,7 +207,6 @@ def bbae_holdings(bbo: Brokerage, loop=None):
                             continue
                         sym = holding["displaySymbol"]
                         cp = holding["Last"]
-                        print(f"Stock Ticker: {sym}, Amount: {qty}, Current Price: {cp}")
                         bbo.set_holdings(key, account, sym, qty, cp)
             except Exception as e:
                 printAndDiscord(f"Error getting BBAE holdings: {e}")
