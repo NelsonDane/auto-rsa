@@ -188,8 +188,12 @@ def send_sms_code(bb, name, use_email, captcha_input=None):
         sms_code_response = bb.request_email_code(captcha_input=captcha_input)
     else:
         sms_code_response = bb.request_sms_code(captcha_input=captcha_input)
+    print(f"{name}: SMS code request response: {sms_code_response}")
+
     if sms_code_response.get("Message") == "Incorrect verification code.":
+        print(f"{name}: Incorrect CAPTCHA code, retrying...")
         return False
+
     return sms_code_response
 
 
