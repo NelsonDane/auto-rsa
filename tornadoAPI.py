@@ -306,7 +306,7 @@ def tornado_transaction(Tornado_o: Brokerage, orderObj: stockOrder, loop=None):
                 )
 
     print("Completed all transactions, Exiting...")
-    killSeleniumDriver(driver)
+    killSeleniumDriver(Tornado_o)
 
 
 def handle_buy(driver, stock, orderObj, loop):
@@ -370,6 +370,7 @@ def handle_buy(driver, stock, orderObj, loop):
         return
 
     try:
+        sleep(3)
         buy_power = driver.find_element(By.XPATH, buy_power_xpath).text.strip()
         cost = driver.find_element(By.XPATH, current_price_xpath).text.strip()
 
