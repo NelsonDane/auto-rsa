@@ -45,11 +45,8 @@ def bbae_init(BBAE_EXTERNAL=None, botObj=None, loop=None):
 
             # All the rest of the requests responsible for getting authenticated
             login(bb, botObj, name, loop, use_email)
-
             account_assets = bb.get_account_assets()
-
             account_info = bb.get_account_info()
-
             account_number = str(account_info['Data']['accountNumber'])
 
             # Mask the account number before printing it
@@ -57,7 +54,6 @@ def bbae_init(BBAE_EXTERNAL=None, botObj=None, loop=None):
 
             bbae_obj.set_account_number(name, masked_account_number)
             bbae_obj.set_account_totals(name, masked_account_number, float(account_assets['Data']['totalAssets']))
-
             bbae_obj.set_logged_in_object(name, bb, "bb")
         except Exception as e:
             print(f"Error logging into BBAE: {e}")
@@ -190,7 +186,6 @@ def send_sms_code(bb, name, use_email, captcha_input=None):
         sms_code_response = bb.request_email_code(captcha_input=captcha_input)
     else:
         sms_code_response = bb.request_sms_code(captcha_input=captcha_input)
-    print(f"{name}: SMS code request response: {sms_code_response}")
 
     if sms_code_response.get("Message") == "Incorrect verification code.":
         print(f"{name}: Incorrect CAPTCHA code, retrying...")
@@ -243,7 +238,6 @@ def bbae_transaction(bbo: Brokerage, orderObj: stockOrder, loop=None):
                     if action == "buy":
                         # Validate the buy transaction
                         validation_response = obj.validate_buy(symbol=s, amount=quantity, order_side=1, account_number=account)
-                        print(f"Validate Buy Response: {validation_response}")
                         if validation_response['Outcome'] != 'Success':
                             printAndDiscord(f"{key} {account}: Validation failed for buying {quantity} of {s}: {validation_response['Message']}", loop)
                             continue
@@ -256,7 +250,6 @@ def bbae_transaction(bbo: Brokerage, orderObj: stockOrder, loop=None):
                                 account_number=account,
                                 dry_run=is_dry_run
                             )
-                            print(f"Execute Buy Response: {buy_response}")
                             message = buy_response['Message']
                         else:
                             message = "Dry Run Success"
@@ -264,7 +257,6 @@ def bbae_transaction(bbo: Brokerage, orderObj: stockOrder, loop=None):
                     elif action == "sell":
                         # Check stock holdings before attempting to sell
                         holdings_response = obj.check_stock_holdings(symbol=s, account_number=account)
-                        print(f"Check Holdings Response: {holdings_response}")
                         if holdings_response["Outcome"] != "Success":
                             printAndDiscord(f"{key} {account}: Error checking holdings: {holdings_response['Message']}", loop)
                             continue
@@ -278,7 +270,6 @@ def bbae_transaction(bbo: Brokerage, orderObj: stockOrder, loop=None):
 
                         # Validate the sell transaction
                         validation_response = obj.validate_sell(symbol=s, amount=quantity, account_number=account)
-                        print(f"Validate Sell Response: {validation_response}")
                         if validation_response['Outcome'] != 'Success':
                             printAndDiscord(f"{key} {account}: Validation failed for selling {quantity} of {s}: {validation_response['Message']}", loop)
                             continue
@@ -293,7 +284,6 @@ def bbae_transaction(bbo: Brokerage, orderObj: stockOrder, loop=None):
                                 entrust_price=entrust_price,
                                 dry_run=is_dry_run
                             )
-                            print(f"Execute Sell Response: {sell_response}")
                             message = sell_response['Message']
                         else:
                             message = "Dry Run Success"
