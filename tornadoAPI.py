@@ -338,7 +338,9 @@ def handle_buy(driver, stock, orderObj, loop):
         return
 
     try:
-        current_shares_element = driver.find_element(By.XPATH, '//*[@id="main-router"]/div[1]/div/div[4]/div')
+        current_shares_element = driver.find_element(
+            By.XPATH, '//*[@id="main-router"]/div[1]/div/div[4]/div'
+        )
         has_current_shares = bool("sh" in current_shares_element.text.strip())
     except NoSuchElementException:
         has_current_shares = False
@@ -382,10 +384,15 @@ def handle_buy(driver, stock, orderObj, loop):
             try:
                 cost_float = float(cost.replace("$", "").replace(",", ""))
             except ValueError:
-                printAndDiscord(f"Tornado: Invalid price format for {stock}: {cost}", loop)
+                printAndDiscord(
+                    f"Tornado: Invalid price format for {stock}: {cost}", loop
+                )
                 return
         else:
-            printAndDiscord(f"Tornado: Price not available or in an unexpected format for {stock}: {cost}", loop)
+            printAndDiscord(
+                f"Tornado: Price not available or in an unexpected format for {stock}: {cost}",
+                loop,
+            )
             return
 
         # Check if the available buying power is enough
