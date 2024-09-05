@@ -7,6 +7,13 @@ import os
 import sys
 import traceback
 
+# Check Python version (minimum 3.10)
+print("Python version:", sys.version)
+if sys.version_info < (3, 10):
+    print("ERROR: Python 3.10 or newer is required")
+    sys.exit(1)
+print()
+
 try:
     import discord
     from discord.ext import commands
@@ -29,6 +36,7 @@ try:
     from schwabAPI import *
     from sofiAPI import *
     from tastyAPI import *
+    from tornadoAPI import *
     from tradierAPI import *
     from vanguardAPI import *
     from webullAPI import *
@@ -52,6 +60,7 @@ SUPPORTED_BROKERS = [
     "schwab",
     "sofi",
     "tastytrade",
+    "tornado",
     "tradier",
     "vanguard",
     "webull",
@@ -114,7 +123,14 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                     orderObj.set_logged_in(
                         globals()[fun_name](botObj=botObj, loop=loop), broker
                     )
-                elif broker.lower() in ["fennel", "public"]:
+                elif broker.lower() == "tornado":
+                    # Requires docker mode argument and loop
+                    orderObj.set_logged_in(
+                        globals()[fun_name](DOCKER=DOCKER_MODE, loop=loop),
+                        broker,
+                    )
+                elif broker.lower() in ["fennel", "firstrade", "public"]:
+
                     # Requires bot object and loop
                     orderObj.set_logged_in(
                         globals()[fun_name](botObj=botObj, loop=loop), broker

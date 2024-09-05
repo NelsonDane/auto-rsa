@@ -5,7 +5,6 @@
 import asyncio
 import datetime
 import os
-import re
 import traceback
 from time import sleep
 
@@ -229,6 +228,22 @@ def fidelity_account_info(driver: webdriver) -> dict | None:
         driver.get("https://digital.fidelity.com/ftgw/digital/portfolio/positions")
         # Wait for page load
         WebDriverWait(driver, 10).until(check_if_page_loaded)
+        # Uncheck the "Pin Symbol column to left" setting
+        WebDriverWait(driver, 10).until(
+            expected_conditions.element_to_be_clickable(
+                (By.ID, "posweb-grid_top-settings-button")
+            )
+        ).click()
+        checkbox = driver.find_element(
+            By.ID, "posweb-settings-modal-pinned-symbol-checkbox"
+        )
+        if checkbox.is_selected():
+            driver.execute_script("arguments[0].click();", checkbox)
+        WebDriverWait(driver, 10).until(
+            expected_conditions.element_to_be_clickable(
+                (By.XPATH, "//*[text()='Apply']/parent::*/parent::*")
+            )
+        ).click()
         # Get account numbers via javascript
         WebDriverWait(driver, 10).until(
             expected_conditions.presence_of_element_located(
@@ -284,30 +299,47 @@ def fidelity_holdings(fidelity_o: Brokerage, loop=None):
                 driver.get(
                     f"https://digital.fidelity.com/ftgw/digital/portfolio/positions#{account}"
                 )
-                # Wait for page load
-                WebDriverWait(driver, 10).until(check_if_page_loaded)
-                # Get holdings via javascript
-                WebDriverWait(driver, 10).until(
-                    expected_conditions.presence_of_element_located(
-                        (By.CLASS_NAME, "ag-pinned-left-cols-container")
-                    )
+                sleep(2)
+                holdings_rows = driver.find_elements(
+                    By.XPATH,
+                    "//*[@id='posweb-grid']//div[contains(@class, 'posweb-row-position')]",
                 )
-                stocks_list = javascript_get_classname(
-                    driver, "ag-pinned-left-cols-container"
-                )
-                # Find 1-5 letter words surrounded by 2 spaces on each side
-                for i in range(len(stocks_list)):
-                    stocks_list[i].replace(" \n ", "").replace("*", "")
-                    stocks_list[i] = re.findall(
-                        r"(?<=\s{2})[a-zA-Z]{1,5}(?=\s{2})", stocks_list[i]
-                    )
-                stocks_list = stocks_list[0]
-                # holdings_info = javascript_get_classname(
-                #     driver, "ag-center-cols-container"
-                # )
-                # print(f"Holdings Info: {holdings_info}")
-                for stock in stocks_list:
-                    fidelity_o.set_holdings(key, account, stock, "N/A", "N/A")
+                for row in holdings_rows:
+                    try:
+                        stock_ticker = row.find_element(
+                            By.XPATH, ".//div[contains(@col-id, 'sym')]//button"
+                        ).text
+                        if stock_ticker == "Cash":
+                            continue
+                        price_raw = row.find_element(
+                            By.XPATH,
+                            ".//div[@col-id='lstPrc']//span[@class='ag-cell-value']",
+                        ).text
+                        quantity_raw = row.find_element(
+                            By.XPATH,
+                            ".//div[@col-id='qty']//span[@class='ag-cell-value']",
+                        ).text
+                        # Clean up price and quantity
+                        invalid_strings = ["n/a", ""]
+                        if price_raw.lower() not in invalid_strings:
+                            price = round(
+                                float(
+                                    price_raw.replace("$", "").replace(",", "").strip()
+                                ),
+                                2,
+                            )
+                        else:
+                            price = "N/A"
+                        if quantity_raw.lower() not in invalid_strings:
+                            quantity = float(quantity_raw.replace(",", "").strip())
+                        else:
+                            quantity = "N/A"
+                        fidelity_o.set_holdings(
+                            key, account, stock_ticker, quantity, price
+                        )
+                    except Exception as e:
+                        print(f"Unexpected error processing row, skipping it: {str(e)}")
+                        continue
             except Exception as e:
                 fidelity_error(driver, e)
                 continue
