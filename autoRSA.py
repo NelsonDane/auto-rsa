@@ -21,6 +21,7 @@ try:
 
     # Custom API libraries
     from chaseAPI import *
+    from dspacAPI import *
     from fennelAPI import *
     from fidelityAPI import *
     from firstradeAPI import *
