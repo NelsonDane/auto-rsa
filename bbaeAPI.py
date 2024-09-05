@@ -98,7 +98,10 @@ def login(bb, botObj, name, loop, use_email):
             if otp_code is None:
                 raise Exception("No SMS code received")
 
-            ticket_response = bb.generate_login_ticket_sms(sms_code=otp_code)
+            if use_email == "TRUE":
+                ticket_response = bb.generate_login_ticket_email(sms_code=otp_code)
+            else:
+                ticket_response = bb.generate_login_ticket_sms(sms_code=otp_code)
 
             if "Message" in ticket_response and ticket_response["Message"] == "Incorrect verification code.":
                 raise Exception("Incorrect OTP code")
@@ -160,7 +163,6 @@ def solve_captcha(bb, botObj, name, loop, use_email):
                 loop,
             ).result()
         else:
-            # TODO 9/4/24: This has not been tested yet. Might not work ¯\_(ツ)_/¯
             captcha_image.save("./captcha.png", format="PNG")
             captcha_input = input("CAPTCHA image saved to ./captcha.png. Please open it and type in the code: ")
 
