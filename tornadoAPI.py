@@ -339,10 +339,7 @@ def handle_buy(driver, stock, orderObj, loop):
 
     try:
         current_shares_element = driver.find_element(By.XPATH, '//*[@id="main-router"]/div[1]/div/div[4]/div')
-        if "sh" in current_shares_element.text.strip():
-            has_current_shares = True
-        else:
-            has_current_shares = False
+        has_current_shares = bool("sh" in current_shares_element.text.strip())
     except NoSuchElementException:
         has_current_shares = False
 
