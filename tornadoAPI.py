@@ -306,7 +306,7 @@ def tornado_transaction(Tornado_o: Brokerage, orderObj: stockOrder, loop=None):
                 )
 
     print("Completed all transactions, Exiting...")
-    killSeleniumDriver(driver)
+    killSeleniumDriver(Tornado_o)
 
 
 def handle_buy(driver, stock, orderObj, loop):
@@ -337,27 +337,28 @@ def handle_buy(driver, stock, orderObj, loop):
         printAndDiscord(f"Tornado failed to enter quantity for {stock}.", loop)
         return
 
-    # Now check for current shares and adjust XPaths accordingly
     try:
-        has_current_shares = True
+        current_shares_element = driver.find_element(
+            By.XPATH, '//*[@id="main-router"]/div[1]/div/div[4]/div'
+        )
+        has_current_shares = bool("sh" in current_shares_element.text.strip())
     except NoSuchElementException:
-        tornado_error(driver, loop)
         has_current_shares = False
 
     market_order_xpath = (
-        '//*[@id="main-router"]/div[1]/div/div[5]/select'
+        '//*[@id="main-router"]/div[1]/div/div[5]/select/option[1]'
         if has_current_shares
-        else '//*[@id="main-router"]/div[1]/div/div[4]/select'
+        else '//*[@id="main-router"]/div[1]/div/div[4]/select/option[1]'
     )
     current_price_xpath = (
-        '//*[@id="main-router"]/div[1]/div/div[6]/div'
+        '//*[@id="main-router"]/div[1]/div/div[6]/div[contains(text(), "$")]'
         if has_current_shares
-        else '//*[@id="main-router"]/div[1]/div/div[5]/div'
+        else '//*[@id="main-router"]/div[1]/div/div[5]/div[contains(text(), "$")]'
     )
     buy_power_xpath = (
-        '//*[@id="main-router"]/div[1]/div/div[8]/div'
+        '//*[@id="main-router"]/div[1]/div/div[8]/div[contains(text(), "$")]'
         if has_current_shares
-        else '//*[@id="main-router"]/div[1]/div/div[7]/div'
+        else '//*[@id="main-router"]/div[1]/div/div[7]/div[contains(text(), "$")]'
     )
 
     try:
@@ -371,12 +372,30 @@ def handle_buy(driver, stock, orderObj, loop):
         return
 
     try:
+        sleep(3)
         buy_power = driver.find_element(By.XPATH, buy_power_xpath).text.strip()
         cost = driver.find_element(By.XPATH, current_price_xpath).text.strip()
 
+        # Validate and convert buy power
         buy_power_float = float(buy_power.replace("$", "").replace(",", ""))
-        cost_float = float(cost.replace("$", "").replace(",", ""))
 
+        # Validate and convert cost, ensuring it's a valid price
+        if "$" in cost:
+            try:
+                cost_float = float(cost.replace("$", "").replace(",", ""))
+            except ValueError:
+                printAndDiscord(
+                    f"Tornado: Invalid price format for {stock}: {cost}", loop
+                )
+                return
+        else:
+            printAndDiscord(
+                f"Tornado: Price not available or in an unexpected format for {stock}: {cost}",
+                loop,
+            )
+            return
+
+        # Check if the available buying power is enough
         if buy_power_float < cost_float:
             tornado_error(driver, loop)
             printAndDiscord(
@@ -448,7 +467,6 @@ def handle_sell(driver, stock, orderObj, loop):
         )
         current_shares = float(current_shares_element.text.strip().replace(" sh", ""))
     except NoSuchElementException:
-        tornado_error(driver, loop)
         printAndDiscord(f"Tornado no current shares to sell for {stock}.", loop)
         return
 
