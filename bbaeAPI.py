@@ -17,8 +17,6 @@ from helperAPI import (
     getUserInputDiscord,
 )
 
-load_dotenv()
-
 
 def bbae_init(BBAE_EXTERNAL=None, botObj=None, loop=None):
     load_dotenv()
@@ -63,7 +61,7 @@ def bbae_init(BBAE_EXTERNAL=None, botObj=None, loop=None):
     return bbae_obj
 
 
-def login(bb, botObj, name, loop, use_email):
+def login(bb: BBAEAPI, botObj, name, loop, use_email):
     try:
         # API call to generate the login ticket
         if use_email == "TRUE":
