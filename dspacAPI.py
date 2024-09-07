@@ -17,8 +17,6 @@ from helperAPI import (
     getUserInputDiscord,
 )
 
-load_dotenv()
-
 
 def dspac_init(DSPAC_EXTERNAL=None, botObj=None, loop=None):
     load_dotenv()
@@ -73,7 +71,7 @@ def dspac_init(DSPAC_EXTERNAL=None, botObj=None, loop=None):
     return dspac_obj
 
 
-def login(ds, botObj, name, loop, use_email):
+def login(ds: DSPACAPI, botObj, name, loop, use_email):
     try:
         # API call to generate the login ticket
         if use_email == "TRUE":
