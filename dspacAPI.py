@@ -97,15 +97,21 @@ def login(ds: DSPACAPI, botObj, name, loop, use_email):
                 raise Exception("Error solving SMS or Captcha")
 
             print(f"{name}: Waiting for OTP code from user...")
-            otp_code = asyncio.run_coroutine_threadsafe(
-                getOTPCodeDiscord(botObj, name, timeout=300, loop=loop),
-                loop,
-            ).result()
+            if botObj is None:
+                otp_code = input("Enter OTP code: ")
+            else:
+                otp_code = asyncio.run_coroutine_threadsafe(
+                    getOTPCodeDiscord(botObj, name, timeout=300, loop=loop),
+                    loop,
+                ).result()
             if otp_code is None:
                 raise Exception("No SMS code received")
 
             print(f"{name}: OTP code received: {otp_code}")
-            ticket_response = ds.generate_login_ticket_sms(sms_code=otp_code)
+            if use_email == "TRUE":
+                ticket_response = ds.generate_login_ticket_email(sms_code=otp_code)
+            else:
+                ticket_response = ds.generate_login_ticket_sms(sms_code=otp_code)
 
             if "Message" in ticket_response and ticket_response["Message"] == "Incorrect verification code.":
                 raise Exception("Incorrect OTP code")
