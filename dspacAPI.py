@@ -98,7 +98,7 @@ def login(ds: DSPACAPI, botObj, name, loop, use_email):
 
             print(f"{name}: Waiting for OTP code from user...")
             if botObj is None:
-                otp_code = input("Enter OTP code: ")
+                otp_code = input("Enter code: ")
             else:
                 otp_code = asyncio.run_coroutine_threadsafe(
                     getOTPCodeDiscord(botObj, name, timeout=300, loop=loop),
