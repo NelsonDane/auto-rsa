@@ -31,14 +31,13 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
 def sofi_error(driver, loop=None):
     if driver is not None:
         try:
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             screenshot_name = f"SoFi-error-{timestamp}.png"
             driver.save_screenshot(screenshot_name)
-        except Exception:
+        except Exception as e:
             pass
 
     try:
@@ -47,11 +46,9 @@ def sofi_error(driver, loop=None):
     except Exception:
         pass
 
-
 def get_2fa_code(secret):
     totp = pyotp.TOTP(secret)
     return totp.now()
-
 
 def sofi_init(SOFI_EXTERNAL=None, botObj=None, loop=None):
     load_dotenv()
@@ -377,13 +374,15 @@ def sofi_transaction(SoFi_o: Brokerage, orderObj: stockOrder, loop=None):
 
             try:
                 search_field = WebDriverWait(driver, 10).until(
-                    EC.element_to_be_clickable((By.NAME, "search-bar")))
+                    EC.element_to_be_clickable((By.NAME, "search-bar"))
+                )
                 search_field.send_keys(s)
                 print(f"Entered stock symbol {s} into the search bar")
             except TimeoutException:
                 try:
                     invest_search_field = WebDriverWait(driver, 10).until(
-                        EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[2]/div[1]/div/div/div/input")))
+                        EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[2]/div[1]/div/div/div/input"))
+                    )
                     invest_search_field.send_keys(s)
                     print(f"Entered stock symbol {s} into the alternative search field")
                 except TimeoutException:
@@ -423,283 +422,250 @@ def sofi_transaction(SoFi_o: Brokerage, orderObj: stockOrder, loop=None):
                 continue
 
             if orderObj.get_action() == "buy":
-                clicked_values = set()  # Set to keep track of processed accounts
-
-                DRY = orderObj.get_dry()
-                QUANTITY = orderObj.get_amount()
-                print("DRY MODE:", DRY)
-                account_number = 1
-                sleep(4)
-
-                while True:
-                    sleep(1)
-                    try:
-                        print("Attempting to click the buy button")
-                        buy_button = WebDriverWait(driver, 20).until(
-                            EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[2]/div[2]/div/button[1]")))
-                        driver.execute_script("arguments[0].click();", buy_button)
-                        print("Buy button clicked")
-                    except TimeoutException:
-                        print(f"Buy button not found for {s}. Moving to next stock.")
-                        printAndDiscord(f"SoFi buy button not found for {s}.", loop)
-                        break
-
-                    try:
-                        accounts_dropdown = WebDriverWait(driver, 20).until(
-                            EC.element_to_be_clickable((By.NAME, "account")))
-                        select = Select(accounts_dropdown)
-
-                        for option in select.options:
-                            value = option.get_attribute('value')
-                            if value not in clicked_values:
-                                select.select_by_value(value)
-                                print(f"Selected account {account_number} (real: {key}): {value} (dropdown selection value)")
-                                account_number += 1
-                                clicked_values.add(value)
-                                break
-                        else:
-                            print(f"All accounts have been processed for {s}.")
-                            break
-
-                        print("Fetching live price for the stock")
-                        try:
-                            live_price_element = WebDriverWait(driver, 5).until(
-                                EC.presence_of_element_located((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/p")))
-                            live_price = live_price_element.text.split('$')[1]
-                        except TimeoutException:
-                            live_price_element = WebDriverWait(driver, 5).until(
-                                EC.presence_of_element_located((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/div[4]/div[2]")))
-                            live_price = live_price_element.text.split('$')[1]
-
-                        print(f"Live price fetched: {live_price}")
-                    except TimeoutException:
-                        print(f"Failed to fetch live price for {s}. Moving to next stock.")
-                        printAndDiscord(f"SoFi failed to fetch live price for {s}.", loop)
-                        break
-
-                    try:
-                        sleep(1)
-                        print(f"Entering quantity {QUANTITY}")
-                        quant = WebDriverWait(driver, 20).until(
-                            EC.element_to_be_clickable((By.NAME, "shares")))
-                        quant.send_keys(QUANTITY)
-                        print(f"Quantity {QUANTITY} entered")
-                    except TimeoutException:
-                        print(f"Failed to enter quantity for {s}. Moving to next stock.")
-                        printAndDiscord(f"SoFi failed to enter quantity for {s}.", loop)
-                        break
-
-                    try:
-                        # Check if the order type is already set to "Limit price"
-                        limit_price_label_present = driver.find_elements(By.XPATH, "//p[contains(text(), 'Limit price')]")
-
-                        if limit_price_label_present:
-                            print("Order type already set to 'Limit price'. Skipping JavaScript execution.")
-                        else:
-                            # Ensure the order type is set to "Limit price" using JavaScript
-                            driver.execute_script("""
-                                var dropdown = document.querySelector("#OrderTypedDropDown");
-                                dropdown.focus();
-                                var event = new MouseEvent('mousedown', {
-                                    'view': window,
-                                    'bubbles': true,
-                                    'cancelable': true
-                                });
-                                dropdown.dispatchEvent(event);
-                                dropdown.value = 'LIMIT';
-                                dropdown.dispatchEvent(new Event('change', { bubbles: true }));
-                                dropdown.dispatchEvent(new MouseEvent('mouseup', {
-                                    'view': window,
-                                    'bubbles': true,
-                                    'cancelable': true
-                                }));
-                                dropdown.dispatchEvent(new Event('focusout', { bubbles: true }));
-                            """)
-                            print("Order type set to 'Limit price'")
-
-                        print("Entering limit price")
-                        rounded_price = round(float(live_price) + 0.01 if float(live_price) >= 0.11 else float(live_price), 2)
-                        limit_price = WebDriverWait(driver, 20).until(
-                            EC.element_to_be_clickable((By.NAME, "value")))
-                        limit_price.send_keys(str(rounded_price))
-                        print(f"Limit price entered: {rounded_price}")
-                    except TimeoutException:
-                        print(f"Failed to enter limit price for {s}. Moving to next stock.")
-                        printAndDiscord(f"SoFi failed to enter limit price for {s}.", loop)
-                        break
-
-                    review_button = WebDriverWait(driver, 3).until(
-                        EC.element_to_be_clickable((By.CSS_SELECTOR, "button[data-mjs='inv-trade-buy-review']")))
-                    review_button.click()
-
-                    if DRY is False:
-                        try:
-                            sleep(2)
-                            submit_button = WebDriverWait(driver, 5).until(
-                                EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/div[4]/button[1]")))
-                            driver.execute_script("arguments[0].scrollIntoView(true);", submit_button)
-                            submit_button.click()
-                            print(f"Order submitted for {QUANTITY} shares of {s} at {rounded_price}")
-                            done_button = WebDriverWait(driver, 5).until(
-                                EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/div[2]/button")))
-                            done_button.click()
-                            printAndDiscord(f"SoFi account {key}: buy {QUANTITY} shares of {s} at {rounded_price}", loop)
-                        except TimeoutException:
-                            print(f"Failed to submit buy order for {s}. Moving to next stock.")
-                            printAndDiscord(f"SoFi failed to submit buy order for {s}.", loop)
-                            break
-                        except Exception as e:
-                            print(f"Encountered an unexpected error when submitting the buy order for {s}: {e}")
-                            printAndDiscord(f"SoFi unexpected error when submitting buy order for {s}: {e}", loop)
-                            break
-                    else:
-                        back_button = WebDriverWait(driver, 20).until(
-                            EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/div[4]/button[2]")))
-                        back_button.click()
-                        sleep(2)
-                        print(f"DRY MODE: Simulated order BUY for {QUANTITY} shares of {s} at {rounded_price}")
-                        printAndDiscord(f"SoFi account {key}: dry run buy {QUANTITY} shares of {s} at {rounded_price}", loop)
-                        cancel_button = WebDriverWait(driver, 20).until(
-                            EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/a")))
-                        cancel_button.click()
-
+                process_account_transaction(driver, s, orderObj, key, loop, transaction_type="buy", SoFi_o=SoFi_o)
             elif orderObj.get_action() == "sell":
-                clicked_values = set()  # Set to keep track of processed accounts
-
-                DRY = orderObj.get_dry()
-                QUANTITY = orderObj.get_amount()
-                print("DRY MODE:", DRY)
-                account_number = 1
-                sleep(4)
-                while True:
-                    sleep(1)
-                    try:
-                        print("Attempting to click the sell button")
-                        sell = WebDriverWait(driver, 10).until(
-                            EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[2]/div[2]/div/button[2]")))
-                        sell.click()
-                        print("Sell button clicked")
-                    except TimeoutException:
-                        print(f"Sell button not found for {s}. Moving to next stock.")
-                        printAndDiscord(f"SoFi sell button not found for {s}.", loop)
-                        break
-
-                    try:
-                        accounts_dropdown = WebDriverWait(driver, 20).until(
-                            EC.element_to_be_clickable((By.NAME, "account")))
-                        select = Select(accounts_dropdown)
-
-                        for option in select.options:
-                            value = option.get_attribute('value')
-                            if value not in clicked_values:
-                                select.select_by_value(value)
-                                print(f"Selected account {account_number} (real: {key}): {value} (dropdown selection value)")
-                                account_number += 1
-                                clicked_values.add(value)
-                                break
-                        else:
-                            print(f"All accounts have been processed for {s}.")
-                            break
-
-                        try:
-                            print(f"Checking available shares for {s}")
-                            available_shares = WebDriverWait(driver, 20).until(
-                                EC.presence_of_element_located((By.XPATH, '/html/body/div[1]/div/main/div[2]/div[2]/div[3]/div/h2'))).text.split(' ')[0]
-                            print(f"Available shares: {available_shares}")
-                        except TimeoutException:
-                            print(f"Failed to fetch available shares for {s}. Moving to next stock.")
-                            printAndDiscord(f"SoFi failed to fetch available shares for {s}.", loop)
-                            break
-
-                        if QUANTITY > float(available_shares):
-                            QUANTITY = float(available_shares) if float(available_shares) > 0 else 0
-                            if QUANTITY == 0:
-                                print("No shares available")
-                                continue
-
-                        try:
-                            print(f"Entering quantity {QUANTITY}")
-                            quant = WebDriverWait(driver, 20).until(
-                                EC.element_to_be_clickable((By.NAME, "shares")))
-                            quant.send_keys(QUANTITY)
-                            print(f"Quantity {QUANTITY} entered")
-                        except TimeoutException:
-                            print(f"Failed to enter quantity for {s}. Moving to next stock.")
-                            printAndDiscord(f"SoFi failed to enter quantity for {s}.", loop)
-                            break
-
-                        # Ensure the order type is set to "Limit price" using the working JavaScript
-                        driver.execute_script("""
-                            var dropdown = document.querySelector("#OrderTypedDropDown");
-                            dropdown.focus();
-                            var event = new MouseEvent('mousedown', {
-                                'view': window,
-                                'bubbles': true,
-                                'cancelable': true
-                            });
-                            dropdown.dispatchEvent(event);
-                            dropdown.value = 'LIMIT';
-                            dropdown.dispatchEvent(new Event('change', { bubbles: true }));
-                            dropdown.dispatchEvent(new MouseEvent('mouseup', {
-                                'view': window,
-                                'bubbles': true,
-                                'cancelable': true
-                            }));
-                            dropdown.dispatchEvent(new Event('focusout', { bubbles: true }));
-                        """)
-                        print("Order type set to 'Limit price'")
-
-                        print("Fetching live price for the stock")
-                        live_price = WebDriverWait(driver, 20).until(
-                            EC.presence_of_element_located((By.XPATH, '//*[@id="mainContent"]/div[2]/div[2]/div[3]/div/div[5]/div[2]'))).text.split('$')[1]
-                        print(f"Live price fetched: {live_price}")
-
-                        try:
-                            # Click to activate the limit price input field
-                            limit_price_input = WebDriverWait(driver, 10).until(
-                                EC.element_to_be_clickable((By.CSS_SELECTOR, "input[name='value']"))
-                            )
-                            limit_price_input.click()  # Click to activate the field
-                            limit_price_input.send_keys(live_price)
-                            print("Limit price entered successfully")
-                        except TimeoutException:
-                            print("Failed to locate the limit price input field.")
-
-                        print("Clicking sell button")
-                        sell_button = WebDriverWait(driver, 20).until(
-                            EC.element_to_be_clickable((By.XPATH, "//button[@class='sc-fKVqWL gkmrQz StyledActionButton-hdOdyk iUbDdu' and @data-mjs='inv-trade-sell-review' and @type='button']")))
-
-                        sell_button.click()
-                    except TimeoutException:
-                        print(f"Failed to click sell button for {s}. Moving to next stock.")
-                        printAndDiscord(f"SoFi failed to click sell button for {s}.", loop)
-                        break
-
-                    if DRY:
-                        try:
-                            cancel_button = WebDriverWait(driver, 20).until(
-                                EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/div[4]/button[1]")))
-                            cancel_button.click()
-                            print(f"DRY MODE: Simulated order SELL for {QUANTITY} shares of {s} at {float(live_price) - 0.01}")
-                            printAndDiscord(f"SoFi account {key}: dry run sell {QUANTITY} shares of {s} at {float(live_price) - 0.01}", loop)
-                        except TimeoutException:
-                            print(f"Failed to click cancel button on sell order for {s}. Moving to next stock.")
-                            printAndDiscord(f"SoFi failed to click cancel button on sell order for {s}.", loop)
-                            break
-                    else:
-                        try:
-                            submit_button = WebDriverWait(driver, 20).until(
-                                EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/a")))
-                            submit_button.click()
-                            print(f"Order submitted for {QUANTITY} shares of {s} at {float(live_price) - 0.01}")
-                            printAndDiscord(f"SoFi account {key}: sell {QUANTITY} shares of {s} at {float(live_price) - 0.01}", loop)
-                            done_button = WebDriverWait(driver, 20).until(
-                                EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/div[2]/button")))
-                            done_button.click()
-                        except TimeoutException:
-                            print(f"Failed to submit sell order for {s}. Moving to next stock.")
-                            printAndDiscord(f"SoFi failed to submit sell order for {s}.", loop)
-                            break
+                process_account_transaction(driver, s, orderObj, key, loop, transaction_type="sell", SoFi_o=SoFi_o)
 
     print("Completed all transactions, Exiting...")
-    killSeleniumDriver(SoFi_o)  # Properly close and quit the Selenium driver
+    killSeleniumDriver(SoFi_o)
+
+
+def process_account_transaction(driver, stock, orderObj, key, loop, transaction_type, SoFi_o):
+    clicked_values = set()  # Set to keep track of processed accounts
+    DRY = orderObj.get_dry()
+    QUANTITY = orderObj.get_amount()
+    print("DRY MODE:", DRY)
+    account_number = 1
+
+    while True:
+        try:
+            # Wait for the buy/sell page to load by ensuring the "Buy" button is present
+            print(f"Waiting for the {transaction_type} page to load for {stock}.")
+            WebDriverWait(driver, 20).until(
+                EC.presence_of_element_located((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[2]/div[2]/div/button[1]"))
+            )
+            print(f"{transaction_type.capitalize()} page loaded for {stock}.")
+
+            if transaction_type == "buy":
+                print("Attempting to click the buy button")
+                buy_button = WebDriverWait(driver, 20).until(
+                    EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[2]/div[2]/div/button[1]"))
+                )
+                driver.execute_script("arguments[0].click();", buy_button)
+                print("Buy button clicked")
+            else:
+                print("Attempting to click the sell button")
+                sell_button = WebDriverWait(driver, 10).until(
+                    EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[2]/div[2]/div/button[2]"))
+                )
+                driver.execute_script("arguments[0].click();", sell_button)
+                print("Sell button clicked")
+
+            accounts_dropdown = WebDriverWait(driver, 20).until(
+                EC.element_to_be_clickable((By.NAME, "account"))
+            )
+            select = Select(accounts_dropdown)
+
+            for option in select.options:
+                value = option.get_attribute('value')
+                if value not in clicked_values:
+                    select.select_by_value(value)
+                    print(f"Selected account {account_number} (real: {key}): {value} (dropdown selection value)")
+                    account_number += 1
+                    clicked_values.add(value)
+                    break
+            else:
+                print(f"All accounts have been processed for {stock}.")
+                break
+
+            if transaction_type == "buy":
+                handle_buy_process(driver, stock, QUANTITY, DRY, key, loop, SoFi_o)
+            else:
+                handle_sell_process(driver, stock, QUANTITY, DRY, key, loop, SoFi_o)
+
+        except TimeoutException:
+            print(f"{transaction_type.capitalize()} button not found for {stock}. Moving to next stock.")
+            printAndDiscord(f"SoFi {transaction_type} button not found for {stock}.", loop)
+            break
+
+
+def handle_buy_process(driver, stock, QUANTITY, DRY, key, loop, SoFi_o):
+    try:
+        # Enter quantity to buy
+        print(f"Entering quantity {QUANTITY} for {stock}.")
+        quant = WebDriverWait(driver, 20).until(
+            EC.element_to_be_clickable((By.NAME, "shares"))
+        )
+        quant.send_keys(str(QUANTITY))
+        print(f"Quantity {QUANTITY} entered for {stock}.")
+
+        # Check if the forced limit order element is present (price < $1)
+        try:
+            print(f"Checking if forced limit order is required for {stock}.")
+            limit_price_element = WebDriverWait(driver, 5).until(
+                EC.presence_of_element_located((By.XPATH, '//*[@id="mainContent"]/div[2]/div[2]/div[3]/div/p'))
+            )
+            live_price = limit_price_element.text.split('$')[1]
+            rounded_price = round(float(live_price), 2)
+            print(f"Found forced limit order for {stock}. Market price: {live_price}. Rounded price: {rounded_price}.")
+
+            limit_price_input = WebDriverWait(driver, 20).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[name="value"][placeholder="Add"]'))
+            )
+            limit_price_input.click()
+            limit_price_input.clear()
+            limit_price_input.send_keys(str(rounded_price))
+            print(f"Entered limit price {rounded_price} for {stock}.")
+
+            review_button = WebDriverWait(driver, 5).until(
+                EC.element_to_be_clickable((By.XPATH, '//*[@id="mainContent"]/div[2]/div[2]/div[3]/div/div[8]/button'))
+            )
+            review_button.click()
+            printAndDiscord(f"Forced Limit Order: Buying {QUANTITY} shares of {stock} at {rounded_price} in account {key}.", loop)
+
+        except TimeoutException:
+            print(f"Checking if market order is applicable for {stock}.")
+            try:
+                # If forced limit order is not present, attempt market price lookup
+                market_price_element = WebDriverWait(driver, 5).until(
+                    EC.presence_of_element_located((By.XPATH, '//*[@id="mainContent"]/div[2]/div[2]/div[3]/div/div[5]/div'))
+                )
+                market_price = market_price_element.text.split('$')[1]
+                rounded_price = round(float(market_price), 2)
+                print(f"Market price for {stock} is {market_price}. Rounded price: {rounded_price}.")
+
+                review_button = WebDriverWait(driver, 5).until(
+                    EC.element_to_be_clickable((By.XPATH, '//*[@id="mainContent"]/div[2]/div[2]/div[3]/div/div[6]/button'))
+                )
+                review_button.click()
+                printAndDiscord(f"Market Order: Buying {QUANTITY} shares of {stock} at {rounded_price} in account {key}.", loop)
+
+            except TimeoutException:
+                printAndDiscord(f"Market price element not found for {stock} in account {key}.", loop)
+                cancel_and_return(driver)  # Cancel and return to the main page
+                return
+
+        # If not in dry mode, submit the order and click 'Done'
+        if not DRY:
+            submit_button = WebDriverWait(driver, 5).until(
+                EC.element_to_be_clickable((By.XPATH, "//*[@id='mainContent']/div[2]/div[2]/div[3]/div/div[4]/button[1]"))
+            )
+            submit_button.click()
+            printAndDiscord(f"SoFi: Buy {QUANTITY} shares of {stock} at {rounded_price} in account {key}.", loop)
+
+            # Click the 'Done' button after confirming the order
+            done_button = WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, '//*[@id="mainContent"]/div[2]/div[2]/div[3]/div/div[2]/button'))
+            )
+            done_button.click()
+            print(f"Clicked 'Done' button to confirm buy for {stock}.")
+            printAndDiscord(f"Buy order for {stock} in account {key} completed successfully.", loop)
+        else:
+            # Simulate the buy order in dry mode and click cancel
+            printAndDiscord(f"DRY MODE: Simulated buy {QUANTITY} shares of {stock} at {rounded_price} in account {key}.", loop)
+            cancel_and_return(driver)  # Click cancel in dry mode
+
+    except Exception as e:
+        sofi_error(driver, loop)
+        printAndDiscord(f"Error processing buy for {stock} in account {key}: {e}", loop)
+        cancel_and_return(driver)  # Cancel and return after an error
+
+
+def handle_sell_process(driver, stock, QUANTITY, DRY, key, loop, SoFi_o):
+    try:
+        # Fetch available shares
+        available_shares_element = WebDriverWait(driver, 20).until(
+            EC.presence_of_element_located((By.XPATH, '//*[@id="mainContent"]/div[2]/div[2]/div[3]/div/h2'))
+        )
+        available_shares = float(available_shares_element.text.split(' ')[0])
+        
+        # If available shares are 0, skip to the next account
+        if available_shares == 0:
+            print(f"No available shares for {stock} in account {key}. Skipping to next account.")
+            printAndDiscord(f"No available shares for {stock} in account {key}.", loop)
+            cancel_and_return(driver)  # Cancel and return to the main page
+            return
+        
+        # Ensure the quantity doesn't exceed available shares
+        if QUANTITY > available_shares:
+            print(f"Requested quantity exceeds available shares ({available_shares}).")
+            printAndDiscord(f"Requested quantity exceeds available shares for {stock} in account {key}. Skipping.", loop)
+            cancel_and_return(driver)  # Cancel and return to the main page
+            return
+
+        # Enter the quantity
+        print(f"Entering quantity {QUANTITY} for {stock}.")
+        quant = WebDriverWait(driver, 20).until(
+            EC.element_to_be_clickable((By.NAME, "shares"))
+        )
+        quant.send_keys(str(QUANTITY))
+        print(f"Quantity {QUANTITY} entered for {stock}.")
+
+        # Select 'Limit Price' order type dynamically
+        print(f"Selecting 'Limit Price' for {stock}.")
+        limit_price_option = WebDriverWait(driver, 5).until(
+            EC.element_to_be_clickable((By.XPATH, '//select[@id="OrderTypedDropDown"]/option[@value="LIMIT"]'))
+        )
+        limit_price_option.click()
+
+        # Fetch and round the current market price
+        print(f"Fetching live price for {stock}.")
+        market_price_element = WebDriverWait(driver, 5).until(
+            EC.presence_of_element_located((By.XPATH, '//*[@id="mainContent"]/div[2]/div[2]/div[3]/div/div[5]/div[2]'))
+        )
+        market_price = market_price_element.text.split('$')[1]
+        rounded_price = round(float(market_price) - 0.01, 2)
+        print(f"Market price for {stock} is {market_price}. Setting limit price to {rounded_price}.")
+
+        # Enter the limit price
+        limit_price_input = WebDriverWait(driver, 20).until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[name="value"][placeholder="Add"]'))
+        )
+        limit_price_input.click()
+        limit_price_input.clear()
+        limit_price_input.send_keys(str(rounded_price))
+        print(f"Entered limit price {rounded_price} for {stock}.")
+
+        # Review and confirm the order
+        review_button = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, f'//button[contains(text(), "Sell All") or contains(text(), "Review")]'))
+        )
+        review_button.click()
+        printAndDiscord(f"Limit Order: Selling {QUANTITY} shares of {stock} at {rounded_price} in account {key}.", loop)
+
+        # If not in dry mode, submit the order
+        if not DRY:
+            print(f"Submitting sell order for {QUANTITY} shares of {stock} at {rounded_price}.")
+            submit_button = WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, f'//button[contains(text(), "Sell {stock}")]'))
+            )
+            submit_button.click()
+            printAndDiscord(f"SoFi account {key}: sell {QUANTITY} shares of {stock} at {rounded_price}.", loop)
+
+            # Click the 'Done' button after confirming the order
+            done_button = WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, '//*[@id="mainContent"]/div[2]/div[2]/div[3]/div/div[2]/button'))
+            )
+            done_button.click()
+            print(f"Clicked 'Done' button to confirm sell for {stock}.")
+            printAndDiscord(f"Sell order for {stock} in account {key} completed successfully.", loop)
+        else:
+            # Dry mode, simulate the sell order
+            printAndDiscord(f"DRY MODE: Simulated sell {QUANTITY} shares of {stock} at {rounded_price} in account {key}.", loop)
+            cancel_and_return(driver)  # Click cancel in dry mode
+
+    except Exception as e:
+        sofi_error(driver, loop)
+        printAndDiscord(f"Error processing sell for {stock} in account {key}: {e}", loop)
+        cancel_and_return(driver)  # Cancel and return after an error
+
+
+def cancel_and_return(driver):
+    try:
+        cancel_button = WebDriverWait(driver, 5).until(
+            EC.element_to_be_clickable((By.XPATH, '//*[@id="mainContent"]/div[2]/div[2]/div[3]/a'))
+        )
+        cancel_button.click()
+        print("Clicked 'Cancel' button to return to the main page.")
+    except TimeoutException:
+        print("Cancel button not found, could not return to the main page.")
