@@ -670,23 +670,24 @@ async def getOTPCodeDiscord(
         return code.content
 
 
-async def getUserInputDiscord(botObj, prompt, timeout=60, loop=None):
+async def getUserInputDiscord(botObj: commands.Bot, prompt, timeout=60, loop=None):
     printAndDiscord(prompt, loop)
-    printAndDiscord(f"Please enter the input or type cancel within {timeout} seconds", loop)
+    printAndDiscord(
+        f"Please enter the input or type cancel within {timeout} seconds", loop
+    )
     try:
         code = await botObj.wait_for(
             "message",
-            check=lambda m: m.author != botObj.user and m.channel.id == int(DISCORD_CHANNEL),
+            check=lambda m: m.author != botObj.user
+            and m.channel.id == int(DISCORD_CHANNEL),
             timeout=timeout,
         )
     except asyncio.TimeoutError:
         printAndDiscord("Timed out waiting for input", loop)
         return None
-
     if code.content.lower() == "cancel":
         printAndDiscord("Input canceled by user", loop)
         return None
-
     return code.content
 
 
@@ -695,9 +696,7 @@ async def send_captcha_to_discord(file):
     HEADERS = {
         "Authorization": f"Bot {DISCORD_TOKEN}",
     }
-    files = {
-        'file': ('captcha.png', file, 'image/png')
-    }
+    files = {"file": ("captcha.png", file, "image/png")}
     success = False
     while not success:
         response = requests.post(BASE_URL, headers=HEADERS, files=files)
@@ -707,7 +706,9 @@ async def send_captcha_to_discord(file):
             rate_limit = response.json()["retry_after"] * 2
             await asyncio.sleep(rate_limit)
         else:
-            print(f"Error sending CAPTCHA image: {response.status_code}: {response.text}")
+            print(
+                f"Error sending CAPTCHA image: {response.status_code}: {response.text}"
+            )
             break
 
 
