@@ -31,13 +31,14 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 def sofi_error(driver, loop=None):
     if driver is not None:
         try:
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             screenshot_name = f"SoFi-error-{timestamp}.png"
             driver.save_screenshot(screenshot_name)
-        except Exception as e:
+        except Exception:
             pass
 
     try:
@@ -46,9 +47,11 @@ def sofi_error(driver, loop=None):
     except Exception:
         pass
 
+
 def get_2fa_code(secret):
     totp = pyotp.TOTP(secret)
     return totp.now()
+
 
 def sofi_init(SOFI_EXTERNAL=None, botObj=None, loop=None):
     load_dotenv()
@@ -422,15 +425,15 @@ def sofi_transaction(SoFi_o: Brokerage, orderObj: stockOrder, loop=None):
                 continue
 
             if orderObj.get_action() == "buy":
-                process_account_transaction(driver, s, orderObj, key, loop, transaction_type="buy", SoFi_o=SoFi_o)
+                process_account_transaction(driver, s, orderObj, key, loop, transaction_type="buy")
             elif orderObj.get_action() == "sell":
-                process_account_transaction(driver, s, orderObj, key, loop, transaction_type="sell", SoFi_o=SoFi_o)
+                process_account_transaction(driver, s, orderObj, key, loop, transaction_type="sell")
 
     print("Completed all transactions, Exiting...")
     killSeleniumDriver(SoFi_o)
 
 
-def process_account_transaction(driver, stock, orderObj, key, loop, transaction_type, SoFi_o):
+def process_account_transaction(driver, stock, orderObj, key, loop, transaction_type):
     clicked_values = set()  # Set to keep track of processed accounts
     DRY = orderObj.get_dry()
     QUANTITY = orderObj.get_amount()
@@ -479,9 +482,9 @@ def process_account_transaction(driver, stock, orderObj, key, loop, transaction_
                 break
 
             if transaction_type == "buy":
-                handle_buy_process(driver, stock, QUANTITY, DRY, key, loop, SoFi_o)
+                handle_buy_process(driver, stock, QUANTITY, DRY, key, loop)
             else:
-                handle_sell_process(driver, stock, QUANTITY, DRY, key, loop, SoFi_o)
+                handle_sell_process(driver, stock, QUANTITY, DRY, key, loop)
 
         except TimeoutException:
             print(f"{transaction_type.capitalize()} button not found for {stock}. Moving to next stock.")
@@ -489,9 +492,10 @@ def process_account_transaction(driver, stock, orderObj, key, loop, transaction_
             break
 
 
-def handle_buy_process(driver, stock, QUANTITY, DRY, key, loop, SoFi_o):
+def handle_buy_process(driver, stock, QUANTITY, DRY, key, loop):
     try:
         # Enter quantity to buy
+        sleep(2)
         print(f"Entering quantity {QUANTITY} for {stock}.")
         quant = WebDriverWait(driver, 20).until(
             EC.element_to_be_clickable((By.NAME, "shares"))
@@ -571,21 +575,21 @@ def handle_buy_process(driver, stock, QUANTITY, DRY, key, loop, SoFi_o):
         cancel_and_return(driver)  # Cancel and return after an error
 
 
-def handle_sell_process(driver, stock, QUANTITY, DRY, key, loop, SoFi_o):
+def handle_sell_process(driver, stock, QUANTITY, DRY, key, loop):
     try:
         # Fetch available shares
         available_shares_element = WebDriverWait(driver, 20).until(
             EC.presence_of_element_located((By.XPATH, '//*[@id="mainContent"]/div[2]/div[2]/div[3]/div/h2'))
         )
         available_shares = float(available_shares_element.text.split(' ')[0])
-        
+
         # If available shares are 0, skip to the next account
         if available_shares == 0:
             print(f"No available shares for {stock} in account {key}. Skipping to next account.")
             printAndDiscord(f"No available shares for {stock} in account {key}.", loop)
             cancel_and_return(driver)  # Cancel and return to the main page
             return
-        
+
         # Ensure the quantity doesn't exceed available shares
         if QUANTITY > available_shares:
             print(f"Requested quantity exceeds available shares ({available_shares}).")
@@ -628,7 +632,7 @@ def handle_sell_process(driver, stock, QUANTITY, DRY, key, loop, SoFi_o):
 
         # Review and confirm the order
         review_button = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, f'//button[contains(text(), "Sell All") or contains(text(), "Review")]'))
+            EC.element_to_be_clickable((By.XPATH, '//button[contains(text(), "Sell All") or contains(text(), "Review")]'))
         )
         review_button.click()
         printAndDiscord(f"Limit Order: Selling {QUANTITY} shares of {stock} at {rounded_price} in account {key}.", loop)
