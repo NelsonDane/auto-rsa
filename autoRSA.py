@@ -129,7 +129,7 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                         globals()[fun_name](DOCKER=DOCKER_MODE, loop=loop),
                         broker,
                     )
-                elif broker.lower() in ["fennel", "firstrade", "public"]:
+                elif broker.lower() in ["bbae", "fennel", "firstrade", "public"]:
 
                     # Requires bot object and loop
                     orderObj.set_logged_in(
