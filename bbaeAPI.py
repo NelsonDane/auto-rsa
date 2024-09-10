@@ -36,7 +36,9 @@ def bbae_init(BBAE_EXTERNAL=None, botObj=None, loop=None):
             user, password = account.split(":")[:2]
             use_email = "@" in user
             # Initialize the BBAE API object
-            bb = BBAEAPI(user, password, filename=f"BBAE_{index + 1}.pkl", creds_path="./creds/")
+            bb = BBAEAPI(
+                user, password, filename=f"BBAE_{index + 1}.pkl", creds_path="./creds/"
+            )
             bb.make_initial_request()
             # All the rest of the requests responsible for getting authenticated
             login(bb, botObj, name, loop, use_email)
@@ -46,7 +48,11 @@ def bbae_init(BBAE_EXTERNAL=None, botObj=None, loop=None):
             # Set account values
             masked_account_number = maskString(account_number)
             bbae_obj.set_account_number(name, masked_account_number)
-            bbae_obj.set_account_totals(name, masked_account_number, float(account_assets["Data"]["totalAssets"]))
+            bbae_obj.set_account_totals(
+                name,
+                masked_account_number,
+                float(account_assets["Data"]["totalAssets"]),
+            )
             bbae_obj.set_logged_in_object(name, bb, "bb")
         except Exception as e:
             print(f"Error logging into BBAE: {e}")
@@ -69,7 +75,9 @@ def login(bb: BBAEAPI, botObj, name, loop, use_email):
         # Check if SMS or CAPTCHA verification are required
         data = ticket_response["Data"]
         if data.get("needSmsVerifyCode", False):
-            sms_and_captcha_response = handle_captcha_and_sms(bb, botObj, data, loop, name, use_email)
+            sms_and_captcha_response = handle_captcha_and_sms(
+                bb, botObj, data, loop, name, use_email
+            )
             if not sms_and_captcha_response:
                 raise Exception("Error solving SMS or Captcha")
             # Get the OTP code from the user
@@ -90,11 +98,16 @@ def login(bb: BBAEAPI, botObj, name, loop, use_email):
             if ticket_response.get("Message") == "Incorrect verification code.":
                 raise Exception("Incorrect OTP code")
         # Handle the login ticket
-        if ticket_response.get("Data") is not None and ticket_response.get("Data").get("ticket") is not None:
+        if (
+            ticket_response.get("Data") is not None
+            and ticket_response.get("Data").get("ticket") is not None
+        ):
             ticket = ticket_response["Data"]["ticket"]
         else:
             print(f"{name}: Raw response object: {ticket_response}")
-            raise Exception(f"Login failed. No ticket generated. Response: {ticket_response}")
+            raise Exception(
+                f"Login failed. No ticket generated. Response: {ticket_response}"
+            )
         login_response = bb.login_with_ticket(ticket)
         if login_response.get("Outcome") != "Success":
             raise Exception(f"Login failed. Response: {login_response}")
@@ -141,12 +154,16 @@ def solve_captcha(bb: BBAEAPI, botObj, name, loop, use_email):
                 loop,
             ).result()
             captcha_input = asyncio.run_coroutine_threadsafe(
-                getUserInputDiscord(botObj, f"{name} requires CAPTCHA input", timeout=300, loop=loop),
+                getUserInputDiscord(
+                    botObj, f"{name} requires CAPTCHA input", timeout=300, loop=loop
+                ),
                 loop,
             ).result()
         else:
             captcha_image.save("./captcha.png", format="PNG")
-            captcha_input = input("CAPTCHA image saved to ./captcha.png. Please open it and type in the code: ")
+            captcha_input = input(
+                "CAPTCHA image saved to ./captcha.png. Please open it and type in the code: "
+            )
         if captcha_input is None:
             raise Exception("No CAPTCHA code found")
         # Send the CAPTCHA to the appropriate API based on login type
@@ -216,9 +233,17 @@ def bbae_transaction(bbo: Brokerage, orderObj: stockOrder, loop=None):
                     # Buy
                     if action == "buy":
                         # Validate the buy transaction
-                        validation_response = obj.validate_buy(symbol=s, amount=quantity, order_side=1, account_number=account)
+                        validation_response = obj.validate_buy(
+                            symbol=s,
+                            amount=quantity,
+                            order_side=1,
+                            account_number=account,
+                        )
                         if validation_response["Outcome"] != "Success":
-                            printAndDiscord(f"{key} {account}: Validation failed for buying {quantity} of {s}: {validation_response['Message']}", loop)
+                            printAndDiscord(
+                                f"{key} {account}: Validation failed for buying {quantity} of {s}: {validation_response['Message']}",
+                                loop,
+                            )
                             continue
                         # Proceed to execute the buy if not in dry run mode
                         if not is_dry_run:
@@ -226,7 +251,7 @@ def bbae_transaction(bbo: Brokerage, orderObj: stockOrder, loop=None):
                                 symbol=s,
                                 amount=quantity,
                                 account_number=account,
-                                dry_run=is_dry_run
+                                dry_run=is_dry_run,
                             )
                             message = buy_response["Message"]
                         else:
@@ -234,19 +259,34 @@ def bbae_transaction(bbo: Brokerage, orderObj: stockOrder, loop=None):
                     # Sell
                     elif action == "sell":
                         # Check stock holdings before attempting to sell
-                        holdings_response = obj.check_stock_holdings(symbol=s, account_number=account)
+                        holdings_response = obj.check_stock_holdings(
+                            symbol=s, account_number=account
+                        )
                         if holdings_response["Outcome"] != "Success":
-                            printAndDiscord(f"{key} {account}: Error checking holdings: {holdings_response['Message']}", loop)
+                            printAndDiscord(
+                                f"{key} {account}: Error checking holdings: {holdings_response['Message']}",
+                                loop,
+                            )
                             continue
-                        available_amount = float(holdings_response["Data"]["enableAmount"])
+                        available_amount = float(
+                            holdings_response["Data"]["enableAmount"]
+                        )
                         # If trying to sell more than available, skip to the next
                         if quantity > available_amount:
-                            printAndDiscord(f"{key} {account}: Not enough shares to sell {quantity} of {s}. Available: {available_amount}", loop)
+                            printAndDiscord(
+                                f"{key} {account}: Not enough shares to sell {quantity} of {s}. Available: {available_amount}",
+                                loop,
+                            )
                             continue
                         # Validate the sell transaction
-                        validation_response = obj.validate_sell(symbol=s, amount=quantity, account_number=account)
+                        validation_response = obj.validate_sell(
+                            symbol=s, amount=quantity, account_number=account
+                        )
                         if validation_response["Outcome"] != "Success":
-                            printAndDiscord(f"{key} {account}: Validation failed for selling {quantity} of {s}: {validation_response['Message']}", loop)
+                            printAndDiscord(
+                                f"{key} {account}: Validation failed for selling {quantity} of {s}: {validation_response['Message']}",
+                                loop,
+                            )
                             continue
                         # Proceed to execute the sell if not in dry run mode
                         if not is_dry_run:
@@ -256,7 +296,7 @@ def bbae_transaction(bbo: Brokerage, orderObj: stockOrder, loop=None):
                                 amount=quantity,
                                 account_number=account,
                                 entrust_price=entrust_price,
-                                dry_run=is_dry_run
+                                dry_run=is_dry_run,
                             )
                             message = sell_response["Message"]
                         else:
