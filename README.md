@@ -197,7 +197,8 @@ Made by [ImNotOssy](https://github.com/ImNotOssy) using the [BBAE_investing_API]
  
 `.env` file format:
 - `BBAE=BBAE_USERNAME:BBAE_PASSWORD`
-- Note: `BBAE_USERNAME` can either be email or phone number.
+
+Note: `BBAE_USERNAME` can either be email or phone number.
 
 #### Chase
 Made by [MaxxRK](https://github.com/MaxxRK/) using the [chaseinvest-api](https://github.com/MaxxRK/chaseinvest-api). Go give them a ⭐
