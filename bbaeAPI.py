@@ -2,7 +2,7 @@ import asyncio
 import os
 import traceback
 from io import BytesIO
-
+import pickle
 from dotenv import load_dotenv
 
 from bbae_invest_api import BBAEAPI
@@ -34,11 +34,11 @@ def bbae_init(BBAE_EXTERNAL=None, botObj=None, loop=None):
     for index, account in enumerate(BBAE):
         name = f"BBAE {index + 1}"
         try:
-            user, password, use_email = account.split(":")
-            use_email = use_email.upper()
-            bb = BBAEAPI(user, password, filename=f"BBAE_{index + 1}.txt", creds_path="./creds/")
+            user, password = account.split(":")[:2]
+            use_email = "@" in user
 
-            # Initial API call to establish session and get initial cookies
+            bb = BBAEAPI(user, password, filename=f"BBAE_{index + 1}.pkl", creds_path="./creds/")
+
             bb.make_initial_request()
 
             # All the rest of the requests responsible for getting authenticated
@@ -64,7 +64,7 @@ def bbae_init(BBAE_EXTERNAL=None, botObj=None, loop=None):
 def login(bb: BBAEAPI, botObj, name, loop, use_email):
     try:
         # API call to generate the login ticket
-        if use_email == "TRUE":
+        if use_email:
             ticket_response = bb.generate_login_ticket_email()
         else:
             ticket_response = bb.generate_login_ticket_sms()
@@ -76,7 +76,6 @@ def login(bb: BBAEAPI, botObj, name, loop, use_email):
         # Check if SMS or CAPTCHA verification are required
         data = ticket_response['Data']
         if data.get('needSmsVerifyCode', False):
-            # TODO 8/30/24: CAPTCHA should only be needed if SMS is needed. Is this true?
             sms_and_captcha_response = handle_captcha_and_sms(bb, botObj, data, loop, name, use_email)
             if not sms_and_captcha_response:
                 raise Exception("Error solving SMS or Captcha")
@@ -92,7 +91,7 @@ def login(bb: BBAEAPI, botObj, name, loop, use_email):
             if otp_code is None:
                 raise Exception("No SMS code received")
 
-            if use_email == "TRUE":
+            if use_email:
                 ticket_response = bb.generate_login_ticket_email(sms_code=otp_code)
             else:
                 ticket_response = bb.generate_login_ticket_sms(sms_code=otp_code)
@@ -139,7 +138,6 @@ def solve_captcha(bb, botObj, name, loop, use_email):
     try:
         captcha_image = bb.request_captcha()
         if not captcha_image:
-            # Unable to get Image
             raise Exception("Unable to request CAPTCHA image, aborting...")
 
         file = BytesIO()
@@ -164,7 +162,7 @@ def solve_captcha(bb, botObj, name, loop, use_email):
             raise Exception("No CAPTCHA code found")
 
         # Send the CAPTCHA to the appropriate API based on login type
-        if use_email == "TRUE":
+        if use_email:
             sms_request_response = bb.request_email_code(captcha_input=captcha_input)
         else:
             sms_request_response = bb.request_sms_code(captcha_input=captcha_input)
@@ -180,7 +178,7 @@ def solve_captcha(bb, botObj, name, loop, use_email):
 
 
 def send_sms_code(bb, name, use_email, captcha_input=None):
-    if use_email == "TRUE":
+    if use_email:
         sms_code_response = bb.request_email_code(captcha_input=captcha_input)
     else:
         sms_code_response = bb.request_sms_code(captcha_input=captcha_input)
