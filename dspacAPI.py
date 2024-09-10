@@ -36,14 +36,14 @@ def dspac_init(DSPAC_EXTERNAL=None, botObj=None, loop=None):
             user, password = account.split(":")[:2]
             use_email = "@" in user
             # Initialize the DSPAC API object
-            bb = DSPACAPI(
+            ds = DSPACAPI(
                 user, password, filename=f"DSPAC_{index + 1}.pkl", creds_path="./creds/"
             )
-            bb.make_initial_request()
+            ds.make_initial_request()
             # All the rest of the requests responsible for getting authenticated
-            login(bb, botObj, name, loop, use_email)
-            account_assets = bb.get_account_assets()
-            account_info = bb.get_account_info()
+            login(ds, botObj, name, loop, use_email)
+            account_assets = ds.get_account_assets()
+            account_info = ds.get_account_info()
             account_number = str(account_info["Data"]["accountNumber"])
             # Set account values
             masked_account_number = maskString(account_number)
@@ -53,7 +53,7 @@ def dspac_init(DSPAC_EXTERNAL=None, botObj=None, loop=None):
                 masked_account_number,
                 float(account_assets["Data"]["totalAssets"]),
             )
-            dspac_obj.set_logged_in_object(name, bb, "bb")
+            dspac_obj.set_logged_in_object(name, ds, "ds")
         except Exception as e:
             print(f"Error logging into DSPAC: {e}")
             print(traceback.format_exc())
@@ -194,10 +194,10 @@ def send_sms_code(ds, name, use_email, captcha_input=None):
     return sms_code_response
 
 
-def dspac_holdings(dso: Brokerage, loop=None):
-    for key in dso.get_account_numbers():
-        for account in dso.get_account_numbers(key):
-            obj: DSPACAPI = dso.get_logged_in_objects(key, "ds")
+def dspac_holdings(ds: Brokerage, loop=None):
+    for key in ds.get_account_numbers():
+        for account in ds.get_account_numbers(key):
+            obj: DSPACAPI = ds.get_logged_in_objects(key, "ds")
             try:
                 positions = obj.get_account_holdings()
                 print(f"Raw holdings data: {positions}")
@@ -210,29 +210,29 @@ def dspac_holdings(dso: Brokerage, loop=None):
                         sym = holding["displaySymbol"]
                         cp = holding["Last"]
                         print(f"Stock Ticker: {sym}, Amount: {qty}, Current Price: {cp}")
-                        dso.set_holdings(key, account, sym, qty, cp)
+                        ds.set_holdings(key, account, sym, qty, cp)
             except Exception as e:
                 printAndDiscord(f"Error getting DSPAC holdings: {e}")
                 print(traceback.format_exc())
                 continue
-    printHoldings(dso, loop, False)
+    printHoldings(ds, loop, False)
 
 
-def dspac_transaction(dso: Brokerage, orderObj: stockOrder, loop=None):
+def dspac_transaction(ds: Brokerage, orderObj: stockOrder, loop=None):
     print()
     print("==============================")
     print("DSPAC")
     print("==============================")
     print()
     for s in orderObj.get_stocks():
-        for key in dso.get_account_numbers():
+        for key in ds.get_account_numbers():
             action = orderObj.get_action().lower()
             printAndDiscord(
                 f"{key}: {action}ing {orderObj.get_amount()} of {s}",
                 loop,
             )
-            for account in dso.get_account_numbers(key):
-                obj: DSPACAPI = dso.get_logged_in_objects(key, "ds")
+            for account in ds.get_account_numbers(key):
+                obj: DSPACAPI = ds.get_logged_in_objects(key, "ds")
                 try:
                     quantity = orderObj.get_amount()
                     is_dry_run = orderObj.get_dry()
