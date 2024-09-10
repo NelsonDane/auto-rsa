@@ -87,10 +87,10 @@ DANGER_MODE = False
 
 # Account nicknames
 def nicknames(broker):
-    if broker == "ds":
-        return "dspac"
     if broker == "bb":
         return "bbae"
+    if broker == "ds":
+        return "dspac"
     if broker in ["fid", "fido"]:
         return "fidelity"
     if broker == "ft":
@@ -133,7 +133,7 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                         broker,
                     )
 
-                elif broker.lower() in ["bbae", "fennel", "firstrade", "public", "dspac"]:
+                elif broker.lower() in ["bbae", "dspac", "fennel", "firstrade", "public"]:
                     # Requires bot object and loop
                     orderObj.set_logged_in(
                         globals()[fun_name](botObj=botObj, loop=loop), broker
