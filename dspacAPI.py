@@ -75,7 +75,6 @@ def login(ds: DSPACAPI, botObj, name, loop, use_email):
         # Check if SMS or CAPTCHA verification are required
         data = ticket_response['Data']
         if data.get('needSmsVerifyCode', False):
-            # TODO 8/30/24: CAPTCHA should only be needed if SMS is needed. Is this true?
             sms_and_captcha_response = handle_captcha_and_sms(
                 ds, botObj, data, loop, name, use_email
             )

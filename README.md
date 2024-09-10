@@ -165,6 +165,7 @@ For help:
 Note: There are two special keywords you can use when specifying accounts: `all` and `day1`. `all` will use every account that you have set up. `day1` will use "day 1" brokers, which are:
 - BBAE
 - Chase
+- DSPAC
 - Fennel
 - Firstrade
 - Public
