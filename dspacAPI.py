@@ -62,54 +62,54 @@ def dspac_init(DSPAC_EXTERNAL=None, botObj=None, loop=None):
     return dspac_obj
 
 
-def login(ds, botObj, name, loop, use_email):
+def login(ds: DSPACAPI, botObj, name, loop, use_email):
     try:
         # API call to generate the login ticket
-        if use_email == "TRUE":
-            print(f"{name}: Generating login ticket (Email)...")
+        if use_email:
             ticket_response = ds.generate_login_ticket_email()
         else:
-            print(f"{name}: Generating login ticket (SMS)...")
             ticket_response = ds.generate_login_ticket_sms()
-
-        # Log the raw response details
-        print(f"{name}: Initial ticket response: {ticket_response}")
-
-        # Ensure 'Data' key exists and proceed with verification if necessary
-        if 'Data' not in ticket_response:
+        # Ensure "Data" key exists and proceed with verification if necessary
+        if ticket_response.get("Data") is None:
             raise Exception("Invalid response from generating login ticket")
-
         # Check if SMS or CAPTCHA verification are required
         data = ticket_response['Data']
         if data.get('needSmsVerifyCode', False):
             # TODO 8/30/24: CAPTCHA should only be needed if SMS is needed. Is this true?
-            sms_and_captcha_response = handle_captcha_and_sms(ds, botObj, data, loop, name, use_email)
+            sms_and_captcha_response = handle_captcha_and_sms(
+                ds, botObj, data, loop, name, use_email
+            )
             if not sms_and_captcha_response:
                 raise Exception("Error solving SMS or Captcha")
-
-            print(f"{name}: Waiting for OTP code from user...")
-            otp_code = asyncio.run_coroutine_threadsafe(
-                getOTPCodeDiscord(botObj, name, timeout=300, loop=loop),
-                loop,
-            ).result()
+            # Get the OTP code from the user
+            if botObj is not None and loop is not None:
+                otp_code = asyncio.run_coroutine_threadsafe(
+                    getOTPCodeDiscord(botObj, name, timeout=300, loop=loop),
+                    loop,
+                ).result()
+            else:
+                otp_code = input("Enter security code: ")
             if otp_code is None:
                 raise Exception("No SMS code received")
-
-            print(f"{name}: OTP code received: {otp_code}")
-            ticket_response = ds.generate_login_ticket_sms(sms_code=otp_code)
-
-            if "Message" in ticket_response and ticket_response["Message"] == "Incorrect verification code.":
+            # Login with the OTP code
+            if use_email:
+                ticket_response = ds.generate_login_ticket_email(sms_code=otp_code)
+            else:
+                ticket_response = ds.generate_login_ticket_sms(sms_code=otp_code)
+            if ticket_response.get("Message") == "Incorrect verification code.":
                 raise Exception("Incorrect OTP code")
-
         # Handle the login ticket
-        if 'Data' in ticket_response and 'ticket' in ticket_response['Data']:
+        if (
+            ticket_response.get("Data") is not None
+            and ticket_response["Data"].get("ticket") is not None
+        ):
             ticket = ticket_response['Data']['ticket']
         else:
-            print(f"{name}: Raw response object: {ticket_response}")
             raise Exception(f"Login failed. No ticket generated. Response: {ticket_response}")
-
-        print(f"{name}: Logging in with ticket...")
-        ds.login_with_ticket(ticket)
+        # Login with the ticket
+        login_response = ds.login_with_ticket(ticket)
+        if login_response.get("Outcome") != "Success":
+            raise Exception(f"Login failed. Response: {login_response}")
         return True
     except Exception as e:
         print(f"Error in SMS login: {e}")
@@ -117,7 +117,7 @@ def login(ds, botObj, name, loop, use_email):
         return False
 
 
-def handle_captcha_and_sms(ds, botObj, data, loop, name, use_email):
+def handle_captcha_and_sms(ds: DSPACAPI, botObj, data, loop, name, use_email):
     try:
         if data.get('needCaptchaCode', False):
             print(f"{name}: CAPTCHA required. Requesting CAPTCHA image...")
@@ -132,65 +132,61 @@ def handle_captcha_and_sms(ds, botObj, data, loop, name, use_email):
                 raise Exception("Unable to retrieve sms code!")
             print(f"{name}: SMS response is: {sms_response}")
         return True
-
     except Exception as e:
         print(f"Error in CAPTCHA or SMS: {e}")
         print(traceback.format_exc())
         return False
 
 
-def solve_captcha(ds, botObj, name, loop, use_email):
+def solve_captcha(ds: DSPACAPI, botObj, name, loop, use_email):
     try:
         captcha_image = ds.request_captcha()
         if not captcha_image:
             raise Exception("Unable to request CAPTCHA image, aborting...")
-
+        # Send the CAPTCHA image to Discord for manual input
         print("Sending CAPTCHA to Discord for user input...")
         file = BytesIO()
         captcha_image.save(file, format="PNG")
         file.seek(0)
-
-        asyncio.run_coroutine_threadsafe(
-            send_captcha_to_discord(file),
-            loop,
-        ).result()
-
-        captcha_input = asyncio.run_coroutine_threadsafe(
-            getUserInputDiscord(botObj, f"{name} requires CAPTCHA input", timeout=300, loop=loop),
-            loop,
-        ).result()
-
-        if captcha_input:
-            if use_email == "TRUE":
-                sms_request_response = ds.request_email_code(captcha_input=captcha_input)
-            else:
-                sms_request_response = ds.request_sms_code(captcha_input=captcha_input)
-
-            print(f"{name}: SMS code request response: {sms_request_response}")
-
-            if sms_request_response.get("Message") == "Incorrect verification code.":
-                raise Exception("Incorrect CAPTCHA code!")
-
-            return sms_request_response  # Return the response if successful
-        return None  # Ensure the function always returns an expression
-
+        # Retrieve input
+        if botObj is not None and loop is not None:
+            asyncio.run_coroutine_threadsafe(
+                send_captcha_to_discord(file),
+                loop,
+            ).result()
+            captcha_input = asyncio.run_coroutine_threadsafe(
+                getUserInputDiscord(botObj, f"{name} requires CAPTCHA input", timeout=300, loop=loop),
+                loop,
+            ).result()
+        else:
+            captcha_image.save("./captcha.png", format="PNG")
+            captcha_input = input(
+                "CAPTCHA image saved to ./captcha.png. Please open it and type in the code: "
+            )
+        if captcha_input is None:
+            raise Exception("No CAPTCHA code found")
+        # Send the CAPTCHA to the appropriate API based on login type
+        if use_email:
+            sms_request_response = ds.request_email_code(captcha_input=captcha_input)
+        else:
+            sms_request_response = ds.request_sms_code(captcha_input=captcha_input)
+        if sms_request_response.get("Message") == "Incorrect verification code.":
+            raise Exception("Incorrect CAPTCHA code!")
+        return sms_request_response
     except Exception as e:
         print(f"{name}: Error during CAPTCHA code step: {e}")
         print(traceback.format_exc())
         return None
 
 
-def send_sms_code(ds, name, use_email, captcha_input=None):
-    if use_email == "TRUE":
+def send_sms_code(ds: DSPACAPI, name, use_email, captcha_input=None):
+    if use_email:
         sms_code_response = ds.request_email_code(captcha_input=captcha_input)
     else:
         sms_code_response = ds.request_sms_code(captcha_input=captcha_input)
-    print(f"{name}: SMS code request response: {sms_code_response}")
-
     if sms_code_response.get("Message") == "Incorrect verification code.":
         print(f"{name}: Incorrect CAPTCHA code, retrying...")
         return False
-
     return sms_code_response
 
 
@@ -200,9 +196,7 @@ def dspac_holdings(ds: Brokerage, loop=None):
             obj: DSPACAPI = ds.get_logged_in_objects(key, "ds")
             try:
                 positions = obj.get_account_holdings()
-                print(f"Raw holdings data: {positions}")
-
-                if 'Data' in positions:
+                if positions.get("Data") is not None:
                     for holding in positions['Data']:
                         qty = holding["CurrentAmount"]
                         if float(qty) == 0:
@@ -236,15 +230,13 @@ def dspac_transaction(ds: Brokerage, orderObj: stockOrder, loop=None):
                 try:
                     quantity = orderObj.get_amount()
                     is_dry_run = orderObj.get_dry()
-
+                    # Buy
                     if action == "buy":
                         # Validate the buy transaction
                         validation_response = obj.validate_buy(symbol=s, amount=quantity, order_side=1, account_number=account)
-                        print(f"Validate Buy Response: {validation_response}")
                         if validation_response['Outcome'] != 'Success':
                             printAndDiscord(f"{key} {account}: Validation failed for buying {quantity} of {s}: {validation_response['Message']}", loop)
                             continue
-
                         # Proceed to execute the buy if not in dry run mode
                         if not is_dry_run:
                             buy_response = obj.execute_buy(
@@ -253,33 +245,26 @@ def dspac_transaction(ds: Brokerage, orderObj: stockOrder, loop=None):
                                 account_number=account,
                                 dry_run=is_dry_run
                             )
-                            print(f"Execute Buy Response: {buy_response}")
                             message = buy_response['Message']
                         else:
                             message = "Dry Run Success"
-
+                    # Sell
                     elif action == "sell":
                         # Check stock holdings before attempting to sell
                         holdings_response = obj.check_stock_holdings(symbol=s, account_number=account)
-                        print(f"Check Holdings Response: {holdings_response}")
                         if holdings_response["Outcome"] != "Success":
                             printAndDiscord(f"{key} {account}: Error checking holdings: {holdings_response['Message']}", loop)
                             continue
-
                         available_amount = float(holdings_response["Data"]["enableAmount"])
-
                         # If trying to sell more than available, skip to the next
                         if quantity > available_amount:
                             printAndDiscord(f"{key} {account}: Not enough shares to sell {quantity} of {s}. Available: {available_amount}", loop)
                             continue
-
                         # Validate the sell transaction
                         validation_response = obj.validate_sell(symbol=s, amount=quantity, account_number=account)
-                        print(f"Validate Sell Response: {validation_response}")
                         if validation_response['Outcome'] != 'Success':
                             printAndDiscord(f"{key} {account}: Validation failed for selling {quantity} of {s}: {validation_response['Message']}", loop)
                             continue
-
                         # Proceed to execute the sell if not in dry run mode
                         if not is_dry_run:
                             entrust_price = validation_response['Data']['entrustPrice']
@@ -290,16 +275,13 @@ def dspac_transaction(ds: Brokerage, orderObj: stockOrder, loop=None):
                                 entrust_price=entrust_price,
                                 dry_run=is_dry_run
                             )
-                            print(f"Execute Sell Response: {sell_response}")
                             message = sell_response['Message']
                         else:
                             message = "Dry Run Success"
-
                     printAndDiscord(
                         f"{key}: {orderObj.get_action().capitalize()} {quantity} of {s} in {account}: {message}",
                         loop,
                     )
-
                 except Exception as e:
                     printAndDiscord(f"{key} {account}: Error placing order: {e}", loop)
                     print(traceback.format_exc())

@@ -210,6 +210,16 @@ Optional .env variables:
 `.env` file format:
 - `CHASE=CHASE_USERNAME:CHASE_PASSWORD:CELL_PHONE_LAST_FOUR:DEBUG`
 
+#### DSPAC
+Made by [ImNotOssy](https://github.com/ImNotOssy) using the [dSPAC_investing_api](https://github.com/ImNotOssy/dSPAC_investing_API). Go give them a ⭐ 
+- `DSPAC_USERNAME`
+- `DSPAC_PASSWORD`
+ 
+`.env` file format:
+- `DSPAC=DSPAC_USERNAME:DSPAC_PASSWORD`
+
+Note: `DSPAC_USERNAME` can either be email or phone number.
+
 ### Fennel
 Made by yours truly using the [fennel-invest-api](https://github.com/NelsonDane/fennel-invest-api). Consider giving me a ⭐
 
