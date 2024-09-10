@@ -266,8 +266,8 @@ def fidelity_account_info(driver: webdriver) -> dict | None:
         account_types = javascript_get_classname(driver, "acct-selector__acct-name")
         # Make sure all lists are the same length
         if not (
-                len(account_numbers) == len(account_values)
-                and len(account_numbers) == len(account_types)
+            len(account_numbers) == len(account_values)
+            and len(account_numbers) == len(account_types)
         ):
             shortest = min(
                 len(account_numbers), len(account_values), len(account_types)
