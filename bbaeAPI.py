@@ -218,7 +218,7 @@ def bbae_transaction(bbo: Brokerage, orderObj: stockOrder, loop=None):
                         # Validate the buy transaction
                         validation_response = obj.validate_buy(symbol=s, amount=quantity, order_side=1, account_number=account)
                         if validation_response["Outcome"] != "Success":
-                            printAndDiscord(f"{key} {account}: Validation failed for buying {quantity} of {s}: {validation_response["Message"]}", loop)
+                            printAndDiscord(f"{key} {account}: Validation failed for buying {quantity} of {s}: {validation_response['Message']}", loop)
                             continue
                         # Proceed to execute the buy if not in dry run mode
                         if not is_dry_run:
@@ -236,7 +236,7 @@ def bbae_transaction(bbo: Brokerage, orderObj: stockOrder, loop=None):
                         # Check stock holdings before attempting to sell
                         holdings_response = obj.check_stock_holdings(symbol=s, account_number=account)
                         if holdings_response["Outcome"] != "Success":
-                            printAndDiscord(f"{key} {account}: Error checking holdings: {holdings_response["Message"]}", loop)
+                            printAndDiscord(f"{key} {account}: Error checking holdings: {holdings_response['Message']}", loop)
                             continue
                         available_amount = float(holdings_response["Data"]["enableAmount"])
                         # If trying to sell more than available, skip to the next
@@ -246,7 +246,7 @@ def bbae_transaction(bbo: Brokerage, orderObj: stockOrder, loop=None):
                         # Validate the sell transaction
                         validation_response = obj.validate_sell(symbol=s, amount=quantity, account_number=account)
                         if validation_response["Outcome"] != "Success":
-                            printAndDiscord(f"{key} {account}: Validation failed for selling {quantity} of {s}: {validation_response["Message"]}", loop)
+                            printAndDiscord(f"{key} {account}: Validation failed for selling {quantity} of {s}: {validation_response['Message']}", loop)
                             continue
                         # Proceed to execute the sell if not in dry run mode
                         if not is_dry_run:
