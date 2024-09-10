@@ -254,11 +254,10 @@ def chase_transaction(
                     else:
                         # Set limit price always round up
                         factor = 10 ** 2
-                        value = round(symbol_quote.ask_price, 2) * factor
+                        value = symbol_quote.ask_price * factor
                         if value % 1 != 0:
                             value = int(value) + 1
-                        value = value / factor
-                        limit_price = round(symbol_quote.ask_price, 2)
+                        limit_price = value / factor
 
             printAndDiscord(
                 f"{key} {orderObj.get_action()}ing {orderObj.get_amount()} {ticker} @ {price_type.value}",
