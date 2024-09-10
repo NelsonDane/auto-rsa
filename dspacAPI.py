@@ -3,18 +3,18 @@ import os
 import traceback
 from io import BytesIO
 
+from dspac_invest_api import DSPACAPI
 from dotenv import load_dotenv
 
-from dspac_invest_api import DSPACAPI
 from helperAPI import (
     Brokerage,
+    getOTPCodeDiscord,
+    getUserInputDiscord,
+    maskString,
     printAndDiscord,
     printHoldings,
-    getOTPCodeDiscord,
-    maskString,
-    stockOrder,
     send_captcha_to_discord,
-    getUserInputDiscord,
+    stockOrder,
 )
 
 
@@ -24,7 +24,6 @@ def dspac_init(DSPAC_EXTERNAL=None, botObj=None, loop=None):
     if not os.getenv("DSPAC") and DSPAC_EXTERNAL is None:
         print("DSPAC not found, skipping...")
         return None
-
     DSPAC = (
         os.environ["DSPAC"].strip().split(",")
         if DSPAC_EXTERNAL is None
@@ -34,35 +33,27 @@ def dspac_init(DSPAC_EXTERNAL=None, botObj=None, loop=None):
     for index, account in enumerate(DSPAC):
         name = f"DSPAC {index + 1}"
         try:
-            user, password, use_email = account.split(":")
-            use_email = use_email.upper()
-            ds = DSPACAPI(user, password, filename=f"DSPAC_{index + 1}.txt", creds_path="./creds/")
-
-            # Initial API call to establish session and get initial cookies
-            print(f"{name}: Making initial request to establish session...")
-            ds.make_initial_request()
-
+            user, password = account.split(":")[:2]
+            use_email = "@" in user
+            # Initialize the DSPAC API object
+            bb = DSPACAPI(
+                user, password, filename=f"DSPAC_{index + 1}.pkl", creds_path="./creds/"
+            )
+            bb.make_initial_request()
             # All the rest of the requests responsible for getting authenticated
-            print(f"{name}: Attempting to login...")
-            login(ds, botObj, name, loop, use_email)
-
-            print(f"{name}: Retrieving account assets...")
-            account_assets = ds.get_account_assets()
-
-            print(f"{name}: Retrieving account information...")
-            account_info = ds.get_account_info()
-
-            account_number = str(account_info['Data']['accountNumber'])
-
-            # Mask the account number before printing it
+            login(bb, botObj, name, loop, use_email)
+            account_assets = bb.get_account_assets()
+            account_info = bb.get_account_info()
+            account_number = str(account_info["Data"]["accountNumber"])
+            # Set account values
             masked_account_number = maskString(account_number)
-            print(f"{name}: Found account {masked_account_number}")
-
             dspac_obj.set_account_number(name, masked_account_number)
-            dspac_obj.set_account_totals(name, masked_account_number, float(account_assets['Data']['totalAssets']))
-
-            dspac_obj.set_logged_in_object(name, ds, "ds")
-            print(f"{name}: Logged in with account number {masked_account_number}")
+            dspac_obj.set_account_totals(
+                name,
+                masked_account_number,
+                float(account_assets["Data"]["totalAssets"]),
+            )
+            dspac_obj.set_logged_in_object(name, bb, "bb")
         except Exception as e:
             print(f"Error logging into DSPAC: {e}")
             print(traceback.format_exc())
@@ -71,7 +62,7 @@ def dspac_init(DSPAC_EXTERNAL=None, botObj=None, loop=None):
     return dspac_obj
 
 
-def login(ds: DSPACAPI, botObj, name, loop, use_email):
+def login(ds, botObj, name, loop, use_email):
     try:
         # API call to generate the login ticket
         if use_email == "TRUE":
@@ -97,21 +88,15 @@ def login(ds: DSPACAPI, botObj, name, loop, use_email):
                 raise Exception("Error solving SMS or Captcha")
 
             print(f"{name}: Waiting for OTP code from user...")
-            if botObj is None:
-                otp_code = input("Enter code: ")
-            else:
-                otp_code = asyncio.run_coroutine_threadsafe(
-                    getOTPCodeDiscord(botObj, name, timeout=300, loop=loop),
-                    loop,
-                ).result()
+            otp_code = asyncio.run_coroutine_threadsafe(
+                getOTPCodeDiscord(botObj, name, timeout=300, loop=loop),
+                loop,
+            ).result()
             if otp_code is None:
                 raise Exception("No SMS code received")
 
             print(f"{name}: OTP code received: {otp_code}")
-            if use_email == "TRUE":
-                ticket_response = ds.generate_login_ticket_email(sms_code=otp_code)
-            else:
-                ticket_response = ds.generate_login_ticket_sms(sms_code=otp_code)
+            ticket_response = ds.generate_login_ticket_sms(sms_code=otp_code)
 
             if "Message" in ticket_response and ticket_response["Message"] == "Incorrect verification code.":
                 raise Exception("Incorrect OTP code")
