@@ -118,7 +118,7 @@ def login(bb: BBAEAPI, botObj, name, loop, use_email):
         return False
 
 
-def handle_captcha_and_sms(bb, botObj, data, loop, name, use_email):
+def handle_captcha_and_sms(bb: BBAEAPI, botObj, data, loop, name, use_email):
     try:
         # If CAPTCHA is needed it will generate an SMS code as well
         if data.get("needCaptchaCode", False):
