@@ -670,6 +670,48 @@ async def getOTPCodeDiscord(
         return code.content
 
 
+async def getUserInputDiscord(botObj: commands.Bot, prompt, timeout=60, loop=None):
+    printAndDiscord(prompt, loop)
+    printAndDiscord(
+        f"Please enter the input or type cancel within {timeout} seconds", loop
+    )
+    try:
+        code = await botObj.wait_for(
+            "message",
+            check=lambda m: m.author != botObj.user
+            and m.channel.id == int(DISCORD_CHANNEL),
+            timeout=timeout,
+        )
+    except asyncio.TimeoutError:
+        printAndDiscord("Timed out waiting for input", loop)
+        return None
+    if code.content.lower() == "cancel":
+        printAndDiscord("Input canceled by user", loop)
+        return None
+    return code.content
+
+
+async def send_captcha_to_discord(file):
+    BASE_URL = f"https://discord.com/api/v10/channels/{DISCORD_CHANNEL}/messages"
+    HEADERS = {
+        "Authorization": f"Bot {DISCORD_TOKEN}",
+    }
+    files = {"file": ("captcha.png", file, "image/png")}
+    success = False
+    while not success:
+        response = requests.post(BASE_URL, headers=HEADERS, files=files)
+        if response.status_code == 200:
+            success = True
+        elif response.status_code == 429:
+            rate_limit = response.json()["retry_after"] * 2
+            await asyncio.sleep(rate_limit)
+        else:
+            print(
+                f"Error sending CAPTCHA image: {response.status_code}: {response.text}"
+            )
+            break
+
+
 def maskString(string):
     # Mask string (12345678 -> xxxx5678)
     string = str(string)

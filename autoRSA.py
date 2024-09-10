@@ -20,6 +20,7 @@ try:
     from dotenv import load_dotenv
 
     # Custom API libraries
+    from bbaeAPI import *
     from chaseAPI import *
     from fennelAPI import *
     from fidelityAPI import *
@@ -51,6 +52,7 @@ load_dotenv()
 
 # Global variables
 SUPPORTED_BROKERS = [
+    "bbae",
     "chase",
     "fennel",
     "fidelity",
@@ -66,6 +68,7 @@ SUPPORTED_BROKERS = [
     "webull",
 ]
 DAY1_BROKERS = [
+    "bbae",
     "chase",
     "fennel",
     "firstrade",
@@ -83,6 +86,8 @@ DANGER_MODE = False
 
 # Account nicknames
 def nicknames(broker):
+    if broker == "bb":
+        return "bbae"
     if broker in ["fid", "fido"]:
         return "fidelity"
     if broker == "ft":
