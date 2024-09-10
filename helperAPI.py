@@ -670,7 +670,7 @@ async def getOTPCodeDiscord(
         return code.content
 
 
-async def getUserInputDiscord(botObj, prompt, timeout=60, loop=None):
+async def getUserInputDiscord(botObj: commands.Bot, prompt, timeout=60, loop=None):
     printAndDiscord(prompt, loop)
     printAndDiscord(f"Please enter the input or type cancel within {timeout} seconds", loop)
     try:
@@ -682,11 +682,9 @@ async def getUserInputDiscord(botObj, prompt, timeout=60, loop=None):
     except asyncio.TimeoutError:
         printAndDiscord("Timed out waiting for input", loop)
         return None
-
     if code.content.lower() == "cancel":
         printAndDiscord("Input canceled by user", loop)
         return None
-
     return code.content
 
 
