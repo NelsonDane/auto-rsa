@@ -248,12 +248,12 @@ def chase_transaction(
                 # If it should be limit
                 if symbol_quote.ask_price < 1:
                     price_type = order.PriceType.LIMIT
-                    if symbol_quote.ask_price > .10:
+                    if symbol_quote.ask_price > 0.10:
                         # Set limit price
                         limit_price = round(symbol_quote.ask_price + 0.01, 2)
                     else:
                         # Set limit price always round up
-                        factor = 10 ** 2
+                        factor = 10**2
                         value = symbol_quote.ask_price * factor
                         if value % 1 != 0:
                             value = int(value) + 1
