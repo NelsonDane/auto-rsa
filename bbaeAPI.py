@@ -2,18 +2,19 @@ import asyncio
 import os
 import traceback
 from io import BytesIO
-from dotenv import load_dotenv
 
 from bbae_invest_api import BBAEAPI
+from dotenv import load_dotenv
+
 from helperAPI import (
     Brokerage,
+    getOTPCodeDiscord,
+    getUserInputDiscord,
+    maskString,
     printAndDiscord,
     printHoldings,
-    getOTPCodeDiscord,
-    maskString,
-    stockOrder,
     send_captcha_to_discord,
-    getUserInputDiscord,
+    stockOrder,
 )
 
 
