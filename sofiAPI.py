@@ -53,7 +53,7 @@ def get_2fa_code(secret):
     return totp.now()
 
 
-def sofi_init(SOFI_EXTERNAL=None, botObj=None, loop=None):
+def sofi_init(SOFI_EXTERNAL=None, DOCKER=None, botObj=None, loop=None):
     load_dotenv()
 
     if not os.getenv("SOFI") and SOFI_EXTERNAL is None:
@@ -73,7 +73,7 @@ def sofi_init(SOFI_EXTERNAL=None, botObj=None, loop=None):
         account = account.split(":")
 
         try:
-            driver = getDriver()
+            driver = getDriver(DOCKER)
             if driver is None:
                 raise Exception("Driver not found.")
             driver.get(
