@@ -15,12 +15,12 @@ from time import sleep
 
 import pkg_resources
 import requests
+import undetected_chromedriver as uc
 from discord.ext import commands
 from dotenv import load_dotenv
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromiumService
 from selenium_stealth import stealth
-import undetected_chromedriver as uc
 
 load_dotenv()
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
