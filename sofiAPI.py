@@ -55,7 +55,7 @@ def get_2fa_code(secret):
     return totp.now()
 
 
-def sofi_init(SOFI_EXTERNAL=None,DOCKER=False, botObj=None, loop=None):
+def sofi_init(SOFI_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
     load_dotenv()
 
     if not os.getenv("SOFI") and SOFI_EXTERNAL is None:
@@ -80,7 +80,7 @@ def sofi_init(SOFI_EXTERNAL=None,DOCKER=False, botObj=None, loop=None):
             driver = getDriver(DOCKER)
             if driver is None:
                 raise Exception("Driver not found.")
-            
+
             # Step 1: Navigate to SoFi homepage first
             driver.get('https://www.sofi.com')
 
