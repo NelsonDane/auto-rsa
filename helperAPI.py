@@ -20,6 +20,7 @@ from dotenv import load_dotenv
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromiumService
 from selenium_stealth import stealth
+import undetected_chromedriver as uc
 
 load_dotenv()
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
@@ -525,13 +526,18 @@ def check_if_page_loaded(driver):
 def getDriver(DOCKER=False):
     # Init webdriver options
     try:
-        options = webdriver.ChromeOptions()
-        options.add_argument("start-maximized")
-        options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        options.add_experimental_option("useAutomationExtension", False)
+        options = uc.ChromeOptions()
+        options.add_argument("--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Safari/605.1.15")
+        options.add_argument("--start-maximized")
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_argument("--disable-extensions")
         options.add_argument("--disable-notifications")
+        prefs = {
+            "profile.default_content_setting_values.popups": 1,
+            "profile.default_content_setting_values.redirects": 1,
+            "profile.default_content_setting_values.automatic_downloads": 1,
+        }
+        options.add_experimental_option("prefs", prefs)
         if DOCKER:
             # Special Docker options
             options.add_argument("--disable-dev-shm-usage")
@@ -539,7 +545,8 @@ def getDriver(DOCKER=False):
             options.add_argument("--disable-gpu")
         if DOCKER or HEADLESS:
             options.add_argument("--headless")
-        driver = webdriver.Chrome(
+        driver = uc.Chrome(
+            use_subprocess=True,
             options=options,
             # Docker uses specific chromedriver installed via apt
             service=ChromiumService("/usr/bin/chromedriver") if DOCKER else None,
