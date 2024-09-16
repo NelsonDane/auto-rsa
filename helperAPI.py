@@ -785,11 +785,3 @@ def load_cookies(driver, filename, path=None):
         return True
     except Exception:
         return False
-
-
-def clear_cookies(driver, filename, path=None):
-    if path is not None:
-        filename = os.path.join(path, filename)
-    if os.path.exists(filename):
-        os.remove(filename)
-    driver.delete_all_cookies()

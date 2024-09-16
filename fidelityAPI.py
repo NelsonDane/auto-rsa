@@ -29,7 +29,6 @@ from helperAPI import (
     type_slowly,
     save_cookies,
     load_cookies,
-    clear_cookies,
 )
 
 
@@ -153,8 +152,6 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
                         (By.XPATH, text_me_button)
                     ),
                 ).click()
-                # Clear cookies if 2fa page loads
-                clear_cookies(driver, filename=f"fidelity{index}.pkl", path="./creds/")
                 # Make sure the next page loads fully
                 code_field = "#dom-otp-code-input"
                 WebDriverWait(driver, 10).until(
