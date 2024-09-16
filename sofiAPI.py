@@ -24,6 +24,8 @@ from helperAPI import (
     printHoldings,
     stockOrder,
     getOTPCodeDiscord,
+    load_cookies,
+    save_cookies
 )
 
 load_dotenv()
@@ -53,7 +55,7 @@ def get_2fa_code(secret):
     return totp.now()
 
 
-def sofi_init(SOFI_EXTERNAL=None, DOCKER=None, botObj=None, loop=None):
+def sofi_init(SOFI_EXTERNAL=None,DOCKER=False, botObj=None, loop=None):
     load_dotenv()
 
     if not os.getenv("SOFI") and SOFI_EXTERNAL is None:
@@ -71,17 +73,46 @@ def sofi_init(SOFI_EXTERNAL=None, DOCKER=None, botObj=None, loop=None):
         index = accounts.index(account) + 1
         name = f"SoFi {index}"
         account = account.split(":")
+        cookie_filename = f"sofi{index}.pkl"
+        cookie_path = "creds"
 
         try:
             driver = getDriver(DOCKER)
             if driver is None:
                 raise Exception("Driver not found.")
-            driver.get(
-                'https://login.sofi.com/u/login?state=hKFo2SBiMkxuWUxGckdxdVJ0c3BKLTlBdEk1dFgwQnZCcWo0ZKFur3VuaXZlcnNhbC1sb2dpbqN0aWTZIHdDekRxWk81cURTYWVZOVJleEJORE9vMExBVFVjMEw2o2NpZNkgNkxuc0xDc2ZGRUVMbDlTQzBDaWNPdkdlb2JvZXFab2I'
-            )
-            WebDriverWait(driver, 30).until(check_if_page_loaded)
+            
+            # Step 1: Navigate to SoFi homepage first
+            driver.get('https://www.sofi.com')
 
-            # Log in with username and password
+            # Step 2: Load cookies and check if they are valid
+            cookies_loaded = load_cookies(driver, cookie_filename, path=cookie_path)
+            if cookies_loaded:
+                driver.get('https://www.sofi.com/wealth/app')  # Navigate to the wealth page
+                WebDriverWait(driver, 10).until(EC.url_contains("overview"))
+
+                # Check if cookies are valid and you are logged in
+                if "overview" in driver.current_url:
+                    print(f"Successfully bypassed login with cookies for {name}")
+                    save_cookies(driver, cookie_filename, path=cookie_path)  # Save the fresh cookies
+
+                    # Step 5: After login or cookie bypass, check if page is loaded and continue
+                    WebDriverWait(driver, 60).until(check_if_page_loaded)
+
+                    # Retrieve and set account information
+                    account_dict = sofi_account_info(driver)
+                    if account_dict is None:
+                        raise Exception(f"{name}: Error getting account info")
+
+                    for acct in account_dict:
+                        sofi_obj.set_account_number(name, acct)
+                        sofi_obj.set_account_totals(name, acct, account_dict[acct]["balance"])
+
+                    sofi_obj.set_logged_in_object(name, driver)
+
+                    continue
+
+            print(f"Cookies not valid or expired for {name}, proceeding with login flow.")
+            driver.get('https://www.sofi.com/login')
             username_field = WebDriverWait(driver, 30).until(
                 EC.element_to_be_clickable((By.XPATH, "//*[@id='username']"))
             )
@@ -97,7 +128,7 @@ def sofi_init(SOFI_EXTERNAL=None, DOCKER=None, botObj=None, loop=None):
             )
             driver.execute_script("arguments[0].click();", login_button)
 
-            # Determine if authenticator 2FA is needed
+            # Step 4: Handle 2FA if necessary
             secret = account[2] if len(account) > 2 else None
 
             if secret:
@@ -105,16 +136,25 @@ def sofi_init(SOFI_EXTERNAL=None, DOCKER=None, botObj=None, loop=None):
                     # Use the authenticator 2FA code if the secret exists
                     two_fa_code = get_2fa_code(secret)
                     code_field = WebDriverWait(driver, 10).until(
-                        EC.element_to_be_clickable((By.ID, "code"))  # ID for the authenticator code
+                        EC.element_to_be_clickable((By.ID, "code"))
                     )
                     code_field.send_keys(two_fa_code)
+
+                    # Ensure "Remember this device" is checked
+                    remember_checkbox = WebDriverWait(driver, 10).until(
+                        EC.element_to_be_clickable((By.XPATH, '//*[@id="widget_block"]/div/div[2]/div/div/main/section/div/div/div/form/div[2]'))
+                    )
+                    if not remember_checkbox.is_selected():
+                        remember_checkbox.click()
+                    print("Checked 'Remember this device' checkbox.")
 
                     # Simulate hitting the "Enter" key after entering the 2FA code
                     code_field.send_keys(Keys.RETURN)
 
                     # Wait for successful login URL
+                    driver.get('https://www.sofi.com/wealth/app/overview')
                     WebDriverWait(driver, 30).until(
-                        EC.url_contains("https://www.sofi.com/member-home/")  # The URL after successful login
+                        EC.url_contains("https://www.sofi.com/wealth/app/overview")
                     )
 
                 except Exception:
@@ -122,11 +162,9 @@ def sofi_init(SOFI_EXTERNAL=None, DOCKER=None, botObj=None, loop=None):
                     return None
 
             else:
-                # Check if the SMS 2FA element is present
+                # Check if SMS 2FA is required
                 try:
-                    WebDriverWait(driver, 5).until(
-                        EC.presence_of_element_located((By.ID, "code"))  # Check if the 2FA SMS code field is present
-                    )
+                    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.ID, "code")))
                 except TimeoutException:
                     return None
 
@@ -136,7 +174,6 @@ def sofi_init(SOFI_EXTERNAL=None, DOCKER=None, botObj=None, loop=None):
 
                 while attempts < max_attempts:
                     try:
-                        # Retrieve the SMS code via Discord or manual input
                         if botObj is not None and loop is not None:
                             sms_code = asyncio.run_coroutine_threadsafe(
                                 getOTPCodeDiscord(botObj, name, timeout=300, loop=loop),
@@ -147,34 +184,36 @@ def sofi_init(SOFI_EXTERNAL=None, DOCKER=None, botObj=None, loop=None):
                         else:
                             sms_code = input("Enter security code: ")
 
-                        # Wait for the code field to be clickable and enter the code
                         code_field = WebDriverWait(driver, 60).until(
                             EC.element_to_be_clickable((By.XPATH, "//*[@id='code']"))
                         )
                         code_field.send_keys(sms_code)
 
-                        # Simulate hitting the "Enter" key after entering the SMS code
-                        code_field.send_keys(Keys.RETURN)
+                        # Ensure "Remember this device" is checked
+                        remember_checkbox = driver.find_element(By.XPATH, '//*[@id="widget_block"]/div/div[2]/div/div/main/section/div/div/div/form/div[2]')
+                        if not remember_checkbox.is_selected():
+                            remember_checkbox.click()
+                        print("Checked 'Remember this device' checkbox.")
 
-                        # Wait briefly to allow the page to process the input
+                        code_field.send_keys(Keys.RETURN)
                         sleep(3)
 
-                        # Check if the 2FA input field is still present
                         if driver.find_elements(By.XPATH, "//*[@id='code']"):
                             attempts += 1
-
-                            # If max attempts are reached, print a message and exit the loop
                             if attempts >= max_attempts:
                                 raise TimeoutException("Max 2FA attempts reached. Exiting...")
-
                         else:
-                            break  # Exit the loop if the 2FA code is correct and accepted
+                            break
 
                     except TimeoutException:
                         if attempts >= max_attempts:
                             raise TimeoutException("Max 2FA attempts reached due to timeouts. Exiting...")
 
+            # Step 5: After login and 2FA, check if login is successful
             WebDriverWait(driver, 60).until(check_if_page_loaded)
+
+            # Capture and save all cookies after successful login
+            save_cookies(driver, cookie_filename, path=cookie_path)
 
             # Retrieve and set account information
             account_dict = sofi_account_info(driver)
@@ -196,6 +235,7 @@ def sofi_init(SOFI_EXTERNAL=None, DOCKER=None, botObj=None, loop=None):
             driver.close()
             driver.quit()
             return None
+
     return sofi_obj
 
 
