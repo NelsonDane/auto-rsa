@@ -97,12 +97,13 @@ def wellsfargo_holdings(WELLSFARGO_o: Brokerage, loop=None):
         try:
             more = WebDriverWait(driver, 20).until(
                 EC.element_to_be_clickable(
-                    (By.CLASS_NAME, "withicon holdingssnaphot")
+                    (By.LINK_TEXT, "Holdings Snapshot")
                 )
             )
             more.click()
-        except Exception:
-            print("error :(")
+            input()
+        except Exception as e:
+            print(f"error :( {e}")
             sleep(10)
             pass
 

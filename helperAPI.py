@@ -539,6 +539,7 @@ def getDriver(DOCKER=False):
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_argument("--disable-extensions")
         options.add_argument("--disable-notifications")
+        options.add_argument("--log-level=3") 
         if DOCKER:
             # Special Docker options
             options.add_argument("--disable-dev-shm-usage")
