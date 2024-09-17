@@ -346,22 +346,34 @@ def is_up_to_date(remote, branch):
 
     # Check if local branch is up to date with ls-remote
     up_to_date = False
+    is_fork = False
     remote_hash = ""
     local_commit = git.Repo(".").head.commit.hexsha
     try:
         g = git.cmd.Git()
         ls_remote = g.ls_remote(remote, branch)
-        remote_hash = str(ls_remote.split("\t")[0])
+        remote_hash = ls_remote.split("\n")
+        wanted_remote = f"refs/heads/{branch}"
+        for line in remote_hash:
+            if wanted_remote in line:
+                remote_hash = line.split("\t")[0]
+                break
+        if isinstance(remote_hash, list):
+            remote_hash = ""
+            is_fork = True
+            raise Exception(
+                f"Branch {branch} not found in remote {remote}. Perhaps you are on a fork?"
+            )
         if local_commit == remote_hash:
             up_to_date = True
             print(f"You are up to date with {remote}/{branch}")
     except Exception as e:
         print(f"Error running ls-remote: {e}")
-    if not up_to_date:
+    if not up_to_date and not is_fork:
         if remote_hash == "":
             remote_hash = "NOT FOUND"
         print(
-            f"WARNING: YOU ARE OUT OF DATE. Please run 'git pull {remote} {branch}' to update. Local hash: {local_commit}, Remote hash: {remote_hash}"
+            f"WARNING: YOU ARE OUT OF DATE. Please run 'git pull' to update from {remote}/{branch}. Local hash: {local_commit}, Remote hash: {remote_hash}"
         )
     return up_to_date
 
@@ -409,7 +421,7 @@ def updater():
         return
     if not repo.bare:
         try:
-            repo.git.pull("origin", repo.active_branch)
+            repo.git.pull()
             print(f"Pulled latest changes from {repo.active_branch}")
         except Exception as e:
             print(
@@ -658,6 +670,48 @@ async def getOTPCodeDiscord(
             printAndDiscord(f"OTP code must be {code_len} digits", loop)
             continue
         return code.content
+
+
+async def getUserInputDiscord(botObj: commands.Bot, prompt, timeout=60, loop=None):
+    printAndDiscord(prompt, loop)
+    printAndDiscord(
+        f"Please enter the input or type cancel within {timeout} seconds", loop
+    )
+    try:
+        code = await botObj.wait_for(
+            "message",
+            check=lambda m: m.author != botObj.user
+            and m.channel.id == int(DISCORD_CHANNEL),
+            timeout=timeout,
+        )
+    except asyncio.TimeoutError:
+        printAndDiscord("Timed out waiting for input", loop)
+        return None
+    if code.content.lower() == "cancel":
+        printAndDiscord("Input canceled by user", loop)
+        return None
+    return code.content
+
+
+async def send_captcha_to_discord(file):
+    BASE_URL = f"https://discord.com/api/v10/channels/{DISCORD_CHANNEL}/messages"
+    HEADERS = {
+        "Authorization": f"Bot {DISCORD_TOKEN}",
+    }
+    files = {"file": ("captcha.png", file, "image/png")}
+    success = False
+    while not success:
+        response = requests.post(BASE_URL, headers=HEADERS, files=files)
+        if response.status_code == 200:
+            success = True
+        elif response.status_code == 429:
+            rate_limit = response.json()["retry_after"] * 2
+            await asyncio.sleep(rate_limit)
+        else:
+            print(
+                f"Error sending CAPTCHA image: {response.status_code}: {response.text}"
+            )
+            break
 
 
 def maskString(string):

@@ -163,6 +163,7 @@ For help:
 - `<dry>`: boolean, Whether to run in `dry` mode (in which no transactions are made. Useful for testing). Set to `True`, `False`, or just write `dry` for`True`. Defaults to `True`, so if you want to run a real transaction, you must set this explicitly.
 
 Note: There are two special keywords you can use when specifying accounts: `all` and `day1`. `all` will use every account that you have set up. `day1` will use "day 1" brokers, which are:
+- BBAE
 - Chase
 - Fennel
 - Firstrade
@@ -188,6 +189,16 @@ More detailed guides for some of the difficult setups:
 All brokers: separate account credentials with a colon (":"). For example, `SCHWAB_USERNAME:SCHWAB_PASSWORD`. Separate multiple logins with the same broker with a comma (","). For example, `SCHWAB_USERNAME:SCHWAB_PASSWORD,SCHWAB_USERNAME2:SCHWAB_PASSWORD2`.
 
 Some brokerages require `Playwright` to run. On Windows, the `playwright install` command might not be recognized. If this is the case, run `python -m playwright install` instead.
+
+#### BBAE
+Made by [ImNotOssy](https://github.com/ImNotOssy) using the [BBAE_investing_API](https://github.com/ImNotOssy/BBAE_investing_API). Go give them a ⭐ 
+- `BBAE_USERNAME`
+- `BBAE_PASSWORD`
+ 
+`.env` file format:
+- `BBAE=BBAE_USERNAME:BBAE_PASSWORD`
+
+Note: `BBAE_USERNAME` can either be email or phone number.
 
 #### Chase
 Made by [MaxxRK](https://github.com/MaxxRK/) using the [chaseinvest-api](https://github.com/MaxxRK/chaseinvest-api). Go give them a ⭐
@@ -283,6 +294,16 @@ Required `.env` variables:
 To get your TOTP secret, follow this [guide](guides/schwabSetup.md).
 
 Note 1: Think or Swim must be enabled on all accounts. To enable, go to `Trade` > `Trading Platforms` > `Learn how to enable thinkorswim`. Then press `Continue` and expand the `thinkorswim Access Agreement` and accept it. Then press `Continue` again. Then select the checkbox for all available accounts and press `Submit`. It may take a day or two for the accounts to be enabled.
+
+### Tornado
+Made by [ImNotOssy](https://github.com/ImNotOssy) using Selenium. Go give them a ⭐
+
+Required `.env` variables:
+- `TORNADO_EMAIL`
+- `TORNADO_PASSWORD`
+
+`.env` file format:
+- `TORNADO=TORNADO_EMAIL:TORNADO_PASSWORD`
 
 ### Tradier
 Made by yours truly using the official [Tradier API](https://documentation.tradier.com/brokerage-api/trading/getting-started). Consider giving me a ⭐

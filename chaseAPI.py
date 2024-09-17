@@ -34,6 +34,8 @@ def chase_run(
         if CHASE_EXTERNAL is None
         else CHASE_EXTERNAL.strip().split(",")
     )
+    # Get headless flag
+    headless = os.getenv("HEADLESS", "true").lower() == "true"
     # Set the functions to be run
     _, second_command = command
 
@@ -41,10 +43,11 @@ def chase_run(
     for account in accounts:
         # Start at index 1 and go to how many logins we have
         index = accounts.index(account) + 1
-        # Recieve the chase broker class object and the AllAccount object related to it
+        # Receive the chase broker class object and the AllAccount object related to it
         chase_details = chase_init(
             account=account,
             index=index,
+            headless=headless,
             botObj=botObj,
             loop=loop,
         )
@@ -67,13 +70,14 @@ def get_account_id(account_connectors, value):
     return None
 
 
-def chase_init(account: str, index: int, botObj=None, loop=None):
+def chase_init(account: str, index: int, headless=True, botObj=None, loop=None):
     """
     Logs into chase. Checks for 2FA and gathers details on the chase accounts
 
     Args:
         account (str): The chase username, password, last 4 of phone #, and possible debug flag, seperated by ':'.
         index (int): The index of this chase account in a list of accounts.
+        headless (bool): Whether to run the browser in headless mode.
         botObj (Bot): The discord bot object if used.
         loop (AbstractEventLoop): The event loop to be used
     Raises:
@@ -94,7 +98,10 @@ def chase_init(account: str, index: int, botObj=None, loop=None):
         debug = bool(account[3]) if len(account) == 4 else False
         # Create a ChaseSession class object which automatically configures and opens a browser
         ch_session = session.ChaseSession(
-            title=f"chase_{index}", headless=True, profile_path="./creds", debug=debug
+            title=f"chase_{index}",
+            headless=headless,
+            profile_path="./creds",
+            debug=debug,
         )
         # Login to chase
         need_second = ch_session.login(account[0], account[1], account[2])
@@ -242,8 +249,16 @@ def chase_transaction(
                 # If it should be limit
                 if symbol_quote.ask_price < 1:
                     price_type = order.PriceType.LIMIT
-                    # Set limit price
-                    limit_price = round(symbol_quote.ask_price + 0.01, 2)
+                    if symbol_quote.ask_price > 0.10:
+                        # Set limit price
+                        limit_price = round(symbol_quote.ask_price + 0.01, 2)
+                    else:
+                        # Set limit price always round up
+                        factor = 10**2
+                        value = symbol_quote.ask_price * factor
+                        if value % 1 != 0:
+                            value = int(value) + 1
+                        limit_price = value / factor
 
             printAndDiscord(
                 f"{key} {orderObj.get_action()}ing {orderObj.get_amount()} {ticker} @ {price_type.value}",

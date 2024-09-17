@@ -20,6 +20,7 @@ try:
     from dotenv import load_dotenv
 
     # Custom API libraries
+    from bbaeAPI import *
     from chaseAPI import *
     from fennelAPI import *
     from fidelityAPI import *
@@ -36,6 +37,7 @@ try:
     from robinhoodAPI import *
     from schwabAPI import *
     from tastyAPI import *
+    from tornadoAPI import *
     from tradierAPI import *
     from vanguardAPI import *
     from webullAPI import *
@@ -51,6 +53,7 @@ load_dotenv()
 
 # Global variables
 SUPPORTED_BROKERS = [
+    "bbae",
     "chase",
     "fennel",
     "fidelity",
@@ -59,11 +62,13 @@ SUPPORTED_BROKERS = [
     "robinhood",
     "schwab",
     "tastytrade",
+    "tornado",
     "tradier",
     "vanguard",
     "webull",
 ]
 DAY1_BROKERS = [
+    "bbae",
     "chase",
     "fennel",
     "firstrade",
@@ -80,6 +85,8 @@ DANGER_MODE = False
 
 # Account nicknames
 def nicknames(broker):
+    if broker == "bb":
+        return "bbae"
     if broker in ["fid", "fido"]:
         return "fidelity"
     if broker == "ft":
@@ -115,7 +122,13 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                         ),
                         broker,
                     )
-                elif broker.lower() in ["fennel", "firstrade", "public"]:
+                elif broker.lower() == "tornado":
+                    # Requires docker mode argument and loop
+                    orderObj.set_logged_in(
+                        globals()[fun_name](DOCKER=DOCKER_MODE, loop=loop),
+                        broker,
+                    )
+                elif broker.lower() in ["bbae", "fennel", "firstrade", "public"]:
                     # Requires bot object and loop
                     orderObj.set_logged_in(
                         globals()[fun_name](botObj=botObj, loop=loop), broker
