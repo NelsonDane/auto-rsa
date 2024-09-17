@@ -8,7 +8,7 @@ import pyotp
 import robin_stocks.robinhood as rh
 from dotenv import load_dotenv
 
-from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder
+from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, stockOrder, printConfirm
 
 
 def login_with_cache(pickle_path, pickle_name):
@@ -179,21 +179,15 @@ def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, loop=None):
                             message = "Success"
                             if limit_order.get("non_field_errors") is not None:
                                 message = limit_order["non_field_errors"]
-                            printAndDiscord(
-                                f"{key}: {orderObj.get_action()} {orderObj.get_amount()} of {s} in {print_account} @ {price}: {message}",
-                                loop,
-                            )
+                            printConfirm(key, print_account, orderObj.get_action(), orderObj.get_amount(), s, loop, False, f"@ {price}: {message}")
                         else:
                             message = "Success"
                             if market_order.get("non_field_errors") is not None:
                                 message = market_order["non_field_errors"]
-                            printAndDiscord(
-                                f"{key}: {orderObj.get_action()} {orderObj.get_amount()} of {s} in {print_account}: {message}",
-                                loop,
-                            )
+                            printConfirm(key, print_account, orderObj.get_action(), orderObj.get_amount(), s, loop, False, message)
                     except Exception as e:
                         traceback.format_exc()
-                        printAndDiscord(f"{key} Error submitting order: {e}", loop)
+                        printConfirm(key, print_account, orderObj.get_action(), orderObj.get_amount(), s, loop, True, e)
                 else:
                     printAndDiscord(
                         f"{key} {print_account} Running in DRY mode. Transaction would've been: {orderObj.get_action()} {orderObj.get_amount()} of {s}",

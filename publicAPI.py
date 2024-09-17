@@ -12,6 +12,7 @@ from helperAPI import (
     printAndDiscord,
     printHoldings,
     stockOrder,
+    printConfirm,
 )
 
 
@@ -133,12 +134,8 @@ def public_transaction(pbo: Brokerage, orderObj: stockOrder, loop=None):
                         is_dry_run=orderObj.get_dry(),
                     )
                     if order["success"] is True:
-                        order = "Success"
-                    printAndDiscord(
-                        f"{key}: {orderObj.get_action()} {orderObj.get_amount()} of {s} in {print_account}: {order}",
-                        loop,
-                    )
+                        printConfirm(key, print_account, orderObj.get_action(), orderObj.get_amount(), s, loop, False)
                 except Exception as e:
-                    printAndDiscord(f"{print_account}: Error placing order: {e}", loop)
+                    printConfirm(key, print_account, orderObj.get_action(), orderObj.get_amount(), s, loop, True, e)
                     traceback.print_exc()
                     continue

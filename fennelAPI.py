@@ -11,6 +11,7 @@ from helperAPI import (
     printAndDiscord,
     printHoldings,
     stockOrder,
+    printConfirm,
 )
 
 
@@ -140,11 +141,8 @@ def fennel_transaction(fbo: Brokerage, orderObj: stockOrder, loop=None):
                         message = "Success"
                         if order.get("data", {}).get("createOrder") != "pending":
                             message = order.get("data", {}).get("createOrder")
-                    printAndDiscord(
-                        f"{key}: {orderObj.get_action()} {orderObj.get_amount()} of {s} in {account}: {message}",
-                        loop,
-                    )
+                    printConfirm(key, account, orderObj.get_action(), orderObj.get_amount(), s, loop, False, message)
                 except Exception as e:
-                    printAndDiscord(f"{key} {account}: Error placing order: {e}", loop)
+                    printConfirm(key, account, orderObj.get_action(), orderObj.get_amount(), s, loop, True, e)
                     print(traceback.format_exc())
                     continue
