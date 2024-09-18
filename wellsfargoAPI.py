@@ -246,12 +246,7 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                 except Exception:
                     # this is just for the popup
                     pass
-                
-                WebDriverWait(driver, 20).until(
-                    EC.element_to_be_clickable(
-                        (By.ID, "BuySellBtn")
-                    )
-                )
+                sleep(2)
                 # idk why doing it through selenium doesnt work sometimes
                 driver.execute_script('document.getElementById("BuySellBtn").click()')
                 # Buy or Sell
@@ -325,11 +320,8 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                         loop,
                     )
                     # buy next
-                    buy_next = WebDriverWait(driver, 10).until(
-                        EC.element_to_be_clickable(
-                            (By.CSS_SELECTOR, ".btn-wfa-primary")
-                        )
-                    )
+                    sleep(2)
+                    buy_next = driver.find_element(By.CSS_SELECTOR, ".btn-wfa-primary")
                     driver.execute_script("arguments[0].scrollIntoView(true);", buy_next)
                     buy_next.click()
                 except TimeoutException:
