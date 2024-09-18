@@ -47,46 +47,46 @@ def wellsfargo_init(WELLSFARGO_EXTERNAL=None, botObj=None, loop=None, DOCKER=Fal
         index = accounts.index(account) + 1
         name = f"WELLSFARGO {index}"
         account = account.split(":")
-    try:
-        print("Logging into WELLS FARGO...")
-        driver = getDriver(DOCKER)
-        if driver is None:
-            raise Exception("Driver not found.")
-        driver.get("https://connect.secure.wellsfargo.com/auth/login/present")
-        WebDriverWait(driver, 20).until(check_if_page_loaded)
-        # Login
         try:
-            username_field = driver.find_element(By.XPATH, "//*[@id='j_username']")
-            type_slowly(username_field, account[0])
-            # Wait for the password field and enter the password
-            password_field = driver.find_element(By.XPATH, "//*[@id='j_password']")
-            type_slowly(password_field, account[1])
-
-            login_button = WebDriverWait(driver, 20).until(
-                EC.element_to_be_clickable(
-                        (By.CSS_SELECTOR, ".Button__modern___cqCp7")
-                    )
-                )
-            login_button.click()
+            print("Logging into WELLS FARGO...")
+            driver = getDriver(DOCKER)
+            if driver is None:
+                raise Exception("Driver not found.")
+            driver.get("https://connect.secure.wellsfargo.com/auth/login/present")
             WebDriverWait(driver, 20).until(check_if_page_loaded)
-            print("=====================================================\n")
-        except TimeoutException:
-            print("TimeoutException: Login failed.")
-            return False
-        WELLSFARGO_obj.set_logged_in_object(name, driver)
-        account_numbers = driver.execute_script("""
-            return Array.from(document.querySelectorAll('li'))
-                .filter(li => li.outerText.includes('WELLSTRADE'))
-                .map(li => li.outerText.match(/\\d{4}/)?.[0])
-                .filter(num => num !== undefined);
-        """)
-        for account_number in account_numbers:
-            WELLSFARGO_obj.set_account_number(name, account_number)
-    except Exception as e:
-        wellsfargo_error(driver, e)
-        driver.close()
-        driver.quit()
-        return None
+            # Login
+            try:
+                username_field = driver.find_element(By.XPATH, "//*[@id='j_username']")
+                type_slowly(username_field, account[0])
+                # Wait for the password field and enter the password
+                password_field = driver.find_element(By.XPATH, "//*[@id='j_password']")
+                type_slowly(password_field, account[1])
+
+                login_button = WebDriverWait(driver, 20).until(
+                    EC.element_to_be_clickable(
+                            (By.CSS_SELECTOR, ".Button__modern___cqCp7")
+                        )
+                    )
+                login_button.click()
+                WebDriverWait(driver, 20).until(check_if_page_loaded)
+                print("=====================================================\n")
+            except TimeoutException:
+                print("TimeoutException: Login failed.")
+                return False
+            WELLSFARGO_obj.set_logged_in_object(name, driver)
+            account_numbers = driver.execute_script("""
+                return Array.from(document.querySelectorAll('li'))
+                    .filter(li => li.outerText.includes('WELLSTRADE'))
+                    .map(li => li.outerText.match(/\\d{4}/)?.[0])
+                    .filter(num => num !== undefined);
+            """)
+            for account_number in account_numbers:
+                WELLSFARGO_obj.set_account_number(name, account_number)
+        except Exception as e:
+            wellsfargo_error(driver, e)
+            driver.close()
+            driver.quit()
+            return None
     return WELLSFARGO_obj
 
 
