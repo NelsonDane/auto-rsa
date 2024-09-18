@@ -286,7 +286,11 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                 )
 
                 price = driver.find_element(By.CLASS_NAME, "qeval").text
-
+                price = float(price)
+                if orderObj.get_action().lower() == "buy":
+                    price += 0.01
+                else:
+                    price -= 0.01
                 # order type
                 driver.execute_script("document.getElementById('OrderTypeBtnText').click()")
 
