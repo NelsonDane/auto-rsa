@@ -80,7 +80,7 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
             # Wait for page load
             WebDriverWait(driver, 20).until(check_if_page_loaded)
             # Loop to refresh the login page in case it does not load correctly. aka (Shenanigans)
-            for _ in range(2):
+            for i in range(3):
                 # Fidelity has different login views, so check for both
                 try:
                     WebDriverWait(driver, 10).until(
@@ -107,6 +107,8 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
                 except TimeoutException:
                     pass
                 driver.refresh()
+                if i == 2:
+                    raise Exception("Failed to load login page")
             # Type in username and password and click login
             WebDriverWait(driver, 10).until(
                 expected_conditions.element_to_be_clickable(
