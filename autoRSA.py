@@ -125,7 +125,7 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                         ),
                         broker,
                     )
-                elif broker.lower() == ["tornado","wellsfargo"]:
+                elif broker.lower() == ["tornado", "wellsfargo"]:
                     # Requires docker mode argument and loop
                     orderObj.set_logged_in(
                         globals()[fun_name](DOCKER=DOCKER_MODE, loop=loop),
