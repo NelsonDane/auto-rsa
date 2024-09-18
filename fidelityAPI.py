@@ -583,7 +583,7 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                     sleep(3)
                     # Check for error popup and clear
                     try:
-                        error_dismiss = WebDriverWait(driver, 2).until(
+                        error_dismiss = WebDriverWait(driver, 5).until(
                             expected_conditions.element_to_be_clickable(
                                 (
                                     By.XPATH,
