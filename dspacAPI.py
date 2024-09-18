@@ -202,7 +202,6 @@ def dspac_holdings(ds: Brokerage, loop=None):
                             continue
                         sym = holding["displaySymbol"]
                         cp = holding["Last"]
-                        #print(f"Stock Ticker: {sym}, Amount: {qty}, Current Price: {cp}")
                         ds.set_holdings(key, account, sym, qty, cp)
             except Exception as e:
                 printAndDiscord(f"Error getting DSPAC holdings: {e}")
