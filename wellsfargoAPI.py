@@ -48,7 +48,7 @@ def wellsfargo_init(WELLSFARGO_EXTERNAL=None, DOCKER=False, loop=None):
         name = f"WELLSFARGO {index}"
         account = account.split(":")
         try:
-            print("Logging into WELLS FARGO...")
+            printAndDiscord("Logging into WELLS FARGO...", loop)
             driver = getDriver(DOCKER)
             if driver is None:
                 raise Exception("Driver not found.")
