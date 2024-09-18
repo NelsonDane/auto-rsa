@@ -147,13 +147,13 @@ def wellsfargo_holdings(WELLSFARGO_o: Brokerage, loop=None):
                 print("Could not change account")
                 killSeleniumDriver(WELLSFARGO_o)
                 continue
-            
+
             # Sleep to allow new table to load.
             sleep(1)
             rows = driver.find_elements(By.CSS_SELECTOR, "tbody tr")
-            
+
             for row in rows:
-                cells = row.find_elements(By.CSS_SELECTOR, "td") 
+                cells = row.find_elements(By.CSS_SELECTOR, "td")
                 if len(cells) >= 9:
                     # Extracting data
                     name_match = re.search(r"^[^\n]*", cells[1].text)
