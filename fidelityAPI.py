@@ -587,7 +587,7 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                             expected_conditions.element_to_be_clickable(
                                 (
                                     By.XPATH,
-                                    "(//div[@class='pvd-modal__content']//button)[4]",
+                                    "(//div[@class='pvd-modal__content']//button)[1]",
                                 )
                             )
                         )
