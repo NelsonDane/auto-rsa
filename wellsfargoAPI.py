@@ -64,9 +64,9 @@ def wellsfargo_init(WELLSFARGO_EXTERNAL=None, DOCKER=False, loop=None):
 
                 login_button = WebDriverWait(driver, 20).until(
                     EC.element_to_be_clickable(
-                            (By.CSS_SELECTOR, ".Button__modern___cqCp7")
-                        )
+                        (By.CSS_SELECTOR, ".Button__modern___cqCp7")
                     )
+                )
                 login_button.click()
                 WebDriverWait(driver, 20).until(check_if_page_loaded)
                 print("=====================================================\n")
@@ -74,12 +74,14 @@ def wellsfargo_init(WELLSFARGO_EXTERNAL=None, DOCKER=False, loop=None):
                 print("TimeoutException: Login failed.")
                 return False
             WELLSFARGO_obj.set_logged_in_object(name, driver)
-            account_numbers = driver.execute_script("""
+            account_numbers = driver.execute_script(
+                """
                 return Array.from(document.querySelectorAll('li'))
                     .filter(li => li.outerText.includes('WELLSTRADE'))
                     .map(li => li.outerText.match(/\\d{4}/)?.[0])
                     .filter(num => num !== undefined);
-            """)
+            """
+            )
             for account_number in account_numbers:
                 WELLSFARGO_obj.set_account_number(name, account_number)
         except Exception as e:
@@ -101,15 +103,11 @@ def wellsfargo_holdings(WELLSFARGO_o: Brokerage, loop=None):
 
             try:
                 more = WebDriverWait(driver, 20).until(
-                    EC.element_to_be_clickable(
-                        (By.LINK_TEXT, "Holdings Snapshot")
-                    )
+                    EC.element_to_be_clickable((By.LINK_TEXT, "Holdings Snapshot"))
                 )
                 more.click()
                 position = WebDriverWait(driver, 10).until(
-                    EC.element_to_be_clickable(
-                        (By.ID, "btnpositions")
-                    )
+                    EC.element_to_be_clickable((By.ID, "btnpositions"))
                 )
                 position.click()
             except Exception as e:
@@ -292,7 +290,9 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                 else:
                     price -= 0.01
                 # order type
-                driver.execute_script("document.getElementById('OrderTypeBtnText').click()")
+                driver.execute_script(
+                    "document.getElementById('OrderTypeBtnText').click()"
+                )
 
                 # limit price
                 order = driver.find_element(By.LINK_TEXT, "Limit")
@@ -312,9 +312,8 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                 review.click()
                 try:
                     # submit
-                    submit = WebDriverWait(driver, 10).until(EC.element_to_be_clickable(
-                            (By.CSS_SELECTOR, ".btn-wfa-submit")
-                        )
+                    submit = WebDriverWait(driver, 10).until(
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, ".btn-wfa-submit"))
                     )
                     driver.execute_script("arguments[0].scrollIntoView(true);", submit)
                     sleep(2)
@@ -326,11 +325,15 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                     )
                     # buy next
                     buy_next = driver.find_element(By.CSS_SELECTOR, ".btn-wfa-primary")
-                    driver.execute_script("arguments[0].scrollIntoView(true);", buy_next)
+                    driver.execute_script(
+                        "arguments[0].scrollIntoView(true);", buy_next
+                    )
                     sleep(2)
                     buy_next.click()
                 except TimeoutException:
-                    error_text = driver.find_element(By.XPATH, "//div[@class='alert-msg-summary']//p[1]").text
+                    error_text = driver.find_element(
+                        By.XPATH, "//div[@class='alert-msg-summary']//p[1]"
+                    ).text
                     printAndDiscord(
                         f"{key} {WELLSFARGO_o.get_account_numbers(key)[account]}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}. FAILED! \n{error_text}",
                         loop,
