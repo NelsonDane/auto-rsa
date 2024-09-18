@@ -31,7 +31,7 @@ def wellsfargo_error(driver: webdriver, error: str):
     print(traceback.format_exc())
 
 
-def wellsfargo_init(WELLSFARGO_EXTERNAL=None, botObj=None, loop=None, DOCKER=False):
+def wellsfargo_init(WELLSFARGO_EXTERNAL=None, DOCKER=False, loop=None):
     load_dotenv()
 
     if not os.getenv("WELLSFARGO"):
