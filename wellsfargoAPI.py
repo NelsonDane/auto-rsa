@@ -131,7 +131,6 @@ def wellsfargo_holdings(WELLSFARGO_o: Brokerage, loop=None):
             return
 
         for account in range(accounts):
-            print(account)
             try:
                 # Choose account
                 open_dropdown = WebDriverWait(driver, 20).until(
@@ -144,16 +143,17 @@ def wellsfargo_holdings(WELLSFARGO_o: Brokerage, loop=None):
                     + str(account + 2)
                     + "].click()"
                 )
-
             except Exception:
                 print("Could not change account")
                 killSeleniumDriver(WELLSFARGO_o)
                 continue
-
+            
+            # Sleep to allow new table to load.
+            sleep(1)
             rows = driver.find_elements(By.CSS_SELECTOR, "tbody tr")
-
+            
             for row in rows:
-                cells = row.find_elements(By.CSS_SELECTOR, "td")
+                cells = row.find_elements(By.CSS_SELECTOR, "td") 
                 if len(cells) >= 9:
                     # Extracting data
                     name_match = re.search(r"^[^\n]*", cells[1].text)
@@ -233,7 +233,7 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                     + "].click()"
                 )
             except Exception:
-                print("could not change account")
+                print("Could not change account")
                 killSeleniumDriver(WELLSFARGO_o)
             # TODO check for the error check
             for s in orderObj.get_stocks():
@@ -246,6 +246,12 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                 except Exception:
                     # this is just for the popup
                     pass
+                
+                WebDriverWait(driver, 20).until(
+                    EC.element_to_be_clickable(
+                        (By.ID, "BuySellBtn")
+                    )
+                )
                 # idk why doing it through selenium doesnt work sometimes
                 driver.execute_script('document.getElementById("BuySellBtn").click()')
                 # Buy or Sell
@@ -265,7 +271,6 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                     EC.element_to_be_clickable((By.ID, "actionbtnContinue"))
                 )
                 driver.execute_script("arguments[0].scrollIntoView(true);", review)
-                sleep(10)
 
                 tickerBox = WebDriverWait(driver, 20).until(
                     EC.element_to_be_clickable((By.ID, "Symbol"))
@@ -281,12 +286,11 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                 )
 
                 # get price
-                WebDriverWait(driver, 10).until(
+                WebDriverWait(driver, 20).until(
                     EC.presence_of_element_located((By.CLASS_NAME, "qeval"))
                 )
 
                 price = driver.find_element(By.CLASS_NAME, "qeval").text
-                print(price)
 
                 # order type
                 driver.execute_script("document.getElementById('OrderTypeBtnText').click()")
@@ -301,26 +305,36 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
 
                 # timing
                 driver.execute_script("document.getElementById('TIFBtn').click()")
-
+                sleep(1)
                 day = driver.find_element(By.LINK_TEXT, "Day")
                 day.click()
 
                 # preview
                 review.click()
-
-                # submit
-                WebDriverWait(driver, 20).until(check_if_page_loaded)
-                submit = driver.find_element(By.CSS_SELECTOR, ".btn-wfa-submit")
-                driver.execute_script("arguments[0].scrollIntoView(true);", submit)
-                sleep(5)
-                submit.click()
-                # Send confirmation
-                printAndDiscord(
-                    f"{key} {WELLSFARGO_o.get_account_numbers(key)[account]}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}",
-                    loop,
-                )
-                # buy next
-                buy_next = driver.find_element(By.CSS_SELECTOR, ".btn-wfa-primary")
-                driver.execute_script("arguments[0].scrollIntoView(true);", buy_next)
-                sleep(5)
-                buy_next.click()
+                try:
+                    # submit
+                    submit = WebDriverWait(driver, 10).until(EC.element_to_be_clickable(
+                            (By.CSS_SELECTOR, ".btn-wfa-submit")
+                        )
+                    )
+                    driver.execute_script("arguments[0].scrollIntoView(true);", submit)
+                    submit.click()
+                    # Send confirmation
+                    printAndDiscord(
+                        f"{key} {WELLSFARGO_o.get_account_numbers(key)[account]}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}",
+                        loop,
+                    )
+                    # buy next
+                    buy_next = WebDriverWait(driver, 10).until(
+                        EC.element_to_be_clickable(
+                            (By.CSS_SELECTOR, ".btn-wfa-primary")
+                        )
+                    )
+                    driver.execute_script("arguments[0].scrollIntoView(true);", buy_next)
+                    buy_next.click()
+                except TimeoutException:
+                    error_text = driver.find_element(By.XPATH, "//div[@class='alert-msg-summary']//p[1]").text
+                    printAndDiscord(
+                        f"{key} {WELLSFARGO_o.get_account_numbers(key)[account]}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}. FAILED! \n{error_text}",
+                        loop,
+                    )
