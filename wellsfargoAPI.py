@@ -18,7 +18,6 @@ from helperAPI import (
     check_if_page_loaded,
     getDriver,
     killSeleniumDriver,
-    maskString,
     printAndDiscord,
     printHoldings,
     stockOrder,
@@ -33,7 +32,6 @@ def wellsfargo_error(driver: webdriver, error: str):
 
 
 def wellsfargo_init(WELLSFARGO_EXTERNAL=None, botObj=None, loop=None, DOCKER=False):
-    #DRIVER = getDriver(DOCKER=False)
     load_dotenv()
 
     if not os.getenv("WELLSFARGO"):
@@ -48,7 +46,7 @@ def wellsfargo_init(WELLSFARGO_EXTERNAL=None, botObj=None, loop=None, DOCKER=Fal
     for account in accounts:
         index = accounts.index(account) + 1
         name = f"WELLSFARGO {index}"
-    account = account.split(":")
+        account = account.split(":")
     try:
         print("Logging into WELLS FARGO...")
         driver = getDriver(DOCKER)
@@ -110,7 +108,7 @@ def wellsfargo_holdings(WELLSFARGO_o: Brokerage, loop=None):
                 more.click()
                 position = WebDriverWait(driver, 10).until(
                     EC.element_to_be_clickable(
-                    (By.ID, "btnpositions")
+                        (By.ID, "btnpositions")
                     )
                 )
                 position.click()
@@ -147,7 +145,7 @@ def wellsfargo_holdings(WELLSFARGO_o: Brokerage, loop=None):
                     + "].click()"
                 )
 
-            except:
+            except Exception:
                 print("Could not change account")
                 killSeleniumDriver(WELLSFARGO_o)
                 continue
@@ -165,13 +163,9 @@ def wellsfargo_holdings(WELLSFARGO_o: Brokerage, loop=None):
                     price_match = re.search(
                         r"-?\d+(\.\d+)?", cells[4].text.replace("\n", "")
                     )
-                    my_value_match = re.search(
-                        r"-?\d+(\.\d+)?", cells[5].text.replace("\n", "")
-                    )
                     name = name_match.group(0) if name_match else cells[1].text
                     amount = amount_match.group(0) if amount_match else "0"
                     price = price_match.group(0) if price_match else "0"
-                    my_value = my_value_match.group(0) if my_value_match else "0"
 
                     WELLSFARGO_o.set_holdings(
                         key,
@@ -238,7 +232,7 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                     + str(account)
                     + "].click()"
                 )
-            except:
+            except Exception:
                 print("could not change account")
                 killSeleniumDriver(WELLSFARGO_o)
             # TODO check for the error check
@@ -250,7 +244,7 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                     )
                     leave.click()
                 except Exception:
-                    #this is just for the popup
+                    # this is just for the popup
                     pass
                 # idk why doing it through selenium doesnt work sometimes
                 driver.execute_script('document.getElementById("BuySellBtn").click()')
