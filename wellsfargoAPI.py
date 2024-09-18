@@ -266,7 +266,7 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                     EC.element_to_be_clickable((By.ID, "actionbtnContinue"))
                 )
                 driver.execute_script("arguments[0].scrollIntoView(true);", review)
-
+                sleep(2)
                 tickerBox = WebDriverWait(driver, 20).until(
                     EC.element_to_be_clickable((By.ID, "Symbol"))
                 )
@@ -317,6 +317,7 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                         )
                     )
                     driver.execute_script("arguments[0].scrollIntoView(true);", submit)
+                    sleep(2)
                     submit.click()
                     # Send confirmation
                     printAndDiscord(
@@ -324,9 +325,9 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                         loop,
                     )
                     # buy next
-                    sleep(2)
                     buy_next = driver.find_element(By.CSS_SELECTOR, ".btn-wfa-primary")
                     driver.execute_script("arguments[0].scrollIntoView(true);", buy_next)
+                    sleep(2)
                     buy_next.click()
                 except TimeoutException:
                     error_text = driver.find_element(By.XPATH, "//div[@class='alert-msg-summary']//p[1]").text
