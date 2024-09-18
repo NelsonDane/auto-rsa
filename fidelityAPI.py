@@ -583,7 +583,7 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                     sleep(3)
                     # Check for error popup and clear
                     try:
-                        error_dismiss = WebDriverWait(driver, 1).until(
+                        error_dismiss = WebDriverWait(driver, 2).until(
                             expected_conditions.element_to_be_clickable(
                                 (
                                     By.XPATH,
@@ -597,7 +597,7 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                         )
                         error_text = error_text.text
                         driver.execute_script("arguments[0].click();", error_dismiss)
-                    except NoSuchElementException:
+                    except (NoSuchElementException, TimeoutException):
                         pass
                     # Place order
                     if not orderObj.get_dry():
