@@ -608,7 +608,7 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                     try:
                         error_text = driver.find_element(
                             By.XPATH,
-                            "//div[@class='pvd-inline-alert__content']//div[1]"
+                            "//div[@class='pvd-inline-alert__content']//div[1]",
                         )
                         error_text = error_text.text
                         driver.execute_script("arguments[0].click();", error_dismiss)
