@@ -777,11 +777,18 @@ def load_cookies(driver, filename, path=None):
         filename = os.path.join(path, filename)
     if not os.path.exists(filename):
         return False
-    try:
-        with open(filename, "rb") as f:
-            cookies = pickle.load(f)
-        for cookie in cookies:
+    with open(filename, "rb") as f:
+        cookies = pickle.load(f)
+    for cookie in cookies:
+        try:
             driver.add_cookie(cookie)
-        return True
-    except Exception:
-        return False
+        except Exception:
+            continue
+    return True
+
+def clear_cookies(driver, filename, path=None):
+    if path is not None:
+        filename = os.path.join(path, filename)
+    if os.path.exists(filename):
+        os.remove(filename)
+    driver.delete_all_cookies()
