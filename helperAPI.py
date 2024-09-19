@@ -528,17 +528,10 @@ def getDriver(DOCKER=False):
     # Init webdriver options
     try:
         options = uc.ChromeOptions()
-        options.add_argument("--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Safari/605.1.15")
         options.add_argument("--start-maximized")
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_argument("--disable-extensions")
         options.add_argument("--disable-notifications")
-        prefs = {
-            "profile.default_content_setting_values.popups": 1,
-            "profile.default_content_setting_values.redirects": 1,
-            "profile.default_content_setting_values.automatic_downloads": 1,
-        }
-        options.add_experimental_option("prefs", prefs)
         if DOCKER:
             # Special Docker options
             options.add_argument("--disable-dev-shm-usage")
