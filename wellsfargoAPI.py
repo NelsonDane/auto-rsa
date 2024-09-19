@@ -230,6 +230,7 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
             print("could not get to trade")
             killSeleniumDriver(WELLSFARGO_o)
 
+        account_masks = WELLSFARGO_o.get_account_numbers(key)
         for account in range(accounts):
             try:
                 # choose account
@@ -237,11 +238,21 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                     EC.element_to_be_clickable((By.XPATH, "//*[@id='dropdown2']"))
                 )
                 open_dropdown.click()
-                driver.execute_script(
-                    "document.getElementById('dropdownlist2').getElementsByTagName('li')["
-                    + str(account)
-                    + "].click()"
-                )
+                find_account = """
+                    var items = document.getElementById('dropdownlist2').getElementsByTagName('li');
+                    for (var i = 0; i < items.length; i++) {
+                        if (items[i].innerText.includes(arguments[0])) {
+                            items[i].click();
+                            return i;
+                        }
+                    }
+                    return -1;
+                
+                """
+                select_account = driver.execute_script(find_account, account_masks[account])
+                if select_account == -1:
+                    print("Could not find the account with the specified text")
+                    continue
             except Exception:
                 print("Could not change account")
                 killSeleniumDriver(WELLSFARGO_o)
@@ -297,28 +308,33 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
 
                 price = driver.find_element(By.CLASS_NAME, "qeval").text
                 price = float(price)
-                if orderObj.get_action().lower() == "buy":
+                if orderObj.get_action().lower() == "buy" and price < 2:
+                    price_type = "Limit"
                     price += 0.01
-                else:
+                elif orderObj.get_action().lower() == "sell" and price < 2:
+                    price_type = "Limit"
                     price -= 0.01
+                else:
+                    price_type = "Market"
+                
                 # order type
                 driver.execute_script(
                     "document.getElementById('OrderTypeBtnText').click()"
                 )
 
                 # limit price
-                order = driver.find_element(By.LINK_TEXT, "Limit")
+                order = driver.find_element(By.LINK_TEXT, price_type)
                 order.click()
+                if price_type == "Limit":
+                    tickerBox = driver.find_element(By.ID, "Price")
+                    tickerBox.send_keys(price)
+                    tickerBox.send_keys(Keys.ENTER)
 
-                tickerBox = driver.find_element(By.ID, "Price")
-                tickerBox.send_keys(price)
-                tickerBox.send_keys(Keys.ENTER)
-
-                # timing
-                driver.execute_script("document.getElementById('TIFBtn').click()")
-                sleep(1)
-                day = driver.find_element(By.LINK_TEXT, "Day")
-                day.click()
+                    # timing
+                    driver.execute_script("document.getElementById('TIFBtn').click()")
+                    sleep(1)
+                    day = driver.find_element(By.LINK_TEXT, "Day")
+                    day.click()
 
                 # preview
                 review.click()
