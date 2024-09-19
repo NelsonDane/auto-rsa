@@ -477,7 +477,7 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                             ).click()
                             driver.find_element(
                                 by=By.CSS_SELECTOR,
-                                value="#order-action-container-id > dropdownlist-ett-ap122489 > div > div > div.dropdownlist_items.ett-tabkey-idx-sel-cls > div > div.dropdownlist_items--item.dropdownlist_items--item_hover",
+                                value="#Action0",
                             ).click()
                         else:
                             buy_button = driver.find_element(
@@ -491,10 +491,10 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                                 by=By.CSS_SELECTOR,
                                 value="#dest-dropdownlist-button-action",
                             )
-                            action_dropdown.click()
+                            action_dropdown.click()#Action0
                             driver.find_element(
                                 by=By.CSS_SELECTOR,
-                                value="#order-action-container-id > dropdownlist-ett-ap122489 > div > div > div.dropdownlist_items.ett-tabkey-idx-sel-cls > div > div:nth-child(2)",
+                                value="#Action1",
                             ).click()
                         else:
                             sell_button = driver.find_element(
@@ -517,7 +517,7 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                             ).click()
                             driver.find_element(
                                 by=By.CSS_SELECTOR,
-                                value="#order-type-container-id > dropdownlist-ett-ap122489 > div > div > div.dropdownlist_items.ett-tabkey-idx-sel-cls > div.dropdownlist_items--results-container > div:nth-child(1)",
+                                value="#Order\\ type0",
                             ).click()
                         else:
                             market_button = driver.find_element(
@@ -533,7 +533,7 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                             ).click()
                             driver.find_element(
                                 by=By.CSS_SELECTOR,
-                                value="#order-type-container-id > dropdownlist-ett-ap122489 > div > div > div.dropdownlist_items.ett-tabkey-idx-sel-cls > div.dropdownlist_items--results-container > div:nth-child(2)",
+                                value="#Order\\ type1",
                             ).click()
                         else:
                             limit_button = driver.find_element(
@@ -587,10 +587,20 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                             expected_conditions.element_to_be_clickable(
                                 (
                                     By.XPATH,
+                                    "(//div[@class='pvd-modal__content']//button)[4]",
+                                )
+                            )
+                        )
+                    except NoSuchElementException:
+                        error_dismiss = WebDriverWait(driver, 5).until(
+                            expected_conditions.element_to_be_clickable(
+                                (
+                                    By.XPATH,
                                     "(//div[@class='pvd-modal__content']//button)[1]",
                                 )
                             )
                         )
+                    try:
                         error_text = driver.find_element(
                             By.XPATH,
                             "//div[@class='pvd-inline-alert__content']//div[1]"
