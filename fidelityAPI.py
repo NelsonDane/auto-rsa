@@ -79,21 +79,37 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
             )
             # Wait for page load
             WebDriverWait(driver, 20).until(check_if_page_loaded)
-            # Type in username and password and click login
-            # Fidelity has different login views, so check for both
-            try:
-                WebDriverWait(driver, 10).until(
-                    expected_conditions.element_to_be_clickable(
-                        (By.CSS_SELECTOR, "#dom-username-input")
+            # Loop to refresh the login page in case it does not load correctly. aka (Shenanigans)
+            for i in range(3):
+                # Fidelity has different login views, so check for both
+                try:
+                    WebDriverWait(driver, 10).until(
+                        expected_conditions.element_to_be_clickable(
+                            (By.CSS_SELECTOR, "#dom-username-input")
+                        )
                     )
-                )
-                username_selector = "#dom-username-input"
-                password_selector = "#dom-pswd-input"
-                login_btn_selector = "#dom-login-button > div"
-            except TimeoutException:
-                username_selector = "#userId-input"
-                password_selector = "#password"
-                login_btn_selector = "#fs-login-button"
+                    username_selector = "#dom-username-input"
+                    password_selector = "#dom-pswd-input"
+                    login_btn_selector = "#dom-login-button > div"
+                    break
+                except TimeoutException:
+                    pass
+                try:
+                    WebDriverWait(driver, 10).until(
+                        expected_conditions.element_to_be_clickable(
+                            (By.CSS_SELECTOR, "#userId-input")
+                        )
+                    )
+                    username_selector = "#userId-input"
+                    password_selector = "#password"
+                    login_btn_selector = "#fs-login-button"
+                    break
+                except TimeoutException:
+                    pass
+                driver.refresh()
+                if i == 2:
+                    raise Exception("Failed to load login page")
+            # Type in username and password and click login
             WebDriverWait(driver, 10).until(
                 expected_conditions.element_to_be_clickable(
                     (By.CSS_SELECTOR, username_selector)
@@ -461,7 +477,7 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                             ).click()
                             driver.find_element(
                                 by=By.CSS_SELECTOR,
-                                value="#order-action-container-id > dropdownlist-ett-ap122489 > div > div > div.dropdownlist_items.ett-tabkey-idx-sel-cls > div > div.dropdownlist_items--item.dropdownlist_items--item_hover",
+                                value="#Action0",
                             ).click()
                         else:
                             buy_button = driver.find_element(
@@ -475,10 +491,10 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                                 by=By.CSS_SELECTOR,
                                 value="#dest-dropdownlist-button-action",
                             )
-                            action_dropdown.click()
+                            action_dropdown.click()  # Action0
                             driver.find_element(
                                 by=By.CSS_SELECTOR,
-                                value="#order-action-container-id > dropdownlist-ett-ap122489 > div > div > div.dropdownlist_items.ett-tabkey-idx-sel-cls > div > div:nth-child(2)",
+                                value="#Action1",
                             ).click()
                         else:
                             sell_button = driver.find_element(
@@ -501,7 +517,7 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                             ).click()
                             driver.find_element(
                                 by=By.CSS_SELECTOR,
-                                value="#order-type-container-id > dropdownlist-ett-ap122489 > div > div > div.dropdownlist_items.ett-tabkey-idx-sel-cls > div.dropdownlist_items--results-container > div:nth-child(1)",
+                                value="#Order\\ type0",
                             ).click()
                         else:
                             market_button = driver.find_element(
@@ -517,7 +533,7 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                             ).click()
                             driver.find_element(
                                 by=By.CSS_SELECTOR,
-                                value="#order-type-container-id > dropdownlist-ett-ap122489 > div > div > div.dropdownlist_items.ett-tabkey-idx-sel-cls > div.dropdownlist_items--results-container > div:nth-child(2)",
+                                value="#Order\\ type1",
                             ).click()
                         else:
                             limit_button = driver.find_element(
@@ -567,12 +583,36 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                     sleep(3)
                     # Check for error popup and clear
                     try:
-                        error_dismiss = driver.find_element(
-                            by=By.XPATH,
-                            value="(//button[@class='pvd-modal__close-button'])[3]",
+                        # Seems Windows is using this right now
+                        error_dismiss = WebDriverWait(driver, 5).until(
+                            expected_conditions.element_to_be_clickable(
+                                (
+                                    By.XPATH,
+                                    "(//div[@class='pvd-modal__content']//button)[4]",
+                                )
+                            )
                         )
+                    except TimeoutException:
+                        # And this for linux?
+                        try:
+                            error_dismiss = WebDriverWait(driver, 5).until(
+                                expected_conditions.element_to_be_clickable(
+                                    (
+                                        By.XPATH,
+                                        "(//div[@class='pvd-modal__content']//button)[1]",
+                                    )
+                                )
+                            )
+                        except TimeoutException:
+                            pass
+                    try:
+                        error_text = driver.find_element(
+                            By.XPATH,
+                            "//div[@class='pvd-inline-alert__content']//div[1]"
+                        )
+                        error_text = error_text.text
                         driver.execute_script("arguments[0].click();", error_dismiss)
-                    except NoSuchElementException:
+                    except (NoSuchElementException, TimeoutException):
                         pass
                     # Place order
                     if not orderObj.get_dry():
@@ -593,24 +633,8 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                                 loop,
                             )
                         except NoSuchElementException:
-                            # Check for error
-                            WebDriverWait(driver, 10).until(
-                                expected_conditions.presence_of_element_located(
-                                    (
-                                        By.XPATH,
-                                        "(//button[@class='pvd-modal__close-button'])[3]",
-                                    )
-                                )
-                            )
-                            error_dismiss = driver.find_element(
-                                by=By.XPATH,
-                                value="(//button[@class='pvd-modal__close-button'])[3]",
-                            )
-                            driver.execute_script(
-                                "arguments[0].click();", error_dismiss
-                            )
                             printAndDiscord(
-                                f"{key} account {account_label}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}. DID NOT COMPLETE! \nEither this account does not have enough shares, or an order is already pending.",
+                                f"{key} account {account_label}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}. DID NOT COMPLETE! \n{error_text}",
                                 loop,
                             )
                         # Send confirmation
