@@ -22,9 +22,11 @@ from helperAPI import (
     getDriver,
     getOTPCodeDiscord,
     killSeleniumDriver,
+    load_cookies,
     maskString,
     printAndDiscord,
     printHoldings,
+    save_cookies,
     stockOrder,
     type_slowly,
 )
@@ -74,6 +76,7 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
             if driver is None:
                 raise Exception("Error: Unable to get driver")
             # Log in to Fidelity account
+            load_cookies(driver, filename=f"fidelity{index}.pkl", path="./creds/")
             driver.get(
                 "https://digital.fidelity.com/prgw/digital/login/full-page?AuthRedUrl=digital.fidelity.com/ftgw/digital/portfolio/summary"
             )
@@ -186,6 +189,8 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
 
                 code_field = driver.find_element(by=By.CSS_SELECTOR, value=code_field)
                 code_field.send_keys(str(sms_code))
+                remember_device_checkbox = "#dom-trust-device-checkbox + label"
+                driver.find_element(By.CSS_SELECTOR, remember_device_checkbox).click()
                 continue_btn_selector = "#dom-otp-code-submit-button"
                 driver.find_element(By.CSS_SELECTOR, continue_btn_selector).click()
             except TimeoutException:
@@ -229,6 +234,7 @@ def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
                 fidelity_obj.set_account_totals(
                     name, acct, account_dict[acct]["balance"]
                 )
+            save_cookies(driver, filename=f"fidelity{index}.pkl", path="./creds/")
             print(f"Logged in to {name}!")
         except Exception as e:
             fidelity_error(driver, e)
