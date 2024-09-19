@@ -14,7 +14,7 @@ requests==2.32.3
 -e git+https://github.com/NelsonDane/robin_stocks.git@2387113072bb26bcc1bd3fed8b4d74b0afb19f29#egg=robin-stocks
 schwab-api==0.4.3
 selenium-stealth==1.0.6
-setuptools==75.0.0
+setuptools==75.1.0
 tastytrade==8.3
 vanguard-api==0.2.5
 -e git+https://github.com/NelsonDane/webull.git@ef14ae63f9e1436fbea77fe864df54847cf2f730#egg=webull
