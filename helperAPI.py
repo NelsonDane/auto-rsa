@@ -786,6 +786,7 @@ def load_cookies(driver, filename, path=None):
             continue
     return True
 
+
 def clear_cookies(driver, filename, path=None):
     if path is not None:
         filename = os.path.join(path, filename)
