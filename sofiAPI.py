@@ -3,6 +3,7 @@ import datetime
 import os
 import traceback
 from time import sleep
+from cloudflare_bypass import bypass
 import logging
 
 from dotenv import load_dotenv
@@ -25,7 +26,8 @@ from helperAPI import (
     stockOrder,
     getOTPCodeDiscord,
     load_cookies,
-    save_cookies
+    save_cookies,
+    clear_cookies
 )
 
 load_dotenv()
@@ -55,6 +57,18 @@ def get_2fa_code(secret):
     return totp.now()
 
 
+def check_url_contains(driver, url_fragment):
+    """Function to check if the current URL contains a certain fragment."""
+    return url_fragment in driver.current_url
+
+
+def wait_for_page_to_load(driver):
+    """Function to wait for the page to be fully loaded."""
+    WebDriverWait(driver, 20).until(
+        lambda d: d.execute_script('return document.readyState') == 'complete'
+    )
+
+
 def sofi_init(SOFI_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
     load_dotenv()
 
@@ -69,6 +83,13 @@ def sofi_init(SOFI_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
     )
     sofi_obj = Brokerage("SoFi")
 
+    important_cookies = [
+    "SOFI_SESSION", "SOFI_WEB_USER_ID",
+    "SOFI_CSRF_COOKIE", "SOFI_R_CSRF_TOKEN",
+    "SOFI_FP_SESSION_ID", "SOFI_TXM_SESSION_ID", 
+    "_cfuvid", "cf_clearance"
+]
+
     for account in accounts:
         index = accounts.index(account) + 1
         name = f"SoFi {index}"
@@ -81,22 +102,18 @@ def sofi_init(SOFI_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
             if driver is None:
                 raise Exception("Driver not found.")
 
-            # Step 1: Navigate to SoFi homepage first
             driver.get('https://www.sofi.com')
 
             # Step 2: Load cookies and check if they are valid
             cookies_loaded = load_cookies(driver, cookie_filename, path=cookie_path)
             if cookies_loaded:
                 driver.get('https://www.sofi.com/wealth/app')  # Navigate to the wealth page
-                WebDriverWait(driver, 10).until(EC.url_contains("overview"))
+                WebDriverWait(driver, 10).until(check_if_page_loaded)
 
                 # Check if cookies are valid and you are logged in
                 if "overview" in driver.current_url:
                     print(f"Successfully bypassed login with cookies for {name}")
                     save_cookies(driver, cookie_filename, path=cookie_path)  # Save the fresh cookies
-
-                    # Step 5: After login or cookie bypass, check if page is loaded and continue
-                    WebDriverWait(driver, 60).until(check_if_page_loaded)
 
                     # Retrieve and set account information
                     account_dict = sofi_account_info(driver)
@@ -112,7 +129,26 @@ def sofi_init(SOFI_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
                     continue
 
             print(f"Cookies not valid or expired for {name}, proceeding with login flow.")
+            # Step 3: Clear non-important cookies (but keep the important ones)
+            clear_cookies(driver, important_cookies)
+            
             driver.get('https://www.sofi.com/login')
+            WebDriverWait(driver, 10).until(check_if_page_loaded)
+
+            # Step 3: Check for Cloudflare human verification
+            # Bypass Cloudflare CAPTCHA
+            print(f"bypassing captcha")
+            bypassed = bypass(mode='light', warmup_time=5, timeout=30, interval=0.5)
+
+            if bypassed:
+                print("Cloudflare CAPTCHA bypassed successfully!")
+            else:
+                print("Failed to bypass Cloudflare CAPTCHA.")
+
+            # Proceed with normal login process as usual
+            WebDriverWait(driver, 30).until(lambda driver: check_url_contains(driver, 'login.sofi.com'))
+            wait_for_page_to_load(driver)
+
             username_field = WebDriverWait(driver, 30).until(
                 EC.element_to_be_clickable((By.XPATH, "//*[@id='username']"))
             )
@@ -127,6 +163,9 @@ def sofi_init(SOFI_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
                 EC.element_to_be_clickable((By.XPATH, "//*[@id='widget_block']/div/div[2]/div/div/main/section/div/div/div/form/div[2]/button"))
             )
             driver.execute_script("arguments[0].click();", login_button)
+
+            # Step 4: Handle 2FA if necessary
+            secret = account[2] if len(account) > 2 else None
 
             # Step 4: Handle 2FA if necessary
             secret = account[2] if len(account) > 2 else None
@@ -152,10 +191,7 @@ def sofi_init(SOFI_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
                     code_field.send_keys(Keys.RETURN)
 
                     # Wait for successful login URL
-                    driver.get('https://www.sofi.com/wealth/app/overview')
-                    WebDriverWait(driver, 30).until(
-                        EC.url_contains("https://www.sofi.com/wealth/app/overview")
-                    )
+                    driver.get('https://www.sofi.com/wealth/app')  # Navigate to the wealth page
 
                 except Exception:
                     sofi_error(driver, loop)
@@ -213,7 +249,7 @@ def sofi_init(SOFI_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
             WebDriverWait(driver, 60).until(check_if_page_loaded)
 
             # Capture and save all cookies after successful login
-            save_cookies(driver, cookie_filename, path=cookie_path)
+            save_cookies(driver, cookie_filename, path=cookie_path, important_cookies=important_cookies)
 
             # Retrieve and set account information
             account_dict = sofi_account_info(driver)
