@@ -1,20 +1,22 @@
-# Nelson Dane
+# Kenneth Tang
 # API to Interface with Fidelity
-# Uses headless Selenium
+# Uses headless Playwright
+# 2024/09/18
+# Adapted from Nelson Dane's Selenium based code and created with the help of playwright codegen
 
 import asyncio
 import datetime
 import os
 import traceback
 from time import sleep
+import json
+import pyotp
 
 from dotenv import load_dotenv
-from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException, TimeoutException
-from selenium.webdriver import Keys
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions
-from selenium.webdriver.support.wait import WebDriverWait
+
+from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
+from playwright_stealth import StealthConfig, stealth_sync
+import csv
 
 from helperAPI import (
     Brokerage,
@@ -31,627 +33,632 @@ from helperAPI import (
     type_slowly,
 )
 
+class FidelityAutomation:
+    def __init__(self, headless=True, title=None, profile_path='.') -> None:
+        # Setup the webdriver
+        self.headless: bool = headless
+        self.title: str = title
+        self.profile_path: str = profile_path
+        self.stealth_config = StealthConfig(
+            navigator_languages=False,
+            navigator_user_agent=False,
+            navigator_vendor=False)
+        self.getDriver()
 
-def fidelity_error(driver: webdriver, error: str):
-    print(f"Fidelity Error: {error}")
-    driver.save_screenshot(f"fidelity-error-{datetime.datetime.now()}.png")
-    print(traceback.format_exc())
+    def getDriver(self):
+        '''
+        Initializes the playwright webdriver for use in subsequent functions.
+        Creates and applies stealth settings to playwright context wrapper.
+        '''
+        # Set the context wrapper
+        self.playwright = sync_playwright().start()
 
 
-def javascript_get_classname(driver: webdriver, className) -> list:
-    script = f"""
-    var accounts = document.getElementsByClassName("{className}");
-    var account_list = [];
-    for (var i = 0; i < accounts.length; i++) {{
-        account_list.push(accounts[i].textContent.trim());
-    }}
-    return account_list;
-    """
-    text = driver.execute_script(script)
-    sleep(1)
-    return text
+        # Create or load cookies
+        self.profile_path = os.path.abspath(self.profile_path)
+        if self.title is not None:
+            self.profile_path = os.path.join(
+                self.profile_path, f"Fidelity_{self.title}.json"
+            )
+        else:
+            self.profile_path = os.path.join(self.profile_path, "Fidelity.json")
+        if not os.path.exists(self.profile_path):
+            os.makedirs(os.path.dirname(self.profile_path), exist_ok=True)
+            with open(self.profile_path, "w") as f:
+                json.dump({}, f)
+
+        # Launch the browser
+        self.browser = self.playwright.firefox.launch(headless=self.headless, args=["--disable-webgl", "--disable-software-rasterizer"])
+
+        self.context = self.browser.new_context(storage_state=self.profile_path if self.title is not None else None)
+        self.page = self.context.new_page()
+        # Apply stealth settings
+        stealth_sync(self.page, self.stealth_config)
+
+    def save_storage_state(self):
+        """
+        Saves the storage state of the browser to a file.
+
+        This method saves the storage state of the browser to a file so that it can be restored later.
+
+        Args:
+            filename (str): The name of the file to save the storage state to.
+        """
+        storage_state = self.page.context.storage_state()
+        with open(self.profile_path, "w") as f:
+            json.dump(storage_state, f)
+
+    def close_browser(self):
+        '''
+        Closes the playwright browser
+        Use when you are completely done with this class
+        '''
+        # Save cookies
+        self.save_storage_state()
+        # Close context before browser as directed by documentation
+        self.context.close()
+        self.browser.close()
+        # Stop the instance of playwright
+        self.playwright.stop()
+
+    def login(self, username: str, password: str, totp_secret: str=None) -> bool:
+        '''
+        Logs into fidelity using the supplied username and password.
+        
+        Returns:
+            True, True: If completely logged in, return (True, True)
+            True, False: If 2FA is needed, this function will return (True, False) which signifies that the 
+            initial login attempt was successful but further action is needed to finish logging in.
+            False, False: Initial login attempt failed.
+
+        '''
+        try:
+            # Go to the login page
+            self.page.goto("https://digital.fidelity.com/prgw/digital/login/full-page")
+
+            # Login page
+            self.page.get_by_label("Username", exact=True).click()
+            self.page.get_by_label("Username", exact=True).fill(username)
+            self.page.get_by_label("Password", exact=True).click()
+            self.page.get_by_label("Password", exact=True).fill(password)
+            self.page.get_by_role("button", name="Log in").click()
+            try:
+                # See if we got to the summary page
+                self.page.wait_for_url('https://digital.fidelity.com/ftgw/digital/portfolio/summary', timeout=5000)
+                # Got to the summary page, return True
+                return (True, True)
+            except PlaywrightTimeoutError:
+                # Didn't get there yet, continue trying
+                pass
+
+            # Check to see if blank
+            totp_secret=(None if totp_secret == "NA" else totp_secret)
+
+            # If we hit the 2fA page after trying to login
+            if 'login' in self.page.url:
+
+                # If TOTP secret is provided, we are will use the TOTP key. See if authenticator code is present
+                if totp_secret != None and self.page.get_by_role("heading", name="Enter the code from your").is_visible():
+                    # Get authenticator code 
+                    code = pyotp.TOTP(totp_secret).now()
+                    # Enter the code
+                    self.page.get_by_placeholder("XXXXXX").click()
+                    self.page.get_by_placeholder("XXXXXX").fill(code)
+
+                    # Prevent future OTP requirements
+                    self.page.locator("label").filter(has_text="Don't ask me again on this").check()
+                    assert self.page.locator("label").filter(has_text="Don't ask me again on this").is_checked()
+                    
+                    # Log in with code
+                    self.page.get_by_role("button", name="Continue").click()
+
+                    # See if we got to the summary page
+                    self.page.wait_for_url('https://digital.fidelity.com/ftgw/digital/portfolio/summary', timeout=5000)
+                    # Got to the summary page, return True
+                    return (True, True)
 
 
-def fidelity_init(FIDELITY_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
+                # If the authenticator code is the only way but we don't have the secret, return error
+                if self.page.get_by_text("Enter the code from your authenticator app This security code will confirm the").is_visible():
+                    raise Exception("Fidelity needs code from authenticator app but TOTP secret is not provided")
+
+                # If the app push notification page is present
+                if self.page.get_by_role("link", name="Try another way").is_visible():
+                    self.page.locator("label").filter(has_text="Don't ask me again on this").check()
+                    assert self.page.locator("label").filter(has_text="Don't ask me again on this").is_checked()
+
+                    # Click on alternate verification method to get OTP via text
+                    self.page.get_by_role("link", name="Try another way").click()
+
+                    # Press the Text me button
+                    self.page.get_by_role("button", name="Text me the code").click()
+                    self.page.get_by_placeholder("XXXXXX").click()
+                    
+                    return (True, False)
+                
+            elif 'summary' not in self.page.url:
+                raise Exception("Cannot get to login page. Maybe other 2FA method present")
+            
+            # Some other case that isn't a log in. This shouldn't be reached under normal circumstances
+            return (False, False)
+            
+        except PlaywrightTimeoutError:
+            print("Timeout waiting for login page to load or navigate.")
+            return (False, False)
+        except Exception as e:
+            print(f"An error occurred: {str(e)}")
+            traceback.print_exc() 
+            return (False, False)
+
+    def login_2FA(self, code):
+        '''
+        Completes the 2FA portion of the login using a phone text code.
+        
+        Returns:
+            True: bool: If login succeeded, return true.
+            False: bool: If login failed, return false.
+        '''
+        try:
+            self.page.get_by_placeholder("XXXXXX").fill(code)
+                    
+            # Prevent future OTP requirements
+            self.page.locator("label").filter(has_text="Don't ask me again on this").check()
+            assert self.page.locator("label").filter(has_text="Don't ask me again on this").is_checked()
+            self.page.get_by_role("button", name="Submit").click()
+
+            self.page.wait_for_url('https://digital.fidelity.com/ftgw/digital/portfolio/summary', timeout=5000)
+            return True
+        
+        except PlaywrightTimeoutError:
+            print("Timeout waiting for login page to load or navigate.")
+            return False
+        except Exception as e:
+            print(f"An error occurred: {str(e)}")
+            traceback.print_exc() 
+            return False
+    
+    def getAccountInfo(self):
+        '''
+        Gets account numbers, account names, and account totals by downloading the csv of positions from fidelity.
+        The file path of the downloaded csv is saved to self.positions_csv and can be deleted later.
+
+        Post Conditions:
+            self.positions_csv: The absolute file path to the downloaded csv file of positions for all accounts
+        Returns:
+            account_dict: dict: A dictionary using account numbers as keys. Each key holds a dict which has
+            'balance': float: Total account balance
+            'type': str: The account nickname or default name
+        '''
+        # Go to positions page
+        self.page.goto('https://digital.fidelity.com/ftgw/digital/portfolio/positions')
+        
+        # Download the positions as a csv
+        with self.page.expect_download() as download_info:
+            self.page.get_by_label("Download Positions").click()
+        download = download_info.value
+        cur = os.getcwd()
+        self.positions_csv = os.path.join(cur, download.suggested_filename)
+        # Create a copy to work on with the proper file name known
+        download.save_as(self.positions_csv)
+        
+        
+        
+        
+
+        
+        
+        csv_file = open(self.positions_csv, newline='', encoding='utf-8-sig')
+
+        reader = csv.DictReader(csv_file)
+        # Ensure all fields we want are present
+        required_elements = ['Account Number', 'Account Name', 'Symbol', 'Description', 'Quantity', 'Last Price', 'Current Value']
+        intersection_set = set(reader.fieldnames).intersection(set(required_elements))
+        if len(intersection_set) != len(required_elements):
+            raise Exception('Not enough elements in fidelity positions csv')
+        
+        self.account_dict = {}
+        for row in reader:
+                # Last couple of rows have some disclaimers, filter those out
+                if row['Account Number'] != None and 'and' in str(row['Account Number']):
+                    break
+                # Get the value and remove '$' from it
+                val = str(row['Current Value']).replace('$','')
+                # Get the last price
+                last_price = str(row['Last Price']).replace('$', '')
+                # Get quantity
+                quantity = row['Quantity']
+                # Get ticker
+                ticker = str(row['Symbol'])
+                
+                # Don't include this if present
+                if 'Pending' in ticker:
+                    continue
+                # If the value isn't present, move to next row
+                if len(val) == 0:
+                    continue
+                # If the last price isn't available, just use the current value
+                if len(last_price) == 0:
+                    last_price = val
+                # If the quantity is missing, just use 1
+                if len(quantity) == 0:
+                    quantity = 1
+                
+                # If the account number isn't populated yet, add it
+                if row['Account Number'] not in self.account_dict:
+                    # Add retrieved info.
+                    # Yeah I know is kinda messy and hard to think about but it works
+                    # Just need a way to store all stocks with the account number
+                    # 'stocks' is a list of dictionaries. Each ticker gets its own index and is described by a dictionary
+                    self.account_dict[row['Account Number']] = {'balance': float(val), 'type': row['Account Name'],
+                                                                'stocks': [{'ticker': ticker, 'quantity': quantity, 'last_price': last_price, 'value': val}]
+                                                                }
+                # If it is present, add to it
+                else:
+                    self.account_dict[row['Account Number']]['stocks'].append({'ticker': ticker, 'quantity': quantity, 'last_price': last_price, 'value': val})
+                    self.account_dict[row['Account Number']]['balance'] += float(val)
+        
+        # Close the file
+        csv_file.close()
+        os.remove(self.positions_csv)
+
+        return self.account_dict
+
+    def transaction(self, stock: str, quantity: float, action: str, account: str, dry: bool=True) -> bool:
+        '''
+        Process an order (transaction) using the dedicated trading page.
+        NOTE: If you use this function repeatedly but change the stock between any call, 
+        RELOAD the page before calling this
+        
+        For buying:
+            If the price of the security is below $1, it will choose limit order and go off of the last price + a little
+        For selling:
+            Places a market order for the security
+
+        Parameters:
+            stock: str: The ticker that represents the security to be traded
+            quantity: float: The amount to buy or sell of the security
+            action: str: This must be 'buy' or 'sell'. It can be in any case state (i.e. 'bUY' is still valid)
+            account: str: The account number to trade under.
+            dry: bool: True for dry (test) run, False for real run.
+            
+        Returns:
+            (Success: bool, Error_message: str) If the order was successfully placed or tested (for dry runs) then True is
+            returned and Error_message will be None. Otherwise, False will be returned and Error_message will not be None
+        '''
+        try:
+            # Go to the trade page
+            if self.page.url != 'https://digital.fidelity.com/ftgw/digital/trade-equity/index/orderEntry':
+                self.page.goto('https://digital.fidelity.com/ftgw/digital/trade-equity/index/orderEntry')
+
+            # Click on the drop down
+            self.page.query_selector("#dest-acct-dropdown").click()
+            
+            if not self.page.get_by_role("option").filter(has_text=account.upper()).is_visible():
+                # Reload the page and hit the drop down again
+                # This is to prevent a rare case where the drop down is empty
+                print("Reloading...")
+                self.page.reload()
+                # Click on the drop down
+                self.page.query_selector("#dest-acct-dropdown").click()
+            # Find the account to trade under
+            self.page.get_by_role("option").filter(has_text=account.upper()).click()
+
+            # Enter the symbol
+            self.page.get_by_label("Symbol").click()
+            # Fill in the ticker
+            self.page.get_by_label("Symbol").fill(stock)
+            # Find the symbol we wanted and click it
+            self.page.get_by_label("Symbol").press("Enter")
+
+            # Wait for quote panel to show up
+            self.page.locator("#quote-panel").wait_for(timeout=2000)
+            last_price = self.page.query_selector("#eq-ticket__last-price > span.last-price").text_content()
+            last_price = last_price.replace('$','')
+
+            # Ensure we are in the expanded ticket
+            if self.page.get_by_role("button", name="View expanded ticket").is_visible():
+                self.page.get_by_role("button", name="View expanded ticket").click()
+                # Wait for it to take effect
+                self.page.get_by_role("button", name="Calculate shares").wait_for(timeout=2000)
+
+
+            # When enabling extended hour trading
+            extended = False
+            precision = 3
+            # Enable extended hours trading if available
+            if self.page.get_by_text("Extended hours trading").is_visible():
+                if self.page.get_by_text("Extended hours trading: OffUntil 8:00 PM ET").is_visible():
+                    self.page.get_by_text("Extended hours trading: OffUntil 8:00 PM ET").check()
+                extended = True
+                precision = 2
+
+            
+            # Press the buy or sell button. Title capitalizes the first letter so 'buy' -> 'Buy'
+            self.page.locator("#order-action-input-container").click()
+            self.page.get_by_role("option", name=action.lower().title(), exact=True).wait_for()
+            self.page.get_by_role("option", name=action.lower().title(), exact=True).click()
+            
+
+            # Press the shares text box
+            self.page.locator("#eqt-mts-stock-quatity div").filter(has_text="Quantity").click()
+            self.page.get_by_label("you own").fill(str(quantity))
+
+            # If it should be limit
+            if float(last_price) < 1 or extended:
+                # Buy above
+                if action.lower() == 'buy':
+                    difference_price = 0.01 if float(last_price) > 0.1 else 0.0001
+                    wanted_price = round(float(last_price) + difference_price, precision)
+                # Sell below
+                else:
+                    difference_price = 0.01 if float(last_price) > 0.1 else 0.0001
+                    wanted_price = round(float(last_price) - difference_price, precision)
+                
+                # Click on the limit default option when in extended hours
+                self.page.locator("#order-type-container-id").click()
+                self.page.get_by_role("option", name="Limit", exact=True).click()
+                # Enter the limit price
+                self.page.get_by_text("Limit price").click()
+                self.page.get_by_label("Limit price").fill(str(wanted_price))
+            # Otherwise its market
+            else:
+                # Click on the market
+                self.page.locator("#order-type-container-id").click()
+                self.page.get_by_role("option", name="Market", exact=True).click()
+
+            # Continue with the order
+            self.page.get_by_role("button", name="Preview order").click()
+
+            # If error occurred
+            try:
+                self.page.get_by_role("button", name="Place order clicking this").wait_for(timeout=4000, state='visible')
+            except PlaywrightTimeoutError:
+                # Error must be present (or really slow page for some reason)
+                # Try to report on error
+                error_message = 'Could not retrieve error message from popup'
+                filtered_error = ''
+                try:
+                    error_message = self.page.get_by_label("Error").locator("div").filter(has_text="critical").nth(2).text_content()            
+                    self.page.get_by_role("button", name="Close dialog").click()
+                except:
+                    pass
+                # Return with error and trim it down (it contains many spaces for some reason)
+                if error_message != None:
+                    for i, character in enumerate(error_message):
+                        if i == 0 or (character == ' ' and error_message[i - 1] == ' ') or character == '\n' or character == '\t':
+                            continue
+                        filtered_error += character
+                    filtered_error = filtered_error.replace('critical', '').strip()
+                    error_message = filtered_error.replace('\n', '')
+                return (False, error_message)
+            
+            # If no error occurred, continue with checking and buy/sell
+            try:
+                assert self.page.locator("preview").filter(has_text=account.upper()).is_visible()
+                assert self.page.get_by_text(f"Symbol{stock.upper()}", exact=True).is_visible()
+                assert self.page.get_by_text(f"Action{action.lower().title()}").is_visible()
+                assert self.page.get_by_text(f"Quantity{quantity}").is_visible()
+            except AssertionError:
+                return (False, 'Order preview is not what is expected')
+            
+            # If its a real run
+            if not dry:
+                self.page.get_by_role("button", name="Place order clicking this").click()
+                try:
+                    # See that the order goes through
+                    self.page.get_by_text("Order received").wait_for(timeout=5000, state='visible')
+                    # If no error, return with success
+                    return (True, None)
+                except PlaywrightTimeoutError:
+                    # Order didn't go through for some reason, go to the next and say error
+                    return (False, 'Order failed to complete')
+            # If its a dry run, report back success
+            return (True, None)
+        except PlaywrightTimeoutError:
+            return (False, 'Driver timed out. Order not complete')
+        except Exception as e:
+            return (False, e)
+
+def fidelity_run(orderObj: stockOrder, command=None, botObj=None, loop=None, FIDELITY_EXTERNAL=None):
+    '''
+    Entry point from main function. Gathers credentials and go through commands for 
+    each set of credentials found in the FIDELITY env variable
+
+    Returns:
+        None
+    '''
     # Initialize .env file
     load_dotenv()
-    # Import Fidelity account
+    # Import Chase account
     if not os.getenv("FIDELITY") and FIDELITY_EXTERNAL is None:
         print("Fidelity not found, skipping...")
         return None
-    accounts = (
-        os.environ["FIDELITY"].strip().split(",")
-        if FIDELITY_EXTERNAL is None
-        else FIDELITY_EXTERNAL.strip().split(",")
-    )
-    fidelity_obj = Brokerage("Fidelity")
-    # Init webdriver
-    for account in accounts:
-        index = accounts.index(account) + 1
-        name = f"Fidelity {index}"
-        account = account.split(":")
-        try:
-            print("Logging in to Fidelity...")
-            driver = getDriver(DOCKER)
-            if driver is None:
-                raise Exception("Error: Unable to get driver")
-            # Log in to Fidelity account
-            load_cookies(driver, filename=f"fidelity{index}.pkl", path="./creds/")
-            driver.get(
-                "https://digital.fidelity.com/prgw/digital/login/full-page?AuthRedUrl=digital.fidelity.com/ftgw/digital/portfolio/summary"
-            )
-            # Wait for page load
-            WebDriverWait(driver, 20).until(check_if_page_loaded)
-            # Loop to refresh the login page in case it does not load correctly. aka (Shenanigans)
-            for i in range(3):
-                # Fidelity has different login views, so check for both
-                try:
-                    WebDriverWait(driver, 10).until(
-                        expected_conditions.element_to_be_clickable(
-                            (By.CSS_SELECTOR, "#dom-username-input")
-                        )
-                    )
-                    username_selector = "#dom-username-input"
-                    password_selector = "#dom-pswd-input"
-                    login_btn_selector = "#dom-login-button > div"
-                    break
-                except TimeoutException:
-                    pass
-                try:
-                    WebDriverWait(driver, 10).until(
-                        expected_conditions.element_to_be_clickable(
-                            (By.CSS_SELECTOR, "#userId-input")
-                        )
-                    )
-                    username_selector = "#userId-input"
-                    password_selector = "#password"
-                    login_btn_selector = "#fs-login-button"
-                    break
-                except TimeoutException:
-                    pass
-                driver.refresh()
-                if i == 2:
-                    raise Exception("Failed to load login page")
-            # Type in username and password and click login
-            WebDriverWait(driver, 10).until(
-                expected_conditions.element_to_be_clickable(
-                    (By.CSS_SELECTOR, username_selector)
-                )
-            )
-            username_field = driver.find_element(
-                by=By.CSS_SELECTOR, value=username_selector
-            )
-            type_slowly(username_field, account[0])
-            password_field = driver.find_element(
-                by=By.CSS_SELECTOR, value=password_selector
-            )
-            type_slowly(password_field, account[1])
-            driver.find_element(by=By.CSS_SELECTOR, value=login_btn_selector).click()
-            WebDriverWait(driver, 10).until(check_if_page_loaded)
-            sleep(3)
-            try:
-                # Look for: Sorry, we can't complete this action right now. Please try again.
-                go_back_selector = "#dom-sys-err-go-to-login-button > span > s-slot > s-assigned-wrapper"
-                WebDriverWait(driver, 10).until(
-                    expected_conditions.element_to_be_clickable(
-                        (By.CSS_SELECTOR, go_back_selector)
-                    ),
-                ).click()
-                username_field = driver.find_element(
-                    by=By.CSS_SELECTOR, value=username_selector
-                )
-                type_slowly(username_field, account[0])
-                password_field = driver.find_element(
-                    by=By.CSS_SELECTOR, value=password_selector
-                )
-                type_slowly(password_field, account[1])
-                driver.find_element(
-                    by=By.CSS_SELECTOR, value=login_btn_selector
-                ).click()
-            except TimeoutException:
-                pass
-            # Check for mobile 2fa page
-            try:
-                try_another_way = "a#dom-try-another-way-link"
-                WebDriverWait(driver, 10).until(
-                    expected_conditions.element_to_be_clickable(
-                        (By.CSS_SELECTOR, try_another_way)
-                    ),
-                ).click()
-            except TimeoutException:
-                pass
-            # Check for normal 2fa page
-            try:
-                text_me_button = "//*[@id='dom-channel-list-primary-button' and contains(string(.), 'Text me the code')]"  # Make sure it doesn't duplicate from mobile page
-                WebDriverWait(driver, 10).until(
-                    expected_conditions.element_to_be_clickable(
-                        (By.XPATH, text_me_button)
-                    ),
-                ).click()
-                # Make sure the next page loads fully
-                code_field = "#dom-otp-code-input"
-                WebDriverWait(driver, 10).until(
-                    expected_conditions.visibility_of_element_located(
-                        (By.CSS_SELECTOR, code_field)
-                    )
-                )
-                # Sometimes codes take a long time to arrive
-                timeout = 300  # 5 minutes
-                if botObj is not None and loop is not None:
-                    sms_code = asyncio.run_coroutine_threadsafe(
-                        getOTPCodeDiscord(botObj, name, timeout=timeout, loop=loop),
-                        loop,
-                    ).result()
-                    if sms_code is None:
-                        raise Exception("No SMS code found")
-                else:
-                    sms_code = input("Enter security code: ")
+    accounts = (os.environ["FIDELITY"].strip().split(",")
+                if FIDELITY_EXTERNAL is None
+                else FIDELITY_EXTERNAL.strip().split(","))
+    # Get headless flag
+    headless = os.getenv("HEADLESS", "true").lower() == "true"
+    # Set the functions to be run
+    _, second_command = command
 
-                code_field = driver.find_element(by=By.CSS_SELECTOR, value=code_field)
-                code_field.send_keys(str(sms_code))
-                remember_device_checkbox = "#dom-trust-device-checkbox + label"
-                driver.find_element(By.CSS_SELECTOR, remember_device_checkbox).click()
-                continue_btn_selector = "#dom-otp-code-submit-button"
-                driver.find_element(By.CSS_SELECTOR, continue_btn_selector).click()
-            except TimeoutException:
-                pass
-            # Wait for page to load to summary page
-            if "summary" not in driver.current_url:
-                if "errorpage" in driver.current_url.lower():
-                    raise Exception(
-                        f"{name}: Login Failed. Got Error Page: Current URL: {driver.current_url}"
-                    )
-                print("Waiting for portfolio page to load...")
-                WebDriverWait(driver, 30).until(
-                    expected_conditions.url_contains("summary")
-                )
-            # Make sure fidelity site is not in old view
-            try:
-                if "digital" not in driver.current_url:
-                    print(f"Old view detected: {driver.current_url}")
-                    driver.find_element(by=By.CSS_SELECTOR, value="#optout-btn").click()
-                    WebDriverWait(driver, 10).until(check_if_page_loaded)
-                    # Wait for page to be in new view
-                    if "digital" not in driver.current_url:
-                        WebDriverWait(driver, 60).until(
-                            expected_conditions.url_contains("digital")
-                        )
-                    WebDriverWait(driver, 10).until(check_if_page_loaded)
-                    print("Disabled old view!")
-            except (TimeoutException, NoSuchElementException):
-                print(
-                    "Failed to disable old view! This might cause issues but maybe not..."
-                )
-            sleep(3)
-            fidelity_obj.set_logged_in_object(name, driver)
-            # Get account numbers, types, and balances
-            account_dict = fidelity_account_info(driver)
-            if account_dict is None:
-                raise Exception(f"{name}: Error getting account info")
-            for acct in account_dict:
+    # For each set of login info, i.e. separate chase accounts
+    for account in accounts:
+        # Start at index 1 and go to how many logins we have
+        index = accounts.index(account) + 1
+        name = f'Fidelity {index}'
+        # Receive the chase broker class object and the AllAccount object related to it
+        fidelityobj = fidelity_init(
+            account=account,
+            name=name,
+            headless=headless,
+            botObj=botObj,
+            loop=loop,
+        )
+        if fidelityobj is not None:
+            # Store the Brokerage object for fidelity under 'fidelity' in the orderObj
+            orderObj.set_logged_in(fidelityobj, "fidelity")
+            if second_command == "_holdings":
+                fidelity_holdings(fidelityobj, name, loop=loop)
+            # Only other option is _transaction
+            else:
+                fidelity_transaction(fidelityobj, name, orderObj, loop=loop)
+    return None
+
+def fidelity_init(account: str, name: str, headless=True, botObj=None, loop=None):
+    '''
+    Log into fidelity. Creates a fidelity brokerage object and a FidelityAutomation object.
+    The FidelityAutomation object is stored within the brokerage object and some account information
+    is gathered. 
+    
+    Post conditions: Logs into fidelity using the supplied credentials
+
+    Returns:
+        fidelity_obj: Brokerage: A fidelity brokerage object that holds information on the account
+        and the webdriver to use for further actions
+    '''
+
+    # Log into Fidelity account
+    print('Logging into Fidelity...')
+
+    # Create brokerage class object and call it Fidelity
+    fidelity_obj = Brokerage('Fidelity')
+
+    try:
+        # Split the login into into separate items
+        account = account.split(":")
+        # Create a Fidelity browser object
+        fidelity_browser = FidelityAutomation(headless=headless,
+                                              title=name,
+                                              profile_path="./creds")
+
+        # Log into fidelity
+        step_1, step_2 = fidelity_browser.login(account[0], account[1], account[2])
+        # If 2FA is present, ask for code
+        if step_1 and not step_2:
+            if botObj is None and loop is None:
+                fidelity_browser.login_2FA(input('Enter code: '))
+            else:
+                # Should wait for 60 seconds before timeout
+                sms_code = asyncio.run_coroutine_threadsafe(
+                    getOTPCodeDiscord(botObj, name, code_len=8, loop=loop), loop
+                ).result()
+                if sms_code is None:
+                    raise Exception(f"{name} code not received in time...", loop)
+                fidelity_browser.login_2FA(sms_code)
+        elif not step_1:
+            raise Exception(f"{name}: Login Failed. Got Error Page: Current URL: {fidelity_browser.page.url}")
+        
+        # By this point, we should be logged in so save the driver
+        fidelity_obj.set_logged_in_object(name, fidelity_browser)
+
+        # Getting account numbers, names, and balances
+        account_dict = fidelity_browser.getAccountInfo()
+        
+        if account_dict is None:
+            raise Exception(f'{name}: Error getting account info')
+        # Set info into fidelity brokerage object
+        for acct in account_dict:
                 fidelity_obj.set_account_number(name, acct)
                 fidelity_obj.set_account_type(name, acct, account_dict[acct]["type"])
                 fidelity_obj.set_account_totals(
                     name, acct, account_dict[acct]["balance"]
                 )
-            save_cookies(driver, filename=f"fidelity{index}.pkl", path="./creds/")
-            print(f"Logged in to {name}!")
-        except Exception as e:
-            fidelity_error(driver, e)
-            driver.close()
-            driver.quit()
-            return None
-    return fidelity_obj
-
-
-def fidelity_account_info(driver: webdriver) -> dict | None:
-    try:
-        # Get account holdings
-        driver.get("https://digital.fidelity.com/ftgw/digital/portfolio/positions")
-        # Wait for page load
-        WebDriverWait(driver, 10).until(check_if_page_loaded)
-        # Uncheck the "Pin Symbol column to left" setting
-        WebDriverWait(driver, 10).until(
-            expected_conditions.element_to_be_clickable(
-                (By.ID, "posweb-grid_top-settings-button")
-            )
-        ).click()
-        checkbox = driver.find_element(
-            By.ID, "posweb-settings-modal-pinned-symbol-checkbox"
-        )
-        if checkbox.is_selected():
-            driver.execute_script("arguments[0].click();", checkbox)
-        WebDriverWait(driver, 10).until(
-            expected_conditions.element_to_be_clickable(
-                (By.XPATH, "//*[text()='Apply']/parent::*/parent::*")
-            )
-        ).click()
-        # Get account numbers via javascript
-        WebDriverWait(driver, 10).until(
-            expected_conditions.presence_of_element_located(
-                (By.CLASS_NAME, "acct-selector__acct-num")
-            )
-        )
-        account_numbers = javascript_get_classname(driver, "acct-selector__acct-num")
-        # Get account balances via javascript
-        account_values = javascript_get_classname(driver, "acct-selector__acct-balance")
-        # Get account names via javascript
-        account_types = javascript_get_classname(driver, "acct-selector__acct-name")
-        # Make sure all lists are the same length
-        if not (
-            len(account_numbers) == len(account_values)
-            and len(account_numbers) == len(account_types)
-        ):
-            shortest = min(
-                len(account_numbers), len(account_values), len(account_types)
-            )
-            account_numbers = account_numbers[:shortest]
-            account_values = account_values[:shortest]
-            account_types = account_types[:shortest]
-            print(
-                f"Warning: Account numbers, values, and types are not the same length! Using shortest length: {shortest}"
-            )
-        # Construct dictionary of account numbers and balances
-        account_dict = {}
-        for i, account in enumerate(account_numbers):
-            av = (
-                account_values[i]
-                .replace(" ", "")
-                .replace("$", "")
-                .replace(",", "")
-                .replace("»", "")
-                .replace("‡", "")
-                .replace("balance:", "")
-            )
-            account_dict[account] = {
-                "balance": float(av),
-                "type": account_types[i],
-            }
-        return account_dict
+        print(f"Logged in to {name}!")
+        return fidelity_obj
+    
     except Exception as e:
-        fidelity_error(driver, e)
+        print(f"Error logging in to Fidelity: {e}")
+        print(traceback.format_exc())
         return None
 
+def fidelity_holdings(fidelity_o: Brokerage, name: str, loop=None):
+    '''
+    Retrieves the holdings per account by reading from the previously downloaded positions csv file.
+    Prints holdings for each account and provides a summary if the user has more than 5 accounts.
 
-def fidelity_holdings(fidelity_o: Brokerage, loop=None):
-    for key in fidelity_o.get_account_numbers():
-        driver: webdriver = fidelity_o.get_logged_in_objects(key)
-        for account in fidelity_o.get_account_numbers(key):
-            try:
-                driver.get(
-                    f"https://digital.fidelity.com/ftgw/digital/portfolio/positions#{account}"
-                )
-                sleep(2)
-                holdings_rows = driver.find_elements(
-                    By.XPATH,
-                    "//*[@id='posweb-grid']//div[contains(@class, 'posweb-row-position')]",
-                )
-                for row in holdings_rows:
-                    try:
-                        stock_ticker = row.find_element(
-                            By.XPATH, ".//div[contains(@col-id, 'sym')]//button"
-                        ).text
-                        if stock_ticker == "Cash":
-                            continue
-                        price_raw = row.find_element(
-                            By.XPATH,
-                            ".//div[@col-id='lstPrc']//span[@class='ag-cell-value']",
-                        ).text
-                        quantity_raw = row.find_element(
-                            By.XPATH,
-                            ".//div[@col-id='qty']//span[@class='ag-cell-value']",
-                        ).text
-                        # Clean up price and quantity
-                        invalid_strings = ["n/a", ""]
-                        if price_raw.lower() not in invalid_strings:
-                            price = round(
-                                float(
-                                    price_raw.replace("$", "").replace(",", "").strip()
-                                ),
-                                2,
-                            )
-                        else:
-                            price = "N/A"
-                        if quantity_raw.lower() not in invalid_strings:
-                            quantity = float(quantity_raw.replace(",", "").strip())
-                        else:
-                            quantity = "N/A"
-                        fidelity_o.set_holdings(
-                            key, account, stock_ticker, quantity, price
-                        )
-                    except Exception as e:
-                        print(f"Unexpected error processing row, skipping it: {str(e)}")
-                        continue
-            except Exception as e:
-                fidelity_error(driver, e)
-                continue
+    Parameters:
+        fidelity_o: Brokerage: The brokerage object that contains account numbers and the
+        FidelityAutomation class object that is logged into fidelity
+        name: str: The name of this brokerage object (ex: Fidelity 1)
+        loop: AbstractEventLoop: The event loop to be used
+
+    Returns:
+        None
+    '''
+    
+    # Get the browser back from the fidelity object
+    fidelity_browser: FidelityAutomation = fidelity_o.get_logged_in_objects(name)
+    unique_stocks = {}
+    account_dict = fidelity_browser.account_dict
+    for account_number in account_dict:
+
+        for d in account_dict[account_number]['stocks']:
+            # Append the ticker to the appropriate account
+            fidelity_o.set_holdings(parent_name=name, 
+                                    account_name=account_number, 
+                                    stock=d['ticker'], 
+                                    quantity=d['quantity'], 
+                                    price=d['last_price'])
+            # Create a list of unique holdings
+            if d['ticker'] not in unique_stocks:
+                unique_stocks[d['ticker']] = {'quantity': float(d['quantity']), 'last_price': d['last_price'], 'value': float(d['value'])}
+            else:
+                unique_stocks[d['ticker']]['quantity'] += float(d['quantity'])
+                unique_stocks[d['ticker']]['value'] += float(d['value'])
+
+    # Print to console and to discord
     printHoldings(fidelity_o, loop)
-    killSeleniumDriver(fidelity_o)
 
+    # Create a summary of holdings
+    if len(account_dict.keys()) > 5:
+        summary = ''
+        for stock in unique_stocks:
+            summary += f"{stock}: {round(unique_stocks[stock]['quantity'], 2)} @ {unique_stocks[stock]['last_price']} = {round(unique_stocks[stock]['value'], 2)}\n"
+        printAndDiscord(f'Summary of holdings: \n{summary}', loop)
+    
+    # Close browser
+    fidelity_browser.close_browser()
 
-def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None):
-    print()
-    print("==============================")
-    print("Fidelity")
-    print("==============================")
-    print()
-    new_style = False
-    for s in orderObj.get_stocks():
-        for key in fidelity_o.get_account_numbers():
-            printAndDiscord(
-                f"{key}: {orderObj.get_action()}ing {orderObj.get_amount()} of {s}",
+def fidelity_transaction(fidelity_o: Brokerage, name: str, orderObj: stockOrder, loop=None):
+    '''
+    Using the Brokerage object, call FidelityAutomation.transaction() and process its' return
+
+    Parameters:
+        fidelity_o: Brokerage: The brokerage object that contains account numbers and the
+        FidelityAutomation class object that is logged into fidelity
+        name: str: The name of this brokerage object (ex: Fidelity 1)
+        orderObj: stockOrder: The stock object used for storing stocks to buy or sell
+        loop: AbstractEventLoop: The event loop to be used
+    
+    Returns:
+        None
+    '''
+
+    # Get the driver
+    fidelity_browser: FidelityAutomation = fidelity_o.get_logged_in_objects(name)
+    # Go trade
+    for stock in orderObj.get_stocks():
+        # Say what we are doing
+        printAndDiscord(
+                f"{name}: {orderObj.get_action()}ing {orderObj.get_amount()} of {stock}",
                 loop,
             )
-            driver = fidelity_o.get_logged_in_objects(key)
-            # Go to trade page
-            driver.get(
-                "https://digital.fidelity.com/ftgw/digital/trade-equity/index/orderEntry"
-            )
-            # Wait for page to load
-            WebDriverWait(driver, 20).until(check_if_page_loaded)
-            sleep(3)
-            # Get number of accounts
-            try:
-                accounts_dropdown = driver.find_element(
-                    by=By.CSS_SELECTOR, value="#dest-acct-dropdown"
-                )
-                driver.execute_script("arguments[0].click();", accounts_dropdown)
-                WebDriverWait(driver, 10).until(
-                    expected_conditions.presence_of_element_located(
-                        (By.CSS_SELECTOR, "#ett-acct-sel-list")
-                    )
-                )
-                test = driver.find_element(
-                    by=By.CSS_SELECTOR, value="#ett-acct-sel-list"
-                )
-                accounts_list = test.find_elements(by=By.CSS_SELECTOR, value="li")
-                number_of_accounts = len(accounts_list)
-                # Click a second time to clear the account list
-                driver.execute_script("arguments[0].click();", accounts_dropdown)
-            except Exception as e:
-                fidelity_error(driver, f"No accounts found in dropdown: {e}")
-                killSeleniumDriver(fidelity_o)
-                return None
-            # Complete on each account
-            # Because of stale elements, we need to re-find the elements each time
-            for x in range(number_of_accounts):
-                try:
-                    # Select account
-                    accounts_dropdown_in = driver.find_element(
-                        by=By.CSS_SELECTOR, value="#eq-ticket-account-label"
-                    )
-                    driver.execute_script("arguments[0].click();", accounts_dropdown_in)
-                    WebDriverWait(driver, 10).until(
-                        expected_conditions.presence_of_element_located(
-                            (By.ID, "ett-acct-sel-list")
-                        )
-                    )
-                    test = driver.find_element(by=By.ID, value="ett-acct-sel-list")
-                    accounts_dropdown_in = test.find_elements(
-                        by=By.CSS_SELECTOR, value="li"
-                    )
-                    account_number = fidelity_o.get_account_numbers(key)[x]
-                    account_label = maskString(account_number)
-                    accounts_dropdown_in[x].click()
-                    sleep(1)
-                    # Type in ticker
-                    ticker_box = driver.find_element(
-                        by=By.CSS_SELECTOR, value="#eq-ticket-dest-symbol"
-                    )
-                    WebDriverWait(driver, 10).until(
-                        expected_conditions.element_to_be_clickable(ticker_box)
-                    )
-                    ticker_box.send_keys(s)
-                    ticker_box.send_keys(Keys.RETURN)
-                    sleep(1)
-                    # Check if symbol not found is displayed
-                    try:
-                        driver.find_element(
-                            by=By.CSS_SELECTOR,
-                            value="body > div.app-body > ap122489-ett-component > div > order-entry-base > div > div > div.order-entry__container-content.scroll > div > equity-order-selection > div:nth-child(1) > symbol-search > div > div.eq-ticket--border-top > div > div:nth-child(2) > div > div > div > pvd3-inline-alert > s-root > div > div.pvd-inline-alert__content > s-slot > s-assigned-wrapper",
-                        )
-                        printAndDiscord(f"{key} Error: Symbol {s} not found", loop)
-                        print()
-                        killSeleniumDriver(fidelity_o)
-                        return None
-                    except Exception:
-                        pass
-                    # Get last price
-                    last_price = driver.find_element(
-                        by=By.CSS_SELECTOR,
-                        value="#eq-ticket__last-price > span.last-price",
-                    ).text
-                    last_price = last_price.replace("$", "")
-                    # If price is under $1, then we have to use a limit order
-                    LIMIT = bool(float(last_price) < 1)
-                    # Figure out whether page is in old or new style
-                    try:
-                        action_dropdown = driver.find_element(
-                            by=By.CSS_SELECTOR,
-                            value="#dest-dropdownlist-button-action",
-                        )
-                        new_style = True
-                    except NoSuchElementException:
-                        pass
-                    # Set buy/sell
-                    if orderObj.get_action() == "buy":
-                        # buy is default in dropdowns so do not need to click
-                        if new_style:
-                            driver.find_element(
-                                by=By.CSS_SELECTOR,
-                                value="#dest-dropdownlist-button-action",
-                            ).click()
-                            driver.find_element(
-                                by=By.CSS_SELECTOR,
-                                value="#Action0",
-                            ).click()
-                        else:
-                            buy_button = driver.find_element(
-                                by=By.CSS_SELECTOR,
-                                value="#action-buy > s-root > div > label > s-slot > s-assigned-wrapper",
-                            )
-                            buy_button.click()
-                    else:
-                        if new_style:
-                            action_dropdown = driver.find_element(
-                                by=By.CSS_SELECTOR,
-                                value="#dest-dropdownlist-button-action",
-                            )
-                            action_dropdown.click()  # Action0
-                            driver.find_element(
-                                by=By.CSS_SELECTOR,
-                                value="#Action1",
-                            ).click()
-                        else:
-                            sell_button = driver.find_element(
-                                by=By.CSS_SELECTOR,
-                                value="#action-sell > s-root > div > label > s-slot > s-assigned-wrapper",
-                            )
-                            sell_button.click()
-                    # Set amount (and clear previous amount)
-                    amount_box = driver.find_element(
-                        by=By.CSS_SELECTOR, value="#eqt-shared-quantity"
-                    )
-                    amount_box.clear()
-                    amount_box.send_keys(str(orderObj.get_amount()))
-                    # Set market/limit
-                    if not LIMIT:
-                        if new_style:
-                            driver.find_element(
-                                by=By.CSS_SELECTOR,
-                                value="#dest-dropdownlist-button-ordertype",
-                            ).click()
-                            driver.find_element(
-                                by=By.CSS_SELECTOR,
-                                value="#Order\\ type0",
-                            ).click()
-                        else:
-                            market_button = driver.find_element(
-                                by=By.CSS_SELECTOR,
-                                value="#market-yes > s-root > div > label > s-slot > s-assigned-wrapper",
-                            )
-                            market_button.click()
-                    else:
-                        if new_style:
-                            driver.find_element(
-                                by=By.CSS_SELECTOR,
-                                value="#dest-dropdownlist-button-ordertype",
-                            ).click()
-                            driver.find_element(
-                                by=By.CSS_SELECTOR,
-                                value="#Order\\ type1",
-                            ).click()
-                        else:
-                            limit_button = driver.find_element(
-                                by=By.CSS_SELECTOR,
-                                value="#market-no > s-root > div > label > s-slot > s-assigned-wrapper",
-                            )
-                            limit_button.click()
-                        # Set price
-                        difference_price = 0.01 if float(last_price) > 0.1 else 0.0001
-                        if orderObj.get_action() == "buy":
-                            wanted_price = round(
-                                float(last_price) + difference_price, 3
-                            )
-                        else:
-                            wanted_price = round(
-                                float(last_price) - difference_price, 3
-                            )
-                        if new_style:
-                            price_box = driver.find_element(
-                                by=By.CSS_SELECTOR, value="#eqt-mts-limit-price"
-                            )
-                        else:
-                            price_box = driver.find_element(
-                                by=By.CSS_SELECTOR,
-                                value="#eqt-ordsel-limit-price-field",
-                            )
-                        price_box.clear()
-                        price_box.send_keys(wanted_price)
-                    # Check for margin account
-                    try:
-                        margin_cash = driver.find_element(
-                            by=By.ID, value="tradetype-cash"
-                        )
-                        margin_cash.click()
-                        print("Margin account found!")
-                    except NoSuchElementException:
-                        pass
-                    # Preview order
-                    WebDriverWait(driver, 10).until(check_if_page_loaded)
-                    sleep(1)
-                    preview_button = driver.find_element(
-                        by=By.CSS_SELECTOR, value="#previewOrderBtn"
-                    )
-                    preview_button.click()
-                    # Wait for page to load
-                    WebDriverWait(driver, 10).until(check_if_page_loaded)
-                    sleep(3)
-                    # Check for error popup and clear
-                    try:
-                        # Seems Windows is using this right now
-                        error_dismiss = WebDriverWait(driver, 5).until(
-                            expected_conditions.element_to_be_clickable(
-                                (
-                                    By.XPATH,
-                                    "(//div[@class='pvd-modal__content']//button)[4]",
-                                )
-                            )
-                        )
-                    except TimeoutException:
-                        # And this for linux?
-                        try:
-                            error_dismiss = WebDriverWait(driver, 5).until(
-                                expected_conditions.element_to_be_clickable(
-                                    (
-                                        By.XPATH,
-                                        "(//div[@class='pvd-modal__content']//button)[1]",
-                                    )
-                                )
-                            )
-                        except TimeoutException:
-                            pass
-                    try:
-                        error_text = driver.find_element(
-                            By.XPATH,
-                            "//div[@class='pvd-inline-alert__content']//div[1]",
-                        )
-                        error_text = error_text.text
-                        driver.execute_script("arguments[0].click();", error_dismiss)
-                    except (NoSuchElementException, TimeoutException):
-                        pass
-                    # Place order
-                    if not orderObj.get_dry():
-                        # Check for error popup and clear it if the
-                        # account cannot sell the stock for some reason
-                        try:
-                            place_button = driver.find_element(
-                                by=By.CSS_SELECTOR, value="#placeOrderBtn"
-                            )
-                            place_button.click()
-
-                            # Wait for page to load
-                            WebDriverWait(driver, 10).until(check_if_page_loaded)
-                            sleep(1)
-                            # Send confirmation
-                            printAndDiscord(
-                                f"{key} {account_label}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}",
-                                loop,
-                            )
-                        except NoSuchElementException:
-                            printAndDiscord(
-                                f"{key} account {account_label}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}. DID NOT COMPLETE! \n{error_text}",
-                                loop,
-                            )
-                        # Send confirmation
-                    else:
-                        printAndDiscord(
-                            f"DRY: {key} account {account_label}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}",
-                            loop,
-                        )
-                    sleep(3)
-                except Exception as err:
-                    fidelity_error(driver, err)
-                    continue
-            print()
-    killSeleniumDriver(fidelity_o)
+        # Reload the page incase we were trading before
+        fidelity_browser.page.reload()
+        for account_number in fidelity_o.get_account_numbers(name):
+            # Go trade for all accounts for that stock
+            success, error_message = fidelity_browser.transaction(stock, orderObj.get_amount(), orderObj.get_action(), 
+                                                                  account_number, orderObj.get_dry())
+            # Report error if occurred
+            if not success:
+                printAndDiscord(f"{name} account xxxxx{account_number[-4:]}: {orderObj.get_action()} {orderObj.get_amount()} {error_message}", 
+                                loop)
+            # Print test run confirmation if test run
+            elif success and orderObj.get_dry():
+                printAndDiscord(f"DRY: {name} account xxxxx{account_number[-4:]}: {orderObj.get_action()} {orderObj.get_amount()} shares of {stock}", loop)
+            # Print real run confirmation if real run
+            elif success and not orderObj.get_dry():
+                printAndDiscord(f"{name} account xxxxx{account_number[-4:]}: {orderObj.get_action()} {orderObj.get_amount()} shares of {stock}", loop)
+    
+    # Close browser
+    fidelity_browser.close_browser()
