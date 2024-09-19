@@ -82,6 +82,7 @@ def wellsfargo_init(WELLSFARGO_EXTERNAL=None, DOCKER=False, loop=None):
                     .filter(num => num !== undefined);
             """
             )
+            del account_numbers[0]
             for account_number in account_numbers:
                 WELLSFARGO_obj.set_account_number(name, account_number)
         except Exception as e:
@@ -122,12 +123,13 @@ def wellsfargo_holdings(WELLSFARGO_o: Brokerage, loop=None):
             accounts = driver.execute_script(
                 "return document.getElementById('dropdownlist1').getElementsByTagName('li').length;"
             )
-            accounts = int(accounts / 2)  # Adjust based on actual implementation
+            accounts = int(accounts - 3)  # Adjust based on actual implementation
         except TimeoutException:
             print("Could not get to holdings")
             killSeleniumDriver(WELLSFARGO_o)
             return
 
+        account_masks = WELLSFARGO_o.get_account_numbers(key)
         for account in range(accounts):
             try:
                 # Choose account
@@ -136,11 +138,21 @@ def wellsfargo_holdings(WELLSFARGO_o: Brokerage, loop=None):
                 )
                 open_dropdown.click()
                 sleep(1)
-                driver.execute_script(
-                    "document.getElementById('dropdownlist1').getElementsByTagName('li')["
-                    + str(account + 2)
-                    + "].click()"
-                )
+                find_account = """
+                    var items = document.getElementById('dropdownlist1').getElementsByTagName('li');
+                    for (var i = 0; i < items.length; i++) {
+                        if (items[i].innerText.includes(arguments[0])) {
+                            items[i].click();
+                            return i;
+                        }
+                    }
+                    return -1;
+                
+                """
+                select_account = driver.execute_script(find_account, account_masks[account])
+                if select_account == -1:
+                    print("Could not find the account with the specified text")
+                    continue
             except Exception:
                 print("Could not change account")
                 killSeleniumDriver(WELLSFARGO_o)
