@@ -491,7 +491,7 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                                 by=By.CSS_SELECTOR,
                                 value="#dest-dropdownlist-button-action",
                             )
-                            action_dropdown.click()#Action0
+                            action_dropdown.click()  # Action0
                             driver.find_element(
                                 by=By.CSS_SELECTOR,
                                 value="#Action1",
@@ -583,7 +583,7 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                     sleep(3)
                     # Check for error popup and clear
                     try:
-                        #seems windows is using this right now
+                        # Seems Windows is using this right now
                         error_dismiss = WebDriverWait(driver, 5).until(
                             expected_conditions.element_to_be_clickable(
                                 (
@@ -593,7 +593,7 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                             )
                         )
                     except TimeoutException:
-                        #and this for linux?
+                        # And this for linux?
                         try:
                             error_dismiss = WebDriverWait(driver, 5).until(
                                 expected_conditions.element_to_be_clickable(
