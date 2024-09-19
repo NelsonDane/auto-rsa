@@ -84,11 +84,15 @@ def sofi_init(SOFI_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
     sofi_obj = Brokerage("SoFi")
 
     important_cookies = [
-    "SOFI_SESSION", "SOFI_WEB_USER_ID",
-    "SOFI_CSRF_COOKIE", "SOFI_R_CSRF_TOKEN",
-    "SOFI_FP_SESSION_ID", "SOFI_TXM_SESSION_ID", 
-    "_cfuvid", "cf_clearance"
-]
+    "SOFI_SESSION",
+    "SOFI_WEB_USER_ID",
+    "SOFI_CSRF_COOKIE",
+    "SOFI_R_CSRF_TOKEN",
+    "SOFI_FP_SESSION_ID",
+    "SOFI_TXM_SESSION_ID", 
+    "_cfuvid",
+    "cf_clearance"
+    ]
 
     for account in accounts:
         index = accounts.index(account) + 1
@@ -131,13 +135,13 @@ def sofi_init(SOFI_EXTERNAL=None, DOCKER=False, botObj=None, loop=None):
             print(f"Cookies not valid or expired for {name}, proceeding with login flow.")
             # Step 3: Clear non-important cookies (but keep the important ones)
             clear_cookies(driver, important_cookies)
-            
+
             driver.get('https://www.sofi.com/login')
             WebDriverWait(driver, 10).until(check_if_page_loaded)
 
             # Step 3: Check for Cloudflare human verification
             # Bypass Cloudflare CAPTCHA
-            print(f"bypassing captcha")
+            print("bypassing captcha")
             bypassed = bypass(mode='light', warmup_time=5, timeout=30, interval=0.5)
 
             if bypassed:
