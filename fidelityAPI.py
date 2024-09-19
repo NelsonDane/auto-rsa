@@ -592,16 +592,19 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                                 )
                             )
                         )
-                    except NoSuchElementException:
+                    except TimeoutException:
                         #and this for linux?
-                        error_dismiss = WebDriverWait(driver, 5).until(
-                            expected_conditions.element_to_be_clickable(
-                                (
-                                    By.XPATH,
-                                    "(//div[@class='pvd-modal__content']//button)[1]",
+                        try:
+                            error_dismiss = WebDriverWait(driver, 5).until(
+                                expected_conditions.element_to_be_clickable(
+                                    (
+                                        By.XPATH,
+                                        "(//div[@class='pvd-modal__content']//button)[1]",
+                                    )
                                 )
                             )
-                        )
+                        except TimeoutException:
+                            pass
                     try:
                         error_text = driver.find_element(
                             By.XPATH,
