@@ -4,20 +4,28 @@
 
 import asyncio
 import os
+import pickle
 import subprocess
 import sys
 import textwrap
+import traceback
 from pathlib import Path
 from queue import Queue
+from threading import Thread
 from time import sleep
 
 import pkg_resources
 import requests
+from discord.ext import commands
 from dotenv import load_dotenv
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromiumService
-from selenium.webdriver.edge.service import Service as EdgeService
-from webdriver_manager.microsoft import EdgeChromiumDriverManager
+from selenium_stealth import stealth
+
+load_dotenv()
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+DISCORD_CHANNEL = os.getenv("DISCORD_CHANNEL")
+HEADLESS = os.getenv("HEADLESS", "true").lower() == "true"
 
 # Create task queue
 task_queue = Queue()
@@ -304,56 +312,115 @@ class Brokerage:
         )
 
 
+class ThreadHandler:
+    def __init__(self, func, *args, **kwargs):
+        self.func = func
+        self.args = args
+        self.kwargs = kwargs
+        self._active_threads = []
+        self.queue = Queue()
+        self.thread = Thread(target=self._run)
+
+    def _run(self):
+        try:
+            result = self.func(*self.args, **self.kwargs)
+            self.queue.put((result, None))
+        except Exception as e:
+            print(traceback.print_exc())
+            self.queue.put((None, e))
+
+    def start(self):
+        self.thread.start()
+
+    def join(self):
+        self.thread.join()
+
+    def get_result(self):
+        return self.queue.get()
+
+
+def is_up_to_date(remote, branch):
+    # Assume succeeded in updater()
+    import git
+
+    # Check if local branch is up to date with ls-remote
+    up_to_date = False
+    is_fork = False
+    remote_hash = ""
+    local_commit = git.Repo(".").head.commit.hexsha
+    try:
+        g = git.cmd.Git()
+        ls_remote = g.ls_remote(remote, branch)
+        remote_hash = ls_remote.split("\n")
+        wanted_remote = f"refs/heads/{branch}"
+        for line in remote_hash:
+            if wanted_remote in line:
+                remote_hash = line.split("\t")[0]
+                break
+        if isinstance(remote_hash, list):
+            remote_hash = ""
+            is_fork = True
+            raise Exception(
+                f"Branch {branch} not found in remote {remote}. Perhaps you are on a fork?"
+            )
+        if local_commit == remote_hash:
+            up_to_date = True
+            print(f"You are up to date with {remote}/{branch}")
+    except Exception as e:
+        print(f"Error running ls-remote: {e}")
+    if not up_to_date and not is_fork:
+        if remote_hash == "":
+            remote_hash = "NOT FOUND"
+        print(
+            f"WARNING: YOU ARE OUT OF DATE. Please run 'git pull' to update from {remote}/{branch}. Local hash: {local_commit}, Remote hash: {remote_hash}"
+        )
+    return up_to_date
+
+
 def updater():
-    # Check if disabled
-    if os.getenv("ENABLE_AUTO_UPDATE", "").lower() == "false":
-        print("Auto update disabled, skipping...")
-        print()
-        return
     # Check if git is installed
     try:
         import git
-        from git import Repo
     except ImportError:
         print(
             "UPDATE ERROR: Git is not installed. Please install Git and then run pip install -r requirements.txt"
         )
         print()
         return
-    print("Starting auto update. To disable, set ENABLE_AUTO_UPDATE to false in .env")
+    print("Starting Git auto update...")
     try:
-        repo = Repo(".")
+        repo = git.Repo(".")
     except git.exc.InvalidGitRepositoryError:
         # If downloaded as zip, repo won't exist, so create it
-        repo = Repo.init(".")
+        repo = git.Repo.init(".")
         repo.create_remote("origin", "https://github.com/NelsonDane/auto-rsa")
         repo.remotes.origin.fetch()
         # Always create main branch
         repo.create_head("main", repo.remotes.origin.refs.main)
         repo.heads.main.set_tracking_branch(repo.remotes.origin.refs.main)
-        # If downloaded from other branch, zip has branch name
-        current_dir = Path.cwd()
-        if current_dir.name != "auto-rsa-main":
-            branch = str.replace(current_dir.name, "auto-rsa-", "")
+        repo.heads.main.checkout(True)
+        # When downloaded as zip, it contains the branch name
+        branch = str(Path.cwd().name).split("-")[-1]
+        if branch != "main":
             try:
                 repo.create_head(branch, repo.remotes.origin.refs[branch])
                 repo.heads[branch].set_tracking_branch(repo.remotes.origin.refs[branch])
                 repo.heads[branch].checkout(True)
-            except:
-                print(f"No branch {branch} found, using main")
-        else:
-            repo.heads.main.checkout(True)
+            except Exception:
+                print(f"No branch named {branch} found, using main")
         print(f"Cloned repo from {repo.active_branch}")
     if repo.is_dirty():
         # Print warning and let users take care of changes themselves
         print(
             "UPDATE ERROR: Conflicting changes found. Please commit, stash, or remove your changes before updating."
         )
+        print(f"Using commit {str(repo.head.commit)[:7]}")
+        is_up_to_date("origin", repo.active_branch)
         print()
         return
     if not repo.bare:
         try:
-            repo.remotes.origin.pull(repo.active_branch)
+            repo.git.pull()
             print(f"Pulled latest changes from {repo.active_branch}")
         except Exception as e:
             print(
@@ -361,14 +428,14 @@ def updater():
             )
             print()
             return
-    revision_head = str(repo.head.commit)[:7]
-    print(f"Update complete! Using commit {revision_head}")
+    print(f"Update complete! Now using commit {str(repo.head.commit)[:7]}")
+    is_up_to_date("origin", repo.active_branch)
     print()
     return
 
 
 def check_package_versions():
-    print("Checking package versions...")
+    print("Checking Python pip package versions...")
     # Check if pip packages are up to date
     required_packages = []
     required_repos = []
@@ -459,32 +526,33 @@ def check_if_page_loaded(driver):
 def getDriver(DOCKER=False):
     # Init webdriver options
     try:
+        options = webdriver.ChromeOptions()
+        options.add_argument("start-maximized")
+        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        options.add_experimental_option("useAutomationExtension", False)
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_argument("--disable-extensions")
+        options.add_argument("--disable-notifications")
         if DOCKER:
-            # Docker uses Chromium
-            options = webdriver.ChromeOptions()
-            options.add_argument("--disable-blink-features=AutomationControlled")
-            options.add_argument("--disable-notifications")
+            # Special Docker options
             options.add_argument("--disable-dev-shm-usage")
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-gpu")
+        if DOCKER or HEADLESS:
+            options.add_argument("--headless")
+        driver = webdriver.Chrome(
+            options=options,
             # Docker uses specific chromedriver installed via apt
-            driver = webdriver.Chrome(
-                service=ChromiumService("/usr/bin/chromedriver"),
-                options=options,
-            )
-        else:
-            # Otherwise use Edge
-            options = webdriver.EdgeOptions()
-            options.add_argument("--disable-blink-features=AutomationControlled")
-            options.add_argument("--disable-notifications")
-            driver = webdriver.Edge(
-                service=EdgeService(EdgeChromiumDriverManager().install()),
-                options=options,
-            )
+            service=ChromiumService("/usr/bin/chromedriver") if DOCKER else None,
+        )
+        stealth(
+            driver=driver,
+            platform="Win32",
+            fix_hairline=True,
+        )
     except Exception as e:
         print(f"Error getting Driver: {e}")
         return None
-    driver.maximize_window()
     return driver
 
 
@@ -503,46 +571,56 @@ def killSeleniumDriver(brokerObj: Brokerage):
             print(f"Killed {count} {brokerObj.get_name()} drivers")
 
 
-async def processTasks(message):
-    # Get details from env (they are used prior so we know they exist)
-    load_dotenv()
-    DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-    DISCORD_CHANNEL = os.getenv("DISCORD_CHANNEL")
+async def processTasks(message, embed=False):
     # Send message to discord via request post
     BASE_URL = f"https://discord.com/api/v10/channels/{DISCORD_CHANNEL}/messages"
     HEADERS = {
         "Authorization": f"Bot {DISCORD_TOKEN}",
         "Content-Type": "application/json",
     }
-    PAYLOAD = {
-        "content": message,
-    }
-    # Keep trying until success
-    success = False
-    while success is False:
-        try:
-            response = requests.post(BASE_URL, headers=HEADERS, json=PAYLOAD)
-            # Process response
-            if response.status_code == 200:
-                success = True
-            elif response.status_code == 429:
-                rate_limit = response.json()["retry_after"] * 2
-                await asyncio.sleep(rate_limit)
-            else:
-                print(f"Error: {response.status_code}: {response.text}")
+    embed_length = len(message["fields"]) if embed else 1
+    for i in range(0, embed_length, 25):
+        PAYLOAD = {
+            "content": "" if embed else message,
+            "embeds": (
+                [
+                    {
+                        "title": message["title"] if i == 0 else "",
+                        "color": message["color"],
+                        "fields": message["fields"][i : i + 25],
+                    }
+                ]
+                if embed
+                else []
+            ),
+        }
+        # Keep trying until success
+        success = False
+        while success is False:
+            try:
+                response = requests.post(BASE_URL, headers=HEADERS, json=PAYLOAD)
+                # Process response
+                if response.status_code == 200:
+                    success = True
+                elif response.status_code == 429:
+                    rate_limit = response.json()["retry_after"] * 2
+                    await asyncio.sleep(rate_limit)
+                else:
+                    print(f"Error: {response.status_code}: {response.text}")
+                    break
+            except Exception as e:
+                print(f"Error Sending Message: {e}")
                 break
-        except Exception as e:
-            print(f"Error Sending Message: {e}")
-            break
-    sleep(0.5)
+        await asyncio.sleep(0.5)
 
 
-def printAndDiscord(message, loop=None):
+def printAndDiscord(message, loop=None, embed=False):
     # Print message
-    print(message)
+    if not embed:
+        print(message)
     # Add message to discord queue
     if loop is not None:
-        task_queue.put((message))
+        task_queue.put((message, embed))
         if task_queue.qsize() == 1:
             asyncio.run_coroutine_threadsafe(processQueue(), loop)
 
@@ -550,9 +628,89 @@ def printAndDiscord(message, loop=None):
 async def processQueue():
     # Process discord queue
     while not task_queue.empty():
-        message = task_queue.get()
-        await processTasks(message)
+        message, embed = task_queue.get()
+        await processTasks(message, embed)
         task_queue.task_done()
+
+
+async def getOTPCodeDiscord(
+    botObj: commands.Bot, brokerName, code_len=6, timeout=60, loop=None
+):
+    printAndDiscord(f"{brokerName} requires OTP code", loop)
+    printAndDiscord(
+        f"Please enter OTP code or type cancel within {timeout} seconds", loop
+    )
+    # Get OTP code from Discord
+    while True:
+        try:
+            code = await botObj.wait_for(
+                "message",
+                # Ignore bot messages and messages not in the correct channel
+                check=lambda m: m.author != botObj.user
+                and m.channel.id == int(os.getenv("DISCORD_CHANNEL")),
+                timeout=timeout,
+            )
+        except asyncio.TimeoutError:
+            printAndDiscord(
+                f"Timed out waiting for OTP code input for {brokerName}", loop
+            )
+            return None
+        if code.content.lower() == "cancel":
+            printAndDiscord(f"Cancelling OTP code for {brokerName}", loop)
+            return None
+        try:
+            # Check if code is numbers only
+            int(code.content)
+        except ValueError:
+            printAndDiscord("OTP code must be numbers only", loop)
+            continue
+        # Check if code is correct length
+        if len(code.content) != code_len:
+            printAndDiscord(f"OTP code must be {code_len} digits", loop)
+            continue
+        return code.content
+
+
+async def getUserInputDiscord(botObj: commands.Bot, prompt, timeout=60, loop=None):
+    printAndDiscord(prompt, loop)
+    printAndDiscord(
+        f"Please enter the input or type cancel within {timeout} seconds", loop
+    )
+    try:
+        code = await botObj.wait_for(
+            "message",
+            check=lambda m: m.author != botObj.user
+            and m.channel.id == int(DISCORD_CHANNEL),
+            timeout=timeout,
+        )
+    except asyncio.TimeoutError:
+        printAndDiscord("Timed out waiting for input", loop)
+        return None
+    if code.content.lower() == "cancel":
+        printAndDiscord("Input canceled by user", loop)
+        return None
+    return code.content
+
+
+async def send_captcha_to_discord(file):
+    BASE_URL = f"https://discord.com/api/v10/channels/{DISCORD_CHANNEL}/messages"
+    HEADERS = {
+        "Authorization": f"Bot {DISCORD_TOKEN}",
+    }
+    files = {"file": ("captcha.png", file, "image/png")}
+    success = False
+    while not success:
+        response = requests.post(BASE_URL, headers=HEADERS, files=files)
+        if response.status_code == 200:
+            success = True
+        elif response.status_code == 429:
+            rate_limit = response.json()["retry_after"] * 2
+            await asyncio.sleep(rate_limit)
+        else:
+            print(
+                f"Error sending CAPTCHA image: {response.status_code}: {response.text}"
+            )
+            break
 
 
 def maskString(string):
@@ -564,28 +722,74 @@ def maskString(string):
     return masked
 
 
-def printHoldings(brokerObj: Brokerage, loop=None):
+def printHoldings(brokerObj: Brokerage, loop=None, mask=True):
     # Helper function for holdings formatting
-    printAndDiscord(
-        f"==============================\n{brokerObj.get_name()} Holdings\n==============================",
-        loop,
+    EMBED = {
+        "title": f"{brokerObj.get_name()} Holdings",
+        "color": 3447003,
+        "fields": [],
+    }
+    print(
+        f"==============================\n{brokerObj.get_name()} Holdings\n=============================="
     )
     for key in brokerObj.get_account_numbers():
         for account in brokerObj.get_account_numbers(key):
-            printAndDiscord(f"{key} ({maskString(account)}):", loop)
+            acc_name = f"{key} ({maskString(account) if mask else account})"
+            field = {
+                "name": acc_name,
+                "inline": False,
+            }
+            print(acc_name)
+            print_string = ""
             holdings = brokerObj.get_holdings(key, account)
             if holdings == {}:
-                printAndDiscord("No holdings in Account\n", loop)
+                print_string += "No holdings in Account\n"
             else:
-                print_string = ""
                 for stock in holdings:
                     quantity = holdings[stock]["quantity"]
                     price = holdings[stock]["price"]
                     total = holdings[stock]["total"]
                     print_string += f"{stock}: {quantity} @ ${format(price, '0.2f')} = ${format(total, '0.2f')}\n"
-                printAndDiscord(print_string, loop)
-            printAndDiscord(
-                f"Total: ${format(brokerObj.get_account_totals(key, account), '0.2f')}\n",
-                loop,
+            print_string += f"Total: ${format(brokerObj.get_account_totals(key, account), '0.2f')}\n"
+            print(print_string)
+            # If somehow longer than 1024, chop and add ...
+            field["value"] = (
+                print_string[:1020] + "..."
+                if len(print_string) > 1024
+                else print_string
             )
-    printAndDiscord("==============================", loop)
+            EMBED["fields"].append(field)
+    printAndDiscord(EMBED, loop, True)
+    print("==============================")
+
+
+def save_cookies(driver, filename, path=None):
+    if path is not None:
+        filename = os.path.join(path, filename)
+    if path is not None and not os.path.exists(path):
+        os.makedirs(path)
+    with open(filename, "wb") as f:
+        pickle.dump(driver.get_cookies(), f)
+
+
+def load_cookies(driver, filename, path=None):
+    if path is not None:
+        filename = os.path.join(path, filename)
+    if not os.path.exists(filename):
+        return False
+    with open(filename, "rb") as f:
+        cookies = pickle.load(f)
+    for cookie in cookies:
+        try:
+            driver.add_cookie(cookie)
+        except Exception:
+            continue
+    return True
+
+
+def clear_cookies(driver, filename, path=None):
+    if path is not None:
+        filename = os.path.join(path, filename)
+    if os.path.exists(filename):
+        os.remove(filename)
+    driver.delete_all_cookies()

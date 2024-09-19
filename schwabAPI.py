@@ -31,7 +31,7 @@ def schwab_init(SCHWAB_EXTERNAL=None):
         name = f"Schwab {index}"
         try:
             account = account.split(":")
-            schwab = Schwab()
+            schwab = Schwab(session_cache=f"./creds/schwab{index}.json")
             schwab.login(
                 username=account[0],
                 password=account[1],
@@ -111,10 +111,12 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
                         dry_run=orderObj.get_dry(),
                     )
                     printAndDiscord(
-                        f"{key} account {print_account}: The order verification was "
-                        + "successful"
-                        if success
-                        else "unsuccessful, retrying...",
+                        (
+                            f"{key} account {print_account}: The order verification was "
+                            + "successful"
+                            if success
+                            else "unsuccessful, retrying..."
+                        ),
                         loop,
                     )
                     if not success:
@@ -126,10 +128,12 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
                             dry_run=orderObj.get_dry(),
                         )
                         printAndDiscord(
-                            f"{key} account {print_account}: The order verification was "
-                            + "retry successful"
-                            if success
-                            else "retry unsuccessful",
+                            (
+                                f"{key} account {print_account}: The order verification was "
+                                + "retry successful"
+                                if success
+                                else "retry unsuccessful"
+                            ),
                             loop,
                         )
                         printAndDiscord(

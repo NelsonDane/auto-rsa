@@ -1,6 +1,6 @@
 # ✨ AutoRSA ✨ 
 ## Discord Bot and CLI Tool
-A CLI tool and Discord bot to buy, sell, and monitor holdings across multiple accounts!
+A CLI tool and Discord bot to buy, sell, and monitor holdings across multiple brokerage accounts!
 
 <p>
 <img src="https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54"/>
@@ -9,75 +9,152 @@ A CLI tool and Discord bot to buy, sell, and monitor holdings across multiple ac
 <img src="https://img.shields.io/badge/-docker-%232c2f33?style=for-the-badge&logo=docker&logoColor=white"/>
 </p>
 
-## ❓ What is RSA? ❓
-You already know what Reverse Split Arbitrage is, that's not why you're here. If you do know what it is, then you know why a tool like this would be valuable. If you're a big player, even more so...
-
-## 🤔 How Does It Work? 🤔
 This program uses APIs to interface with your brokerages. When available, official APIs are always used. If an official API is not available, then a third-party API is used. As a last resort, Selenium or Playwright Stealth are used to automate the browser.
 
-## 🤖 Discord Bot Installation 🤖
-To create your Discord bot and get your `DISCORD_TOKEN`, follow this [guide](guides/discordBot.md).
-### 🐳 Docker 🐳
-1. Create a `.env` file for your brokerage variables using [.env.example](.env.example) as a template, and add your bot using `DISCORD_TOKEN` and `DISCORD_CHANNEL`
-2. Using the provided [docker-compose.yml](docker-compose.yml) file, run the command `docker compose up -d` inside the project directory.
-3. The bot should appear online (You can also do `!ping` to check). 
+## DISCLAIMER 😳
+DISCLAIMER: I am not a financial advisor and not affiliated with any of the brokerages listed below. Use this tool at your own risk. I am not responsible for any losses or damages you may incur by using this project. This tool is provided as-is with no warranty.
 
-### 🏃‍♂️ Always Running Python Script 🏃‍♀️
-Make sure python3-pip is installed
-1. Clone this repository and cd into it
-2. Run `pip install -r requirements.txt`
-3. Create a `.env` file for your brokerage variables using [.env.example](.env.example) as a template, and add your bot using `DISCORD_TOKEN` and `DISCORD_CHANNEL`
-4. Run `python autoRSA.py` (See below for more command explanations)
+## Having an Issue? 🤔
+I am not responding to issues on this repository. If you have an issue, please Sponsor me below and I will help you directly on Discord (for Sponsors and Contributors only).
 
-Note: If you are using Windows, you will need to install playwright manually. See [this guide](guides/playwrightWindows.md) for more information.
+[![Sponsor](https://img.shields.io/badge/sponsor-30363D?style=for-the-badge&logo=GitHub-Sponsors&logoColor=#white)](https://github.com/sponsors/NelsonDane)
+[![ko-fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=white
+)](https://ko-fi.com/X8X6LFCI0)
 
-## 💻 CLI Tool Installation 💻
-1. Clone this repository and cd into it
-2. Run `pip install -r requirements.txt`
-3. Create a `.env` file for your brokerage variables using [.env.example](.env.example) as a template.
-4. Run the script using `python autoRSA.py` plus the command you want to run (See below for more command explanations)
+However, if you fix the issue yourself, please submit a pull request and I will review it.
 
-Note: If you are using Windows, you will need to install playwright manually. See [this guide](guides/playwrightWindows.md) for more information.
+## Installation 📝
+There are two ways to use this program: as a Discord bot or as a CLI tool. The setup instructions will be a little different depending on which method you choose. However, both methods require the same pre-setup steps, and the same `.env` file format.
 
-## 👀 Usage 👀
-If running as a Discord bot, append `!rsa` to the beginning of each command.
-If running from the CLI Tool, append `python autoRSA.py` to the beginning of each command.
+### Pre-Setup 🛠️
+1. Install `git` for your operating system.
+2. Clone this repository and cd into it:
+```bash
+git clone https://github.com/NelsonDane/auto-rsa.git
+cd auto-rsa
+```
+3. Copy the `.env.example` file to a new file called `.env`:
+#### MacOS & Linux
+```bash
+cp .env.example .env
+```
+#### Windows
+```powershell
+copy .env.example .env
+```
+4. Fill in the `.env` file with your brokerage credentials. See the [Supported Brokerages](#-supported-brokerages-) section for more information.
+
+Now follow the instructions for either the Discord Bot or CLI Tool. Once setup is complete, see the [Usage](#-usage-) section for how to use the program.
+
+### Discord Bot Installation 🤖
+To create your Discord bot and get your `DISCORD_TOKEN` for your `.env`, follow this [guide](guides/discordBot.md).
+
+There are two ways to run the Discord bot: using Docker or running the Python script. When running the bot using the Python script, the bot will only be online when the script is running. With Docker, the bot will run in the background, restarting and updating automatically.
+
+### Discord Bot: Docker 🐳
+1. Add `DISCORD_TOKEN` and `DISCORD_CHANNEL` to your `.env` file.
+2. Create the container using the provided [docker-compose.yml](docker-compose.yml) file:
+```bash
+docker compose up -d
+```
+3. The bot should appear online in Discord (You can also do `!ping` to check).
+
+Docker Note: If you make any changes to your `.env` file, you will need to restart the container by running `docker-compose up -d` again. The bot will also automatically stay up to date thanks to the included [Watchtower](https://containrrr.dev/watchtower/).
+
+### Discord Bot: Python Script 🏃‍♀️
+1. Install Python 3.10 or higher
+2. Create a Python virtual environment:
+```bash
+python -m venv autorsa-venv
+```
+3. Activate the virtual environment:
+#### MacOS & Linux
+```bash
+source ./autorsa-venv/bin/activate
+```
+#### Windows
+```powershell
+.\autorsa-venv\Scripts\activate
+```
+You should see `(autorsa-venv)` in your terminal prompt now. You will need to activate this virtual environment every time you close and reopen your terminal.
+
+4. Install the required packages:
+```bash
+pip install -r requirements.txt
+```
+5. Add `DISCORD_TOKEN` and `DISCORD_CHANNEL` to your `.env` file.
+6. Start the bot using the following command:
+```bash
+python autoRSA.py discord
+```
+7. The bot should appear online in Discord (You can also do `!ping` to check).
+
+### CLI Tool Installation 💻
+To run the CLI tool, follow these steps:
+1. Install Python 3.10 or higher
+2. Create a Python virtual environment:
+```bash
+python -m venv autorsa-venv
+```
+3. Activate the virtual environment:
+#### MacOS & Linux
+```bash
+source ./autorsa-venv/bin/activate
+```
+#### Windows
+```powershell
+.\autorsa-venv\Scripts\activate
+```
+You should see `(autorsa-venv)` in your terminal prompt now. You will need to activate this virtual environment every time you close and reopen your terminal.
+
+4. Install the required packages:
+```bash
+pip install -r requirements.txt
+```
+5. Run the script using `python autoRSA.py`. It should say that no arguments were given, then exit. This is expected, and means everything was installed and set up correctly.
+
+## Usage 👀
 
 To buy and sell stocks, use this command:
 
-`<action> <amount> <ticker> <accounts> <dry>`
+`<prefix> <action> <amount> <ticker> <accounts> <dry>`
+
+(Parameter explanation below)
 
 For example, to buy 1 AAPL in all accounts:
 
-`buy 1 AAPL all false`
+`<prefix> buy 1 AAPL all false`
 
 For a dry run of the above command in Robinhood only:
 
-`buy 1 AAPL robinhood true`
+`<prefix> buy 1 AAPL robinhood true`
 
 For a real run on Fidelity and Robinhood, but not Schwab:
 
-`buy 1 AAPL fidelity,robinhood not schwab false`
+`<prefix> buy 1 AAPL fidelity,robinhood not schwab false`
 
 For a real run on Fidelity and Robinhood but not Schwab buying both AAPL and GOOG:
 
-`buy 1 AAPL,GOOG fidelity,robinhood not schwab false`
+`<prefix> buy 1 AAPL,GOOG fidelity,robinhood not schwab false`
 
 To check your account holdings:
 
-`holdings <accounts>`
+`<prefix> holdings <accounts>`
+
+For example, to check your account holdings on Chase and Vanguard, but not Robinhood:
+
+`<prefix> holdings chase,vanguard not robinhood`
 
 To restart the Discord bot:
 
-`!restart` (without appending `!rsa`)
+`!restart` (without appending `!rsa` or prefix)
 
 For help:
 
-`!help` (without appending `!rsa`)
+`!help` (without appending `!rsa` or prefix)
 
-Note: There are two special keywords you can use when specifying accounts: `all` and `day1`. `all` will use every account that you have set up. `day1` will use "day 1" brokers, which are Robinhood, Schwab, Tastytrade, and Tradier. This is useful for brokers that provide quick turnaround times, hence the nickname "day 1".
-
-### ⚙️ Parameters ⚙️
+### Parameters Explanation ⚙️
+- `<prefix>`: string, The prefix for the command. For the Discord bot, this is `!rsa`. For the CLI tool, this is `python autoRSA.py`.
 - `<action>`: string, "buy" or "sell"
 - `<amount>`: integer, Amount to buy or sell.
 - `<ticker>`: string, The stock ticker to buy or sell. Separate multiple tickers with commas and no spaces.
@@ -85,26 +162,65 @@ Note: There are two special keywords you can use when specifying accounts: `all`
 - `<not accounts>`: string proceeding `not`, What brokerages to exclude from command. Separate multiple brokerages with commas and no spaces.
 - `<dry>`: boolean, Whether to run in `dry` mode (in which no transactions are made. Useful for testing). Set to `True`, `False`, or just write `dry` for`True`. Defaults to `True`, so if you want to run a real transaction, you must set this explicitly.
 
-### 🗺️ Guides 🗺️
+Note: There are two special keywords you can use when specifying accounts: `all` and `day1`. `all` will use every account that you have set up. `day1` will use "day 1" brokers, which are:
+- BBAE
+- Chase
+- Fennel
+- Firstrade
+- Public
+- Schwab
+- Tastytrade
+- Tradier
+- Webull
+
+This is useful for brokers that provide quick turnaround times, hence the nickname "day 1".
+A couple other keywords that can be used:
+- `most`: will use every account you have setup except for vanguard.
+- `fast`: will use every "day 1" broker + robinhood.
+
+## 🗺️ Other Guides 🗺️
 More detailed guides for some of the difficult setups:
 - [Discord Bot Setup](guides/discordBot.md)
+- [Robinhood 2FA Setup](guides/robinhoodSetup.md)
 - [Schwab 2FA Setup](guides/schwabSetup.md)
 
-## 🤝 Contributing 🤝
-Found or fixed a bug? Have a feature request? Want to add support for a new brokerage? Feel free to open an issue or pull request!
-
-Enjoying the project? Feel free to Sponsor me on GitHub or Ko-fi!
-
-[![Sponsor](https://img.shields.io/badge/sponsor-30363D?style=for-the-badge&logo=GitHub-Sponsors&logoColor=#white)](https://github.com/sponsors/NelsonDane)
-[![ko-fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=white
-)](https://ko-fi.com/X8X6LFCI0)
-
-## 😳 DISCLAIMER 😳
-DISCLAIMER: I am not a financial advisor and not affiliated with any of the brokerages listed below. Use this tool at your own risk. I am not responsible for any losses or damages you may incur by using this project. This tool is provided as-is with no warranty.
-
-## 👍 Supported brokerages 👍
+## Supported brokerages 👍
 
 All brokers: separate account credentials with a colon (":"). For example, `SCHWAB_USERNAME:SCHWAB_PASSWORD`. Separate multiple logins with the same broker with a comma (","). For example, `SCHWAB_USERNAME:SCHWAB_PASSWORD,SCHWAB_USERNAME2:SCHWAB_PASSWORD2`.
+
+Some brokerages require `Playwright` to run. On Windows, the `playwright install` command might not be recognized. If this is the case, run `python -m playwright install` instead.
+
+#### BBAE
+Made by [ImNotOssy](https://github.com/ImNotOssy) using the [BBAE_investing_API](https://github.com/ImNotOssy/BBAE_investing_API). Go give them a ⭐ 
+- `BBAE_USERNAME`
+- `BBAE_PASSWORD`
+ 
+`.env` file format:
+- `BBAE=BBAE_USERNAME:BBAE_PASSWORD`
+
+Note: `BBAE_USERNAME` can either be email or phone number.
+
+#### Chase
+Made by [MaxxRK](https://github.com/MaxxRK/) using the [chaseinvest-api](https://github.com/MaxxRK/chaseinvest-api). Go give them a ⭐
+- `CHASE_USERNAME`
+- `CHASE_PASSWORD`
+- `CELL_PHONE_LAST_FOUR`
+Optional .env variables:
+- `DEBUG` (Set to `True` to enable debug mode)`
+
+`.env` file format:
+- `CHASE=CHASE_USERNAME:CHASE_PASSWORD:CELL_PHONE_LAST_FOUR:DEBUG`
+
+### Fennel
+Made by yours truly using the [fennel-invest-api](https://github.com/NelsonDane/fennel-invest-api). Consider giving me a ⭐
+
+Required `.env` variables:
+- `FENNEL_EMAIL`
+
+`.env` file format:
+- `FENNEL=FENNEL_EMAIL`
+
+Fennel accounts don't have passwords, so you need to login by inputting the code sent to your email. The script will then save your session credentials for future use.
 
 ### Fidelity
 Made by yours truly using Selenium (and many hours of web scraping).
@@ -122,10 +238,30 @@ Made by [MaxxRK](https://github.com/MaxxRK/) using the [firstrade-api](https://g
 Required `.env` variables:
 - `FIRSTRADE_USERNAME`
 - `FIRSTRADE_PASSWORD`
-- `FIRSTRADE_PIN`
+- `FIRSTRADE_OTP`
 
 `.env` file format:
-- `FIRSTRADE=FIRSTRADE_USERNAME:FIRSTRADE_PASSWORD:FIRSTRADE_PIN`
+- `FIRSTRADE=FIRSTRADE_USERNAME:FIRSTRADE_PASSWORD:FIRSTRADE_OTP`
+
+- Note: You may now use any firstrade supported 2fa method, including pin, SMS, Email, or an Authenticator. Place any ONE of the below in the `FIRSTRADE_OTP` field:
+- Pin: Use the login pin you created when setting up the account.
+- Phone: Enter your 10 digit phone number with no spaces. I.E. 1234567890
+- Email: Enter your full email address. I.E. autorsa@autorsa.com
+- Authenticator: Use the code generated by Firstrade when adding an authenticator. Click on "Can't scan it?" to get the code.
+
+If you get errors after upgrading, try clearing your cookies in the `creds` folder and then trying again.
+
+### Public
+Made by yours truly using using [public-invest-api](https://github.com/NelsonDane/public-invest-api). Consider giving me a ⭐
+
+Required `.env` variables:
+- `PUBLIC_USERNAME`
+- `PUBLIC_PASSWORD`
+
+`.env` file format:
+- `PUBLIC_BROKER=PUBLIC_USERNAME:PUBLIC_PASSWORD`
+
+Note: Because Windows already has a `PUBLIC` environment variable, you will need to use `PUBLIC_BROKER` instead.
 
 ### Robinhood
 Made using [robin_stocks](https://github.com/jmfernandes/robin_stocks). Go give them a ⭐
@@ -139,9 +275,9 @@ Required `.env` variables:
 - With 2fa: `ROBINHOOD=ROBINHOOD_USERNAME:ROBINHOOD_PASSWORD:ROBINHOOD_TOTP`
 - Without 2fa: `ROBINHOOD=ROBINHOOD_USERNAME:ROBINHOOD_PASSWORD:NA`
 
-If you don't have an IRA account or only have one, then you can omit the last field or set it to NA.
+Configuring 2fa can be tricky, so follow this [guide](guides/robinhoodSetup.md).
 
-Configuring 2fa can be tricky, read the TOTP section [here](https://github.com/jmfernandes/robin_stocks/blob/master/Robinhood.rst#with-mfa-entered-programmatically-from-time-based-one-time-password-totp).
+Note: Robinhood saves token cookies in the `creds` folder. These take precedence over the username/password set in the `.env` file. If you want to change accounts, you will need to delete the cookies in the `creds` folder for it to update.
 
 ### Schwab
 Made using the [schwab-api](https://github.com/itsjafer/schwab-api). Go give them a ⭐
@@ -159,7 +295,15 @@ To get your TOTP secret, follow this [guide](guides/schwabSetup.md).
 
 Note 1: Think or Swim must be enabled on all accounts. To enable, go to `Trade` > `Trading Platforms` > `Learn how to enable thinkorswim`. Then press `Continue` and expand the `thinkorswim Access Agreement` and accept it. Then press `Continue` again. Then select the checkbox for all available accounts and press `Submit`. It may take a day or two for the accounts to be enabled.
 
-Note 2: If you are using Windows, you may need to install playwright manually. See [this guide](guides/playwrightWindows.md) for more information.
+### Tornado
+Made by [ImNotOssy](https://github.com/ImNotOssy) using Selenium. Go give them a ⭐
+
+Required `.env` variables:
+- `TORNADO_EMAIL`
+- `TORNADO_PASSWORD`
+
+`.env` file format:
+- `TORNADO=TORNADO_EMAIL:TORNADO_PASSWORD`
 
 ### Tradier
 Made by yours truly using the official [Tradier API](https://documentation.tradier.com/brokerage-api/trading/getting-started). Consider giving me a ⭐
@@ -198,19 +342,24 @@ Your `WEBULL_USERNAME` can be your email or phone number. If using a phone numbe
 
 To get your Webull DID, follow this [guide](https://github.com/tedchou12/webull/wiki/Workaround-for-Login-%E2%80%90-Method-2).
 
-### 🤷‍♂️ Maybe future brokerages 🤷‍♀️
-#### Ally
-Ally disabled their official API, so all Ally packages don't work. I am attempting to reverse engineer their API, which you can track [here](https://github.com/NelsonDane/ally-api). Once I get it working, I will add it to this project.
-#### Chase
-Chase doesn't have an official API, so it would have to be added using Selenium.
-#### Vanguard
-Will be added using Selenium just like Fidelity. I found this [vanguard-api](https://github.com/rikonor/vanguard-api), but it failed when I ran it.
+### Vanguard
+Made by [MaxxRK](https://github.com/MaxxRK/) using the [vanguard-api](https://github.com/MaxxRK/vanguard-api). Go give them a ⭐
+
+Required `.env` variables:
+- `VANGUARD_USERNAME`
+- `VANGUARD_PASSWORD`
+- `CELL_PHONE_LAST_FOUR`
+
+Optional `.env` variables:
+- `DEBUG` (Set to `True` to enable debug mode, otherwise `False`)
+
+`.env` file format:
+- `VANGUARD=VANGUARD_USERNAME:VANGUARD_PASSWORD:PHONE_LAST_FOUR:DEBUG`
+
+
+### Maybe future brokerages 🤷‍♀️
 #### SoFi
-Login requires SMS 2fa, and I'm not sure how to do that automatically.
-#### Webull
-In progress on [develop-webull](https://github.com/NelsonDane/auto-rsa/pull/61). Stay tuned.
-#### Public
-In progress on [develop-public](https://github.com/NelsonDane/auto-rsa/pull/150). Stay tuned.
-### 👎 Never working brokerages 👎
+In progress [here](https://github.com/NelsonDane/auto-rsa/pull/237).
+### Never working brokerages 👎
 #### Stash
 Why.
