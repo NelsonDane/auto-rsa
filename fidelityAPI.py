@@ -583,6 +583,7 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                     sleep(3)
                     # Check for error popup and clear
                     try:
+                        #seems windows is using this right now
                         error_dismiss = WebDriverWait(driver, 5).until(
                             expected_conditions.element_to_be_clickable(
                                 (
@@ -592,6 +593,7 @@ def fidelity_transaction(fidelity_o: Brokerage, orderObj: stockOrder, loop=None)
                             )
                         )
                     except NoSuchElementException:
+                        #and this for linux?
                         error_dismiss = WebDriverWait(driver, 5).until(
                             expected_conditions.element_to_be_clickable(
                                 (
