@@ -1,22 +1,21 @@
 # Kenneth Tang
 # API to Interface with Fidelity
 # Uses headless Playwright
-# 2024/09/18
+# 2024/09/19
 # Adapted from Nelson Dane's Selenium based code and created with the help of playwright codegen
 
 import asyncio
-import datetime
 import os
 import traceback
-from time import sleep
 import json
 import pyotp
+import csv
 
 from dotenv import load_dotenv
 
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
 from playwright_stealth import StealthConfig, stealth_sync
-import csv
+
 
 from helperAPI import (
     Brokerage,
