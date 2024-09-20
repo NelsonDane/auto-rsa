@@ -8,7 +8,7 @@ ENV TZ=America/New_York
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Default display to :99
-ENV DISPLAY :99
+ENV DISPLAY=:99
 
 # Install python, pip, and tzdata
 RUN apt-get update && apt-get install -y --no-install-recommends \
