@@ -19,17 +19,10 @@ from playwright_stealth import StealthConfig, stealth_sync
 
 from helperAPI import (
     Brokerage,
-    check_if_page_loaded,
-    getDriver,
     getOTPCodeDiscord,
-    killSeleniumDriver,
-    load_cookies,
-    maskString,
     printAndDiscord,
     printHoldings,
-    save_cookies,
     stockOrder,
-    type_slowly,
 )
 
 class FidelityAutomation:
@@ -51,7 +44,6 @@ class FidelityAutomation:
         '''
         # Set the context wrapper
         self.playwright = sync_playwright().start()
-
 
         # Create or load cookies
         self.profile_path = os.path.abspath(self.profile_path)
@@ -131,13 +123,13 @@ class FidelityAutomation:
                 pass
 
             # Check to see if blank
-            totp_secret=(None if totp_secret == "NA" else totp_secret)
+            totp_secret = (None if totp_secret == "NA" else totp_secret)
 
             # If we hit the 2fA page after trying to login
             if 'login' in self.page.url:
 
                 # If TOTP secret is provided, we are will use the TOTP key. See if authenticator code is present
-                if totp_secret != None and self.page.get_by_role("heading", name="Enter the code from your").is_visible():
+                if totp_secret is not None and self.page.get_by_role("heading", name="Enter the code from your").is_visible():
                     # Get authenticator code 
                     code = pyotp.TOTP(totp_secret).now()
                     # Enter the code
@@ -155,7 +147,6 @@ class FidelityAutomation:
                     self.page.wait_for_url('https://digital.fidelity.com/ftgw/digital/portfolio/summary', timeout=5000)
                     # Got to the summary page, return True
                     return (True, True)
-
 
                 # If the authenticator code is the only way but we don't have the secret, return error
                 if self.page.get_by_text("Enter the code from your authenticator app This security code will confirm the").is_visible():
@@ -239,13 +230,7 @@ class FidelityAutomation:
         self.positions_csv = os.path.join(cur, download.suggested_filename)
         # Create a copy to work on with the proper file name known
         download.save_as(self.positions_csv)
-        
-        
-        
-        
 
-        
-        
         csv_file = open(self.positions_csv, newline='', encoding='utf-8-sig')
 
         reader = csv.DictReader(csv_file)
@@ -258,10 +243,10 @@ class FidelityAutomation:
         self.account_dict = {}
         for row in reader:
                 # Last couple of rows have some disclaimers, filter those out
-                if row['Account Number'] != None and 'and' in str(row['Account Number']):
+                if row['Account Number'] is not None and 'and' in str(row['Account Number']):
                     break
                 # Get the value and remove '$' from it
-                val = str(row['Current Value']).replace('$','')
+                val = str(row['Current Value']).replace('$', '')
                 # Get the last price
                 last_price = str(row['Last Price']).replace('$', '')
                 # Get quantity
@@ -352,14 +337,13 @@ class FidelityAutomation:
             # Wait for quote panel to show up
             self.page.locator("#quote-panel").wait_for(timeout=2000)
             last_price = self.page.query_selector("#eq-ticket__last-price > span.last-price").text_content()
-            last_price = last_price.replace('$','')
+            last_price = last_price.replace('$', '')
 
             # Ensure we are in the expanded ticket
             if self.page.get_by_role("button", name="View expanded ticket").is_visible():
                 self.page.get_by_role("button", name="View expanded ticket").click()
                 # Wait for it to take effect
                 self.page.get_by_role("button", name="Calculate shares").wait_for(timeout=2000)
-
 
             # When enabling extended hour trading
             extended = False
@@ -371,12 +355,10 @@ class FidelityAutomation:
                 extended = True
                 precision = 2
 
-            
             # Press the buy or sell button. Title capitalizes the first letter so 'buy' -> 'Buy'
             self.page.locator("#order-action-input-container").click()
             self.page.get_by_role("option", name=action.lower().title(), exact=True).wait_for()
             self.page.get_by_role("option", name=action.lower().title(), exact=True).click()
-            
 
             # Press the shares text box
             self.page.locator("#eqt-mts-stock-quatity div").filter(has_text="Quantity").click()
@@ -392,7 +374,7 @@ class FidelityAutomation:
                 else:
                     difference_price = 0.01 if float(last_price) > 0.1 else 0.0001
                     wanted_price = round(float(last_price) - difference_price, precision)
-                
+
                 # Click on the limit default option when in extended hours
                 self.page.locator("#order-type-container-id").click()
                 self.page.get_by_role("option", name="Limit", exact=True).click()
@@ -422,7 +404,7 @@ class FidelityAutomation:
                 except:
                     pass
                 # Return with error and trim it down (it contains many spaces for some reason)
-                if error_message != None:
+                if error_message is not None:
                     for i, character in enumerate(error_message):
                         if i == 0 or (character == ' ' and error_message[i - 1] == ' ') or character == '\n' or character == '\t':
                             continue
@@ -430,7 +412,7 @@ class FidelityAutomation:
                     filtered_error = filtered_error.replace('critical', '').strip()
                     error_message = filtered_error.replace('\n', '')
                 return (False, error_message)
-            
+
             # If no error occurred, continue with checking and buy/sell
             try:
                 assert self.page.locator("preview").filter(has_text=account.upper()).is_visible()
@@ -439,7 +421,7 @@ class FidelityAutomation:
                 assert self.page.get_by_text(f"Quantity{quantity}").is_visible()
             except AssertionError:
                 return (False, 'Order preview is not what is expected')
-            
+
             # If its a real run
             if not dry:
                 self.page.get_by_role("button", name="Place order clicking this").click()
