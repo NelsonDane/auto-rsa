@@ -17,3 +17,5 @@ setuptools==75.1.0
 tastytrade==8.3
 vanguard-api==0.2.5
 -e git+https://github.com/NelsonDane/webull.git@ef14ae63f9e1436fbea77fe864df54847cf2f730#egg=webull
+#playwright stealth from pypi seems abandoned
+-e git+https://github.com/MaxxRK/playwright_stealth.git@a6688bb792395f182d22dff3e330400bb0df1eca#egg=playwright_stealth
