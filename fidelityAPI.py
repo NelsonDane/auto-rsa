@@ -160,11 +160,11 @@ class FidelityAutomation:
                     # Click on alternate verification method to get OTP via text
                     self.page.get_by_role("link", name="Try another way").click()
 
-                    # Press the Text me button
-                    self.page.get_by_role("button", name="Text me the code").click()
-                    self.page.get_by_placeholder("XXXXXX").click()
-                    
-                    return (True, False)
+                # Press the Text me button
+                self.page.get_by_role("button", name="Text me the code").click()
+                self.page.get_by_placeholder("XXXXXX").click()
+                
+                return (True, False)
                 
             elif 'summary' not in self.page.url:
                 raise Exception("Cannot get to login page. Maybe other 2FA method present")
