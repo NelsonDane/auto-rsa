@@ -89,7 +89,7 @@ def login(ds: DSPACAPI, botObj, name, loop, use_email):
             else:
                 otp_code = input("Enter security code: ")
             if otp_code is None:
-                raise Exception("No SMS code received")
+                raise Exception("No OTP code received")
             # Login with the OTP code
             if use_email:
                 ticket_response = ds.generate_login_ticket_email(sms_code=otp_code)
@@ -111,7 +111,7 @@ def login(ds: DSPACAPI, botObj, name, loop, use_email):
             raise Exception(f"Login failed. Response: {login_response}")
         return True
     except Exception as e:
-        print(f"Error in SMS login: {e}")
+        print(f"Error in OTP login: {e}")
         print(traceback.format_exc())
         return False
 
