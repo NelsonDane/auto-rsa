@@ -763,13 +763,23 @@ def printHoldings(brokerObj: Brokerage, loop=None, mask=True):
     print("==============================")
 
 
-def save_cookies(driver, filename, path=None):
+def save_cookies(driver, filename, path=None, important_cookies=None):
     if path is not None:
         filename = os.path.join(path, filename)
     if path is not None and not os.path.exists(path):
         os.makedirs(path)
+    cookies = driver.get_cookies()
+    if important_cookies is not None:
+        # Save only the important cookies
+        cookies_to_save = [
+            cookie for cookie in cookies if cookie["name"] in important_cookies
+        ]
+    else:
+        # Save all cookies
+        cookies_to_save = cookies
+    # Save cookies to a pickle file
     with open(filename, "wb") as f:
-        pickle.dump(driver.get_cookies(), f)
+        pickle.dump(cookies_to_save, f)
 
 
 def load_cookies(driver, filename, path=None):
@@ -777,19 +787,22 @@ def load_cookies(driver, filename, path=None):
         filename = os.path.join(path, filename)
     if not os.path.exists(filename):
         return False
-    with open(filename, "rb") as f:
-        cookies = pickle.load(f)
+    try:
+        with open(filename, "rb") as f:
+            cookies = pickle.load(f)
+        for cookie in cookies:
+            try:
+                driver.add_cookie(cookie)
+            except Exception:
+                continue
+        return True
+    except Exception as e:
+        print(f"Error loading cookies: {e}")
+        return False
+
+
+def clear_cookies(driver, important_cookies=None):
+    cookies = driver.get_cookies()
     for cookie in cookies:
-        try:
-            driver.add_cookie(cookie)
-        except Exception:
-            continue
-    return True
-
-
-def clear_cookies(driver, filename, path=None):
-    if path is not None:
-        filename = os.path.join(path, filename)
-    if os.path.exists(filename):
-        os.remove(filename)
-    driver.delete_all_cookies()
+        if important_cookies is None or cookie["name"] not in important_cookies:
+            driver.delete_cookie(cookie["name"])
