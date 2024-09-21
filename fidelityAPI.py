@@ -290,7 +290,7 @@ class FidelityAutomation:
     def transaction(self, stock: str, quantity: float, action: str, account: str, dry: bool=True) -> bool:
         '''
         Process an order (transaction) using the dedicated trading page.
-        NOTE: If you use this function repeatedly but change the stock between any call, 
+        NOTE: If you use this function repeatedly but change the stock between ANY call, 
         RELOAD the page before calling this
         
         For buying:
@@ -356,13 +356,13 @@ class FidelityAutomation:
                 precision = 2
 
             # Press the buy or sell button. Title capitalizes the first letter so 'buy' -> 'Buy'
-            self.page.locator("#order-action-input-container").click()
+            self.page.query_selector(".eq-ticket-action-label").click()
             self.page.get_by_role("option", name=action.lower().title(), exact=True).wait_for()
             self.page.get_by_role("option", name=action.lower().title(), exact=True).click()
 
             # Press the shares text box
             self.page.locator("#eqt-mts-stock-quatity div").filter(has_text="Quantity").click()
-            self.page.get_by_label("you own").fill(str(quantity))
+            self.page.get_by_text("Quantity", exact=True).fill(str(quantity))
 
             # If it should be limit
             if float(last_price) < 1 or extended:
@@ -374,9 +374,9 @@ class FidelityAutomation:
                 else:
                     difference_price = 0.01 if float(last_price) > 0.1 else 0.0001
                     wanted_price = round(float(last_price) - difference_price, precision)
-
+                
                 # Click on the limit default option when in extended hours
-                self.page.locator("#order-type-container-id").click()
+                self.page.query_selector("#dest-dropdownlist-button-ordertype > span:nth-child(1)").click()
                 self.page.get_by_role("option", name="Limit", exact=True).click()
                 # Enter the limit price
                 self.page.get_by_text("Limit price").click()
@@ -393,7 +393,7 @@ class FidelityAutomation:
             # If error occurred
             try:
                 self.page.get_by_role("button", name="Place order clicking this").wait_for(timeout=4000, state='visible')
-            except PlaywrightTimeoutError:
+            except PlaywrightTimeoutError as e:
                 # Error must be present (or really slow page for some reason)
                 # Try to report on error
                 error_message = 'Could not retrieve error message from popup'
@@ -404,7 +404,7 @@ class FidelityAutomation:
                 except:
                     pass
                 # Return with error and trim it down (it contains many spaces for some reason)
-                if error_message is not None:
+                if error_message != None:
                     for i, character in enumerate(error_message):
                         if i == 0 or (character == ' ' and error_message[i - 1] == ' ') or character == '\n' or character == '\t':
                             continue
@@ -412,7 +412,7 @@ class FidelityAutomation:
                     filtered_error = filtered_error.replace('critical', '').strip()
                     error_message = filtered_error.replace('\n', '')
                 return (False, error_message)
-
+            
             # If no error occurred, continue with checking and buy/sell
             try:
                 assert self.page.locator("preview").filter(has_text=account.upper()).is_visible()
@@ -421,7 +421,7 @@ class FidelityAutomation:
                 assert self.page.get_by_text(f"Quantity{quantity}").is_visible()
             except AssertionError:
                 return (False, 'Order preview is not what is expected')
-
+            
             # If its a real run
             if not dry:
                 self.page.get_by_role("button", name="Place order clicking this").click()
@@ -430,13 +430,13 @@ class FidelityAutomation:
                     self.page.get_by_text("Order received").wait_for(timeout=5000, state='visible')
                     # If no error, return with success
                     return (True, None)
-                except PlaywrightTimeoutError:
+                except PlaywrightTimeoutError as e:
                     # Order didn't go through for some reason, go to the next and say error
-                    return (False, 'Order failed to complete')
+                    return (False, f'Order failed to complete')
             # If its a dry run, report back success
             return (True, None)
-        except PlaywrightTimeoutError:
-            return (False, 'Driver timed out. Order not complete')
+        except PlaywrightTimeoutError as e:
+            return (False, f'Driver timed out. Order not complete')
         except Exception as e:
             return (False, e)
 
