@@ -5,8 +5,10 @@ discord.py==2.4.0
 fennel-invest-api==1.1.0
 firstrade==0.0.30
 GitPython==3.1.43
-public-invest-api==1.0.4
 pandas<2.2.3
+# playwright stealth from pypi seems abandoned
+-e git+https://github.com/MaxxRK/playwright_stealth.git@a6688bb792395f182d22dff3e330400bb0df1eca#egg=playwright_stealth
+public-invest-api==1.0.4
 pyotp==2.9.0
 python-dotenv==1.0.1
 requests==2.32.3
