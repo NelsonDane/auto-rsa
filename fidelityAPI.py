@@ -260,6 +260,8 @@ class FidelityAutomation:
                 # If the value isn't present, move to next row
                 if len(val) == 0:
                     continue
+                elif val.lower() == 'n/a':
+                    val = 0
                 # If the last price isn't available, just use the current value
                 if len(last_price) == 0:
                     last_price = val
@@ -513,7 +515,7 @@ def fidelity_init(account: str, name: str, headless=True, botObj=None, loop=None
                                               profile_path="./creds")
 
         # Log into fidelity
-        step_1, step_2 = fidelity_browser.login(account[0], account[1], account[2])
+        step_1, step_2 = fidelity_browser.login(account[0], account[1], account[2] if len(account) > 2 else None)
         # If 2FA is present, ask for code
         if step_1 and not step_2:
             if botObj is None and loop is None:
