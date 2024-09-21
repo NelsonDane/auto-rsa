@@ -771,7 +771,9 @@ def save_cookies(driver, filename, path=None, important_cookies=None):
     cookies = driver.get_cookies()
     if important_cookies is not None:
         # Save only the important cookies
-        cookies_to_save = [cookie for cookie in cookies if cookie['name'] in important_cookies]
+        cookies_to_save = [
+            cookie for cookie in cookies if cookie["name"] in important_cookies
+        ]
     else:
         # Save all cookies
         cookies_to_save = cookies
@@ -802,5 +804,5 @@ def load_cookies(driver, filename, path=None):
 def clear_cookies(driver, important_cookies=None):
     cookies = driver.get_cookies()
     for cookie in cookies:
-        if important_cookies is None or cookie['name'] not in important_cookies:
-            driver.delete_cookie(cookie['name'])
+        if important_cookies is None or cookie["name"] not in important_cookies:
+            driver.delete_cookie(cookie["name"])
