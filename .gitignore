@@ -1,3 +1,4 @@
+*.csv
 .env
 did.bin
 .DS_Store
