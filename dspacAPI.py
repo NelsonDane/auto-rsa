@@ -3,8 +3,8 @@ import os
 import traceback
 from io import BytesIO
 
-from dspac_invest_api import DSPACAPI
 from dotenv import load_dotenv
+from dspac_invest_api import DSPACAPI
 
 from helperAPI import (
     Brokerage,
@@ -73,8 +73,8 @@ def login(ds: DSPACAPI, botObj, name, loop, use_email):
         if ticket_response.get("Data") is None:
             raise Exception("Invalid response from generating login ticket")
         # Check if SMS or CAPTCHA verification are required
-        data = ticket_response['Data']
-        if data.get('needSmsVerifyCode', False):
+        data = ticket_response["Data"]
+        if data.get("needSmsVerifyCode", False):
             sms_and_captcha_response = handle_captcha_and_sms(
                 ds, botObj, data, loop, name, use_email
             )
@@ -102,9 +102,11 @@ def login(ds: DSPACAPI, botObj, name, loop, use_email):
             ticket_response.get("Data") is not None
             and ticket_response["Data"].get("ticket") is not None
         ):
-            ticket = ticket_response['Data']['ticket']
+            ticket = ticket_response["Data"]["ticket"]
         else:
-            raise Exception(f"Login failed. No ticket generated. Response: {ticket_response}")
+            raise Exception(
+                f"Login failed. No ticket generated. Response: {ticket_response}"
+            )
         # Login with the ticket
         login_response = ds.login_with_ticket(ticket)
         if login_response.get("Outcome") != "Success":
@@ -118,7 +120,7 @@ def login(ds: DSPACAPI, botObj, name, loop, use_email):
 
 def handle_captcha_and_sms(ds: DSPACAPI, botObj, data, loop, name, use_email):
     try:
-        if data.get('needCaptchaCode', False):
+        if data.get("needCaptchaCode", False):
             print(f"{name}: CAPTCHA required. Requesting CAPTCHA image...")
             sms_response = solve_captcha(ds, botObj, name, loop, use_email)
             if not sms_response:
@@ -154,7 +156,9 @@ def solve_captcha(ds: DSPACAPI, botObj, name, loop, use_email):
                 loop,
             ).result()
             captcha_input = asyncio.run_coroutine_threadsafe(
-                getUserInputDiscord(botObj, f"{name} requires CAPTCHA input", timeout=300, loop=loop),
+                getUserInputDiscord(
+                    botObj, f"{name} requires CAPTCHA input", timeout=300, loop=loop
+                ),
                 loop,
             ).result()
         else:
@@ -196,7 +200,7 @@ def dspac_holdings(ds: Brokerage, loop=None):
             try:
                 positions = obj.get_account_holdings()
                 if positions.get("Data") is not None:
-                    for holding in positions['Data']:
+                    for holding in positions["Data"]:
                         qty = holding["CurrentAmount"]
                         if float(qty) == 0:
                             continue
@@ -231,9 +235,17 @@ def dspac_transaction(ds: Brokerage, orderObj: stockOrder, loop=None):
                     # Buy
                     if action == "buy":
                         # Validate the buy transaction
-                        validation_response = obj.validate_buy(symbol=s, amount=quantity, order_side=1, account_number=account)
-                        if validation_response['Outcome'] != 'Success':
-                            printAndDiscord(f"{key} {account}: Validation failed for buying {quantity} of {s}: {validation_response['Message']}", loop)
+                        validation_response = obj.validate_buy(
+                            symbol=s,
+                            amount=quantity,
+                            order_side=1,
+                            account_number=account,
+                        )
+                        if validation_response["Outcome"] != "Success":
+                            printAndDiscord(
+                                f"{key} {account}: Validation failed for buying {quantity} of {s}: {validation_response['Message']}",
+                                loop,
+                            )
                             continue
                         # Proceed to execute the buy if not in dry run mode
                         if not is_dry_run:
@@ -241,39 +253,54 @@ def dspac_transaction(ds: Brokerage, orderObj: stockOrder, loop=None):
                                 symbol=s,
                                 amount=quantity,
                                 account_number=account,
-                                dry_run=is_dry_run
+                                dry_run=is_dry_run,
                             )
-                            message = buy_response['Message']
+                            message = buy_response["Message"]
                         else:
                             message = "Dry Run Success"
                     # Sell
                     elif action == "sell":
                         # Check stock holdings before attempting to sell
-                        holdings_response = obj.check_stock_holdings(symbol=s, account_number=account)
+                        holdings_response = obj.check_stock_holdings(
+                            symbol=s, account_number=account
+                        )
                         if holdings_response["Outcome"] != "Success":
-                            printAndDiscord(f"{key} {account}: Error checking holdings: {holdings_response['Message']}", loop)
+                            printAndDiscord(
+                                f"{key} {account}: Error checking holdings: {holdings_response['Message']}",
+                                loop,
+                            )
                             continue
-                        available_amount = float(holdings_response["Data"]["enableAmount"])
+                        available_amount = float(
+                            holdings_response["Data"]["enableAmount"]
+                        )
                         # If trying to sell more than available, skip to the next
                         if quantity > available_amount:
-                            printAndDiscord(f"{key} {account}: Not enough shares to sell {quantity} of {s}. Available: {available_amount}", loop)
+                            printAndDiscord(
+                                f"{key} {account}: Not enough shares to sell {quantity} of {s}. Available: {available_amount}",
+                                loop,
+                            )
                             continue
                         # Validate the sell transaction
-                        validation_response = obj.validate_sell(symbol=s, amount=quantity, account_number=account)
-                        if validation_response['Outcome'] != 'Success':
-                            printAndDiscord(f"{key} {account}: Validation failed for selling {quantity} of {s}: {validation_response['Message']}", loop)
+                        validation_response = obj.validate_sell(
+                            symbol=s, amount=quantity, account_number=account
+                        )
+                        if validation_response["Outcome"] != "Success":
+                            printAndDiscord(
+                                f"{key} {account}: Validation failed for selling {quantity} of {s}: {validation_response['Message']}",
+                                loop,
+                            )
                             continue
                         # Proceed to execute the sell if not in dry run mode
                         if not is_dry_run:
-                            entrust_price = validation_response['Data']['entrustPrice']
+                            entrust_price = validation_response["Data"]["entrustPrice"]
                             sell_response = obj.execute_sell(
                                 symbol=s,
                                 amount=quantity,
                                 account_number=account,
                                 entrust_price=entrust_price,
-                                dry_run=is_dry_run
+                                dry_run=is_dry_run,
                             )
-                            message = sell_response['Message']
+                            message = sell_response["Message"]
                         else:
                             message = "Dry Run Success"
                     printAndDiscord(
