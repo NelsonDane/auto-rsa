@@ -234,7 +234,7 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
         order_failed = False
         for account in range(accounts):
             WebDriverWait(driver, 20).until(check_if_page_loaded)
-            try:        
+            try:
                 # choose account
                 open_dropdown = WebDriverWait(driver, 20).until(
                     EC.element_to_be_clickable((By.XPATH, "//*[@id='dropdown2']"))
@@ -260,7 +260,7 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                 if select_account == -1:
                     print("Could not find the account with the specified text")
                     continue
-            except Exception as e:
+            except Exception:
                 traceback.print_exc()
                 print("Could not change account")
                 killSeleniumDriver(WELLSFARGO_o)
@@ -280,7 +280,7 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                     dismiss_prompt = WebDriverWait(driver, 20).until(
                         EC.element_to_be_clickable((By.ID, "btn-continue"))
                     )
-                    dismiss_prompt.click() 
+                    dismiss_prompt.click()
                 sleep(2)
                 # idk why doing it through selenium doesnt work sometimes
                 driver.execute_script('document.getElementById("BuySellBtn").click()')
