@@ -5,17 +5,15 @@
 # Adapted from Nelson Dane's Selenium based code and created with the help of playwright codegen
 
 import asyncio
+import csv
+import json
 import os
 import traceback
-import json
+
 import pyotp
-import csv
-
 from dotenv import load_dotenv
-
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
 from playwright_stealth import StealthConfig, stealth_sync
-
 
 from helperAPI import (
     Brokerage,
@@ -26,7 +24,7 @@ from helperAPI import (
 )
 
 class FidelityAutomation:
-    def __init__(self, headless=True, title=None, profile_path='.') -> None:
+    def __init__(self, headless=True, title=None, profile_path='.', loop=None) -> None:
         # Setup the webdriver
         self.headless: bool = headless
         self.title: str = title
@@ -35,7 +33,13 @@ class FidelityAutomation:
             navigator_languages=False,
             navigator_user_agent=False,
             navigator_vendor=False)
-        self.getDriver()
+        try:
+            self.getDriver()
+        except Exception as e:
+            printAndDiscord(
+                "Error starting Fidelity driver! Please make sure your browser is installed by running: \"playwright install\"",
+                loop)
+            raise e
 
     def getDriver(self):
         '''
@@ -139,7 +143,7 @@ class FidelityAutomation:
                     # Prevent future OTP requirements
                     self.page.locator("label").filter(has_text="Don't ask me again on this").check()
                     assert self.page.locator("label").filter(has_text="Don't ask me again on this").is_checked()
-                    
+
                     # Log in with code
                     self.page.get_by_role("button", name="Continue").click()
 
@@ -163,7 +167,7 @@ class FidelityAutomation:
                 # Press the Text me button
                 self.page.get_by_role("button", name="Text me the code").click()
                 self.page.get_by_placeholder("XXXXXX").click()
-                
+
                 return (True, False)
                 
             elif 'summary' not in self.page.url:
@@ -398,21 +402,29 @@ class FidelityAutomation:
             except PlaywrightTimeoutError as e:
                 # Error must be present (or really slow page for some reason)
                 # Try to report on error
-                error_message = 'Could not retrieve error message from popup'
+                error_message = ''
                 filtered_error = ''
                 try:
-                    error_message = self.page.get_by_label("Error").locator("div").filter(has_text="critical").nth(2).text_content()            
+                    error_message = (self.page.get_by_label("Error").locator("div").filter(has_text="critical").nth(2).text_content(timeout=2000))
                     self.page.get_by_role("button", name="Close dialog").click()
-                except:
+                except Exception:
                     pass
+                if error_message == '':
+                    try:
+                        error_message = self.page.wait_for_selector('.pvd-inline-alert__content font[color="red"]', timeout=2000).text_content()
+                        self.page.get_by_role("button", name="Close dialog").click()
+                    except Exception:
+                        pass
                 # Return with error and trim it down (it contains many spaces for some reason)
-                if error_message != None:
+                if error_message != '':
                     for i, character in enumerate(error_message):
-                        if i == 0 or (character == ' ' and error_message[i - 1] == ' ') or character == '\n' or character == '\t':
+                        if ((character == ' ' and error_message[i - 1] == ' ') or character == '\n' or character == '\t'):
                             continue
                         filtered_error += character
                     filtered_error = filtered_error.replace('critical', '').strip()
                     error_message = filtered_error.replace('\n', '')
+                else:
+                    error_message = 'Could not retrieve error message from popup'
                 return (False, error_message)
             
             # If no error occurred, continue with checking and buy/sell
@@ -441,6 +453,7 @@ class FidelityAutomation:
             return (False, f'Driver timed out. Order not complete')
         except Exception as e:
             return (False, e)
+
 
 def fidelity_run(orderObj: stockOrder, command=None, botObj=None, loop=None, FIDELITY_EXTERNAL=None):
     '''
@@ -487,6 +500,7 @@ def fidelity_run(orderObj: stockOrder, command=None, botObj=None, loop=None, FID
                 fidelity_transaction(fidelityobj, name, orderObj, loop=loop)
     return None
 
+
 def fidelity_init(account: str, name: str, headless=True, botObj=None, loop=None):
     '''
     Log into fidelity. Creates a fidelity brokerage object and a FidelityAutomation object.
@@ -512,7 +526,8 @@ def fidelity_init(account: str, name: str, headless=True, botObj=None, loop=None
         # Create a Fidelity browser object
         fidelity_browser = FidelityAutomation(headless=headless,
                                               title=name,
-                                              profile_path="./creds")
+                                              profile_path="./creds",
+                                              loop=loop)
 
         # Log into fidelity
         step_1, step_2 = fidelity_browser.login(account[0], account[1], account[2] if len(account) > 2 else None)
@@ -526,7 +541,7 @@ def fidelity_init(account: str, name: str, headless=True, botObj=None, loop=None
                     getOTPCodeDiscord(botObj, name, code_len=8, loop=loop), loop
                 ).result()
                 if sms_code is None:
-                    raise Exception(f"{name} code not received in time...", loop)
+                    raise Exception(f"{name} No SMS code found", loop)
                 fidelity_browser.login_2FA(sms_code)
         elif not step_1:
             raise Exception(f"{name}: Login Failed. Got Error Page: Current URL: {fidelity_browser.page.url}")
@@ -553,6 +568,7 @@ def fidelity_init(account: str, name: str, headless=True, botObj=None, loop=None
         print(f"Error logging in to Fidelity: {e}")
         print(traceback.format_exc())
         return None
+
 
 def fidelity_holdings(fidelity_o: Brokerage, name: str, loop=None):
     '''
@@ -601,6 +617,7 @@ def fidelity_holdings(fidelity_o: Brokerage, name: str, loop=None):
     
     # Close browser
     fidelity_browser.close_browser()
+
 
 def fidelity_transaction(fidelity_o: Brokerage, name: str, orderObj: stockOrder, loop=None):
     '''
