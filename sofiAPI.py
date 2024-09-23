@@ -7,6 +7,8 @@ import nodriver as uc
 import requests
 import traceback
 import datetime
+import json
+from time import sleep
 
 from helperAPI import (
     Brokerage,
@@ -20,6 +22,62 @@ load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+COOKIES_PATH = "creds"
+
+
+def create_creds_folder():
+    """Create the 'creds' folder if it doesn't exist."""
+    if not os.path.exists(COOKIES_PATH):
+        os.makedirs(COOKIES_PATH)
+        logger.info(f"Created '{COOKIES_PATH}' folder.")
+
+
+def save_cookies(cookies, filepath):
+    cookies_dict = []
+    for cookie in cookies:
+        cookies_dict.append({
+            'name': cookie.name,
+            'value': cookie.value,
+            'domain': cookie.domain,
+            'path': cookie.path,
+            'expires': cookie.expires,
+            'http_only': cookie.http_only,
+            'secure': cookie.secure,
+            'same_site': str(cookie.same_site) if cookie.same_site else None,
+        })
+    
+    # Save to JSON file
+    with open(filepath, 'w') as f:
+        json.dump(cookies_dict, f, indent=4)
+    logger.info(f"Cookies saved to {filepath}")
+
+
+def load_cookies(filepath):
+    if os.path.exists(filepath):
+        with open(filepath, 'r') as f:
+            cookies_dict = json.load(f)
+        
+        cookies = []
+        for cookie_dict in cookies_dict:
+            # Create a dictionary to be passed as a cookie object
+            cookie = {
+                'name': cookie_dict['name'],
+                'value': cookie_dict['value'],
+                'domain': cookie_dict['domain'],
+                'path': cookie_dict['path'],
+                'expires': cookie_dict['expires'],
+                'http_only': cookie_dict['http_only'],
+                'secure': cookie_dict['secure'],
+                'same_site': cookie_dict['same_site'],
+            }
+            cookies.append(cookie)
+        
+        return cookies
+    else:
+        logger.warning(f"Cookie file {filepath} not found.")
+        return []
+
 
 async def sofi_error(page, loop=None):
     if page is not None:
@@ -41,6 +99,7 @@ async def sofi_error(page, loop=None):
 def sofi_init(SOFI_EXTERNAL=None, botObj=None, loop=None):
     logger.info("Initializing SoFi process...")
     load_dotenv()
+    create_creds_folder()
 
     if not os.getenv("SOFI") and SOFI_EXTERNAL is None:
         logger.error("SoFi environment variable not found.")
@@ -55,26 +114,55 @@ def sofi_init(SOFI_EXTERNAL=None, botObj=None, loop=None):
     )
     sofi_obj = Brokerage("SoFi")
 
-    for account in accounts:
-        index = accounts.index(account) + 1
-        name = f"SoFi {index}"
-        account = account.split(":")
+    browser = None
+    try:
+        # Get or create the event loop
+        loop = asyncio.get_event_loop()
 
-        logger.info(f"Starting login process for {name}...")
-        try:
-            browser = asyncio.run(uc.start(browser_args=[
-                "--headless=new", 
-                '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36'
-                ]))
+        # Start the browser once and use it for all accounts
+        browser = loop.run_until_complete(uc.start(browser_args=[
+            '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36'
+        ]))
 
-            asyncio.run(sofi_login_and_account(browser, account, name, sofi_obj, loop))
+        for account in accounts:
+            index = accounts.index(account) + 1
+            name = f"SoFi {index}"
+            account = account.split(":")
+            cookie_filename = f"{COOKIES_PATH}/sofi_{index}.json"
 
-        except Exception as e:
-            logger.error(f"Error in {name}: {e}")
-            return None
+            # Load cookies
+            loop.run_until_complete(browser.get('https://www.sofi.com'))
+            cookies = load_cookies(cookie_filename)
+            if cookies:
+                logger.info(f"Cookies loaded for {name}, checking if login is valid...")
+                page = loop.run_until_complete(browser.get('https://www.sofi.com/wealth/app'))
+                browser.sleep(5)
 
-    logger.info("Finished processing all accounts. Printing holdings...")
-    printHoldings(sofi_obj, loop)
+                # Check if the user is logged in with valid cookies
+                if "overview" in page.url:
+                    logger.info(f"Successfully bypassed login for {name} using cookies.")
+                    # Save fresh cookies
+                    save_cookies(loop.run_until_complete(browser.cookies.get_all()), cookie_filename)
+                    continue  # Move to the next account if logged in successfully
+
+            # Proceed with login if cookies are invalid or expired
+            loop.run_until_complete(sofi_login_and_account(browser, account, name, sofi_obj, loop))
+
+            # Save cookies after successful login
+            save_cookies(loop.run_until_complete(browser.cookies.get_all()), cookie_filename)
+
+        logger.info("Finished processing all accounts. Printing holdings...")
+        printHoldings(sofi_obj, loop)
+    except Exception as e:
+        logger.error(f"Error during SoFi process: {e}")
+    finally:
+        if browser:
+            try:
+                logger.info("Closing the browser...")
+                browser.stop()
+            except Exception as e:
+                logger.error(f"Error closing the browser: {e}")
+
     return sofi_obj
 
 
@@ -108,6 +196,9 @@ async def sofi_login_and_account(browser, account, name, sofi_obj, loop):
         secret = account[2] if len(account) > 2 else None
         if secret:
             logger.info(f"Handling 2FA for {name}...")
+            remember = await page.select("input[id=rememberBrowser]")
+            await remember.click()
+            sleep(19990)
             twofa = await page.select("input[id=code]")
             if not twofa:
                 raise Exception(f"Unable to locate 2FA input field for {name}")
@@ -119,10 +210,12 @@ async def sofi_login_and_account(browser, account, name, sofi_obj, loop):
         else:
             try:
                 logger.info(f"Waiting for SMS 2FA for {name}...")
-                await page.wait_for_selector("#code")
+                sms2fa = await page.select("input[id=code]")
                 sms_code = input("Enter security code: ")
                 await page.find("#code", sms_code)
-                await page.click('//*[@id="widget_block"]/div/div[2]/div/div/main/section/div/div/div/form/div[2]')
+                verify_button = await page.find("Verify Code")
+                if verify_button:
+                    await verify_button.click()
             except:
                 logger.error(f"Error during 2FA handling for {name}")
                 printAndDiscord("Error during 2FA handling", loop)
