@@ -6,7 +6,7 @@ from time import sleep
 
 from dotenv import load_dotenv
 from selenium import webdriver
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException, ElementNotInteractableException
 from selenium.webdriver import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
@@ -230,8 +230,11 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
             killSeleniumDriver(WELLSFARGO_o)
 
         account_masks = WELLSFARGO_o.get_account_numbers(key)
+        # Use to keep track of an order to know whether to reset the trading screen
+        order_failed = False
         for account in range(accounts):
-            try:
+            WebDriverWait(driver, 20).until(check_if_page_loaded)
+            try:        
                 # choose account
                 open_dropdown = WebDriverWait(driver, 20).until(
                     EC.element_to_be_clickable((By.XPATH, "//*[@id='dropdown2']"))
@@ -248,23 +251,36 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                     return -1;
                 """
                 select_account = driver.execute_script(find_account, account_masks[account])
+                sleep(2)
+                # Check for clear ticket prompt and accept
+                try:
+                    driver.find_element(By.ID, "btn-continue").click()
+                except (NoSuchElementException, ElementNotInteractableException):
+                    pass
                 if select_account == -1:
                     print("Could not find the account with the specified text")
                     continue
-            except Exception:
+            except Exception as e:
+                traceback.print_exc()
                 print("Could not change account")
                 killSeleniumDriver(WELLSFARGO_o)
             # TODO check for the error check
             for s in orderObj.get_stocks():
                 WebDriverWait(driver, 20).until(check_if_page_loaded)
-                try:
-                    leave = WebDriverWait(driver, 10).until(
+                # If an order fails need to sort of reset the tradings screen. Refresh does not work
+                if order_failed:
+                    trade = WebDriverWait(driver, 20).until(
+                        EC.element_to_be_clickable((By.XPATH, "//*[@id='trademenu']/span[1]"))
+                    )
+                    trade.click()
+                    trade_stock = WebDriverWait(driver, 20).until(
+                        EC.element_to_be_clickable((By.XPATH, "//*[@id='linktradestocks']"))
+                    )
+                    trade_stock.click()
+                    dismiss_prompt = WebDriverWait(driver, 20).until(
                         EC.element_to_be_clickable((By.ID, "btn-continue"))
                     )
-                    leave.click()
-                except Exception:
-                    # this is just for the popup
-                    pass
+                    dismiss_prompt.click() 
                 sleep(2)
                 # idk why doing it through selenium doesnt work sometimes
                 driver.execute_script('document.getElementById("BuySellBtn").click()')
@@ -356,10 +372,12 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                     )
                     sleep(2)
                     buy_next.click()
+                    order_failed = False
                 except TimeoutException:
                     error_text = driver.find_element(
                         By.XPATH, "//div[@class='alert-msg-summary']//p[1]"
                     ).text
+                    order_failed = True
                     printAndDiscord(
                         f"{key} {WELLSFARGO_o.get_account_numbers(key)[account]}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}. FAILED! \n{error_text}",
                         loop,
