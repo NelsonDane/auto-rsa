@@ -85,7 +85,7 @@ pip install -r requirements.txt
 5. Install Playwright's dependencies:
 ```bash
 playwright install
-````
+```
 6. Add `DISCORD_TOKEN` and `DISCORD_CHANNEL` to your `.env` file.
 7. Start the bot using the following command:
 ```bash
