@@ -24,7 +24,7 @@ from helperAPI import (
 )
 
 class FidelityAutomation:
-    def __init__(self, headless=True, title=None, profile_path='.', loop=None) -> None:
+    def __init__(self, headless=True, title=None, profile_path='.') -> None:
         # Setup the webdriver
         self.headless: bool = headless
         self.title: str = title
@@ -33,13 +33,7 @@ class FidelityAutomation:
             navigator_languages=False,
             navigator_user_agent=False,
             navigator_vendor=False)
-        try:
-            self.getDriver()
-        except Exception as e:
-            printAndDiscord(
-                "Error starting Fidelity driver! Please make sure your browser is installed by running: \"playwright install\"",
-                loop)
-            raise e
+        self.getDriver()
 
     def getDriver(self):
         '''
@@ -525,9 +519,8 @@ def fidelity_init(account: str, name: str, headless=True, botObj=None, loop=None
         account = account.split(":")
         # Create a Fidelity browser object
         fidelity_browser = FidelityAutomation(headless=headless,
-                                              title=name,
-                                              profile_path="./creds",
-                                              loop=loop)
+                                                  title=name,
+                                                  profile_path="./creds")
 
         # Log into fidelity
         step_1, step_2 = fidelity_browser.login(account[0], account[1], account[2] if len(account) > 2 else None)
