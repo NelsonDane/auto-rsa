@@ -167,7 +167,7 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                         )
                 elif broker.lower() == "sofi":
                     print(f"Logging into {broker} synchronously...")
-                    logged_in_broker = globals()[fun_name](botObj=botObj)
+                    logged_in_broker = globals()[fun_name](botObj=botObj, loop=loop)
                     if logged_in_broker is None:
                         raise Exception(f"Error logging into {broker}")
                     orderObj.set_logged_in(logged_in_broker, broker)
