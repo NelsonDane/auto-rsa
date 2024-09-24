@@ -231,11 +231,13 @@ class Brokerage:
         parent_name: str,
         account_name: str,
         stock: str,
-        quantity: float,
-        price: float,
+        quantity: float | str,
+        price: float | str,
     ):
-        quantity = 0 if quantity == "N/A" else quantity
-        price = 0 if price == "N/A" else price
+        if isinstance(quantity, str) and quantity.lower() == "n/a":
+            quantity = 0
+        if isinstance(price, str) and price.lower() == "n/a":
+            price = 0
         if parent_name not in self.__holdings:
             self.__holdings[parent_name] = {}
         if account_name not in self.__holdings[parent_name]:
