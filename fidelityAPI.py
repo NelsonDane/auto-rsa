@@ -208,14 +208,18 @@ class FidelityAutomation:
     def getAccountInfo(self):
         '''
         Gets account numbers, account names, and account totals by downloading the csv of positions from fidelity.
-        The file path of the downloaded csv is saved to self.positions_csv and can be deleted later.
 
         Post Conditions:
-            self.positions_csv: The absolute file path to the downloaded csv file of positions for all accounts
+            self.account_dict is populated with holdings for each account
         Returns:
-            account_dict: dict: A dictionary using account numbers as keys. Each key holds a dict which has
+            account_dict: dict: A dictionary using account numbers as keys. Each key holds a dict which has:
             'balance': float: Total account balance
             'type': str: The account nickname or default name
+            'stocks': list: A list of dictionaries for each stock found. The dict has:
+                'ticker': str: The ticker of the stock held
+                'quantity': str: The quantity of stocks with 'ticker' held
+                'last_price': str: The last price of the stock with the $ sign removed
+                'value': str: The total value of the position
         '''
         # Go to positions page
         self.page.goto('https://digital.fidelity.com/ftgw/digital/portfolio/positions')
@@ -286,6 +290,34 @@ class FidelityAutomation:
         os.remove(self.positions_csv)
 
         return self.account_dict
+
+    def summary_holdings(self) -> dict:
+        '''
+        NOTE: The getAccountInfo function MUST be called before this, otherwise an empty dictionary will be returned
+        Returns a dictionary containing dictionaries for each stock owned across all accounts.
+        The keys of the outter dictionary are the tickers of the stocks owned.
+        Ex: unique_stocks['NVDA'] = {'quantity': 2.0, 'last_price': 120.23, 'value': 240.46}
+        'quantity': float: The number of stocks held of 'ticker'
+        'last_price': float: The last price of the stock
+        'value': float: The total value of the stocks held
+        '''
+
+        unique_stocks = {}
+
+        for account_number in self.account_dict:
+            for stock_dict in self.account_dict[account_number]['stocks']:
+                # Create a list of unique holdings
+                if stock_dict['ticker'] not in unique_stocks:
+                    unique_stocks[stock_dict['ticker']] = {'quantity': float(stock_dict['quantity']), 'last_price': float(stock_dict['last_price']), 'value': float(stock_dict['value'])}
+                else:
+                    unique_stocks[stock_dict['ticker']]['quantity'] += float(stock_dict['quantity'])
+                    unique_stocks[stock_dict['ticker']]['value'] += float(stock_dict['value'])
+
+        # Create a summary of holdings
+        summary = ''
+        for stock in unique_stocks:
+            summary += f"{stock}: {round(unique_stocks[stock]['quantity'], 2)} @ {unique_stocks[stock]['last_price']} = {round(unique_stocks[stock]['value'], 2)}\n"
+        return unique_stocks
 
     def transaction(self, stock: str, quantity: float, action: str, account: str, dry: bool=True) -> bool:
         '''
@@ -580,7 +612,6 @@ def fidelity_holdings(fidelity_o: Brokerage, name: str, loop=None):
     
     # Get the browser back from the fidelity object
     fidelity_browser: FidelityAutomation = fidelity_o.get_logged_in_objects(name)
-    unique_stocks = {}
     account_dict = fidelity_browser.account_dict
     for account_number in account_dict:
 
@@ -591,23 +622,10 @@ def fidelity_holdings(fidelity_o: Brokerage, name: str, loop=None):
                                     stock=d['ticker'], 
                                     quantity=d['quantity'], 
                                     price=d['last_price'])
-            # Create a list of unique holdings
-            if d['ticker'] not in unique_stocks:
-                unique_stocks[d['ticker']] = {'quantity': float(d['quantity']), 'last_price': d['last_price'], 'value': float(d['value'])}
-            else:
-                unique_stocks[d['ticker']]['quantity'] += float(d['quantity'])
-                unique_stocks[d['ticker']]['value'] += float(d['value'])
 
     # Print to console and to discord
     printHoldings(fidelity_o, loop)
 
-    # Create a summary of holdings
-    if len(account_dict.keys()) > 5:
-        summary = ''
-        for stock in unique_stocks:
-            summary += f"{stock}: {round(unique_stocks[stock]['quantity'], 2)} @ {unique_stocks[stock]['last_price']} = {round(unique_stocks[stock]['value'], 2)}\n"
-        printAndDiscord(f'Summary of holdings: \n{summary}', loop)
-    
     # Close browser
     fidelity_browser.close_browser()
 
