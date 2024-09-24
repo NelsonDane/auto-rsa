@@ -612,7 +612,6 @@ def fidelity_holdings(fidelity_o: Brokerage, name: str, loop=None):
     
     # Get the browser back from the fidelity object
     fidelity_browser: FidelityAutomation = fidelity_o.get_logged_in_objects(name)
-    unique_stocks = {}
     account_dict = fidelity_browser.account_dict
     for account_number in account_dict:
 
@@ -623,23 +622,10 @@ def fidelity_holdings(fidelity_o: Brokerage, name: str, loop=None):
                                     stock=d['ticker'], 
                                     quantity=d['quantity'], 
                                     price=d['last_price'])
-            # Create a list of unique holdings
-            if d['ticker'] not in unique_stocks:
-                unique_stocks[d['ticker']] = {'quantity': float(d['quantity']), 'last_price': d['last_price'], 'value': float(d['value'])}
-            else:
-                unique_stocks[d['ticker']]['quantity'] += float(d['quantity'])
-                unique_stocks[d['ticker']]['value'] += float(d['value'])
 
     # Print to console and to discord
     printHoldings(fidelity_o, loop)
 
-    # Create a summary of holdings
-    if len(account_dict.keys()) > 5:
-        summary = ''
-        for stock in unique_stocks:
-            summary += f"{stock}: {round(unique_stocks[stock]['quantity'], 2)} @ {unique_stocks[stock]['last_price']} = {round(unique_stocks[stock]['value'], 2)}\n"
-        printAndDiscord(f'Summary of holdings: \n{summary}', loop)
-    
     # Close browser
     fidelity_browser.close_browser()
 
