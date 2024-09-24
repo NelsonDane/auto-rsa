@@ -54,7 +54,7 @@ async def load_cookies_from_pkl(browser, page, filename):
     return False
 
 
-async def sofi_error(page, loop=None):
+async def sofi_error(page, discord_loop=None):
     if page is not None:
         try:
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -66,7 +66,7 @@ async def sofi_error(page, loop=None):
 
     try:
         error_message = f"SoFi Error: {traceback.format_exc()}"
-        printAndDiscord(error_message, loop, embed=False)
+        printAndDiscord(error_message, discord_loop, embed=False)
     except Exception as e:
         print(f"Failed to log error: {str(e)}")
 
@@ -88,10 +88,11 @@ def sofi_init(SOFI_EXTERNAL=None, botObj=None, loop=None):
     logger.info("Initializing SoFi process...")
     load_dotenv()
     create_creds_folder()
+    discord_loop = loop  # Keep the parameter as "loop" for consistency with other init functions
 
     if not os.getenv("SOFI") and SOFI_EXTERNAL is None:
         logger.error("SoFi environment variable not found.")
-        printAndDiscord("SoFi environment variable not found.", loop)
+        printAndDiscord("SoFi environment variable not found.", discord_loop)
         return None
 
     logger.info("Loading SoFi accounts...")
@@ -102,14 +103,24 @@ def sofi_init(SOFI_EXTERNAL=None, botObj=None, loop=None):
     )
     sofi_obj = Brokerage("SoFi")
 
+    # Get headless flag
+    headless = os.getenv("HEADLESS", "true").lower() == "true"
+
     browser = None
     try:
+        # Get or create the event loop
+        try:
+            sofi_loop = asyncio.get_event_loop()
+        except RuntimeError:
+            sofi_loop = asyncio.new_event_loop()
 
         # Start the browser once and use it for all accounts
-        browser = asyncio.run(uc.start(browser_args=[
-            "--headless=new",
+        browser_args = [
             '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36'
-        ]))
+        ]
+        if headless:
+            browser_args.append("--headless=new")
+        browser = sofi_loop.run_until_complete(uc.start(browser_args=browser_args))
 
         for account in accounts:
             index = accounts.index(account) + 1
@@ -118,42 +129,43 @@ def sofi_init(SOFI_EXTERNAL=None, botObj=None, loop=None):
             cookie_filename = f"{COOKIES_PATH}/sofi_{index}.pkl"  # Save in creds folder with .pkl extension
 
             # Load cookies
-            page = asyncio.run(browser.get('https://www.sofi.com'))
-            cookies_loaded = asyncio.run(load_cookies_from_pkl(browser, page, cookie_filename))
+            page = sofi_loop.run_until_complete(browser.get('https://www.sofi.com'))
+            cookies_loaded = sofi_loop.run_until_complete(load_cookies_from_pkl(browser, page, cookie_filename))
             
             if cookies_loaded:
                 logger.info(f"Cookies loaded for {name}, checking if login is valid...")
-                asyncio.run(page.get('https://www.sofi.com/wealth/app/overview'))
-                current_url = asyncio.run(get_current_url(page))
+                sofi_loop.run_until_complete(page.get('https://www.sofi.com/wealth/app/overview'))
+                current_url = sofi_loop.run_until_complete(get_current_url(page))
 
                 if current_url and "overview" in current_url:
                     logger.info(f"Successfully bypassed login for {name} using cookies.")
-                    asyncio.run(save_cookies_to_pkl(browser, cookie_filename))
-                    asyncio.run(fetch_account_info_and_holdings(browser, name, botObj, sofi_obj, account, loop))
+                    sofi_loop.run_until_complete(save_cookies_to_pkl(browser, cookie_filename))
+                    sofi_loop.run_until_complete(fetch_account_info_and_holdings(browser, name, sofi_obj,
+                                                                                 discord_loop))
                     continue  # Skip to the next account if successfully logged in
 
             # Proceed with login if cookies are invalid or expired
-            asyncio.run(sofi_login_and_account(browser, account, name, botObj, sofi_obj, loop))
-            asyncio.run(save_cookies_to_pkl(browser, cookie_filename))
+            sofi_loop.run_until_complete(sofi_login_and_account(browser, account, name, botObj, sofi_obj, discord_loop))
+            sofi_loop.run_until_complete(save_cookies_to_pkl(browser, cookie_filename))
         logger.info("Finished processing all accounts. Printing holdings...")
-        printHoldings(sofi_obj, loop)
+        printHoldings(sofi_obj, discord_loop)
     except Exception as e:
         logger.error(f"Error during SoFi process: {e}")
     finally:
         if browser:
             try:
                 logger.info("Closing the browser...")
-                asyncio.run(browser.stop())  # Ensure asynchronous stop
+                browser.stop()
             except Exception as e:
                 logger.error(f"Error closing the browser: {e}")
 
     return sofi_obj
 
 
-async def fetch_account_info_and_holdings(browser, name, botObj, sofi_obj, account, loop):
+async def fetch_account_info_and_holdings(browser, name, sofi_obj, discord_loop):
     """Fetch account info and holdings without logging in."""
     logger.info(f"Fetching account info for {name}...")
-    account_dict = await sofi_account_info(browser, loop)
+    account_dict = await sofi_account_info(browser, discord_loop)
 
     if not account_dict:
         raise Exception(f"Failed to retrieve account info for {name}")
@@ -184,7 +196,7 @@ async def fetch_account_info_and_holdings(browser, name, botObj, sofi_obj, accou
     logger.info(f"All holdings processed for {name}.")
 
 
-async def sofi_login_and_account(browser, account, name, botObj, sofi_obj, loop):
+async def sofi_login_and_account(browser, account, name, botObj, sofi_obj, discord_loop):
     try:
         logger.info(f"Navigating to SoFi login page for {name}...")
         page = await browser.get('https://www.sofi.com')
@@ -211,10 +223,10 @@ async def sofi_login_and_account(browser, account, name, botObj, sofi_obj, loop)
             raise Exception(f"Unable to locate the login button for {name}")
         await login_button.click()
 
-        await handle_2fa(page, account, name, botObj, loop)
+        await handle_2fa(page, account, name, botObj, discord_loop)
 
         logger.info(f"Fetching account info for {name}...")
-        account_dict = await sofi_account_info(browser, loop)
+        account_dict = await sofi_account_info(browser, discord_loop)
 
         if not account_dict:
             raise Exception(f"Failed to retrieve account info for {name}")
@@ -245,11 +257,11 @@ async def sofi_login_and_account(browser, account, name, botObj, sofi_obj, loop)
 
     except Exception as e:
         logger.error(f"Error logging into account {name}: {e}")
-        await sofi_error(page, loop)
+        await sofi_error(page, discord_loop)
         raise
 
 
-async def sofi_account_info(browser, loop) -> dict:
+async def sofi_account_info(browser, discord_loop) -> dict:
     try:
         logger.info("Navigating to SoFi account overview page...")
         await browser.sleep(1)
@@ -299,7 +311,7 @@ async def sofi_account_info(browser, loop) -> dict:
 
     except Exception as e:
         logger.error(f"Error fetching SoFi account information: {e}")
-        await sofi_error(page, loop)
+        await sofi_error(page, discord_loop)
         raise
 
 
@@ -349,7 +361,7 @@ def get_2fa_code(secret):
     return totp.now()
 
 
-async def handle_2fa(page, account, name, botObj, loop):
+async def handle_2fa(page, account, name, botObj, discord_loop):
     """
     Handle both authenticator app 2FA and SMS-based 2FA.
     """
@@ -360,26 +372,29 @@ async def handle_2fa(page, account, name, botObj, loop):
         if sms_2fa_element:
             # SMS 2FA handling
             logger.info(f"Waiting for SMS 2FA for {name}...")
-            remember = await page.select("input[id=rememberBrowser]")
-            if remember:
-                await remember.click()
-                
-            sms2fa_input = await page.select("input[id=code]")
+
+            sms2fa_input = await page.select("#code")
             if not sms2fa_input:
                 raise Exception(f"Unable to locate SMS 2FA input field for {name}")
-            
-            if botObj is None:
-                # If botObj is None, fall back to manual input
-                await sms2fa_input.send_keys(input("Enter code: "))
-            else:
+
+            if botObj is not None and discord_loop is not None:
                 # Directly await the OTP code from Discord without specifying the loop
-                sms_code = asyncio.run_coroutine_threadsafe(getOTPCodeDiscord(botObj, name, timeout=60, loop=loop),loop,).result()
+                sms_code = asyncio.run_coroutine_threadsafe(
+                    getOTPCodeDiscord(botObj, name, loop=discord_loop),
+                    discord_loop,
+                ).result()
                 if sms_code is None:
                     raise Exception(f"Sofi {name} SMS code not received in time...")
-                await sms2fa_input.send_keys(sms_code)
-                verify_button = await page.find("Verify Code")
-                if verify_button:
-                    await verify_button.click()
+            else:
+                sms_code = input("Enter code: ")
+
+            await sms2fa_input.send_keys(sms_code)
+            remember = await page.find("#rememberBrowser")
+            if remember:
+                await remember.click()
+            verify_button = await page.find("Verify Code")
+            if verify_button:
+                await verify_button.click()
             logger.info(f"SMS 2FA completed for {name}.")
         
         else:
@@ -391,7 +406,7 @@ async def handle_2fa(page, account, name, botObj, loop):
                 if remember:
                     await remember.click()
                 
-                twofa_input = await page.select("input[id=code]")
+                twofa_input = await page.select("#code")
                 if not twofa_input:
                     raise Exception(f"Unable to locate 2FA input field for {name}")
                 
@@ -406,7 +421,7 @@ async def handle_2fa(page, account, name, botObj, loop):
         
     except Exception as e:
         logger.error(f"Error during 2FA handling for {name}: {e}")
-        printAndDiscord(f"Error during 2FA handling for {name}", loop)
+        printAndDiscord(f"Error during 2FA handling for {name}", discord_loop)
         raise
 
 

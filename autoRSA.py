@@ -120,7 +120,7 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
             try:
                 # Initialize broker
                 fun_name = broker + first_command
-                if broker.lower() in ["fidelity", "sofi"]:
+                if broker.lower() in ["fidelity"]:
                     # Fidelity requires docker mode argument, botObj, and loop
                     orderObj.set_logged_in(
                         globals()[fun_name](
@@ -140,7 +140,6 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                     "fennel",
                     "firstrade",
                     "public",
-                    "plynk"
                 ]:
                     # Requires bot object and loop
                     orderObj.set_logged_in(
