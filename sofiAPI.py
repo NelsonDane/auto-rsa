@@ -366,32 +366,36 @@ async def handle_2fa(page, account, name, botObj, discord_loop):
     Handle both authenticator app 2FA and SMS-based 2FA.
     """
     try:
-        # Check if the "We've sent a text message to:" element is present for SMS 2FA
-        sms_2fa_element = await page.find("We've sent a text message to:", best_match=True)
-        
+        # Set a timeout duration for finding the SMS 2FA element
+        sms_2fa_element = None
+        try:
+            # Try to find the SMS text message element with a timeout
+            sms_2fa_element = await asyncio.wait_for(
+                page.find("We've sent a text message to:", best_match=True),
+                timeout=5  # Adjust this timeout as needed
+            )
+        except asyncio.TimeoutError:
+            logger.info(f"SMS 2FA text not found for {name}, proceeding to check for authenticator app 2FA...")
+
         if sms_2fa_element:
             # SMS 2FA handling
             logger.info(f"Waiting for SMS 2FA for {name}...")
-
-            sms2fa_input = await page.select("#code")
+            remember = await page.select("input[id=rememberBrowser]")
+            if remember:
+                await remember.click()
+            sms2fa_input = await page.select("input[id=code]")
             if not sms2fa_input:
                 raise Exception(f"Unable to locate SMS 2FA input field for {name}")
 
             if botObj is not None and discord_loop is not None:
                 # Directly await the OTP code from Discord without specifying the loop
-                sms_code = asyncio.run_coroutine_threadsafe(
-                    getOTPCodeDiscord(botObj, name, loop=discord_loop),
-                    discord_loop,
-                ).result()
+                sms_code = await getOTPCodeDiscord(botObj, name, loop=discord_loop)
                 if sms_code is None:
                     raise Exception(f"Sofi {name} SMS code not received in time...")
             else:
                 sms_code = input("Enter code: ")
 
             await sms2fa_input.send_keys(sms_code)
-            remember = await page.find("#rememberBrowser")
-            if remember:
-                await remember.click()
             verify_button = await page.find("Verify Code")
             if verify_button:
                 await verify_button.click()
@@ -406,7 +410,7 @@ async def handle_2fa(page, account, name, botObj, discord_loop):
                 if remember:
                     await remember.click()
                 
-                twofa_input = await page.select("#code")
+                twofa_input = await page.select("input[id=code]")
                 if not twofa_input:
                     raise Exception(f"Unable to locate 2FA input field for {name}")
                 
@@ -423,6 +427,7 @@ async def handle_2fa(page, account, name, botObj, discord_loop):
         logger.error(f"Error during 2FA handling for {name}: {e}")
         printAndDiscord(f"Error during 2FA handling for {name}", discord_loop)
         raise
+
 
 
 if __name__ == '__main__':
