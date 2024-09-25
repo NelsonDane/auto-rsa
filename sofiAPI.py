@@ -429,7 +429,6 @@ async def handle_2fa(page, account, name, botObj, discord_loop):
         raise
 
 
-
 if __name__ == '__main__':
     logger.info("Starting SoFi bot...")
     sofi_obj = sofi_init()
