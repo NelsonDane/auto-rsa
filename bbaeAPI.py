@@ -109,7 +109,7 @@ def login(bb: BBAEAPI, botObj, name, loop, use_email):
                 f"Login failed. No ticket generated. Response: {ticket_response}"
             )
         # Login with the ticket
-        login_response = ds.login_with_ticket(ticket)
+        login_response = bb.login_with_ticket(ticket)
         if login_response.get("Outcome") != "Success":
             raise Exception(f"Login failed. Response: {login_response}")
         return True
