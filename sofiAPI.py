@@ -417,16 +417,17 @@ async def handle_2fa(page, account, name, botObj, discord_loop):
 
 
 def sofi_transaction(browser, orderObj: stockOrder, discord_loop):
+    dry_mode = orderObj.get_dry()
     for stock in orderObj.get_stocks():
         if orderObj.get_action() == "buy":
-            sofi_loop.run_until_complete(sofi_buy(browser, stock, orderObj.get_amount(), discord_loop))
+            sofi_loop.run_until_complete(sofi_buy(browser, stock, orderObj.get_amount(), discord_loop, dry_mode))
         elif orderObj.get_action() == "sell":
-            sofi_loop.run_until_complete(sofi_sell(browser, stock, orderObj.get_amount(), discord_loop))
+            sofi_loop.run_until_complete(sofi_sell(browser, stock, orderObj.get_amount(), discord_loop, dry_mode))
         else:
             logger.error(f"Unknown action: {orderObj.get_action()}")
 
 
-async def sofi_buy(browser, symbol, quantity, discord_loop):
+async def sofi_buy(browser, symbol, quantity, discord_loop, dry_mode=False):
     try:
         # Step 1: Navigate to stock page and get valid cookies
         stock_url = f'https://www.sofi.com/wealth/app/stock/{symbol}'
@@ -446,7 +447,6 @@ async def sofi_buy(browser, symbol, quantity, discord_loop):
         if stock_price is None:
             raise Exception(f"Failed to retrieve stock price for {symbol}")
 
-        # Add a single cent to the stock price
         limit_price = round(stock_price + 0.01, 2)
 
         logger.info(f"Stock price for {symbol}: {stock_price}, placing order with limit price: {limit_price}")
@@ -455,7 +455,7 @@ async def sofi_buy(browser, symbol, quantity, discord_loop):
         accounts = await fetch_funded_accounts(cookies)
         if not accounts:
             raise Exception("Failed to retrieve funded accounts or none available.")
-        
+
         # Step 4: Loop through all accounts to check buying power and place the limit order
         for account in accounts:
             account_id = account['accountId']
@@ -464,9 +464,17 @@ async def sofi_buy(browser, symbol, quantity, discord_loop):
 
             total_price = limit_price * quantity
             if total_price <= buying_power:
-                # Place a limit order using the adjusted limit price
-                logger.info(f"Placing limit order for {symbol} in account {account_name} with limit price: {limit_price}")
-                await place_order(symbol, quantity, limit_price, account_id, order_type='BUY', cookies=cookies, csrf_token=csrf_token)
+                if dry_mode:
+                    # Dry mode: Log what would have been done
+                    logger.info(f"[DRY MODE] Would place limit order for {symbol} in account {account_name} with limit price: {limit_price}")
+                    printAndDiscord(f"[DRY MODE] Would place limit order for {symbol} in account {account_name} with limit price: {limit_price}", discord_loop)
+                else:
+                    if quantity < 1:
+                        logger.info(f"Fractional shares detected, placing fractional buy order for {quantity} shares.")
+                        await place_fractional_order(symbol, quantity, account_id, order_type='BUY', cookies=cookies, csrf_token=csrf_token)
+                    else:
+                        logger.info(f"Placing buy order for {quantity} shares in account {account_id}")
+                        await place_order(symbol, quantity, limit_price, account_id, order_type='BUY', cookies=cookies, csrf_token=csrf_token)
             else:
                 logger.info(f"Insufficient buying power in {account_name}. Needed: {total_price}, Available: {buying_power}")
 
@@ -476,18 +484,18 @@ async def sofi_buy(browser, symbol, quantity, discord_loop):
         raise
 
 
-async def sofi_sell(browser, symbol, quantity, discord_loop):
+async def sofi_sell(browser, symbol, quantity, discord_loop, dry_mode=False):
     try:
         # Step 1: Fetch holdings for the stock symbol
         logger.info(f"Checking holdings for symbol: {symbol}")
         cookies = {cookie.name: cookie.value for cookie in await browser.cookies.get_all()}
         if not cookies:
             raise Exception("Failed to retrieve valid cookies for the session.")
-        
+
         csrf_token = cookies.get('SOFI_CSRF_COOKIE') or cookies.get('SOFI_R_CSRF_TOKEN')
         if not csrf_token:
             raise Exception("Failed to retrieve CSRF token from cookies.")
-        
+
         # Fetch holdings for the specific symbol
         holdings_url = f"https://www.sofi.com/wealth/backend/api/v3/customer/holdings/symbol/{symbol}"
         response = requests.get(holdings_url, headers={
@@ -496,67 +504,60 @@ async def sofi_sell(browser, symbol, quantity, discord_loop):
             'x-requested-with': 'XMLHttpRequest',
             'user-agent': 'Mozilla/5.0'
         }, cookies=cookies)
-        
+
         if response.status_code != 200:
             raise Exception(f"Failed to fetch holdings for {symbol}. Status code: {response.status_code}")
-        
+
         holdings_data = response.json()
         account_holding_infos = holdings_data.get("accountHoldingInfos", [])
-        
+
         if not account_holding_infos:
             raise Exception(f"No holdings found for symbol {symbol}. Cannot proceed with the sell order.")
-        
-        # Step 2: Accumulate total shares and prepare to sell
-        total_available_shares = 0
-        accounts_to_sell = []
-        
-        for holding_info in account_holding_infos:
-            account_id = holding_info['accountId']
-            available_shares = holding_info['salableQuantity']
-            if available_shares > 0:
-                total_available_shares += available_shares
-                accounts_to_sell.append({
-                    'account_id': account_id,
-                    'available_shares': available_shares
-                })
-        
-        # Step 3: Fail if total shares held are less than the quantity requested
+
+        total_available_shares = sum([info['salableQuantity'] for info in account_holding_infos])
+
         if total_available_shares < quantity:
             raise Exception(f"Not enough shares to sell. Available: {total_available_shares}, Requested: {quantity}")
-        
-        # Step 4: Fetch the current stock price and calculate limit price
+
         stock_price = await fetch_stock_price(symbol)
         if stock_price is None:
             raise Exception(f"Failed to retrieve stock price for {symbol}")
-        
-        # Subtract a cent from the stock price for a limit sell
+
         limit_price = round(stock_price - 0.01, 2)
         logger.info(f"Stock price for {symbol}: {stock_price}, placing sell order with limit price: {limit_price}")
-        
-        # Step 5: Check if fractional shares need to be sold
-        if quantity < 1:
-            logger.info(f"Fractional shares detected, placing fractional sell order for {quantity} shares.")
-            await place_fractional_order(symbol, quantity, account_id, cookies, csrf_token)
-            return
 
-        # Step 6: Loop through accounts to place the sell orders
-        remaining_shares_to_sell = quantity
-        
-        for account in accounts_to_sell:
-            account_id = account['account_id']
-            available_shares = account['available_shares']
-            
-            # Determine the number of shares to sell from this account
-            shares_to_sell = min(remaining_shares_to_sell, available_shares)
-            remaining_shares_to_sell -= shares_to_sell
-            
-            logger.info(f"Placing sell order for {shares_to_sell} shares in account {account_id}")
-            await place_order(symbol, shares_to_sell, limit_price, account_id, order_type='SELL', cookies=cookies, csrf_token=csrf_token)
-            
-            # If all required shares have been sold, stop
-            if remaining_shares_to_sell <= 0:
-                break
-        
+        # Loop through all accounts holding the stock
+        for account in account_holding_infos:
+            account_id = account['accountId']
+            available_shares = account['salableQuantity']
+            account_name = account.get('accountTypeCode')
+
+            # Skip accounts where available shares are less than the quantity to sell
+            if available_shares < quantity:
+                logger.info(f"Skipping account {account_name} with {available_shares} shares, less than {quantity}.")
+                continue  # Move to the next account
+
+            if dry_mode:
+                # Dry mode: Log what would have been done
+                logger.info(f"[DRY MODE] Would place sell order for {quantity} shares of {symbol} in account {account_id}")
+                await printAndDiscord(f"[DRY MODE] Would place sell order for {quantity} shares of {symbol} in account {account_id}", discord_loop)
+            else:
+                if quantity < 1:
+                    logger.info(f"Fractional shares detected, placing fractional sell order for {quantity} shares in {account_name}.")
+                    await place_fractional_order(symbol, quantity, account_id, order_type='SELL', cookies=cookies, csrf_token=csrf_token)
+                else:
+                    # Place the sell order
+                    logger.info(f"Placing sell order for {quantity} shares in account {account_name}")
+                    await place_order(symbol, quantity, limit_price, account_id, order_type='SELL', cookies=cookies, csrf_token=csrf_token)
+                    
+                # Reduce the remaining quantity to sell
+                quantity -= available_shares
+
+            # If the quantity to sell is satisfied, break out of the loop
+            if quantity <= 0:
+                logger.info(f"All shares of {symbol} sold. Exiting loop.")
+                break  # Exit once all requested shares are sold
+
     except Exception as e:
         logger.error(f"Error during sell transaction for {symbol}: {e}")
         await printAndDiscord(f"Error during sell transaction for {symbol}: {e}", discord_loop)
@@ -651,7 +652,7 @@ async def place_order(symbol, quantity, limit_price, account_id, order_type, coo
         return None
 
 
-async def place_fractional_order(symbol, quantity, account_id, cookies, csrf_token):
+async def place_fractional_order(symbol, quantity, account_id, order_type, cookies, csrf_token):
     try:
         # Step 1: Fetch the current stock price to calculate cashAmount
         stock_price = await fetch_stock_price(symbol)
@@ -674,7 +675,7 @@ async def place_fractional_order(symbol, quantity, account_id, cookies, csrf_tok
         }
 
         payload = {
-            "operation": "SELL",
+            "operation": order_type,
             "cashAmount": cash_amount,  # Calculated cash amount based on stock price and quantity
             "quantity": quantity,
             "symbol": symbol,
