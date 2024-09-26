@@ -78,6 +78,8 @@ async def sofi_error(page, discord_loop=None):
 
 async def get_current_url(page):
     """Get the current page URL by evaluating JavaScript."""
+    await page.sleep(1)
+    await page.select('body')
     try:
         # Run JavaScript to get the current URL
         current_url = await page.evaluate("window.location.href")
@@ -155,13 +157,13 @@ def sofi_init(account, name, cookie_filename, botObj, browser, discord_loop, sof
         if cookies_loaded:
             logger.info(f"Cookies loaded for {name}, checking if login is valid...")
             sofi_loop.run_until_complete(page.get('https://www.sofi.com/wealth/app/'))
+            sofi_loop.run_until_complete(browser.sleep(1))
             sofi_loop.run_until_complete(page.select('body'))
             current_url = sofi_loop.run_until_complete(get_current_url(page))
 
             if current_url and "overview" in current_url:
                 logger.info(f"Successfully bypassed login for {name} using cookies.")
                 sofi_loop.run_until_complete(save_cookies_to_pkl(browser, cookie_filename))
-                sofi_loop.run_until_complete(fetch_account_info_and_holdings(browser, name, discord_loop))
                 return sofi_obj
 
         # Proceed with login if cookies are invalid or expired
@@ -171,15 +173,6 @@ def sofi_init(account, name, cookie_filename, botObj, browser, discord_loop, sof
         logger.error(f"Error during SoFi init process: {e}")
         return None
     return sofi_obj
-
-
-async def fetch_account_info_and_holdings(browser, name, discord_loop):
-    """Fetch account info and holdings without logging in."""
-    logger.info(f"Fetching account info for {name}...")
-    account_dict = await sofi_account_info(browser, discord_loop)
-
-    if not account_dict:
-        raise Exception(f"Failed to retrieve account info for {name}")
 
 
 async def sofi_login_and_account(browser, page, account, name, botObj, discord_loop):
@@ -381,7 +374,6 @@ async def handle_2fa(page, account, name, botObj, discord_loop):
             # Set a timeout duration for finding the SMS 2FA element
             sms_2fa_element = None
             try:
-                await page.select('body')
                 sms_2fa_element = await asyncio.wait_for(
                     page.find("We've sent a text message to:", best_match=True),
                     timeout=5
@@ -428,8 +420,10 @@ def sofi_transaction(browser, orderObj: stockOrder, discord_loop):
     for stock in orderObj.get_stocks():
         if orderObj.get_action() == "buy":
             sofi_loop.run_until_complete(sofi_buy(browser, stock, orderObj.get_amount(), discord_loop))
-        else:  # TODO: Sell
-            pass
+        elif orderObj.get_action() == "sell":
+            sofi_loop.run_until_complete(sofi_sell(browser, stock, orderObj.get_amount(), discord_loop))
+        else:
+            logger.error(f"Unknown action: {orderObj.get_action()}")
 
 
 async def sofi_buy(browser, symbol, quantity, discord_loop):
@@ -447,36 +441,119 @@ async def sofi_buy(browser, symbol, quantity, discord_loop):
         if not csrf_token:
             raise Exception("Failed to retrieve CSRF token from cookies.")
 
+        # Step 2: Get the stock price
         stock_price = await fetch_stock_price(symbol)
         if stock_price is None:
             raise Exception(f"Failed to retrieve stock price for {symbol}")
 
-        logger.info(f"Stock price for {symbol}: {stock_price}")
+        # Add a single cent to the stock price
+        limit_price = round(stock_price + 0.01, 2)
 
+        logger.info(f"Stock price for {symbol}: {stock_price}, placing order with limit price: {limit_price}")
+
+        # Step 3: Fetch all funded accounts and their buying power
         accounts = await fetch_funded_accounts(cookies)
         if not accounts:
             raise Exception("Failed to retrieve funded accounts or none available.")
         
+        # Step 4: Loop through all accounts to check buying power and place the limit order
         for account in accounts:
             account_id = account['accountId']
             buying_power = account['accountBuyingPower']
             account_name = account.get('accountType')
 
-            total_price = stock_price * quantity
+            total_price = limit_price * quantity
             if total_price <= buying_power:
-
-                if stock_price < 1.0:
-                    logger.info(f"Placing limit order for {symbol} in account {account_name}")
-                    await place_order(symbol, quantity, stock_price, account_id, order_type='LIMIT', cookies=cookies, csrf_token=csrf_token)
-                else:
-                    logger.info(f"Placing market order for {symbol} in account {account_name}")
-                    await place_order(symbol, quantity, None, account_id, order_type='MARKET', cookies=cookies, csrf_token=csrf_token)
+                # Place a limit order using the adjusted limit price
+                logger.info(f"Placing limit order for {symbol} in account {account_name} with limit price: {limit_price}")
+                await place_order(symbol, quantity, limit_price, account_id, order_type='BUY', cookies=cookies, csrf_token=csrf_token)
             else:
                 logger.info(f"Insufficient buying power in {account_name}. Needed: {total_price}, Available: {buying_power}")
 
     except Exception as e:
         logger.error(f"Error during buy transaction for {symbol}: {e}")
         await printAndDiscord(f"Error during buy transaction for {symbol}: {e}", discord_loop)
+        raise
+
+
+async def sofi_sell(browser, symbol, quantity, discord_loop):
+    try:
+        # Step 1: Fetch holdings for the stock symbol
+        logger.info(f"Checking holdings for symbol: {symbol}")
+        cookies = {cookie.name: cookie.value for cookie in await browser.cookies.get_all()}
+        if not cookies:
+            raise Exception("Failed to retrieve valid cookies for the session.")
+        
+        csrf_token = cookies.get('SOFI_CSRF_COOKIE') or cookies.get('SOFI_R_CSRF_TOKEN')
+        if not csrf_token:
+            raise Exception("Failed to retrieve CSRF token from cookies.")
+        
+        # Fetch holdings for the specific symbol
+        holdings_url = f"https://www.sofi.com/wealth/backend/api/v3/customer/holdings/symbol/{symbol}"
+        response = requests.get(holdings_url, headers={
+            'accept': 'application/json',
+            'content-type': 'application/json',
+            'x-requested-with': 'XMLHttpRequest',
+            'user-agent': 'Mozilla/5.0'
+        }, cookies=cookies)
+        
+        if response.status_code != 200:
+            raise Exception(f"Failed to fetch holdings for {symbol}. Status code: {response.status_code}")
+        
+        holdings_data = response.json()
+        account_holding_infos = holdings_data.get("accountHoldingInfos", [])
+        
+        if not account_holding_infos:
+            raise Exception(f"No holdings found for symbol {symbol}. Cannot proceed with the sell order.")
+        
+        # Step 2: Accumulate total shares and prepare to sell
+        total_available_shares = 0
+        accounts_to_sell = []
+        
+        for holding_info in account_holding_infos:
+            account_id = holding_info['accountId']
+            available_shares = holding_info['salableQuantity']
+            if available_shares > 0:
+                total_available_shares += available_shares
+                accounts_to_sell.append({
+                    'account_id': account_id,
+                    'available_shares': available_shares
+                })
+        
+        # Step 3: Fail if total shares held are less than the quantity requested
+        if total_available_shares < quantity:
+            raise Exception(f"Not enough shares to sell. Available: {total_available_shares}, Requested: {quantity}")
+        
+        # Step 4: Fetch the current stock price and calculate limit price
+        stock_price = await fetch_stock_price(symbol)
+        if stock_price is None:
+            raise Exception(f"Failed to retrieve stock price for {symbol}")
+        
+        # Subtract a cent from the stock price for a limit sell
+        limit_price = round(stock_price - 0.01, 2)
+        logger.info(f"Stock price for {symbol}: {stock_price}, placing sell order with limit price: {limit_price}")
+        
+        # Step 5: Loop through accounts to place the sell orders
+        remaining_shares_to_sell = quantity
+        
+        for account in accounts_to_sell:
+            account_id = account['account_id']
+            available_shares = account['available_shares']
+            
+            # Determine the number of shares to sell from this account
+            shares_to_sell = min(remaining_shares_to_sell, available_shares)
+            remaining_shares_to_sell -= shares_to_sell
+            
+            logger.info(f"Placing sell order for {shares_to_sell} shares in account {account_id}")
+            await place_order(symbol, shares_to_sell, limit_price, account_id, order_type='SELL', cookies=cookies, csrf_token=csrf_token)
+            
+            # If all required shares have been sold, stop
+            if remaining_shares_to_sell <= 0:
+                break
+        
+    except Exception as e:
+        logger.error(f"Error during sell transaction for {symbol}: {e}")
+        await printAndDiscord(f"Error during sell transaction for {symbol}: {e}", discord_loop)
         raise
 
 
@@ -513,7 +590,12 @@ async def fetch_stock_price(symbol):
         if response.status_code == 200:
             data = response.json()
             price = data.get("price")
-            return float(price) if price else None
+            if price:
+                # Round the price to the nearest second decimal place
+                rounded_price = round(float(price), 2)
+                return rounded_price
+            else:
+                return None
         else:
             logger.error(f"Failed to fetch stock price for {symbol}. Status code: {response.status_code}")
             return None
@@ -537,26 +619,22 @@ async def place_order(symbol, quantity, limit_price, account_id, order_type, coo
             'sec-fetch-dest': 'empty'
         }
 
-        # Create the payload for the buy order
         payload = {
-            "operation": "BUY",
+            "operation": order_type,
             "quantity": str(quantity),
             "time": "DAY",
-            "type": order_type,
+            "type": "LIMIT",
+            "limitPrice": limit_price,
             "symbol": symbol,
             "accountId": account_id,
             "tradingSession": "CORE_HOURS"
         }
 
-        # If it's a limit order, we need to specify the limit price
-        if order_type == 'LIMIT':
-            payload["limitPrice"] = limit_price
-
-        url = 'https://www.sofi.com/wealth/backend/api/v1/trade/order' if order_type == 'LIMIT' else 'https://www.sofi.com/wealth/backend/api/v1/trade/open-order'
+        url = 'https://www.sofi.com/wealth/backend/api/v1/trade/order'
         response = requests.post(url, json=payload, headers=headers, cookies=cookies)
         
         if response.status_code == 200:
-            logger.info(f"Order placed successfully for {symbol}.")
+            logger.info(f"Limit order placed successfully for {symbol}.")
             return response.json()
         else:
             logger.error(f"Failed to place order for {symbol}. Status code: {response.status_code}")
