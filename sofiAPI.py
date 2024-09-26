@@ -365,7 +365,7 @@ async def handle_2fa(page, account, name, botObj, discord_loop):
             await page.select('body')
             sms_2fa_element = await asyncio.wait_for(
                 page.find("We've sent a text message to:", best_match=True),
-                timeout=0 # Adjust this timeout as needed
+                timeout=50  # Adjust this timeout as needed
             )
         except asyncio.TimeoutError:
             logger.info(f"SMS 2FA text not found for {name}, proceeding to check for authenticator app 2FA...")
