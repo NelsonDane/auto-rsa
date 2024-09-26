@@ -3,9 +3,8 @@ import os
 import traceback
 from io import BytesIO
 
-from dspac_invest_api import DSPACAPI
 from dotenv import load_dotenv
-
+from dspac_invest_api import DSPACAPI
 
 from helperAPI import (
     Brokerage,
