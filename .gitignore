@@ -11,3 +11,4 @@ test*
 *venv/
 .vscode/
 *.zip
+*workspace

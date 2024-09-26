@@ -30,6 +30,7 @@ class FidelityAutomation:
         self.headless: bool = headless
         self.title: str = title
         self.profile_path: str = profile_path
+        self.account_dict: dict = {}
         self.stealth_config = StealthConfig(
             navigator_languages=False,
             navigator_user_agent=False,
@@ -97,10 +98,9 @@ class FidelityAutomation:
 
         Returns:
             True, True: If completely logged in, return (True, True)
-            True, False: If 2FA is needed, this function will return (True, False) which signifies that the 
+            True, False: If 2FA is needed, this function will return (True, False) which signifies that the
             initial login attempt was successful but further action is needed to finish logging in.
             False, False: Initial login attempt failed.
-
         '''
         try:
             # Go to the login page
@@ -129,7 +129,7 @@ class FidelityAutomation:
 
                 # If TOTP secret is provided, we are will use the TOTP key. See if authenticator code is present
                 if totp_secret is not None and self.page.get_by_role("heading", name="Enter the code from your").is_visible():
-                    # Get authenticator code 
+                    # Get authenticator code
                     code = pyotp.TOTP(totp_secret).now()
                     # Enter the code
                     self.page.get_by_placeholder("XXXXXX").click()
@@ -137,7 +137,8 @@ class FidelityAutomation:
 
                     # Prevent future OTP requirements
                     self.page.locator("label").filter(has_text="Don't ask me again on this").check()
-                    assert self.page.locator("label").filter(has_text="Don't ask me again on this").is_checked()
+                    if not self.page.locator("label").filter(has_text="Don't ask me again on this").is_checked():
+                        raise Exception("Cannot check 'Don't ask me again on this device' box")
 
                     # Log in with code
                     self.page.get_by_role("button", name="Continue").click()
@@ -154,7 +155,8 @@ class FidelityAutomation:
                 # If the app push notification page is present
                 if self.page.get_by_role("link", name="Try another way").is_visible():
                     self.page.locator("label").filter(has_text="Don't ask me again on this").check()
-                    assert self.page.locator("label").filter(has_text="Don't ask me again on this").is_checked()
+                    if not self.page.locator("label").filter(has_text="Don't ask me again on this").is_checked():
+                        raise Exception("Cannot check 'Don't ask me again on this device' box")
 
                     # Click on alternate verification method to get OTP via text
                     self.page.get_by_role("link", name="Try another way").click()
@@ -172,7 +174,7 @@ class FidelityAutomation:
             return (False, False)
         except Exception as e:
             print(f"An error occurred: {str(e)}")
-            traceback.print_exc() 
+            traceback.print_exc()
             return (False, False)
 
     def login_2FA(self, code):
@@ -185,10 +187,11 @@ class FidelityAutomation:
         '''
         try:
             self.page.get_by_placeholder("XXXXXX").fill(code)
- 
+
             # Prevent future OTP requirements
             self.page.locator("label").filter(has_text="Don't ask me again on this").check()
-            assert self.page.locator("label").filter(has_text="Don't ask me again on this").is_checked()
+            if not self.page.locator("label").filter(has_text="Don't ask me again on this").is_checked():
+                raise Exception("Cannot check 'Don't ask me again on this device' box")
             self.page.get_by_role("button", name="Submit").click()
 
             self.page.wait_for_url('https://digital.fidelity.com/ftgw/digital/portfolio/summary', timeout=5000)
@@ -199,7 +202,7 @@ class FidelityAutomation:
             return False
         except Exception as e:
             print(f"An error occurred: {str(e)}")
-            traceback.print_exc() 
+            traceback.print_exc()
             return False
 
     def getAccountInfo(self):
@@ -226,11 +229,11 @@ class FidelityAutomation:
             self.page.get_by_label("Download Positions").click()
         download = download_info.value
         cur = os.getcwd()
-        self.positions_csv = os.path.join(cur, download.suggested_filename)
+        positions_csv = os.path.join(cur, download.suggested_filename)
         # Create a copy to work on with the proper file name known
-        download.save_as(self.positions_csv)
+        download.save_as(positions_csv)
 
-        csv_file = open(self.positions_csv, newline='', encoding='utf-8-sig')
+        csv_file = open(positions_csv, newline='', encoding='utf-8-sig')
 
         reader = csv.DictReader(csv_file)
         # Ensure all fields we want are present
@@ -239,52 +242,51 @@ class FidelityAutomation:
         if len(intersection_set) != len(required_elements):
             raise Exception('Not enough elements in fidelity positions csv')
 
-        self.account_dict = {}
         for row in reader:
-                # Last couple of rows have some disclaimers, filter those out
-                if row['Account Number'] is not None and 'and' in str(row['Account Number']):
-                    break
-                # Get the value and remove '$' from it
-                val = str(row['Current Value']).replace('$', '')
-                # Get the last price
-                last_price = str(row['Last Price']).replace('$', '')
-                # Get quantity
-                quantity = row['Quantity']
-                # Get ticker
-                ticker = str(row['Symbol'])
-
-                # Don't include this if present
-                if 'Pending' in ticker:
-                    continue
-                # If the value isn't present, move to next row
-                if len(val) == 0:
-                    continue
-                elif val.lower() == 'n/a':
-                    val = 0
-                # If the last price isn't available, just use the current value
-                if len(last_price) == 0:
-                    last_price = val
-                # If the quantity is missing, just use 1
-                if len(quantity) == 0:
-                    quantity = 1
-
-                # If the account number isn't populated yet, add it
-                if row['Account Number'] not in self.account_dict:
-                    # Add retrieved info.
-                    # Yeah I know is kinda messy and hard to think about but it works
-                    # Just need a way to store all stocks with the account number
-                    # 'stocks' is a list of dictionaries. Each ticker gets its own index and is described by a dictionary
-                    self.account_dict[row['Account Number']] = {'balance': float(val), 'type': row['Account Name'],
-                                                                'stocks': [{'ticker': ticker, 'quantity': quantity, 'last_price': last_price, 'value': val}]
-                                                                }
-                # If it is present, add to it
-                else:
-                    self.account_dict[row['Account Number']]['stocks'].append({'ticker': ticker, 'quantity': quantity, 'last_price': last_price, 'value': val})
-                    self.account_dict[row['Account Number']]['balance'] += float(val)
+            # Last couple of rows have some disclaimers, filter those out
+            if row['Account Number'] is not None and 'and' in str(row['Account Number']):
+                break
+            # Get the value and remove '$' from it
+            val = str(row['Current Value']).replace('$', '')
+            # Get the last price
+            last_price = str(row['Last Price']).replace('$', '')
+            # Get quantity
+            quantity = row['Quantity']
+            # Get ticker
+            ticker = str(row['Symbol'])
+            
+            # Don't include this if present
+            if 'Pending' in ticker:
+                continue
+            # If the value isn't present, move to next row
+            if len(val) == 0:
+                continue
+            elif val.lower() == 'n/a':
+                val = 0
+            # If the last price isn't available, just use the current value
+            if len(last_price) == 0:
+                last_price = val
+            # If the quantity is missing, just use 1
+            if len(quantity) == 0:
+                quantity = 1
+            
+            # If the account number isn't populated yet, add it
+            if row['Account Number'] not in self.account_dict:
+                # Add retrieved info.
+                # Yeah I know is kinda messy and hard to think about but it works
+                # Just need a way to store all stocks with the account number
+                # 'stocks' is a list of dictionaries. Each ticker gets its own index and is described by a dictionary
+                self.account_dict[row['Account Number']] = {'balance': float(val), 'type': row['Account Name'],
+                                                            'stocks': [{'ticker': ticker, 'quantity': quantity, 'last_price': last_price, 'value': val}]
+                                                            }
+            # If it is present, add to it
+            else:
+                self.account_dict[row['Account Number']]['stocks'].append({'ticker': ticker, 'quantity': quantity, 'last_price': last_price, 'value': val})
+                self.account_dict[row['Account Number']]['balance'] += float(val)        
 
         # Close the file
         csv_file.close()
-        os.remove(self.positions_csv)
+        os.remove(positions_csv)
 
         return self.account_dict
 
@@ -292,7 +294,7 @@ class FidelityAutomation:
         '''
         NOTE: The getAccountInfo function MUST be called before this, otherwise an empty dictionary will be returned
         Returns a dictionary containing dictionaries for each stock owned across all accounts.
-        The keys of the outter dictionary are the tickers of the stocks owned.
+        The keys of the outer dictionary are the tickers of the stocks owned.
         Ex: unique_stocks['NVDA'] = {'quantity': 2.0, 'last_price': 120.23, 'value': 240.46}
         'quantity': float: The number of stocks held of 'ticker'
         'last_price': float: The last price of the stock
@@ -312,8 +314,8 @@ class FidelityAutomation:
 
         # Create a summary of holdings
         summary = ''
-        for stock in unique_stocks:
-            summary += f"{stock}: {round(unique_stocks[stock]['quantity'], 2)} @ {unique_stocks[stock]['last_price']} = {round(unique_stocks[stock]['value'], 2)}\n"
+        for stock, st_dict in unique_stocks.items():
+            summary += f"{stock}: {round(st_dict['quantity'], 2)} @ {st_dict['last_price']} = {round(st_dict['value'], 2)}\n"
         return unique_stocks
 
     def transaction(self, stock: str, quantity: float, action: str, account: str, dry: bool=True) -> bool:
@@ -449,14 +451,13 @@ class FidelityAutomation:
                 else:
                     error_message = 'Could not retrieve error message from popup'
                 return (False, error_message)
+            
+            # If no error occurred, continue with checking the order preview
+            if (not self.page.locator("preview").filter(has_text=account.upper()).is_visible() or
+            not self.page.get_by_text(f"Symbol{stock.upper()}", exact=True).is_visible() or
+            not self.page.get_by_text(f"Action{action.lower().title()}").is_visible() or
+            not self.page.get_by_text(f"Quantity{quantity}").is_visible()):
 
-            # If no error occurred, continue with checking and buy/sell
-            try:
-                assert self.page.locator("preview").filter(has_text=account.upper()).is_visible()
-                assert self.page.get_by_text(f"Symbol{stock.upper()}", exact=True).is_visible()
-                assert self.page.get_by_text(f"Action{action.lower().title()}").is_visible()
-                assert self.page.get_by_text(f"Quantity{quantity}").is_visible()
-            except AssertionError:
                 return (False, 'Order preview is not what is expected')
 
             # If its a real run
@@ -467,7 +468,7 @@ class FidelityAutomation:
                     self.page.get_by_text("Order received").wait_for(timeout=5000, state='visible')
                     # If no error, return with success
                     return (True, None)
-                except PlaywrightTimeoutError as e:
+                except PlaywrightTimeoutError:
                     # Order didn't go through for some reason, go to the next and say error
                     return (False, 'Order failed to complete')
             # If its a dry run, report back success
@@ -480,7 +481,7 @@ class FidelityAutomation:
 
 def fidelity_run(orderObj: stockOrder, command=None, botObj=None, loop=None, FIDELITY_EXTERNAL=None):
     '''
-    Entry point from main function. Gathers credentials and go through commands for 
+    Entry point from main function. Gathers credentials and go through commands for
     each set of credentials found in the FIDELITY env variable
 
     Returns:
@@ -528,8 +529,8 @@ def fidelity_init(account: str, name: str, headless=True, botObj=None, loop=None
     '''
     Log into fidelity. Creates a fidelity brokerage object and a FidelityAutomation object.
     The FidelityAutomation object is stored within the brokerage object and some account information
-    is gathered. 
-    
+    is gathered.
+
     Post conditions: Logs into fidelity using the supplied credentials
 
     Returns:
@@ -576,11 +577,9 @@ def fidelity_init(account: str, name: str, headless=True, botObj=None, loop=None
             raise Exception(f'{name}: Error getting account info')
         # Set info into fidelity brokerage object
         for acct in account_dict:
-                fidelity_obj.set_account_number(name, acct)
-                fidelity_obj.set_account_type(name, acct, account_dict[acct]["type"])
-                fidelity_obj.set_account_totals(
-                    name, acct, account_dict[acct]["balance"]
-                )
+            fidelity_obj.set_account_number(name, acct)
+            fidelity_obj.set_account_type(name, acct, account_dict[acct]["type"])
+            fidelity_obj.set_account_totals(name, acct, account_dict[acct]["balance"])
         print(f"Logged in to {name}!")
         return fidelity_obj
 
@@ -612,10 +611,10 @@ def fidelity_holdings(fidelity_o: Brokerage, name: str, loop=None):
 
         for d in account_dict[account_number]['stocks']:
             # Append the ticker to the appropriate account
-            fidelity_o.set_holdings(parent_name=name, 
-                                    account_name=account_number, 
-                                    stock=d['ticker'], 
-                                    quantity=d['quantity'], 
+            fidelity_o.set_holdings(parent_name=name,
+                                    account_name=account_number,
+                                    stock=d['ticker'],
+                                    quantity=d['quantity'],
                                     price=d['last_price'])
 
     # Print to console and to discord
@@ -653,11 +652,11 @@ def fidelity_transaction(fidelity_o: Brokerage, name: str, orderObj: stockOrder,
         fidelity_browser.page.reload()
         for account_number in fidelity_o.get_account_numbers(name):
             # Go trade for all accounts for that stock
-            success, error_message = fidelity_browser.transaction(stock, orderObj.get_amount(), orderObj.get_action(), 
+            success, error_message = fidelity_browser.transaction(stock, orderObj.get_amount(), orderObj.get_action(),
                                                                   account_number, orderObj.get_dry())
             # Report error if occurred
             if not success:
-                printAndDiscord(f"{name} account xxxxx{account_number[-4:]}: {orderObj.get_action()} {orderObj.get_amount()} {error_message}", 
+                printAndDiscord(f"{name} account xxxxx{account_number[-4:]}: {orderObj.get_action()} {orderObj.get_amount()} {error_message}",
                                 loop)
             # Print test run confirmation if test run
             elif success and orderObj.get_dry():
