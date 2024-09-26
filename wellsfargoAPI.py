@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import os
 import re
@@ -17,6 +18,7 @@ from helperAPI import (
     Brokerage,
     check_if_page_loaded,
     getDriver,
+    getOTPCodeDiscord,
     killSeleniumDriver,
     printAndDiscord,
     printHoldings,
@@ -31,7 +33,7 @@ def wellsfargo_error(driver: webdriver, error: str):
     print(traceback.format_exc())
 
 
-def wellsfargo_init(WELLSFARGO_EXTERNAL=None, DOCKER=False, loop=None):
+def wellsfargo_init(botObj, WELLSFARGO_EXTERNAL=None, DOCKER=False, loop=None):
     load_dotenv()
 
     if not os.getenv("WELLSFARGO"):
@@ -74,6 +76,46 @@ def wellsfargo_init(WELLSFARGO_EXTERNAL=None, DOCKER=False, loop=None):
                 print("TimeoutException: Login failed.")
                 return False
             WELLSFARGO_obj.set_logged_in_object(name, driver)
+            try:
+                auth_popup = WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located(
+                        (By.CSS_SELECTOR, ".ResponsiveModalContent__modalContent___guT3p")
+                    )
+                )
+                auth_list = auth_popup.find_element(
+                    By.CSS_SELECTOR,
+                    ".LineItemLinkList__lineItemLinkList___Dj6vb"
+                )
+                li_elements = auth_list.find_elements(By.TAG_NAME, "li")
+                for li in li_elements:
+                    if account[2] in li.text:
+                        li.click()
+                        break
+                print("Clicked on phone number")
+                # Get the OTP code from the user
+                if botObj is not None and loop is not None:
+                    code = asyncio.run_coroutine_threadsafe(
+                        getOTPCodeDiscord(botObj, name, timeout=300, loop=loop),
+                        loop,
+                    ).result()
+                else:
+                    code = input("Enter security code: ")
+                code_input = WebDriverWait(driver, 20).until(
+                    EC.presence_of_element_located(
+                        (By.ID, "otp")
+                    )
+                )
+                code_input.send_keys(code)
+                WebDriverWait(driver, 10).until(
+                    EC.element_to_be_clickable(
+                        (By.XPATH, "//button[@type='submit']")
+                    )
+                ).click()
+            except TimeoutException:
+                pass
+            
+            WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.LINK_TEXT, "Ad Choices")))
+            
             account_numbers = driver.execute_script(
                 """
                 return Array.from(document.querySelectorAll('li'))
