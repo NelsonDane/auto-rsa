@@ -29,7 +29,7 @@ class FidelityAutomation:
         self.headless: bool = headless
         self.title: str = title
         self.profile_path: str = profile_path
-        self.account_dict: dict = None
+        self.account_dict: dict = {}
         self.stealth_config = StealthConfig(
             navigator_languages=False,
             navigator_user_agent=False,
@@ -244,8 +244,7 @@ class FidelityAutomation:
         intersection_set = set(reader.fieldnames).intersection(set(required_elements))
         if len(intersection_set) != len(required_elements):
             raise Exception('Not enough elements in fidelity positions csv')
-        
-        self.account_dict = {}
+
         for row in reader:
             # Last couple of rows have some disclaimers, filter those out
             if row['Account Number'] is not None and 'and' in str(row['Account Number']):
