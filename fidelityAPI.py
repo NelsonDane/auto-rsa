@@ -23,7 +23,6 @@ from helperAPI import (
     stockOrder,
 )
 
-
 class FidelityAutomation:
     def __init__(self, headless=True, title=None, profile_path='.') -> None:
         # Setup the webdriver
@@ -167,8 +166,9 @@ class FidelityAutomation:
 
                 return (True, False)
 
-            else:
-                raise Exception("Cannot get to login page. Maybe other 2FA method present")
+            # Can't get to summary and we aren't on the login page, idk what's going on
+            raise Exception("Cannot get to login page. Maybe other 2FA method present")
+
         except PlaywrightTimeoutError:
             print("Timeout waiting for login page to load or navigate.")
             return (False, False)
@@ -254,14 +254,14 @@ class FidelityAutomation:
             quantity = row['Quantity']
             # Get ticker
             ticker = str(row['Symbol'])
-            
+
             # Don't include this if present
             if 'Pending' in ticker:
                 continue
             # If the value isn't present, move to next row
             if len(val) == 0:
                 continue
-            elif val.lower() == 'n/a':
+            if val.lower() == 'n/a':
                 val = 0
             # If the last price isn't available, just use the current value
             if len(last_price) == 0:
@@ -269,7 +269,7 @@ class FidelityAutomation:
             # If the quantity is missing, just use 1
             if len(quantity) == 0:
                 quantity = 1
-            
+
             # If the account number isn't populated yet, add it
             if row['Account Number'] not in self.account_dict:
                 # Add retrieved info.
@@ -282,7 +282,7 @@ class FidelityAutomation:
             # If it is present, add to it
             else:
                 self.account_dict[row['Account Number']]['stocks'].append({'ticker': ticker, 'quantity': quantity, 'last_price': last_price, 'value': val})
-                self.account_dict[row['Account Number']]['balance'] += float(val)        
+                self.account_dict[row['Account Number']]['balance'] += float(val)
 
         # Close the file
         csv_file.close()
@@ -321,7 +321,7 @@ class FidelityAutomation:
     def transaction(self, stock: str, quantity: float, action: str, account: str, dry: bool=True) -> bool:
         '''
         Process an order (transaction) using the dedicated trading page.
-        NOTE: If you use this function repeatedly but change the stock between ANY call, 
+        NOTE: If you use this function repeatedly but change the stock between ANY call,
         RELOAD the page before calling this
 
         For buying:
@@ -451,13 +451,12 @@ class FidelityAutomation:
                 else:
                     error_message = 'Could not retrieve error message from popup'
                 return (False, error_message)
-            
+
             # If no error occurred, continue with checking the order preview
             if (not self.page.locator("preview").filter(has_text=account.upper()).is_visible() or
-            not self.page.get_by_text(f"Symbol{stock.upper()}", exact=True).is_visible() or
-            not self.page.get_by_text(f"Action{action.lower().title()}").is_visible() or
-            not self.page.get_by_text(f"Quantity{quantity}").is_visible()):
-
+                not self.page.get_by_text(f"Symbol{stock.upper()}", exact=True).is_visible() or
+                not self.page.get_by_text(f"Action{action.lower().title()}").is_visible() or
+                not self.page.get_by_text(f"Quantity{quantity}").is_visible()):
                 return (False, 'Order preview is not what is expected')
 
             # If its a real run
@@ -473,7 +472,7 @@ class FidelityAutomation:
                     return (False, 'Order failed to complete')
             # If its a dry run, report back success
             return (True, None)
-        except PlaywrightTimeoutError as e:
+        except PlaywrightTimeoutError:
             return (False, 'Driver timed out. Order not complete')
         except Exception as e:
             return (False, e)
