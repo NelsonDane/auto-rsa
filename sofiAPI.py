@@ -533,7 +533,13 @@ async def sofi_sell(browser, symbol, quantity, discord_loop):
         limit_price = round(stock_price - 0.01, 2)
         logger.info(f"Stock price for {symbol}: {stock_price}, placing sell order with limit price: {limit_price}")
         
-        # Step 5: Loop through accounts to place the sell orders
+        # Step 5: Check if fractional shares need to be sold
+        if quantity < 1:
+            logger.info(f"Fractional shares detected, placing fractional sell order for {quantity} shares.")
+            await place_fractional_order(symbol, quantity, account_id, cookies, csrf_token)
+            return
+
+        # Step 6: Loop through accounts to place the sell orders
         remaining_shares_to_sell = quantity
         
         for account in accounts_to_sell:
@@ -642,6 +648,56 @@ async def place_order(symbol, quantity, limit_price, account_id, order_type, coo
             return None
     except Exception as e:
         logger.error(f"Error placing order for {symbol}: {e}")
+        return None
+
+
+async def place_fractional_order(symbol, quantity, account_id, cookies, csrf_token):
+    try:
+        # Step 1: Fetch the current stock price to calculate cashAmount
+        stock_price = await fetch_stock_price(symbol)
+        if stock_price is None:
+            raise Exception(f"Failed to retrieve stock price for {symbol}")
+        
+        # Calculate the cash amount based on the quantity of fractional shares
+        cash_amount = round(stock_price * quantity, 2)  # Round to 2 decimal places for currency
+        logger.info(f"Calculated cash amount for {quantity} fractional shares of {symbol}: {cash_amount}")
+        
+        # Step 2: Prepare headers and payload for the fractional sell order
+        headers = {
+            'accept': 'application/json',
+            'content-type': 'application/json',
+            'x-requested-with': 'XMLHttpRequest',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
+            'csrf-token': csrf_token,
+            'origin': 'https://www.sofi.com',
+            'referer': 'https://www.sofi.com/'
+        }
+
+        payload = {
+            "operation": "SELL",
+            "cashAmount": cash_amount,  # Calculated cash amount based on stock price and quantity
+            "quantity": quantity,
+            "symbol": symbol,
+            "accountId": account_id,
+            "time": "DAY",
+            "type": "MARKET",
+            "tradingSession": "CORE_HOURS",
+            "sellAll": False
+        }
+
+        # Step 3: Send the request to sell fractional shares
+        url = 'https://www.sofi.com/wealth/backend/api/v1/trade/order-fractional'
+        response = requests.post(url, json=payload, headers=headers, cookies=cookies)
+        
+        if response.status_code == 200:
+            logger.info(f"Fractional sell order placed successfully for {quantity} shares of {symbol}.")
+            return response.json()
+        else:
+            logger.error(f"Failed to place fractional sell order for {symbol}. Status code: {response.status_code}")
+            logger.error(f"Response text: {response.text}")
+            return None
+    except Exception as e:
+        logger.error(f"Error placing fractional order for {symbol}: {e}")
         return None
 
 
