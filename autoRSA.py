@@ -145,7 +145,7 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                     orderObj.set_logged_in(
                         globals()[fun_name](botObj=botObj, loop=loop), broker
                     )
-                elif broker.lower() in ["chase", "vanguard"]:
+                elif broker.lower() in ["chase", "sofi", "vanguard"]:
                     fun_name = broker + "_run"
                     # PLAYWRIGHT_BROKERS have to run all transactions with one function
                     th = ThreadHandler(
@@ -164,28 +164,11 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                             + fun_name
                             + ": Function did not complete successfully."
                         )
-                elif broker.lower() == "sofi":
-                    print(f"Logging into {broker} synchronously...")
-                    logged_in_broker = globals()[fun_name](botObj=botObj, loop=loop)
-                    if logged_in_broker is None:
-                        raise Exception(f"Error logging into {broker}")
-                    orderObj.set_logged_in(logged_in_broker, broker)
-
-                    if second_command == "_holdings":
-                        for account_id in logged_in_broker.get_account_types(parent_name=broker):
-                            cookies = logged_in_broker.get_cookies()
-                            holdings = asyncio.run(sofi_holdings(account_id, cookies))
-                            if holdings:
-                                print(f"Holdings for {account_id}: {holdings}")
-                            else:
-                                print(f"Failed to fetch holdings for account {account_id}")
-                    elif second_command == "_transaction":
-                        raise NotImplementedError("SoFi transaction handling is not implemented yet.")
                 else:
                     orderObj.set_logged_in(globals()[fun_name](), broker)
 
                 print()
-                if broker.lower() not in ["chase", "vanguard", "sofi"]:
+                if broker.lower() not in ["chase", "sofi", "vanguard"]:
                     # Verify broker is logged in
                     orderObj.order_validate(preLogin=False)
                     logged_in_broker = orderObj.get_logged_in(broker)

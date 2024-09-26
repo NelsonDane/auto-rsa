@@ -24,7 +24,11 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 COOKIES_PATH = "creds"
-browser = None
+# Get or create the event loop
+try:
+    sofi_loop = asyncio.get_event_loop()
+except RuntimeError:
+    sofi_loop = asyncio.new_event_loop()
 
 
 def create_creds_folder():
@@ -83,11 +87,12 @@ async def get_current_url(page):
         return None
 
 
-def sofi_init(SOFI_EXTERNAL=None, botObj=None, loop=None):
+def sofi_run(orderObj: stockOrder, command=None, botObj=None, loop=None, SOFI_EXTERNAL=None):
     logger.info("Initializing SoFi process...")
     load_dotenv()
     create_creds_folder()
     discord_loop = loop  # Keep the parameter as "loop" for consistency with other init functions
+    browser = None
 
     if not os.getenv("SOFI") and SOFI_EXTERNAL is None:
         logger.error("SoFi environment variable not found.")
@@ -105,51 +110,29 @@ def sofi_init(SOFI_EXTERNAL=None, botObj=None, loop=None):
     # Get headless flag
     headless = os.getenv("HEADLESS", "true").lower() == "true"
 
-    global browser
+    # Set the functions to be run
+    _, second_command = command
+
     try:
-        # Get or create the event loop
-        try:
-            sofi_loop = asyncio.get_event_loop()
-        except RuntimeError:
-            sofi_loop = asyncio.new_event_loop()
-
-        # Start the browser once and use it for all accounts
-        browser_args = [
-            '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36'
-        ]
-        if headless:
-            browser_args.append("--headless=new")
-        browser = sofi_loop.run_until_complete(uc.start(browser_args=browser_args))
-
         for account in accounts:
             index = accounts.index(account) + 1
             name = f"SoFi {index}"
-            account = account.split(":")
-            cookie_filename = f"{COOKIES_PATH}/sofi_{index}.pkl"  # Save in creds folder with .pkl extension
-
-            # Load cookies
-            page = sofi_loop.run_until_complete(browser.get('https://www.sofi.com'))
-            cookies_loaded = sofi_loop.run_until_complete(load_cookies_from_pkl(browser, page, cookie_filename))
-            
-            if cookies_loaded:
-                logger.info(f"Cookies loaded for {name}, checking if login is valid...")
-                sofi_loop.run_until_complete(page.get('https://www.sofi.com/wealth/app/overview'))
-                current_url = sofi_loop.run_until_complete(get_current_url(page))
-
-                if current_url and "overview" in current_url:
-                    logger.info(f"Successfully bypassed login for {name} using cookies.")
-                    sofi_loop.run_until_complete(save_cookies_to_pkl(browser, cookie_filename))
-                    sofi_loop.run_until_complete(fetch_account_info_and_holdings(browser, name, sofi_obj,
-                                                                                 discord_loop))
-                    continue  # Skip to the next account if successfully logged in
-
-            # Proceed with login if cookies are invalid or expired
-            sofi_loop.run_until_complete(sofi_login_and_account(browser, account, name, botObj, sofi_obj, discord_loop))
-            sofi_loop.run_until_complete(save_cookies_to_pkl(browser, cookie_filename))
-        logger.info("Finished processing all accounts. Printing holdings...")
-        printHoldings(sofi_obj, discord_loop)
+            # Start the browser once and use it for all accounts
+            browser_args = [
+                '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36'
+            ]
+            if headless:
+                browser_args.append("--headless=new")
+            browser = sofi_loop.run_until_complete(uc.start(browser_args=browser_args))
+            sofi_init(account, name, botObj, browser, discord_loop, sofi_obj)
+            if second_command == "_holdings":
+                sofi_holdings(browser, name, sofi_obj, discord_loop)
+            # Only other option is _transaction
+            else:
+                sofi_transaction(browser, orderObj, discord_loop)
     except Exception as e:
-        logger.error(f"Error during SoFi process: {e}")
+        logger.error(f"Error during SoFi init process: {e}")
+        return None
     finally:
         if browser:
             try:
@@ -157,11 +140,41 @@ def sofi_init(SOFI_EXTERNAL=None, botObj=None, loop=None):
                 browser.stop()
             except Exception as e:
                 logger.error(f"Error closing the browser: {e}")
+    return None
 
+
+def sofi_init(account, name, botObj, browser, discord_loop, sofi_obj):
+    try:
+        account = account.split(":")
+        cookie_filename = f"{COOKIES_PATH}/{name}.pkl"  # Save in creds folder with .pkl extension
+
+        # Load cookies
+        page = sofi_loop.run_until_complete(browser.get('https://www.sofi.com'))
+        cookies_loaded = sofi_loop.run_until_complete(load_cookies_from_pkl(browser, page, cookie_filename))
+
+        if cookies_loaded:
+            logger.info(f"Cookies loaded for {name}, checking if login is valid...")
+            sofi_loop.run_until_complete(page.get('https://www.sofi.com/wealth/app/overview'))
+            current_url = sofi_loop.run_until_complete(get_current_url(page))
+
+            if current_url and "overview" in current_url:
+                logger.info(f"Successfully bypassed login for {name} using cookies.")
+                sofi_loop.run_until_complete(save_cookies_to_pkl(browser, cookie_filename))
+                sofi_loop.run_until_complete(fetch_account_info_and_holdings(browser, name, discord_loop))
+                return sofi_obj
+
+        # Proceed with login if cookies are invalid or expired
+        sofi_loop.run_until_complete(sofi_login_and_account(browser, page, account, name, botObj, discord_loop))
+        sofi_loop.run_until_complete(save_cookies_to_pkl(browser, cookie_filename))
+        sofi_loop.run_until_complete(sofi_holdings(browser, name, sofi_obj, discord_loop))
+        sofi_obj.set_logged_in_object(name, browser)
+    except Exception as e:
+        logger.error(f"Error during SoFi init process: {e}")
+        return None
     return sofi_obj
 
 
-async def fetch_account_info_and_holdings(browser, name, sofi_obj, discord_loop):
+async def fetch_account_info_and_holdings(browser, name, discord_loop):
     """Fetch account info and holdings without logging in."""
     logger.info(f"Fetching account info for {name}...")
     account_dict = await sofi_account_info(browser, discord_loop)
@@ -169,33 +182,8 @@ async def fetch_account_info_and_holdings(browser, name, sofi_obj, discord_loop)
     if not account_dict:
         raise Exception(f"Failed to retrieve account info for {name}")
 
-    logger.info(f"Processing holdings for {name}...")
-    for acct, account_info in account_dict.items():
-        real_account_number = acct
-        sofi_obj.set_account_number(name, real_account_number)
-        sofi_obj.set_account_totals(name, real_account_number, account_info["balance"])
 
-        account_id = account_info.get('id')
-        cookies = {cookie.name: cookie.value for cookie in await browser.cookies.get_all()}
-
-        holdings = await sofi_holdings(account_id, cookies)
-
-        for holding in holdings:
-            company_name = holding.get('company_name', 'N/A')
-            if company_name == '|CASH|':
-                continue
-
-            shares = holding.get('shares', 'N/A')
-            price = holding.get('price', 'N/A')
-            sofi_obj.set_holdings(name, real_account_number, company_name, shares, price)
-
-        logger.info(f"Completed processing holdings for account {real_account_number}")
-
-    # Log info after holdings are processed
-    logger.info(f"All holdings processed for {name}.")
-
-
-async def sofi_login_and_account(browser, account, name, botObj, sofi_obj, discord_loop):
+async def sofi_login_and_account(browser, page, account, name, botObj, discord_loop):
     try:
         logger.info(f"Navigating to SoFi login page for {name}...")
         page = await browser.get('https://www.sofi.com')
@@ -204,7 +192,6 @@ async def sofi_login_and_account(browser, account, name, botObj, sofi_obj, disco
 
         await page.get('https://www.sofi.com/wealth/app')
         logger.info(f"Entering username for {name}...")
-
         username_input = await page.select("input[id=username]")
         if not username_input:
             raise Exception(f"Unable to locate the username input field for {name}")
@@ -222,44 +209,13 @@ async def sofi_login_and_account(browser, account, name, botObj, sofi_obj, disco
             raise Exception(f"Unable to locate the login button for {name}")
         await login_button.click()
 
-        sleep(5)
+        sleep(3)
         current_url = await get_current_url(page)
         if current_url and "overview" in current_url:
             logger.info(f"Successfully logged in without needing 2FA for {name}.")
         else:
             logger.info(f"2FA required for {name}, starting 2FA handling...")
             await handle_2fa(page, account, name, botObj, discord_loop)
-
-        logger.info(f"Fetching account info for {name}...")
-        account_dict = await sofi_account_info(browser, discord_loop)
-
-        if not account_dict:
-            raise Exception(f"Failed to retrieve account info for {name}")
-
-        logger.info(f"Processing holdings for {name}...")
-        for acct, account_info in account_dict.items():
-            real_account_number = acct
-            sofi_obj.set_account_number(name, real_account_number)
-            sofi_obj.set_account_totals(name, real_account_number, account_info["balance"])
-
-            account_id = account_info.get('id')
-            cookies = {cookie.name: cookie.value for cookie in await browser.cookies.get_all()}
-
-            holdings = await sofi_holdings(account_id, cookies)
-
-            for holding in holdings:
-                company_name = holding.get('company_name', 'N/A')
-                if company_name == '|CASH|':
-                    continue
-
-                shares = holding.get('shares', 'N/A')
-                price = holding.get('price', 'N/A')
-                sofi_obj.set_holdings(name, real_account_number, company_name, shares, price)
-
-            logger.info(f"Completed processing holdings for account {real_account_number}")
-
-        sofi_obj.set_logged_in_object(name, browser)
-
     except Exception as e:
         logger.error(f"Error logging into account {name}: {e}")
         await sofi_error(page, discord_loop)
@@ -320,7 +276,39 @@ async def sofi_account_info(browser, discord_loop) -> dict:
         raise
 
 
-async def sofi_holdings(account_id, cookies):
+def sofi_holdings(browser, name, sofi_obj, discord_loop):
+    logger.info(f"Processing holdings for {name}...")
+    account_dict = sofi_loop.run_until_complete(sofi_account_info(browser, discord_loop))
+    if not account_dict:
+        raise Exception(f"Failed to retrieve account info for {name}")
+
+    for acct, account_info in account_dict.items():
+        real_account_number = acct
+        sofi_obj.set_account_number(name, real_account_number)
+        sofi_obj.set_account_totals(name, real_account_number, account_info["balance"])
+
+        account_id = account_info.get('id')
+        cookies = {cookie.name: cookie.value for cookie in sofi_loop.run_until_complete(browser.cookies.get_all())}
+
+        holdings = sofi_loop.run_until_complete(get_holdings_formatted(account_id, cookies))
+
+        for holding in holdings:
+            company_name = holding.get('company_name', 'N/A')
+            if company_name == '|CASH|':
+                continue
+
+            shares = holding.get('shares', 'N/A')
+            price = holding.get('price', 'N/A')
+            sofi_obj.set_holdings(name, real_account_number, company_name, shares, price)
+
+        logger.info(f"Completed processing holdings for account {real_account_number}")
+
+    # Log info after holdings are processed
+    logger.info(f"All holdings processed for {name}.")
+    printHoldings(sofi_obj, discord_loop)
+
+
+async def get_holdings_formatted(account_id, cookies):
     try:
         headers = {
         'accept': 'application/json',
@@ -358,7 +346,7 @@ async def sofi_holdings(account_id, cookies):
 
     except Exception as e:
         logger.error(f"Error fetching holdings for SOFI account {account_id}: {e}")
-        return []
+        raise e
 
 
 def get_2fa_code(secret):
@@ -394,7 +382,10 @@ async def handle_2fa(page, account, name, botObj, discord_loop):
 
             if botObj is not None and discord_loop is not None:
                 # Directly await the OTP code from Discord without specifying the loop
-                sms_code = await getOTPCodeDiscord(botObj, name, loop=discord_loop)
+                sms_code = asyncio.run_coroutine_threadsafe(
+                    getOTPCodeDiscord(botObj, name, loop=discord_loop),
+                    discord_loop,
+                ).result()
                 if sms_code is None:
                     raise Exception(f"Sofi {name} SMS code not received in time...")
             else:
@@ -434,8 +425,15 @@ async def handle_2fa(page, account, name, botObj, discord_loop):
         raise
 
 
-async def sofi_buy(symbol, quantity, botObj, sofi_obj, discord_loop):
-    global browser  # Use the global browser instance
+def sofi_transaction(browser, orderObj: stockOrder, discord_loop):
+    for stock in orderObj.get_stocks():
+        if orderObj.get_action() == "buy":
+            sofi_loop.run_until_complete(sofi_buy(browser, stock, orderObj.get_amount(), discord_loop))
+        else:  # TODO: Sell
+            pass
+
+
+async def sofi_buy(browser, symbol, quantity, discord_loop):
     try:
         # Step 1: Navigate to stock page and get valid cookies
         stock_url = f'https://www.sofi.com/wealth/app/stock/{symbol}'
