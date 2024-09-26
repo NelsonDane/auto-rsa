@@ -120,6 +120,7 @@ def login(ds: DSPACAPI, botObj, name, loop, use_email):
 
 def handle_captcha_and_sms(ds: DSPACAPI, botObj, data, loop, name, use_email):
     try:
+        # If CAPTCHA is needed it will generate an SMS code as well
         if data.get("needCaptchaCode", False):
             print(f"{name}: CAPTCHA required. Requesting CAPTCHA image...")
             sms_response = solve_captcha(ds, botObj, name, loop, use_email)
@@ -127,7 +128,7 @@ def handle_captcha_and_sms(ds: DSPACAPI, botObj, data, loop, name, use_email):
                 raise Exception("Failure solving CAPTCHA!")
             print(f"{name}: CAPTCHA solved. SMS response is: {sms_response}")
         else:
-            print(f"{name}: Requesting SMS code...")
+            print(f"{name}: Requesting code...")
             sms_response = send_sms_code(ds, name, use_email)
             if not sms_response:
                 raise Exception("Unable to retrieve sms code!")
@@ -177,7 +178,7 @@ def solve_captcha(ds: DSPACAPI, botObj, name, loop, use_email):
             raise Exception("Incorrect CAPTCHA code!")
         return sms_request_response
     except Exception as e:
-        print(f"{name}: Error during CAPTCHA code step: {e}")
+        print(f"{name}: Error solving CAPTCHA code: {e}")
         print(traceback.format_exc())
         return None
 
