@@ -166,11 +166,8 @@ class FidelityAutomation:
 
                 return (True, False)
 
-            if 'summary' not in self.page.url:
-                raise Exception("Cannot get to login page. Maybe other 2FA method present")
-
-            # Some other case that isn't a log in. This shouldn't be reached under normal circumstances
-            return (False, False)
+            # Can't get to summary and we aren't on the login page, idk what's going on
+            raise Exception("Cannot get to login page. Maybe other 2FA method present")
 
         except PlaywrightTimeoutError:
             print("Timeout waiting for login page to load or navigate.")
