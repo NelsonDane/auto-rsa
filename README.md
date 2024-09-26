@@ -199,7 +199,7 @@ Made by [ImNotOssy](https://github.com/ImNotOssy) using the [BBAE_investing_API]
 `.env` file format:
 - `BBAE=BBAE_USERNAME:BBAE_PASSWORD`
 
-Note: `BBAE_USERNAME` can either be email or phone number.
+Note: `BBAE_USERNAME` can either be email or phone number. Security code goes to your user name.
 
 #### Chase
 Made by [MaxxRK](https://github.com/MaxxRK/) using the [chaseinvest-api](https://github.com/MaxxRK/chaseinvest-api). Go give them a ⭐
@@ -220,7 +220,7 @@ Made by [ImNotOssy](https://github.com/ImNotOssy) using the [dSPAC_investing_api
 `.env` file format:
 - `DSPAC=DSPAC_USERNAME:DSPAC_PASSWORD`
 
-Note: `DSPAC_USERNAME` can either be email or phone number.
+Note: `DSPAC_USERNAME` can either be email or phone number.  Security code goes to your user name.
 
 ### Fennel
 Made by yours truly using the [fennel-invest-api](https://github.com/NelsonDane/fennel-invest-api). Consider giving me a ⭐
