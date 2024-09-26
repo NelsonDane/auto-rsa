@@ -469,11 +469,11 @@ class FidelityAutomation:
                     return (True, None)
                 except PlaywrightTimeoutError:
                     # Order didn't go through for some reason, go to the next and say error
-                    return (False, f'Order failed to complete')
+                    return (False, 'Order failed to complete')
             # If its a dry run, report back success
             return (True, None)
         except PlaywrightTimeoutError:
-            return (False, f'Driver timed out. Order not complete')
+            return (False, 'Driver timed out. Order not complete')
         except Exception as e:
             return (False, e)
 
@@ -547,9 +547,7 @@ def fidelity_init(account: str, name: str, headless=True, botObj=None, loop=None
         # Split the login into into separate items
         account = account.split(":")
         # Create a Fidelity browser object
-        fidelity_browser = FidelityAutomation(headless=headless,
-                                                  title=name,
-                                                  profile_path="./creds")
+        fidelity_browser = FidelityAutomation(headless=headless, title=name, profile_path="./creds")
 
         # Log into fidelity
         step_1, step_2 = fidelity_browser.login(account[0], account[1], account[2] if len(account) > 2 else None)
@@ -567,13 +565,13 @@ def fidelity_init(account: str, name: str, headless=True, botObj=None, loop=None
                 fidelity_browser.login_2FA(sms_code)
         elif not step_1:
             raise Exception(f"{name}: Login Failed. Got Error Page: Current URL: {fidelity_browser.page.url}")
-        
+
         # By this point, we should be logged in so save the driver
         fidelity_obj.set_logged_in_object(name, fidelity_browser)
 
         # Getting account numbers, names, and balances
         account_dict = fidelity_browser.getAccountInfo()
-        
+
         if account_dict is None:
             raise Exception(f'{name}: Error getting account info')
         # Set info into fidelity brokerage object
@@ -583,7 +581,7 @@ def fidelity_init(account: str, name: str, headless=True, botObj=None, loop=None
             fidelity_obj.set_account_totals(name, acct, account_dict[acct]["balance"])
         print(f"Logged in to {name}!")
         return fidelity_obj
-    
+
     except Exception as e:
         print(f"Error logging in to Fidelity: {e}")
         print(traceback.format_exc())
@@ -635,7 +633,7 @@ def fidelity_transaction(fidelity_o: Brokerage, name: str, orderObj: stockOrder,
         name: str: The name of this brokerage object (ex: Fidelity 1)
         orderObj: stockOrder: The stock object used for storing stocks to buy or sell
         loop: AbstractEventLoop: The event loop to be used
-    
+
     Returns:
         None
     '''
