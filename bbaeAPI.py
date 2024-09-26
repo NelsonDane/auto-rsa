@@ -108,7 +108,8 @@ def login(bb: BBAEAPI, botObj, name, loop, use_email):
             raise Exception(
                 f"Login failed. No ticket generated. Response: {ticket_response}"
             )
-        login_response = bb.login_with_ticket(ticket)
+        # Login with the ticket
+        login_response = ds.login_with_ticket(ticket)
         if login_response.get("Outcome") != "Success":
             raise Exception(f"Login failed. Response: {login_response}")
         return True
@@ -127,7 +128,7 @@ def handle_captcha_and_sms(bb: BBAEAPI, botObj, data, loop, name, use_email):
             if not sms_response:
                 raise Exception("Failure solving CAPTCHA!")
         else:
-            print(f"{name}: Requesting SMS code...")
+            print(f"{name}: Requesting code...")
             sms_response = send_sms_code(bb, name, use_email)
             if not sms_response:
                 raise Exception("Unable to retrieve sms code!")
@@ -144,6 +145,7 @@ def solve_captcha(bb: BBAEAPI, botObj, name, loop, use_email):
         if not captcha_image:
             raise Exception("Unable to request CAPTCHA image, aborting...")
         # Send the CAPTCHA image to Discord for manual input
+        print("Sending CAPTCHA to Discord for user input...")
         file = BytesIO()
         captcha_image.save(file, format="PNG")
         file.seek(0)
