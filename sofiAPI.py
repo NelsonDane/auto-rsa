@@ -476,11 +476,11 @@ async def sofi_buy(browser, symbol, quantity, discord_loop, dry_mode=False):
                         logger.info(f"Placing buy order for {quantity} shares in account {account_id}")
                         await place_order(symbol, quantity, limit_price, account_id, order_type='BUY', cookies=cookies, csrf_token=csrf_token)
             else:
-                logger.info(f"Insufficient buying power in {account_name}. Needed: {total_price}, Available: {buying_power}")
+                printAndDiscord(f"Insufficient buying power in {account_name}. Needed: {total_price}, Available: {buying_power}", discord_loop)
 
     except Exception as e:
         logger.error(f"Error during buy transaction for {symbol}: {e}")
-        await printAndDiscord(f"Error during buy transaction for {symbol}: {e}", discord_loop)
+        printAndDiscord(f"Error during buy transaction for {symbol}: {e}", discord_loop)
         raise
 
 
@@ -540,7 +540,7 @@ async def sofi_sell(browser, symbol, quantity, discord_loop, dry_mode=False):
             if dry_mode:
                 # Dry mode: Log what would have been done
                 logger.info(f"[DRY MODE] Would place sell order for {quantity} shares of {symbol} in account {account_id}")
-                await printAndDiscord(f"[DRY MODE] Would place sell order for {quantity} shares of {symbol} in account {account_id}", discord_loop)
+                printAndDiscord(f"[DRY MODE] Would place sell order for {quantity} shares of {symbol} in account {account_id}", discord_loop)
             else:
                 if quantity < 1:
                     logger.info(f"Fractional shares detected, placing fractional sell order for {quantity} shares in {account_name}.")
@@ -560,7 +560,7 @@ async def sofi_sell(browser, symbol, quantity, discord_loop, dry_mode=False):
 
     except Exception as e:
         logger.error(f"Error during sell transaction for {symbol}: {e}")
-        await printAndDiscord(f"Error during sell transaction for {symbol}: {e}", discord_loop)
+        printAndDiscord(f"Error during sell transaction for {symbol}: {e}", discord_loop)
         raise
 
 
