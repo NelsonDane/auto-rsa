@@ -24,6 +24,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 COOKIES_PATH = "creds"
+browser = None
 
 
 def create_creds_folder():
@@ -74,8 +75,6 @@ async def sofi_error(page, discord_loop=None):
 async def get_current_url(page):
     """Get the current page URL by evaluating JavaScript."""
     try:
-        # Wait for the page to fully load
-        await page.reload()  # This ensures the page has fully loaded
         # Run JavaScript to get the current URL
         current_url = await page.evaluate("window.location.href")
         return current_url
@@ -106,7 +105,7 @@ def sofi_init(SOFI_EXTERNAL=None, botObj=None, loop=None):
     # Get headless flag
     headless = os.getenv("HEADLESS", "true").lower() == "true"
 
-    browser = None
+    global browser
     try:
         # Get or create the event loop
         try:
@@ -203,7 +202,7 @@ async def sofi_login_and_account(browser, account, name, botObj, sofi_obj, disco
         if not page:
             raise Exception(f"Failed to load SoFi login page for {name}")
 
-        await page.get('https://www.sofi.com/login')
+        await page.get('https://www.sofi.com/wealth/app')
         logger.info(f"Entering username for {name}...")
 
         username_input = await page.select("input[id=username]")
@@ -223,7 +222,13 @@ async def sofi_login_and_account(browser, account, name, botObj, sofi_obj, disco
             raise Exception(f"Unable to locate the login button for {name}")
         await login_button.click()
 
-        await handle_2fa(page, account, name, botObj, discord_loop)
+        sleep(5)
+        current_url = await get_current_url(page)
+        if current_url and "overview" in current_url:
+            logger.info(f"Successfully logged in without needing 2FA for {name}.")
+        else:
+            logger.info(f"2FA required for {name}, starting 2FA handling...")
+            await handle_2fa(page, account, name, botObj, discord_loop)
 
         logger.info(f"Fetching account info for {name}...")
         account_dict = await sofi_account_info(browser, discord_loop)
@@ -427,6 +432,147 @@ async def handle_2fa(page, account, name, botObj, discord_loop):
         logger.error(f"Error during 2FA handling for {name}: {e}")
         printAndDiscord(f"Error during 2FA handling for {name}", discord_loop)
         raise
+
+
+async def sofi_buy(symbol, quantity, botObj, sofi_obj, discord_loop):
+    global browser  # Use the global browser instance
+    try:
+        # Step 1: Navigate to stock page and get valid cookies
+        stock_url = f'https://www.sofi.com/wealth/app/stock/{symbol}'
+        await browser.get(stock_url)
+
+        cookies = {cookie.name: cookie.value for cookie in await browser.cookies.get_all()}
+        if not cookies:
+            raise Exception("Failed to retrieve valid cookies for the session.")
+
+        # Step 2: Get the stock price
+        stock_price = await fetch_stock_price(symbol)
+        if stock_price is None:
+            raise Exception(f"Failed to retrieve stock price for {symbol}")
+
+        logger.info(f"Stock price for {symbol}: {stock_price}")
+
+        # Step 3: Fetch all funded accounts and their buying power
+        accounts = await fetch_funded_accounts(cookies)
+        if not accounts:
+            raise Exception("Failed to retrieve funded accounts or none available.")
+        
+        # Step 4: Loop through all accounts to check buying power and place the order
+        for account in accounts:
+            account_id = account['accountId']
+            buying_power = account['accountBuyingPower']
+            account_name = account.get('accountNickname', account['accountType'])
+
+            # Check if the account has enough buying power
+            total_price = stock_price * quantity
+            if total_price <= buying_power:
+                # Step 5: Determine order type (market or limit)
+                if stock_price < 1.0:
+                    logger.info(f"Placing limit order for {symbol} in account {account_name}")
+                    await place_order(symbol, quantity, stock_price, account_id, order_type='LIMIT', cookies=cookies)
+                else:
+                    logger.info(f"Placing market order for {symbol} in account {account_name}")
+                    await place_order(symbol, quantity, None, account_id, order_type='MARKET', cookies=cookies)
+            else:
+                logger.info(f"Insufficient buying power in {account_name}. Needed: {total_price}, Available: {buying_power}")
+
+    except Exception as e:
+        logger.error(f"Error during buy transaction for {symbol}: {e}")
+        await printAndDiscord(f"Error during buy transaction for {symbol}: {e}", discord_loop)
+        raise
+
+
+async def fetch_funded_accounts(cookies):
+    try:
+        headers = {
+            'accept': 'application/json',
+            'content-type': 'application/json',
+            'x-requested-with': 'XMLHttpRequest',
+            'user-agent': 'Mozilla/5.0'
+        }
+        url = 'https://www.sofi.com/wealth/backend/api/v1/user/funded-brokerage-accounts'
+        response = requests.get(url, headers=headers, cookies=cookies)
+        if response.status_code == 200:
+            accounts = response.json()
+            return accounts
+        else:
+            logger.error(f"Failed to fetch funded accounts. Status code: {response.status_code}")
+            return None
+    except Exception as e:
+        logger.error(f"Error fetching funded accounts: {e}")
+        return None
+
+
+async def get_valid_cookies(sofi_obj):
+    try:
+        cookies = sofi_obj.get_cookies()  # Try to load existing cookies
+        if not cookies or 'SOFI_WEB_USER_ID' not in cookies:
+            logger.info("Cookies missing or invalid, re-authenticating...")
+            await sofi_obj.reauthenticate()  # Perform re-authentication
+            cookies = sofi_obj.get_cookies()
+        return cookies
+    except Exception as e:
+        logger.error(f"Error getting valid cookies: {e}")
+        return None
+
+
+async def fetch_stock_price(symbol):
+    try:
+        headers = {
+            'accept': 'application/json',
+            'x-requested-with': 'XMLHttpRequest',
+            'user-agent': 'Mozilla/5.0'
+        }
+        url = f'https://www.sofi.com/wealth/backend/api/v1/tearsheet/quote?symbol={symbol}&productSubtype=BROKERAGE'
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            data = response.json()
+            price = data.get("price")
+            return float(price) if price else None
+        else:
+            logger.error(f"Failed to fetch stock price for {symbol}. Status code: {response.status_code}")
+            return None
+    except Exception as e:
+        logger.error(f"Error fetching stock price for {symbol}: {e}")
+        return None
+
+
+async def place_order(symbol, quantity, limit_price, account_id, order_type):
+    try:
+        headers = {
+            'accept': 'application/json',
+            'content-type': 'application/json',
+            'x-requested-with': 'XMLHttpRequest',
+            'user-agent': 'Mozilla/5.0'
+        }
+
+        # Create the payload for the buy order
+        payload = {
+            "operation": "BUY",
+            "quantity": str(quantity),
+            "time": "DAY",
+            "type": order_type,
+            "symbol": symbol,
+            "accountId": account_id,
+            "tradingSession": "CORE_HOURS"
+        }
+
+        # If it's a limit order, we need to specify the limit price
+        if order_type == 'LIMIT':
+            payload["limitPrice"] = limit_price
+
+        url = 'https://www.sofi.com/wealth/backend/api/v1/trade/order' if order_type == 'LIMIT' else 'https://www.sofi.com/wealth/backend/api/v1/trade/open-order'
+        response = requests.post(url, json=payload, headers=headers)
+        
+        if response.status_code == 200:
+            logger.info(f"Order placed successfully for {symbol}.")
+            return response.json()
+        else:
+            logger.error(f"Failed to place order for {symbol}. Status code: {response.status_code}")
+            return None
+    except Exception as e:
+        logger.error(f"Error placing order for {symbol}: {e}")
+        return None
 
 
 if __name__ == '__main__':
