@@ -24,6 +24,10 @@ from helperAPI import (
 )
 
 class FidelityAutomation:
+    '''
+    A class to manage and control a playwright webdriver with Fidelity
+    '''
+
     def __init__(self, headless=True, title=None, profile_path='.') -> None:
         # Setup the webdriver
         self.headless: bool = headless
@@ -457,6 +461,7 @@ class FidelityAutomation:
                 not self.page.get_by_text(f"Symbol{stock.upper()}", exact=True).is_visible() or
                 not self.page.get_by_text(f"Action{action.lower().title()}").is_visible() or
                 not self.page.get_by_text(f"Quantity{quantity}").is_visible()):
+
                 return (False, 'Order preview is not what is expected')
 
             # If its a real run
