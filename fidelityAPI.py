@@ -23,6 +23,7 @@ from helperAPI import (
     stockOrder,
 )
 
+
 class FidelityAutomation:
     def __init__(self, headless=True, title=None, profile_path='.') -> None:
         # Setup the webdriver
@@ -93,7 +94,7 @@ class FidelityAutomation:
     def login(self, username: str, password: str, totp_secret: str=None) -> bool:
         '''
         Logs into fidelity using the supplied username and password.
-        
+
         Returns:
             True, True: If completely logged in, return (True, True)
             True, False: If 2FA is needed, this function will return (True, False) which signifies that the 
@@ -163,13 +164,9 @@ class FidelityAutomation:
                 self.page.get_by_placeholder("XXXXXX").click()
 
                 return (True, False)
-                
-            elif 'summary' not in self.page.url:
+
+            else:
                 raise Exception("Cannot get to login page. Maybe other 2FA method present")
-            
-            # Some other case that isn't a log in. This shouldn't be reached under normal circumstances
-            return (False, False)
-            
         except PlaywrightTimeoutError:
             print("Timeout waiting for login page to load or navigate.")
             return (False, False)
@@ -181,14 +178,14 @@ class FidelityAutomation:
     def login_2FA(self, code):
         '''
         Completes the 2FA portion of the login using a phone text code.
-        
+
         Returns:
             True: bool: If login succeeded, return true.
             False: bool: If login failed, return false.
         '''
         try:
             self.page.get_by_placeholder("XXXXXX").fill(code)
-                    
+ 
             # Prevent future OTP requirements
             self.page.locator("label").filter(has_text="Don't ask me again on this").check()
             assert self.page.locator("label").filter(has_text="Don't ask me again on this").is_checked()
@@ -196,7 +193,7 @@ class FidelityAutomation:
 
             self.page.wait_for_url('https://digital.fidelity.com/ftgw/digital/portfolio/summary', timeout=5000)
             return True
-        
+
         except PlaywrightTimeoutError:
             print("Timeout waiting for login page to load or navigate.")
             return False
@@ -204,7 +201,7 @@ class FidelityAutomation:
             print(f"An error occurred: {str(e)}")
             traceback.print_exc() 
             return False
-    
+
     def getAccountInfo(self):
         '''
         Gets account numbers, account names, and account totals by downloading the csv of positions from fidelity.
@@ -223,7 +220,7 @@ class FidelityAutomation:
         '''
         # Go to positions page
         self.page.goto('https://digital.fidelity.com/ftgw/digital/portfolio/positions')
-        
+
         # Download the positions as a csv
         with self.page.expect_download() as download_info:
             self.page.get_by_label("Download Positions").click()
@@ -241,7 +238,7 @@ class FidelityAutomation:
         intersection_set = set(reader.fieldnames).intersection(set(required_elements))
         if len(intersection_set) != len(required_elements):
             raise Exception('Not enough elements in fidelity positions csv')
-        
+
         self.account_dict = {}
         for row in reader:
                 # Last couple of rows have some disclaimers, filter those out
@@ -255,7 +252,7 @@ class FidelityAutomation:
                 quantity = row['Quantity']
                 # Get ticker
                 ticker = str(row['Symbol'])
-                
+
                 # Don't include this if present
                 if 'Pending' in ticker:
                     continue
@@ -270,7 +267,7 @@ class FidelityAutomation:
                 # If the quantity is missing, just use 1
                 if len(quantity) == 0:
                     quantity = 1
-                
+
                 # If the account number isn't populated yet, add it
                 if row['Account Number'] not in self.account_dict:
                     # Add retrieved info.
@@ -284,7 +281,7 @@ class FidelityAutomation:
                 else:
                     self.account_dict[row['Account Number']]['stocks'].append({'ticker': ticker, 'quantity': quantity, 'last_price': last_price, 'value': val})
                     self.account_dict[row['Account Number']]['balance'] += float(val)
-        
+
         # Close the file
         csv_file.close()
         os.remove(self.positions_csv)
@@ -324,7 +321,7 @@ class FidelityAutomation:
         Process an order (transaction) using the dedicated trading page.
         NOTE: If you use this function repeatedly but change the stock between ANY call, 
         RELOAD the page before calling this
-        
+
         For buying:
             If the price of the security is below $1, it will choose limit order and go off of the last price + a little
         For selling:
@@ -336,7 +333,7 @@ class FidelityAutomation:
             action: str: This must be 'buy' or 'sell'. It can be in any case state (i.e. 'bUY' is still valid)
             account: str: The account number to trade under.
             dry: bool: True for dry (test) run, False for real run.
-            
+
         Returns:
             (Success: bool, Error_message: str) If the order was successfully placed or tested (for dry runs) then True is
             returned and Error_message will be None. Otherwise, False will be returned and Error_message will not be None
@@ -348,7 +345,7 @@ class FidelityAutomation:
 
             # Click on the drop down
             self.page.query_selector("#dest-acct-dropdown").click()
-            
+
             if not self.page.get_by_role("option").filter(has_text=account.upper()).is_visible():
                 # Reload the page and hit the drop down again
                 # This is to prevent a rare case where the drop down is empty
@@ -406,7 +403,7 @@ class FidelityAutomation:
                 else:
                     difference_price = 0.01 if float(last_price) > 0.1 else 0.0001
                     wanted_price = round(float(last_price) - difference_price, precision)
-                
+
                 # Click on the limit default option when in extended hours
                 self.page.query_selector("#dest-dropdownlist-button-ordertype > span:nth-child(1)").click()
                 self.page.get_by_role("option", name="Limit", exact=True).click()
@@ -425,7 +422,7 @@ class FidelityAutomation:
             # If error occurred
             try:
                 self.page.get_by_role("button", name="Place order clicking this").wait_for(timeout=4000, state='visible')
-            except PlaywrightTimeoutError as e:
+            except PlaywrightTimeoutError:
                 # Error must be present (or really slow page for some reason)
                 # Try to report on error
                 error_message = ''
@@ -452,7 +449,7 @@ class FidelityAutomation:
                 else:
                     error_message = 'Could not retrieve error message from popup'
                 return (False, error_message)
-            
+
             # If no error occurred, continue with checking and buy/sell
             try:
                 assert self.page.locator("preview").filter(has_text=account.upper()).is_visible()
@@ -461,7 +458,7 @@ class FidelityAutomation:
                 assert self.page.get_by_text(f"Quantity{quantity}").is_visible()
             except AssertionError:
                 return (False, 'Order preview is not what is expected')
-            
+
             # If its a real run
             if not dry:
                 self.page.get_by_role("button", name="Place order clicking this").click()
@@ -472,11 +469,11 @@ class FidelityAutomation:
                     return (True, None)
                 except PlaywrightTimeoutError as e:
                     # Order didn't go through for some reason, go to the next and say error
-                    return (False, f'Order failed to complete')
+                    return (False, 'Order failed to complete')
             # If its a dry run, report back success
             return (True, None)
         except PlaywrightTimeoutError as e:
-            return (False, f'Driver timed out. Order not complete')
+            return (False, 'Driver timed out. Order not complete')
         except Exception as e:
             return (False, e)
 
@@ -550,9 +547,7 @@ def fidelity_init(account: str, name: str, headless=True, botObj=None, loop=None
         # Split the login into into separate items
         account = account.split(":")
         # Create a Fidelity browser object
-        fidelity_browser = FidelityAutomation(headless=headless,
-                                                  title=name,
-                                                  profile_path="./creds")
+        fidelity_browser = FidelityAutomation(headless=headless, title=name, profile_path="./creds")
 
         # Log into fidelity
         step_1, step_2 = fidelity_browser.login(account[0], account[1], account[2] if len(account) > 2 else None)
@@ -570,13 +565,13 @@ def fidelity_init(account: str, name: str, headless=True, botObj=None, loop=None
                 fidelity_browser.login_2FA(sms_code)
         elif not step_1:
             raise Exception(f"{name}: Login Failed. Got Error Page: Current URL: {fidelity_browser.page.url}")
-        
+
         # By this point, we should be logged in so save the driver
         fidelity_obj.set_logged_in_object(name, fidelity_browser)
 
         # Getting account numbers, names, and balances
         account_dict = fidelity_browser.getAccountInfo()
-        
+
         if account_dict is None:
             raise Exception(f'{name}: Error getting account info')
         # Set info into fidelity brokerage object
@@ -588,7 +583,7 @@ def fidelity_init(account: str, name: str, headless=True, botObj=None, loop=None
                 )
         print(f"Logged in to {name}!")
         return fidelity_obj
-    
+
     except Exception as e:
         print(f"Error logging in to Fidelity: {e}")
         print(traceback.format_exc())
@@ -609,7 +604,7 @@ def fidelity_holdings(fidelity_o: Brokerage, name: str, loop=None):
     Returns:
         None
     '''
-    
+
     # Get the browser back from the fidelity object
     fidelity_browser: FidelityAutomation = fidelity_o.get_logged_in_objects(name)
     account_dict = fidelity_browser.account_dict
@@ -640,7 +635,7 @@ def fidelity_transaction(fidelity_o: Brokerage, name: str, orderObj: stockOrder,
         name: str: The name of this brokerage object (ex: Fidelity 1)
         orderObj: stockOrder: The stock object used for storing stocks to buy or sell
         loop: AbstractEventLoop: The event loop to be used
-    
+
     Returns:
         None
     '''
@@ -670,6 +665,6 @@ def fidelity_transaction(fidelity_o: Brokerage, name: str, orderObj: stockOrder,
             # Print real run confirmation if real run
             elif success and not orderObj.get_dry():
                 printAndDiscord(f"{name} account xxxxx{account_number[-4:]}: {orderObj.get_action()} {orderObj.get_amount()} shares of {stock}", loop)
-    
+
     # Close browser
     fidelity_browser.close_browser()
