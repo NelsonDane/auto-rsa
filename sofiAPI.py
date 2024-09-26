@@ -38,17 +38,17 @@ def create_creds_folder():
         logger.info(f"Created '{COOKIES_PATH}' folder.")
 
 
-async def save_cookies_to_pkl(browser, filename):
+async def save_cookies_to_pkl(browser, cookie_filename):
     try:
-        await browser.cookies.save(filename)
+        await browser.cookies.save(cookie_filename)
         print("Cookies saved.")
     except Exception as e:
         print(f"Failed to save cookies: {e}")
 
 
-async def load_cookies_from_pkl(browser, page, filename):
+async def load_cookies_from_pkl(browser, page, cookie_filename):
     try:
-        await browser.cookies.load(filename)
+        await browser.cookies.load(cookie_filename)
         await page.reload()
         print("Cookies loaded.")
         return True
@@ -117,17 +117,16 @@ def sofi_run(orderObj: stockOrder, command=None, botObj=None, loop=None, SOFI_EX
         for account in accounts:
             index = accounts.index(account) + 1
             name = f"SoFi {index}"
-            # Start the browser once and use it for all accounts
+            cookie_filename = f"{COOKIES_PATH}/{name}.pkl"
             browser_args = [
                 '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36'
             ]
             if headless:
                 browser_args.append("--headless=new")
             browser = sofi_loop.run_until_complete(uc.start(browser_args=browser_args))
-            sofi_init(account, name, botObj, browser, discord_loop, sofi_obj)
+            sofi_init(account, name, cookie_filename, botObj, browser, discord_loop, sofi_obj)
             if second_command == "_holdings":
                 sofi_holdings(browser, name, sofi_obj, discord_loop)
-            # Only other option is _transaction
             else:
                 sofi_transaction(browser, orderObj, discord_loop)
     except Exception as e:
@@ -136,6 +135,8 @@ def sofi_run(orderObj: stockOrder, command=None, botObj=None, loop=None, SOFI_EX
     finally:
         if browser:
             try:
+                logger.info("Saving Cookies...")
+                sofi_loop.run_until_complete(save_cookies_to_pkl(browser, cookie_filename))
                 logger.info("Closing the browser...")
                 browser.stop()
             except Exception as e:
@@ -143,10 +144,9 @@ def sofi_run(orderObj: stockOrder, command=None, botObj=None, loop=None, SOFI_EX
     return None
 
 
-def sofi_init(account, name, botObj, browser, discord_loop, sofi_obj):
+def sofi_init(account, name, cookie_filename, botObj, browser, discord_loop, sofi_obj):
     try:
         account = account.split(":")
-        cookie_filename = f"{COOKIES_PATH}/{name}.pkl"  # Save in creds folder with .pkl extension
 
         # Load cookies
         page = sofi_loop.run_until_complete(browser.get('https://www.sofi.com'))
@@ -154,7 +154,8 @@ def sofi_init(account, name, botObj, browser, discord_loop, sofi_obj):
 
         if cookies_loaded:
             logger.info(f"Cookies loaded for {name}, checking if login is valid...")
-            sofi_loop.run_until_complete(page.get('https://www.sofi.com/wealth/app/overview'))
+            sofi_loop.run_until_complete(page.get('https://www.sofi.com/wealth/app/'))
+            sofi_loop.run_until_complete(page.select('body'))
             current_url = sofi_loop.run_until_complete(get_current_url(page))
 
             if current_url and "overview" in current_url:
@@ -165,8 +166,6 @@ def sofi_init(account, name, botObj, browser, discord_loop, sofi_obj):
 
         # Proceed with login if cookies are invalid or expired
         sofi_loop.run_until_complete(sofi_login_and_account(browser, page, account, name, botObj, discord_loop))
-        sofi_loop.run_until_complete(save_cookies_to_pkl(browser, cookie_filename))
-        sofi_loop.run_until_complete(sofi_holdings(browser, name, sofi_obj, discord_loop))
         sofi_obj.set_logged_in_object(name, browser)
     except Exception as e:
         logger.error(f"Error during SoFi init process: {e}")
@@ -209,7 +208,8 @@ async def sofi_login_and_account(browser, page, account, name, botObj, discord_l
             raise Exception(f"Unable to locate the login button for {name}")
         await login_button.click()
 
-        sleep(3)
+        await page.select('body')
+
         current_url = await get_current_url(page)
         if current_url and "overview" in current_url:
             logger.info(f"Successfully logged in without needing 2FA for {name}.")
@@ -362,10 +362,10 @@ async def handle_2fa(page, account, name, botObj, discord_loop):
         # Set a timeout duration for finding the SMS 2FA element
         sms_2fa_element = None
         try:
-            # Try to find the SMS text message element with a timeout
+            await page.select('body')
             sms_2fa_element = await asyncio.wait_for(
                 page.find("We've sent a text message to:", best_match=True),
-                timeout=5  # Adjust this timeout as needed
+                timeout=0 # Adjust this timeout as needed
             )
         except asyncio.TimeoutError:
             logger.info(f"SMS 2FA text not found for {name}, proceeding to check for authenticator app 2FA...")
@@ -437,40 +437,41 @@ async def sofi_buy(browser, symbol, quantity, discord_loop):
     try:
         # Step 1: Navigate to stock page and get valid cookies
         stock_url = f'https://www.sofi.com/wealth/app/stock/{symbol}'
-        await browser.get(stock_url)
+        page = await browser.get(stock_url)
+        await page.select('body')
 
         cookies = {cookie.name: cookie.value for cookie in await browser.cookies.get_all()}
         if not cookies:
             raise Exception("Failed to retrieve valid cookies for the session.")
 
-        # Step 2: Get the stock price
+        csrf_token = cookies.get('SOFI_CSRF_COOKIE') or cookies.get('SOFI_R_CSRF_TOKEN')
+        if not csrf_token:
+            raise Exception("Failed to retrieve CSRF token from cookies.")
+
         stock_price = await fetch_stock_price(symbol)
         if stock_price is None:
             raise Exception(f"Failed to retrieve stock price for {symbol}")
 
         logger.info(f"Stock price for {symbol}: {stock_price}")
 
-        # Step 3: Fetch all funded accounts and their buying power
         accounts = await fetch_funded_accounts(cookies)
         if not accounts:
             raise Exception("Failed to retrieve funded accounts or none available.")
         
-        # Step 4: Loop through all accounts to check buying power and place the order
         for account in accounts:
             account_id = account['accountId']
             buying_power = account['accountBuyingPower']
-            account_name = account.get('accountNickname', account['accountType'])
+            account_name = account.get('accountType')
 
-            # Check if the account has enough buying power
             total_price = stock_price * quantity
             if total_price <= buying_power:
-                # Step 5: Determine order type (market or limit)
+
                 if stock_price < 1.0:
                     logger.info(f"Placing limit order for {symbol} in account {account_name}")
-                    await place_order(symbol, quantity, stock_price, account_id, order_type='LIMIT', cookies=cookies)
+                    await place_order(symbol, quantity, stock_price, account_id, order_type='LIMIT', cookies=cookies, csrf_token=csrf_token)
                 else:
                     logger.info(f"Placing market order for {symbol} in account {account_name}")
-                    await place_order(symbol, quantity, None, account_id, order_type='MARKET', cookies=cookies)
+                    await place_order(symbol, quantity, None, account_id, order_type='MARKET', cookies=cookies, csrf_token=csrf_token)
             else:
                 logger.info(f"Insufficient buying power in {account_name}. Needed: {total_price}, Available: {buying_power}")
 
@@ -501,19 +502,6 @@ async def fetch_funded_accounts(cookies):
         return None
 
 
-async def get_valid_cookies(sofi_obj):
-    try:
-        cookies = sofi_obj.get_cookies()  # Try to load existing cookies
-        if not cookies or 'SOFI_WEB_USER_ID' not in cookies:
-            logger.info("Cookies missing or invalid, re-authenticating...")
-            await sofi_obj.reauthenticate()  # Perform re-authentication
-            cookies = sofi_obj.get_cookies()
-        return cookies
-    except Exception as e:
-        logger.error(f"Error getting valid cookies: {e}")
-        return None
-
-
 async def fetch_stock_price(symbol):
     try:
         headers = {
@@ -535,13 +523,19 @@ async def fetch_stock_price(symbol):
         return None
 
 
-async def place_order(symbol, quantity, limit_price, account_id, order_type):
+async def place_order(symbol, quantity, limit_price, account_id, order_type, cookies, csrf_token):
     try:
         headers = {
             'accept': 'application/json',
             'content-type': 'application/json',
             'x-requested-with': 'XMLHttpRequest',
-            'user-agent': 'Mozilla/5.0'
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
+            'csrf-token': csrf_token,
+            'origin': 'https://www.sofi.com',
+            'referer': 'https://www.sofi.com/',
+            'sec-fetch-site': 'same-origin',
+            'sec-fetch-mode': 'cors',
+            'sec-fetch-dest': 'empty'
         }
 
         # Create the payload for the buy order
@@ -560,13 +554,14 @@ async def place_order(symbol, quantity, limit_price, account_id, order_type):
             payload["limitPrice"] = limit_price
 
         url = 'https://www.sofi.com/wealth/backend/api/v1/trade/order' if order_type == 'LIMIT' else 'https://www.sofi.com/wealth/backend/api/v1/trade/open-order'
-        response = requests.post(url, json=payload, headers=headers)
+        response = requests.post(url, json=payload, headers=headers, cookies=cookies)
         
         if response.status_code == 200:
             logger.info(f"Order placed successfully for {symbol}.")
             return response.json()
         else:
             logger.error(f"Failed to place order for {symbol}. Status code: {response.status_code}")
+            logger.error(f"Response text: {response.text}")
             return None
     except Exception as e:
         logger.error(f"Error placing order for {symbol}: {e}")
