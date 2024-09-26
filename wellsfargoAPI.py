@@ -113,9 +113,13 @@ def wellsfargo_init(botObj, WELLSFARGO_EXTERNAL=None, DOCKER=False, loop=None):
                 ).click()
             except TimeoutException:
                 pass
-            
-            WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.LINK_TEXT, "Ad Choices")))
-            
+
+            WebDriverWait(driver, 20).until(
+                EC.presence_of_element_located(
+                    (By.LINK_TEXT, "Ad Choices")
+                )
+            )
+
             account_numbers = driver.execute_script(
                 """
                 return Array.from(document.querySelectorAll('li'))
