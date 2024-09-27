@@ -1,7 +1,7 @@
 *.csv
-.env
 did.bin
 .DS_Store
+.env
 *.json
 *.pkl
 *.png
@@ -10,5 +10,5 @@ src/
 test*
 *venv/
 .vscode/
-*.zip
 *workspace
+*.zip
