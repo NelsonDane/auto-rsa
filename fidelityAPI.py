@@ -107,7 +107,7 @@ class FidelityAutomation:
         '''
         try:
             # Go to the login page
-            self.page.goto("https://digital.fidelity.com/prgw/digital/login/full-page")
+            self.page.goto("https://digital.fidelity.com/prgw/digital/login/full-page", timeout=60000)
 
             # Login page
             self.page.get_by_label("Username", exact=True).click()
@@ -117,7 +117,7 @@ class FidelityAutomation:
             self.page.get_by_role("button", name="Log in").click()
             try:
                 # See if we got to the summary page
-                self.page.wait_for_url('https://digital.fidelity.com/ftgw/digital/portfolio/summary', timeout=5000)
+                self.page.wait_for_url('https://digital.fidelity.com/ftgw/digital/portfolio/summary', timeout=30000)
                 # Got to the summary page, return True
                 return (True, True)
             except PlaywrightTimeoutError:
@@ -563,7 +563,7 @@ def fidelity_init(account: str, name: str, headless=True, botObj=None, loop=None
             else:
                 # Should wait for 60 seconds before timeout
                 sms_code = asyncio.run_coroutine_threadsafe(
-                    getOTPCodeDiscord(botObj, name, code_len=8, loop=loop), loop
+                    getOTPCodeDiscord(botObj, name, code_len=6, loop=loop), loop
                 ).result()
                 if sms_code is None:
                     raise Exception(f"{name} No SMS code found", loop)
