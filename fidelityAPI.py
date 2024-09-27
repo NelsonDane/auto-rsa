@@ -23,6 +23,7 @@ from helperAPI import (
     stockOrder,
 )
 
+
 class FidelityAutomation:
     '''
     A class to manage and control a playwright webdriver with Fidelity
@@ -457,11 +458,12 @@ class FidelityAutomation:
                 return (False, error_message)
 
             # If no error occurred, continue with checking the order preview
-            if (not self.page.locator("preview").filter(has_text=account.upper()).is_visible() or
+            if (
+                not self.page.locator("preview").filter(has_text=account.upper()).is_visible() or
                 not self.page.get_by_text(f"Symbol{stock.upper()}", exact=True).is_visible() or
                 not self.page.get_by_text(f"Action{action.lower().title()}").is_visible() or
-                not self.page.get_by_text(f"Quantity{quantity}").is_visible()):
-
+                not self.page.get_by_text(f"Quantity{quantity}").is_visible()
+            ):
                 return (False, 'Order preview is not what is expected')
 
             # If its a real run
