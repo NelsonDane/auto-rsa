@@ -281,6 +281,19 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
         for account in range(accounts):
             WebDriverWait(driver, 20).until(check_if_page_loaded)
             try:
+                if order_failed and orderObj.get_dry():
+                    trade = WebDriverWait(driver, 20).until(
+                        EC.element_to_be_clickable((By.XPATH, "//*[@id='trademenu']/span[1]"))
+                    )
+                    trade.click()
+                    trade_stock = WebDriverWait(driver, 20).until(
+                        EC.element_to_be_clickable((By.XPATH, "//*[@id='linktradestocks']"))
+                    )
+                    trade_stock.click()
+                    dismiss_prompt = WebDriverWait(driver, 20).until(
+                        EC.element_to_be_clickable((By.ID, "btn-continue"))
+                    )
+                    dismiss_prompt.click()
                 # choose account
                 open_dropdown = WebDriverWait(driver, 20).until(
                     EC.element_to_be_clickable((By.XPATH, "//*[@id='dropdown2']"))
@@ -399,26 +412,32 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                 # preview
                 review.click()
                 try:
-                    # submit
-                    submit = WebDriverWait(driver, 10).until(
-                        EC.element_to_be_clickable((By.CSS_SELECTOR, ".btn-wfa-submit"))
-                    )
-                    driver.execute_script("arguments[0].scrollIntoView(true);", submit)
-                    sleep(2)
-                    submit.click()
-                    # Send confirmation
+                    if not orderObj.get_dry():
+                        # submit
+                        submit = WebDriverWait(driver, 10).until(
+                            EC.element_to_be_clickable((By.CSS_SELECTOR, ".btn-wfa-submit"))
+                        )
+                        driver.execute_script("arguments[0].scrollIntoView(true);", submit)
+                        sleep(2)
+                        submit.click()
+                        # Send confirmation
+                        printAndDiscord(
+                            f"{key} {WELLSFARGO_o.get_account_numbers(key)[account]}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}",
+                            loop,
+                        )
+                        # buy next
+                        buy_next = driver.find_element(By.CSS_SELECTOR, ".btn-wfa-primary")
+                        driver.execute_script(
+                            "arguments[0].scrollIntoView(true);", buy_next
+                        )
+                        sleep(2)
+                        buy_next.click()
+                        order_failed = False
                     printAndDiscord(
-                        f"{key} {WELLSFARGO_o.get_account_numbers(key)[account]}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}",
+                        f"DRY: {key} account xxxxx{WELLSFARGO_o.get_account_numbers(key)[account]}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}",
                         loop,
                     )
-                    # buy next
-                    buy_next = driver.find_element(By.CSS_SELECTOR, ".btn-wfa-primary")
-                    driver.execute_script(
-                        "arguments[0].scrollIntoView(true);", buy_next
-                    )
-                    sleep(2)
-                    buy_next.click()
-                    order_failed = False
+                    order_failed = True
                 except TimeoutException:
                     error_text = driver.find_element(
                         By.XPATH, "//div[@class='alert-msg-summary']//p[1]"
