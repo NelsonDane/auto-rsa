@@ -118,7 +118,7 @@ class FidelityAutomation:
             self.page.goto(
                 "https://digital.fidelity.com/prgw/digital/login/full-page",
                 timeout=60000,
-                )
+            )
 
             # Login page
             self.page.get_by_label("Username", exact=True).click()
@@ -131,7 +131,7 @@ class FidelityAutomation:
                 self.page.wait_for_url(
                     "https://digital.fidelity.com/ftgw/digital/portfolio/summary",
                     timeout=30000,
-                    )
+                )
                 # Got to the summary page, return True
                 return (True, True)
             except PlaywrightTimeoutError:
