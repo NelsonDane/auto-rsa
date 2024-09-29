@@ -41,6 +41,7 @@ try:
     from tradierAPI import *
     from vanguardAPI import *
     from webullAPI import *
+    from wellsfargoAPI import *
 except Exception as e:
     print(f"Error importing libraries: {e}")
     print(traceback.format_exc())
@@ -67,6 +68,7 @@ SUPPORTED_BROKERS = [
     "tradier",
     "vanguard",
     "webull",
+    "wellsfargo",
 ]
 DAY1_BROKERS = [
     "bbae",
@@ -103,6 +105,8 @@ def nicknames(broker):
         return "vanguard"
     if broker == "wb":
         return "webull"
+    if broker == "wf":
+        return "wellsfargo"
     return broker
 
 
@@ -118,8 +122,15 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
             try:
                 # Initialize broker
                 fun_name = broker + first_command
-
-                if broker.lower() == "tornado":
+                if broker.lower() == "wellsfargo":
+                    # Fidelity requires docker mode argument
+                    orderObj.set_logged_in(
+                        globals()[fun_name](
+                            DOCKER=DOCKER_MODE, botObj=botObj, loop=loop
+                        ),
+                        broker,
+                    )
+                elif broker.lower() == "tornado":
                     # Requires docker mode argument and loop
                     orderObj.set_logged_in(
                         globals()[fun_name](DOCKER=DOCKER_MODE, loop=loop),
