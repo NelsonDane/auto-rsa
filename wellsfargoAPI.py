@@ -7,12 +7,15 @@ from time import sleep
 
 from dotenv import load_dotenv
 from selenium import webdriver
-from selenium.common.exceptions import TimeoutException, NoSuchElementException, ElementNotInteractableException
+from selenium.common.exceptions import (
+    ElementNotInteractableException,
+    NoSuchElementException,
+    TimeoutException,
+)
 from selenium.webdriver import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
-
 
 from helperAPI import (
     Brokerage,
@@ -79,12 +82,14 @@ def wellsfargo_init(botObj, WELLSFARGO_EXTERNAL=None, DOCKER=False, loop=None):
             try:
                 auth_popup = WebDriverWait(driver, 10).until(
                     EC.presence_of_element_located(
-                        (By.CSS_SELECTOR, ".ResponsiveModalContent__modalContent___guT3p")
+                        (
+                            By.CSS_SELECTOR,
+                            ".ResponsiveModalContent__modalContent___guT3p",
+                        )
                     )
                 )
                 auth_list = auth_popup.find_element(
-                    By.CSS_SELECTOR,
-                    ".LineItemLinkList__lineItemLinkList___Dj6vb"
+                    By.CSS_SELECTOR, ".LineItemLinkList__lineItemLinkList___Dj6vb"
                 )
                 li_elements = auth_list.find_elements(By.TAG_NAME, "li")
                 for li in li_elements:
@@ -101,32 +106,32 @@ def wellsfargo_init(botObj, WELLSFARGO_EXTERNAL=None, DOCKER=False, loop=None):
                 else:
                     code = input("Enter security code: ")
                 code_input = WebDriverWait(driver, 20).until(
-                    EC.presence_of_element_located(
-                        (By.ID, "otp")
-                    )
+                    EC.presence_of_element_located((By.ID, "otp"))
                 )
                 code_input.send_keys(code)
                 WebDriverWait(driver, 10).until(
-                    EC.element_to_be_clickable(
-                        (By.XPATH, "//button[@type='submit']")
-                    )
+                    EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']"))
                 ).click()
             except TimeoutException:
                 pass
 
             WebDriverWait(driver, 20).until(
-                EC.presence_of_element_located(
-                    (By.LINK_TEXT, "Ad Choices")
-                )
+                EC.presence_of_element_located((By.LINK_TEXT, "Ad Choices"))
             )
 
             # TODO: This will not show accounts that do not have settled cash funds
-            account_blocks = driver.find_elements(By.CSS_SELECTOR, 'li[data-testid="WELLSTRADE"]')
+            account_blocks = driver.find_elements(
+                By.CSS_SELECTOR, 'li[data-testid="WELLSTRADE"]'
+            )
             for account_block in account_blocks:
-                masked_number_element = account_block.find_element(By.CSS_SELECTOR, '[data-testid="WELLSTRADE-masked-number"]')
+                masked_number_element = account_block.find_element(
+                    By.CSS_SELECTOR, '[data-testid="WELLSTRADE-masked-number"]'
+                )
                 masked_number_text = masked_number_element.text.replace(".", "*")
                 WELLSFARGO_obj.set_account_number(name, masked_number_text)
-                balance_element = account_block.find_element(By.CSS_SELECTOR, '[data-testid="WELLSTRADE-balance"]')
+                balance_element = account_block.find_element(
+                    By.CSS_SELECTOR, '[data-testid="WELLSTRADE-balance"]'
+                )
                 balance = float(balance_element.text.replace("$", ""))
                 WELLSFARGO_obj.set_account_totals(name, masked_number_text, balance)
         except Exception as e:
@@ -194,7 +199,9 @@ def wellsfargo_holdings(WELLSFARGO_o: Brokerage, loop=None):
                     }
                     return -1;
                 """
-                select_account = driver.execute_script(find_account, account_masks[account].replace("*", ""))
+                select_account = driver.execute_script(
+                    find_account, account_masks[account].replace("*", "")
+                )
                 if select_account == -1:
                     print("Could not find the account with the specified text")
                     continue
@@ -285,11 +292,15 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
             try:
                 if order_failed and orderObj.get_dry():
                     trade = WebDriverWait(driver, 20).until(
-                        EC.element_to_be_clickable((By.XPATH, "//*[@id='trademenu']/span[1]"))
+                        EC.element_to_be_clickable(
+                            (By.XPATH, "//*[@id='trademenu']/span[1]")
+                        )
                     )
                     trade.click()
                     trade_stock = WebDriverWait(driver, 20).until(
-                        EC.element_to_be_clickable((By.XPATH, "//*[@id='linktradestocks']"))
+                        EC.element_to_be_clickable(
+                            (By.XPATH, "//*[@id='linktradestocks']")
+                        )
                     )
                     trade_stock.click()
                     dismiss_prompt = WebDriverWait(driver, 20).until(
@@ -311,7 +322,9 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                     }
                     return -1;
                 """
-                select_account = driver.execute_script(find_account, account_masks[account].replace("*", ""))
+                select_account = driver.execute_script(
+                    find_account, account_masks[account].replace("*", "")
+                )
                 sleep(2)
                 # Check for clear ticket prompt and accept
                 try:
@@ -330,11 +343,15 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                 # If an order fails need to sort of reset the tradings screen. Refresh does not work
                 if order_failed:
                     trade = WebDriverWait(driver, 20).until(
-                        EC.element_to_be_clickable((By.XPATH, "//*[@id='trademenu']/span[1]"))
+                        EC.element_to_be_clickable(
+                            (By.XPATH, "//*[@id='trademenu']/span[1]")
+                        )
                     )
                     trade.click()
                     trade_stock = WebDriverWait(driver, 20).until(
-                        EC.element_to_be_clickable((By.XPATH, "//*[@id='linktradestocks']"))
+                        EC.element_to_be_clickable(
+                            (By.XPATH, "//*[@id='linktradestocks']")
+                        )
                     )
                     trade_stock.click()
                     dismiss_prompt = WebDriverWait(driver, 20).until(
@@ -416,9 +433,13 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                     if not orderObj.get_dry():
                         # submit
                         submit = WebDriverWait(driver, 10).until(
-                            EC.element_to_be_clickable((By.CSS_SELECTOR, ".btn-wfa-submit"))
+                            EC.element_to_be_clickable(
+                                (By.CSS_SELECTOR, ".btn-wfa-submit")
+                            )
                         )
-                        driver.execute_script("arguments[0].scrollIntoView(true);", submit)
+                        driver.execute_script(
+                            "arguments[0].scrollIntoView(true);", submit
+                        )
                         sleep(2)
                         submit.click()
                         # Send confirmation
@@ -427,7 +448,9 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                             loop,
                         )
                         # buy next
-                        buy_next = driver.find_element(By.CSS_SELECTOR, ".btn-wfa-primary")
+                        buy_next = driver.find_element(
+                            By.CSS_SELECTOR, ".btn-wfa-primary"
+                        )
                         driver.execute_script(
                             "arguments[0].scrollIntoView(true);", buy_next
                         )
@@ -455,9 +478,9 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                             (By.CSS_SELECTOR, "#actionbtnCancel")
                         )
                     )
-                    driver.execute_script("arguments[0].click();", cancel_button)  # Must be clicked with js since it's out of view
+                    driver.execute_script(
+                        "arguments[0].click();", cancel_button
+                    )  # Must be clicked with js since it's out of view
                     WebDriverWait(driver, 3).until(
-                        EC.element_to_be_clickable(
-                            (By.CSS_SELECTOR, "#btn-continue")
-                        )
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, "#btn-continue"))
                     ).click()
