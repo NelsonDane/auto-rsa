@@ -532,7 +532,7 @@ class FidelityAutomation:
                 ).click()
                 self.page.get_by_role("option", name="Limit", exact=True).click()
                 # Enter the limit price
-                self.page.get_by_text("Limit price").click()
+                self.page.get_by_text("Limit price", exact=True).click()
                 self.page.get_by_label("Limit price").fill(str(wanted_price))
             # Otherwise its market
             else:
@@ -661,7 +661,7 @@ def fidelity_run(
         fidelityobj = fidelity_init(
             account=account,
             name=name,
-            headless=headless,
+            headless=False,
             botObj=botObj,
             loop=loop,
         )
