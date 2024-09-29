@@ -120,19 +120,15 @@ def wellsfargo_init(botObj, WELLSFARGO_EXTERNAL=None, DOCKER=False, loop=None):
                 )
             )
 
-            account_numbers = driver.execute_script(
-                """
-                return Array.from(document.querySelectorAll('li'))
-                    .filter(li => li.outerText.includes('WELLSTRADE'))
-                    .map(li => li.outerText.match(/\\d{4}/)?.[0])
-                    .filter(num => num !== undefined);
-            """
-            )
-            for i, account_number in enumerate(account_numbers):
-                if i == 0:
-                    WELLSFARGO_obj.set_account_number(name, account_number)
-                elif i > 0 and account_numbers[i-1] != account_number:
-                    WELLSFARGO_obj.set_account_number(name, account_number)
+            # TODO: This will not show accounts that do not have settled cash funds
+            account_blocks = driver.find_elements(By.CSS_SELECTOR, 'li[data-testid="WELLSTRADE"]')
+            for account_block in account_blocks:
+                masked_number_element = account_block.find_element(By.CSS_SELECTOR, '[data-testid="WELLSTRADE-masked-number"]')
+                masked_number_text = masked_number_element.text.replace(".", "*")
+                WELLSFARGO_obj.set_account_number(name, masked_number_text)
+                balance_element = account_block.find_element(By.CSS_SELECTOR, '[data-testid="WELLSTRADE-balance"]')
+                balance = float(balance_element.text.replace("$", ""))
+                WELLSFARGO_obj.set_account_totals(name, masked_number_text, balance)
         except Exception as e:
             wellsfargo_error(driver, e)
             driver.close()
@@ -179,6 +175,8 @@ def wellsfargo_holdings(WELLSFARGO_o: Brokerage, loop=None):
 
         account_masks = WELLSFARGO_o.get_account_numbers(key)
         for account in range(accounts):
+            if account >= len(account_masks):
+                continue
             try:
                 # Choose account
                 open_dropdown = WebDriverWait(driver, 20).until(
@@ -196,7 +194,7 @@ def wellsfargo_holdings(WELLSFARGO_o: Brokerage, loop=None):
                     }
                     return -1;
                 """
-                select_account = driver.execute_script(find_account, account_masks[account])
+                select_account = driver.execute_script(find_account, account_masks[account].replace("*", ""))
                 if select_account == -1:
                     print("Could not find the account with the specified text")
                     continue
@@ -282,6 +280,8 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
         order_failed = False
         for account in range(accounts):
             WebDriverWait(driver, 20).until(check_if_page_loaded)
+            if account >= len(account_masks):
+                continue
             try:
                 if order_failed and orderObj.get_dry():
                     trade = WebDriverWait(driver, 20).until(
@@ -311,7 +311,7 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                     }
                     return -1;
                 """
-                select_account = driver.execute_script(find_account, account_masks[account])
+                select_account = driver.execute_script(find_account, account_masks[account].replace("*", ""))
                 sleep(2)
                 # Check for clear ticket prompt and accept
                 try:
@@ -325,7 +325,6 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                 traceback.print_exc()
                 print("Could not change account")
                 killSeleniumDriver(WELLSFARGO_o)
-            # TODO check for the error check
             for s in orderObj.get_stocks():
                 WebDriverWait(driver, 20).until(check_if_page_loaded)
                 # If an order fails need to sort of reset the tradings screen. Refresh does not work
@@ -363,12 +362,12 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                 )
                 driver.execute_script("arguments[0].scrollIntoView(true);", review)
                 sleep(2)
-                tickerBox = WebDriverWait(driver, 20).until(
+                ticker_box = WebDriverWait(driver, 20).until(
                     EC.element_to_be_clickable((By.ID, "Symbol"))
                 )
 
-                tickerBox.send_keys(s)
-                tickerBox.send_keys(Keys.ENTER)
+                ticker_box.send_keys(s)
+                ticker_box.send_keys(Keys.ENTER)
 
                 # quantity
                 driver.execute_script(
@@ -401,9 +400,9 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                 order = driver.find_element(By.LINK_TEXT, price_type)
                 order.click()
                 if price_type == "Limit":
-                    tickerBox = driver.find_element(By.ID, "Price")
-                    tickerBox.send_keys(price)
-                    tickerBox.send_keys(Keys.ENTER)
+                    ticker_box = driver.find_element(By.ID, "Price")
+                    ticker_box.send_keys(price)
+                    ticker_box.send_keys(Keys.ENTER)
 
                     # timing
                     driver.execute_script("document.getElementById('TIFBtn').click()")
@@ -412,7 +411,7 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                     day.click()
 
                 # preview
-                review.click()
+                driver.execute_script("arguments[0].click();", review)
                 try:
                     if not orderObj.get_dry():
                         # submit
@@ -437,7 +436,7 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                         order_failed = False
                     elif orderObj.get_dry():
                         printAndDiscord(
-                            f"DRY: {key} account xxxxx{WELLSFARGO_o.get_account_numbers(key)[account]}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}",
+                            f"DRY: {key} account {WELLSFARGO_o.get_account_numbers(key)[account]}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}",
                             loop,
                         )
                         order_failed = True
@@ -450,3 +449,15 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                         f"{key} {WELLSFARGO_o.get_account_numbers(key)[account]}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}. FAILED! \n{error_text}",
                         loop,
                     )
+                    # Cancel the trade
+                    cancel_button = WebDriverWait(driver, 3).until(
+                        EC.element_to_be_clickable(
+                            (By.CSS_SELECTOR, "#actionbtnCancel")
+                        )
+                    )
+                    driver.execute_script("arguments[0].click();", cancel_button)  # Must be clicked with js since it's out of view
+                    WebDriverWait(driver, 3).until(
+                        EC.element_to_be_clickable(
+                            (By.CSS_SELECTOR, "#btn-continue")
+                        )
+                    ).click()
