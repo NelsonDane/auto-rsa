@@ -128,9 +128,11 @@ def wellsfargo_init(botObj, WELLSFARGO_EXTERNAL=None, DOCKER=False, loop=None):
                     .filter(num => num !== undefined);
             """
             )
-            del account_numbers[0]
-            for account_number in account_numbers:
-                WELLSFARGO_obj.set_account_number(name, account_number)
+            for i, account_number in enumerate(account_numbers):
+                if i == 0:
+                    WELLSFARGO_obj.set_account_number(name, account_number)
+                elif i > 0 and account_numbers[i-1] != account_number:
+                    WELLSFARGO_obj.set_account_number(name, account_number)
         except Exception as e:
             wellsfargo_error(driver, e)
             driver.close()
