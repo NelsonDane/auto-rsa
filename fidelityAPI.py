@@ -118,7 +118,7 @@ class FidelityAutomation:
             self.page.goto(
                 "https://digital.fidelity.com/prgw/digital/login/full-page",
                 timeout=60000,
-                )
+            )
 
             # Login page
             self.page.get_by_label("Username", exact=True).click()
@@ -131,7 +131,7 @@ class FidelityAutomation:
                 self.page.wait_for_url(
                     "https://digital.fidelity.com/ftgw/digital/portfolio/summary",
                     timeout=30000,
-                    )
+                )
                 # Got to the summary page, return True
                 return (True, True)
             except PlaywrightTimeoutError:
@@ -532,7 +532,7 @@ class FidelityAutomation:
                 ).click()
                 self.page.get_by_role("option", name="Limit", exact=True).click()
                 # Enter the limit price
-                self.page.get_by_text("Limit price").click()
+                self.page.get_by_text("Limit price", exact=True).click()
                 self.page.get_by_label("Limit price").fill(str(wanted_price))
             # Otherwise its market
             else:
@@ -661,7 +661,7 @@ def fidelity_run(
         fidelityobj = fidelity_init(
             account=account,
             name=name,
-            headless=headless,
+            headless=False,
             botObj=botObj,
             loop=loop,
         )
