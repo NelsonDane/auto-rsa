@@ -120,20 +120,14 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
             try:
                 # Initialize broker
                 fun_name = broker + first_command
-                if broker.lower() in ["fidelity"]:
-                    # Fidelity requires docker mode argument, botObj, and loop
-                    orderObj.set_logged_in(
-                        globals()[fun_name](
-                            DOCKER=DOCKER_MODE, botObj=botObj, loop=loop
-                        ),
-                        broker,
-                    )
-                elif broker.lower() == "tornado":
+
+                if broker.lower() == "tornado":
                     # Requires docker mode argument and loop
                     orderObj.set_logged_in(
                         globals()[fun_name](DOCKER=DOCKER_MODE, loop=loop),
                         broker,
                     )
+
                 elif broker.lower() in [
                     "bbae",
                     "dspac",
@@ -145,7 +139,7 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                     orderObj.set_logged_in(
                         globals()[fun_name](botObj=botObj, loop=loop), broker
                     )
-                elif broker.lower() in ["chase", "sofi", "vanguard"]:
+                elif broker.lower() in ["chase", "fidelity", "sofi", "vanguard"]:
                     fun_name = broker + "_run"
                     # PLAYWRIGHT_BROKERS have to run all transactions with one function
                     th = ThreadHandler(
@@ -168,7 +162,7 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                     orderObj.set_logged_in(globals()[fun_name](), broker)
 
                 print()
-                if broker.lower() not in ["chase", "sofi", "vanguard"]:
+                if broker.lower() not in ["chase", "fidelity", "sofi", "vanguard"]:
                     # Verify broker is logged in
                     orderObj.order_validate(preLogin=False)
                     logged_in_broker = orderObj.get_logged_in(broker)
@@ -186,11 +180,16 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                             orderObj,
                             loop,
                         )
+                        printAndDiscord(
+                            f"All {broker.capitalize()} transactions complete",
+                            loop,
+                        )
             except Exception as ex:
                 print(traceback.format_exc())
                 print(f"Error in {fun_name} with {broker}: {ex}")
                 print(orderObj)
             print()
+        printAndDiscord("All commands complete in all brokers", loop)
     else:
         print(f"Error: {command} is not a valid command")
 
