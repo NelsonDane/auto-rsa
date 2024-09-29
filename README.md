@@ -377,9 +377,11 @@ Made by [PZES](https://github.com/PZES) using Selenium. Go give them a ⭐
 Required `.env` variables:
 - `WELLSFARGO_USERNAME`
 - `WELLSFARGO_PASSWORD`
+- `WELLSFARGO_PHONE_LAST_FOUR`
 
 `.env` file format:
-- `WELLSFARGO=WELLSFARGO_USERNAME:WELLSFARGO_PASSWORD`
+- `WELLSFARGO=WELLSFARGO_USERNAME:WELLSFARGO_PASSWORD:WELLSFARGO_PHONE_LAST_FOUR`
+
 
 ### Maybe future brokerages 🤷‍♀️
 #### SoFi
