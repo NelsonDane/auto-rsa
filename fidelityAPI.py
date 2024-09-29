@@ -661,7 +661,7 @@ def fidelity_run(
         fidelityobj = fidelity_init(
             account=account,
             name=name,
-            headless=False,
+            headless=headless,
             botObj=botObj,
             loop=loop,
         )
