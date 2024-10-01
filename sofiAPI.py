@@ -16,6 +16,7 @@ from helperAPI import (
     printHoldings,
     stockOrder,
     getOTPCodeDiscord,
+    maskString,
 )
 
 load_dotenv()
@@ -310,7 +311,7 @@ async def get_holdings_formatted(account_id, cookies):
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
         'x-requested-with': 'XMLHttpRequest'
         }
-        logger.info(f"Retrieving holdings for SOFI account {account_id}...")
+        logger.info(f"Retrieving holdings for SOFI account {maskString(account_id)}...")
 
         holdings_url = f"https://www.sofi.com/wealth/backend/api/v3/account/{account_id}/holdings?accountDataType=INTERNAL"
 
@@ -334,11 +335,11 @@ async def get_holdings_formatted(account_id, cookies):
                 'price': float(price) if price is not None else 'N/A',
             })
 
-        logger.info(f"Successfully retrieved and processed holdings for account {account_id}.")
+        logger.info(f"Successfully retrieved and processed holdings for account {maskString(account_id)}.")
         return formatted_holdings
 
     except Exception as e:
-        logger.error(f"Error fetching holdings for SOFI account {account_id}: {e}")
+        logger.error(f"Error fetching holdings for SOFI account {maskString(account_id)}: {e}")
         raise e
 
 
@@ -468,13 +469,17 @@ async def sofi_buy(browser, symbol, quantity, discord_loop, dry_mode=False):
                     # Dry mode: Log what would have been done
                     logger.info(f"[DRY MODE] Would place limit order for {symbol} in account {account_name} with limit price: {limit_price}")
                     printAndDiscord(f"[DRY MODE] Would place limit order for {symbol} in account {account_name} with limit price: {limit_price}", discord_loop)
+                    continue
                 else:
                     if quantity < 1:
                         logger.info(f"Fractional shares detected, placing fractional buy order for {quantity} shares.")
-                        await place_fractional_order(symbol, quantity, account_id, order_type='BUY', cookies=cookies, csrf_token=csrf_token)
+                        result = await place_fractional_order(symbol, quantity, account_id, order_type='BUY', cookies=cookies, csrf_token=csrf_token, loop=discord_loop)
                     else:
-                        logger.info(f"Placing buy order for {quantity} shares in account {account_id}")
-                        await place_order(symbol, quantity, limit_price, account_id, order_type='BUY', cookies=cookies, csrf_token=csrf_token)
+                        logger.info(f"Placing buy order for {quantity} shares in account {maskString(account_id)}")
+                        result = await place_order(symbol, quantity, limit_price, account_id, order_type='BUY', cookies=cookies, csrf_token=csrf_token, loop=discord_loop)
+                    # TODO: Actually parse this JSON for a successful message
+                    if result:
+                        printAndDiscord(f"Successfully bought {quantity} of {symbol} in account {maskString(account_id)}", discord_loop)
             else:
                 printAndDiscord(f"Insufficient buying power in {account_name}. Needed: {total_price}, Available: {buying_power}", discord_loop)
 
@@ -539,25 +544,20 @@ async def sofi_sell(browser, symbol, quantity, discord_loop, dry_mode=False):
 
             if dry_mode:
                 # Dry mode: Log what would have been done
-                logger.info(f"[DRY MODE] Would place sell order for {quantity} shares of {symbol} in account {account_id}")
-                printAndDiscord(f"[DRY MODE] Would place sell order for {quantity} shares of {symbol} in account {account_id}", discord_loop)
+                logger.info(f"[DRY MODE] Would place sell order for {quantity} shares of {symbol} in account {maskString(account_id)}")
+                printAndDiscord(f"[DRY MODE] Would place sell order for {quantity} shares of {symbol} in account {maskString(account_id)}", discord_loop)
+                continue
             else:
                 if quantity < 1:
                     logger.info(f"Fractional shares detected, placing fractional sell order for {quantity} shares in {account_name}.")
-                    await place_fractional_order(symbol, quantity, account_id, order_type='SELL', cookies=cookies, csrf_token=csrf_token)
+                    result = await place_fractional_order(symbol, quantity, account_id, order_type='SELL', cookies=cookies, csrf_token=csrf_token, loop=discord_loop)
                 else:
                     # Place the sell order
                     logger.info(f"Placing sell order for {quantity} shares in account {account_name}")
-                    await place_order(symbol, quantity, limit_price, account_id, order_type='SELL', cookies=cookies, csrf_token=csrf_token)
-                    
-                # Reduce the remaining quantity to sell
-                quantity -= available_shares
-
-            # If the quantity to sell is satisfied, break out of the loop
-            if quantity <= 0:
-                logger.info(f"All shares of {symbol} sold. Exiting loop.")
-                break  # Exit once all requested shares are sold
-
+                    result = await place_order(symbol, quantity, limit_price, account_id, order_type='SELL', cookies=cookies, csrf_token=csrf_token, loop=discord_loop)
+                # TODO: Actually parse this JSON for a successful message
+                if result:
+                    printAndDiscord(f"Successfully sold {quantity} of {symbol} in account {maskString(account_id)}", discord_loop)
     except Exception as e:
         logger.error(f"Error during sell transaction for {symbol}: {e}")
         printAndDiscord(f"Error during sell transaction for {symbol}: {e}", discord_loop)
@@ -611,7 +611,7 @@ async def fetch_stock_price(symbol):
         return None
 
 
-async def place_order(symbol, quantity, limit_price, account_id, order_type, cookies, csrf_token):
+async def place_order(symbol, quantity, limit_price, account_id, order_type, cookies, csrf_token, loop=None):
     try:
         headers = {
             'accept': 'application/json',
@@ -646,13 +646,15 @@ async def place_order(symbol, quantity, limit_price, account_id, order_type, coo
         else:
             logger.error(f"Failed to place order for {symbol}. Status code: {response.status_code}")
             logger.error(f"Response text: {response.text}")
+            if "cannot be traded" in response.text.lower():
+                raise Exception(f"{symbol} cannot traded")
             return None
     except Exception as e:
-        logger.error(f"Error placing order for {symbol}: {e}")
+        printAndDiscord(f"Error placing order for {symbol}: {e}", loop)
         return None
 
 
-async def place_fractional_order(symbol, quantity, account_id, order_type, cookies, csrf_token):
+async def place_fractional_order(symbol, quantity, account_id, order_type, cookies, csrf_token, loop=None):
     try:
         # Step 1: Fetch the current stock price to calculate cashAmount
         stock_price = await fetch_stock_price(symbol)
@@ -696,9 +698,11 @@ async def place_fractional_order(symbol, quantity, account_id, order_type, cooki
         else:
             logger.error(f"Failed to place fractional sell order for {symbol}. Status code: {response.status_code}")
             logger.error(f"Response text: {response.text}")
+            if "cannot be traded" in response.text.lower():
+                raise Exception(f"{symbol} cannot traded")
             return None
     except Exception as e:
-        logger.error(f"Error placing fractional order for {symbol}: {e}")
+        printAndDiscord(f"Error placing fractional order for {symbol}: {e}", loop)
         return None
 
 
