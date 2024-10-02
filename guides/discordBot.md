@@ -8,6 +8,6 @@ In order to use this bot in Discord, you have to create a bot account. This guid
 5. Under `Privileged Gateway Intents`, enable `Message Content Intent`.
 6. Click on `Installation` in the left sidebar, then check `User Install` and uncheck `Guild Install`.
 7. Under `Install Link`, select `Discord Provided Link`. Then copy the link section and paste it into your browser and click `Authorize`.
-The bot should then be usable in any server or you can DM it!
+Once you start the Discord bot, it should be usable in any server or the bot's DMs! Run `/ping` to test if it's working.
 
 If you need a more visual guide, one user found [this guide](https://www.writebots.com/discord-bot-token/) helpful.

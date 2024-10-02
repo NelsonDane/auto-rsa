@@ -336,7 +336,7 @@ if __name__ == "__main__":
         @bot.event
         async def on_ready():
             print(f"Discord bot is started as {bot.user.name}...")
-            print(f"Owner user: {bot.application.owner.name}")
+            print(f"Owner User: {bot.application.owner.name}")
             set_discord_bot_instance(bot)
             print()
             try:
@@ -351,16 +351,16 @@ if __name__ == "__main__":
         async def ping(interaction: discord.Interaction):
             await interaction.response.defer(thinking=True, ephemeral=interaction.guild is not None)
             print("ponged")
-            await bot.application.owner.send(content=f"PONG!\nHello! I am {bot.user.name}, you can run all your commands here in our DMs if you don't want to run them in a server.")
+            await bot.application.owner.send(content=f"PONG!\nHello! I am {bot.user.name}, you can run your commands in our DMs or in a server!")
             await interaction.followup.send("pong", ephemeral=interaction.guild is not None)
 
         # Help command
-        @bot.tree.command(name="help", description="List available commands")
+        @bot.tree.command(name="help", description="List all available commands")
         @user_install
         async def help(interaction: discord.Interaction):
             await interaction.response.defer(thinking=True, ephemeral=interaction.guild is not None)
             # String of available commands
-            print("helpped")
+            print("helped")
             await interaction.followup.send(
                 "Available RSA commands:\n"
                 "/help\n"
@@ -380,10 +380,9 @@ if __name__ == "__main__":
         ):
             try:
                 await interaction.response.defer(thinking=True, ephemeral=interaction.guild is not None)
-                await interaction.followup.send("Checking your holdings, your holdings will be dmed to you shortly!", ephemeral=interaction.guild is not None)
+                await interaction.followup.send("Checking holdings,you will be DMed shortly!", ephemeral=interaction.guild is not None)
                 orderObj = stockOrder()
                 orderObj.set_holdings(True)
-
                 # Set brokers
                 if brokers == "all":
                     orderObj.set_brokers(SUPPORTED_BROKERS)
@@ -395,16 +394,13 @@ if __name__ == "__main__":
                     orderObj.set_brokers(DAY1_BROKERS + ["robinhood"])
                 else:
                     orderObj.set_brokers([nicknames(broker) for broker in brokers.split(",")])
-
                 # Set not brokers if provided
                 if not_brokers:
                     for broker in not_brokers.split(","):
                         if nicknames(broker) in SUPPORTED_BROKERS:
                             orderObj.set_notbrokers(nicknames(broker))
-
-                event_loop = asyncio.get_event_loop()
-
                 # Run Holdings
+                event_loop = asyncio.get_event_loop()
                 await bot.loop.run_in_executor(
                     None,
                     fun_run,
@@ -432,17 +428,14 @@ if __name__ == "__main__":
         ):
             try:
                 await interaction.response.defer(thinking=True, ephemeral=interaction.guild is not None)
-                await interaction.followup.send("Updates on your transaction(s) will be dmed to you as they happen!", ephemeral=interaction.guild is not None)
+                await interaction.followup.send("Updates on your transactions will be DMed to you!", ephemeral=interaction.guild is not None)
                 orderObj = stockOrder()
-
                 # Set the transaction details
                 orderObj.set_action(action)
                 orderObj.set_amount(quantity)
-
                 # Set stocks
                 for stock in ticker.split(","):
                     orderObj.set_stock(stock)
-
                 # Set brokers
                 if accounts == "all":
                     orderObj.set_brokers(SUPPORTED_BROKERS)
@@ -454,16 +447,12 @@ if __name__ == "__main__":
                     orderObj.set_brokers(DAY1_BROKERS + ["robinhood"])
                 else:
                     orderObj.set_brokers([nicknames(broker) for broker in accounts.split(",")])
-
                 # Set dry run option
                 orderObj.set_dry(dry)
-
                 # Validate order object
                 orderObj.order_validate(preLogin=True)
-
-                event_loop = asyncio.get_event_loop()
-
                 # Run Transaction
+                event_loop = asyncio.get_event_loop()
                 await bot.loop.run_in_executor(
                     None,
                     fun_run,
@@ -472,9 +461,7 @@ if __name__ == "__main__":
                     bot,
                     event_loop
                 )
-
                 await interaction.followup.send("Transaction complete", ephemeral=interaction.guild is not None)
-
             except Exception as err:
                 print(traceback.format_exc())
                 print(f"Error placing transaction: {err}")
@@ -501,6 +488,6 @@ if __name__ == "__main__":
             await interaction.followup.send_message(f"An error occurred: {str(error)}", ephemeral=interaction.guild is not None)
 
         # Run Discord bot
-        print("Discord bot is running...")
         bot.run(DISCORD_TOKEN)
+        print("Discord bot is running...")
         print()
