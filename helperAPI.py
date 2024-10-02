@@ -24,7 +24,6 @@ from selenium_stealth import stealth
 
 load_dotenv()
 
-discord_bot = None
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 HEADLESS = os.getenv("HEADLESS", "true").lower() == "true"
 
@@ -33,8 +32,8 @@ task_queue = Queue()
 
 
 def set_discord_bot_instance(bot_instance):
-    global discord_bot
-    discord_bot = bot_instance
+    global DISCORD_BOT
+    DISCORD_BOT = bot_instance
 
 
 class stockOrder:
@@ -598,10 +597,10 @@ async def processTasks(message, embed=False):
                     inline=field.get("inline", False)
                 )
             # Send the embed as a follow-up message
-            await discord_bot.application.owner.send(embed=embedObj)
+            await DISCORD_BOT.application.owner.send(embed=embedObj)
     else:
         # If not using embed, send a plain message as a follow-up
-        await discord_bot.application.owner.send(content=message)
+        await DISCORD_BOT.application.owner.send(content=message)
 
     # Optional: If you want to add a delay between messages (e.g., for multiple embeds)
     await asyncio.sleep(0.5)
@@ -639,7 +638,7 @@ async def getOTPCodeDiscord(
             code = await botObj.wait_for(
                 "message",
                 # Only process messages in dms from the bot owner
-                check=lambda m: m.author == discord_bot.application.owner and isinstance(m.channel, discord.DMChannel),
+                check=lambda m: m.author == DISCORD_BOT.application.owner and isinstance(m.channel, discord.DMChannel),
                 timeout=timeout,
             )
         except asyncio.TimeoutError:
@@ -672,7 +671,7 @@ async def getUserInputDiscord(botObj: commands.Bot, prompt, timeout=60, loop=Non
     try:
         code = await botObj.wait_for(
             "message",
-            check=lambda m: m.author == discord_bot.application.owner and isinstance(m.channel, discord.DMChannel),
+            check=lambda m: m.author == DISCORD_BOT.application.owner and isinstance(m.channel, discord.DMChannel),
             timeout=timeout,
         )
     except asyncio.TimeoutError:
@@ -686,12 +685,12 @@ async def getUserInputDiscord(botObj: commands.Bot, prompt, timeout=60, loop=Non
 
 
 async def send_captcha_to_discord(file):
-    if discord_bot is None:
+    if DISCORD_BOT is None:
         print("Error: Bot instance is not available.")
         return
     try:
         discord_file = discord.File(file, filename="captcha.png")
-        await discord_bot.application.owner.send(file=discord_file, content="Here is your CAPTCHA image!")
+        await DISCORD_BOT.application.owner.send(file=discord_file, content="Here is your CAPTCHA image!")
     except Exception as e:
         print(f"An error occurred: {e}")
 
