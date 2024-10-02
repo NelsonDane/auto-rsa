@@ -348,34 +348,34 @@ if __name__ == "__main__":
             try:
                 await bot.tree.sync()
                 print("Commands synchronized successfully.")
-            except Exception as e:
-                print(f"Error syncing commands: {e}")
+            except Exception as sync_e:
+                print(f"Error syncing commands: {sync_e}")
 
         # Bot ping-pong
         @bot.tree.command(name="ping", description="pinger ponger")
         @user_install
         async def ping(interaction: discord.Interaction):
-            await interaction.response.defer(thinking=True, ephemeral=(interaction.guild is not None))
+            await interaction.response.defer(thinking=True, ephemeral=interaction.guild is not None)
             print("ponged")
             if isinstance(interaction.channel, discord.DMChannel):
                 await interaction.followup.send("pong")
             else:
-                await interaction.followup.send("pong", ephemeral=(interaction.guild is not None))
+                await interaction.followup.send("pong", ephemeral=interaction.guild is not None)
 
         # Open dms command
         @bot.tree.command(name="dm", description="Send a test dm to yourself")
         @user_install
-        async def ping(interaction: discord.Interaction):
-            await interaction.response.defer(thinking=True, ephemeral=(interaction.guild is not None))
+        async def dm(interaction: discord.Interaction):
+            await interaction.response.defer(thinking=True, ephemeral=interaction.guild is not None)
             print("Dm sent to bot owner account")
             await bot.application.owner.send(content=f"Hello! I am {bot.user.name}, you can run all your commands here in our DMs if you don't want to run them in a server.")
-            await interaction.followup.send("DM sent to bot owner account", ephemeral=(interaction.guild is not None))
+            await interaction.followup.send("DM sent to bot owner account", ephemeral=interaction.guild is not None)
 
         # Help command
         @bot.tree.command(name="help", description="List available commands")
         @user_install
         async def help(interaction: discord.Interaction):
-            await interaction.response.defer(thinking=True, ephemeral=(interaction.guild is not None))
+            await interaction.response.defer(thinking=True, ephemeral=interaction.guild is not None)
             # String of available commands
             print("helpped")
             await interaction.followup.send(
@@ -385,20 +385,20 @@ if __name__ == "__main__":
                 "/ping\n"
                 "/holdings [all|<broker1>,<broker2>,...] [not broker1,broker2,...]\n"
                 "/transaction [buy|sell] [amount] [stock1|stock1,stock2] [all|<broker1>,<broker2>,...] [not broker1,broker2,...] [DRY: true|false]\n"
-                "/restart", ephemeral=(interaction.guild is not None)
+                "/restart", ephemeral=interaction.guild is not None
             )
             
         # New holdings command
         @bot.tree.command(name="holdings", description="Get holdings for specified brokers")
         @user_install
         async def holdings(
-            interaction: discord.Interaction, 
-            brokers: str, 
+            interaction: discord.Interaction,
+            brokers: str,
             not_brokers: str = None
         ):
             try:
-                await interaction.response.defer(thinking=True, ephemeral=(interaction.guild is not None))
-                await interaction.followup.send("Checking your holdings, your holdings will be dmed to you shortly!", ephemeral=(interaction.guild is not None))
+                await interaction.response.defer(thinking=True, ephemeral=interaction.guild is not None)
+                await interaction.followup.send("Checking your holdings, your holdings will be dmed to you shortly!", ephemeral=interaction.guild is not None)
                 orderObj = stockOrder()
                 orderObj.set_holdings(True)
 
@@ -431,26 +431,26 @@ if __name__ == "__main__":
                     bot,
                     event_loop
                 )
-                await interaction.followup.send("Holdings complete", ephemeral=(interaction.guild is not None))
+                await interaction.followup.send("Holdings complete", ephemeral=interaction.guild is not None)
             except Exception as err:
                 print(traceback.format_exc())
                 print(f"Error getting holdings: {err}")
-                await interaction.followup.send(f"Error getting holdings: {err}", ephemeral=(interaction.guild is not None))
+                await interaction.followup.send(f"Error getting holdings: {err}", ephemeral=interaction.guild is not None)
 
         # New transaction command
         @bot.tree.command(name="transaction", description="Execute a transaction (buy/sell)")
         @user_install
         async def transaction(
-            interaction: discord.Interaction, 
-            action: str, 
-            quantity: str, 
-            ticker: str, 
-            accounts: str, 
+            interaction: discord.Interaction,
+            action: str,
+            quantity: str,
+            ticker: str,
+            accounts: str,
             dry: bool = DEFAULT_DRY
         ):
             try:
-                await interaction.response.defer(thinking=True, ephemeral=(interaction.guild is not None))
-                await interaction.followup.send("Updates on your transaction(s) will be dmed to you as they happen!", ephemeral=(interaction.guild is not None))
+                await interaction.response.defer(thinking=True, ephemeral=interaction.guild is not None)
+                await interaction.followup.send("Updates on your transaction(s) will be dmed to you as they happen!", ephemeral=interaction.guild is not None)
                 orderObj = stockOrder()
 
                 # Set the transaction details
@@ -491,21 +491,21 @@ if __name__ == "__main__":
                     event_loop
                 )
 
-                await interaction.followup.send("Transaction complete", ephemeral=(interaction.guild is not None))
+                await interaction.followup.send("Transaction complete", ephemeral=interaction.guild is not None)
 
             except Exception as err:
                 print(traceback.format_exc())
                 print(f"Error placing transaction: {err}")
-                await interaction.followup.send(f"Error placing transaction: {err}", ephemeral=(interaction.guild is not None))
+                await interaction.followup.send(f"Error placing transaction: {err}", ephemeral=interaction.guild is not None)
 
         # Restart command
         @bot.tree.command(name="restart", description="Restart the bot process")
         @user_install
         async def restart(interaction: discord.Interaction):
-            await interaction.response.defer(thinking=True, ephemeral=(interaction.guild is not None))
+            await interaction.response.defer(thinking=True, ephemeral=interaction.guild is not None)
             print("Restarting...")
             print()
-            await interaction.followup.send("Restarting...", ephemeral=(interaction.guild is not None))
+            await interaction.followup.send("Restarting...", ephemeral=interaction.guild is not None)
             await bot.close()
             if DOCKER_MODE:
                 os._exit(0)  # Special exit code to restart docker container
@@ -514,9 +514,9 @@ if __name__ == "__main__":
 
         @bot.event
         async def on_application_command_error(interaction: discord.Interaction, error: Exception):
-            await interaction.response.defer(thinking=True, ephemeral=(interaction.guild is not None))
+            await interaction.response.defer(thinking=True, ephemeral=interaction.guild is not None)
             print(f"An error occurred: {error}")
-            await interaction.followup.send_message(f"An error occurred: {str(error)}", ephemeral=(interaction.guild is not None))
+            await interaction.followup.send_message(f"An error occurred: {str(error)}", ephemeral=interaction.guild is not None)
 
         # Run Discord bot
         print("Discord bot is running...")

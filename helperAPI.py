@@ -16,9 +16,7 @@ from threading import Thread
 from time import sleep
 
 import pkg_resources
-import requests
 from discord.ext import commands
-from discord.app_commands import user_install
 from dotenv import load_dotenv
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromiumService
@@ -33,9 +31,11 @@ HEADLESS = os.getenv("HEADLESS", "true").lower() == "true"
 # Create task queue
 task_queue = Queue()
 
+
 def set_discord_bot_instance(bot_instance):
     global discord_bot
     discord_bot = bot_instance
+
 
 class stockOrder:
     def __init__(self):
