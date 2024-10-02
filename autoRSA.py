@@ -325,6 +325,12 @@ if __name__ == "__main__":
         if not os.environ["DISCORD_TOKEN"]:
             raise Exception("DISCORD_TOKEN not found in .env file, please add it")
         DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+        DEFAULT_DRY = False
+        if not os.getenv("DEFAULT_DRY"):
+            print("DEFAULT_DRY not found in .env file, using default value of False")
+        else:
+            DEFAULT_DRY = os.getenv("DEFAULT_DRY", "false").lower() == "true"
+        print(f"DEFAULT_DRY is set to: {DEFAULT_DRY}")
         # Initialize discord bot
         intents = discord.Intents.default()
         intents.message_content = True
@@ -356,6 +362,15 @@ if __name__ == "__main__":
             else:
                 await interaction.followup.send("pong", ephemeral=(interaction.guild is not None))
 
+        # Open dms command
+        @bot.tree.command(name="dm", description="Send a test dm to yourself")
+        @user_install
+        async def ping(interaction: discord.Interaction):
+            await interaction.response.defer(thinking=True, ephemeral=(interaction.guild is not None))
+            print("Dm sent to bot owner account")
+            await bot.application.owner.send(content=f"Hello! I am {bot.user.name}, you can run all your commands here in our DMs if you don't want to run them in a server.")
+            await interaction.followup.send("DM sent to bot owner account", ephemeral=(interaction.guild is not None))
+
         # Help command
         @bot.tree.command(name="help", description="List available commands")
         @user_install
@@ -365,8 +380,9 @@ if __name__ == "__main__":
             print("helpped")
             await interaction.followup.send(
                 "Available RSA commands:\n"
-                "/ping\n"
+                "/dm\n"
                 "/help\n"
+                "/ping\n"
                 "/holdings [all|<broker1>,<broker2>,...] [not broker1,broker2,...]\n"
                 "/transaction [buy|sell] [amount] [stock1|stock1,stock2] [all|<broker1>,<broker2>,...] [not broker1,broker2,...] [DRY: true|false]\n"
                 "/restart", ephemeral=(interaction.guild is not None)
@@ -430,7 +446,7 @@ if __name__ == "__main__":
             quantity: str, 
             ticker: str, 
             accounts: str, 
-            dry: bool = True
+            dry: bool = DEFAULT_DRY
         ):
             try:
                 await interaction.response.defer(thinking=True, ephemeral=(interaction.guild is not None))

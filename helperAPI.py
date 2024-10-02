@@ -638,7 +638,7 @@ async def getOTPCodeDiscord(
         try:
             code = await botObj.wait_for(
                 "message",
-                # Ignore bot messages and messages not in the correct channel
+                # Only process messages in dms from the bot owner
                 check=lambda m: m.author == discord_bot.application.owner and isinstance(m.channel, discord.DMChannel),
                 timeout=timeout,
             )

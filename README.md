@@ -52,7 +52,7 @@ To create your Discord bot and get your `DISCORD_TOKEN` for your `.env`, follow 
 There are two ways to run the Discord bot: using Docker or running the Python script. When running the bot using the Python script, the bot will only be online when the script is running. With Docker, the bot will run in the background, restarting and updating automatically.
 
 ### Discord Bot: Docker 🐳
-1. Add `DISCORD_TOKEN` and `DISCORD_CHANNEL` to your `.env` file.
+1. Add `DISCORD_TOKEN` to your `.env` file.
 2. Create the container using the provided [docker-compose.yml](docker-compose.yml) file:
 ```bash
 docker compose up -d
@@ -86,12 +86,12 @@ pip install -r requirements.txt
 ```bash
 playwright install
 ```
-6. Add `DISCORD_TOKEN` and `DISCORD_CHANNEL` to your `.env` file.
+6. Add `DISCORD_TOKEN` to your `.env` file.
 7. Start the bot using the following command:
 ```bash
 python autoRSA.py discord
 ```
-8. The bot should appear online in Discord (You can also do `!ping` to check).
+8. The bot should appear online in Discord (You can also do `/ping` or `/dm` to check).
 
 ### CLI Tool Installation 💻
 To run the CLI tool, follow these steps:
