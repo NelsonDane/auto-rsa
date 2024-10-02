@@ -57,7 +57,7 @@ There are two ways to run the Discord bot: using Docker or running the Python sc
 ```bash
 docker compose up -d
 ```
-3. The bot should appear online in Discord (You can also do `!ping` to check).
+3. The bot should appear online in Discord (You can also do `/ping` to check).
 
 Docker Note: If you make any changes to your `.env` file, you will need to restart the container by running `docker-compose up -d` again. The bot will also automatically stay up to date thanks to the included [Watchtower](https://containrrr.dev/watchtower/).
 
@@ -91,7 +91,7 @@ playwright install
 ```bash
 python autoRSA.py discord
 ```
-8. The bot should appear online in Discord (You can also do `/ping` or `/dm` to check).
+8. The bot should appear online in Discord (You can also do `/ping` to check).
 
 ### CLI Tool Installation 💻
 To run the CLI tool, follow these steps:
