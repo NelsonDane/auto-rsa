@@ -17,6 +17,7 @@ print()
 try:
     import discord
     from discord.ext import commands
+    from discord.app_commands import user_install
     from dotenv import load_dotenv
 
     # Custom API libraries
@@ -32,6 +33,7 @@ try:
         printAndDiscord,
         stockOrder,
         updater,
+        set_discord_bot_instance
     )
     from publicAPI import *
     from robinhoodAPI import *
@@ -203,6 +205,7 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
         print(f"Error: {command} is not a valid command")
 
 
+# No longer used for Discord bot version
 # Parse input arguments and update the order object
 def argParser(args: list) -> stockOrder:
     args = [x.lower() for x in args]
@@ -318,116 +321,188 @@ if __name__ == "__main__":
 
     # If discord bot, run discord bot
     if DISCORD_BOT:
-        # Get discord token and channel from .env file
+        # Get discord token from .env file
         if not os.environ["DISCORD_TOKEN"]:
             raise Exception("DISCORD_TOKEN not found in .env file, please add it")
-        if not os.environ["DISCORD_CHANNEL"]:
-            raise Exception("DISCORD_CHANNEL not found in .env file, please add it")
         DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-        DISCORD_CHANNEL = int(os.getenv("DISCORD_CHANNEL"))
         # Initialize discord bot
         intents = discord.Intents.default()
         intents.message_content = True
         # Discord bot command prefix
         bot = commands.Bot(command_prefix="!", intents=intents)
-        bot.remove_command("help")
-        print()
-        print("Discord bot is started...")
         print()
 
         # Bot event when bot is ready
         @bot.event
         async def on_ready():
-            channel = bot.get_channel(DISCORD_CHANNEL)
-            if channel is None:
-                print(
-                    "ERROR: Invalid channel ID, please check your DISCORD_CHANNEL in your .env file and try again"
-                )
-                os._exit(1)  # Special exit code to restart docker container
-            await channel.send("Discord bot is started...")
-
-        # Process the message only if it's from the specified channel
-        @bot.event
-        async def on_message(message):
-            if message.channel.id == DISCORD_CHANNEL:
-                await bot.process_commands(message)
+            print(f"Discord bot is started as {bot.user.name}...")
+            print(f"Owner user: {bot.application.owner.name}")
+            set_discord_bot_instance(bot)
+            print()
+            try:
+                await bot.tree.sync()
+                print("Commands synchronized successfully.")
+            except Exception as e:
+                print(f"Error syncing commands: {e}")
 
         # Bot ping-pong
-        @bot.command(name="ping")
-        async def ping(ctx):
+        @bot.tree.command(name="ping", description="pinger ponger")
+        @user_install
+        async def ping(interaction: discord.Interaction):
+            await interaction.response.defer(thinking=True, ephemeral=(interaction.guild is not None))
             print("ponged")
-            await ctx.send("pong")
+            if isinstance(interaction.channel, discord.DMChannel):
+                await interaction.followup.send("pong")
+            else:
+                await interaction.followup.send("pong", ephemeral=(interaction.guild is not None))
 
         # Help command
-        @bot.command()
-        async def help(ctx):
+        @bot.tree.command(name="help", description="List available commands")
+        @user_install
+        async def help(interaction: discord.Interaction):
+            await interaction.response.defer(thinking=True, ephemeral=(interaction.guild is not None))
             # String of available commands
-            await ctx.send(
+            print("helpped")
+            await interaction.followup.send(
                 "Available RSA commands:\n"
-                "!ping\n"
-                "!help\n"
-                "!rsa holdings [all|<broker1>,<broker2>,...] [not broker1,broker2,...]\n"
-                "!rsa [buy|sell] [amount] [stock1|stock1,stock2] [all|<broker1>,<broker2>,...] [not broker1,broker2,...] [DRY: true|false]\n"
-                "!restart"
+                "/ping\n"
+                "/help\n"
+                "/holdings [all|<broker1>,<broker2>,...] [not broker1,broker2,...]\n"
+                "/transaction [buy|sell] [amount] [stock1|stock1,stock2] [all|<broker1>,<broker2>,...] [not broker1,broker2,...] [DRY: true|false]\n"
+                "/restart", ephemeral=(interaction.guild is not None)
             )
-
-        # Main RSA command
-        @bot.command(name="rsa")
-        async def rsa(ctx, *args):
-            discOrdObj = await bot.loop.run_in_executor(None, argParser, args)
-            event_loop = asyncio.get_event_loop()
+            
+        # New holdings command
+        @bot.tree.command(name="holdings", description="Get holdings for specified brokers")
+        @user_install
+        async def holdings(
+            interaction: discord.Interaction, 
+            brokers: str, 
+            not_brokers: str = None
+        ):
             try:
-                # Validate order object
-                discOrdObj.order_validate(preLogin=True)
-                # Get holdings or complete transaction
-                if discOrdObj.get_holdings():
-                    # Run Holdings
-                    await bot.loop.run_in_executor(
-                        None,
-                        fun_run,
-                        discOrdObj,
-                        ("_init", "_holdings"),
-                        bot,
-                        event_loop,
-                    )
+                await interaction.response.defer(thinking=True, ephemeral=(interaction.guild is not None))
+                await interaction.followup.send("Checking your holdings, your holdings will be dmed to you shortly!", ephemeral=(interaction.guild is not None))
+                orderObj = stockOrder()
+                orderObj.set_holdings(True)
+
+                # Set brokers
+                if brokers == "all":
+                    orderObj.set_brokers(SUPPORTED_BROKERS)
+                elif brokers == "day1":
+                    orderObj.set_brokers(DAY1_BROKERS)
+                elif brokers == "most":
+                    orderObj.set_brokers(list(filter(lambda x: x != "vanguard", SUPPORTED_BROKERS)))
+                elif brokers == "fast":
+                    orderObj.set_brokers(DAY1_BROKERS + ["robinhood"])
                 else:
-                    # Run Transaction
-                    await bot.loop.run_in_executor(
-                        None,
-                        fun_run,
-                        discOrdObj,
-                        ("_init", "_transaction"),
-                        bot,
-                        event_loop,
-                    )
+                    orderObj.set_brokers([nicknames(broker) for broker in brokers.split(",")])
+
+                # Set not brokers if provided
+                if not_brokers:
+                    for broker in not_brokers.split(","):
+                        if nicknames(broker) in SUPPORTED_BROKERS:
+                            orderObj.set_notbrokers(nicknames(broker))
+
+                event_loop = asyncio.get_event_loop()
+                
+                # Run Holdings
+                await bot.loop.run_in_executor(
+                    None,
+                    fun_run,
+                    orderObj,
+                    ("_init", "_holdings"),
+                    bot,
+                    event_loop
+                )
+                await interaction.followup.send("Holdings complete", ephemeral=(interaction.guild is not None))
             except Exception as err:
                 print(traceback.format_exc())
-                print(f"Error placing order: {err}")
-                if ctx:
-                    await ctx.send(f"Error placing order: {err}")
+                print(f"Error getting holdings: {err}")
+                await interaction.followup.send(f"Error getting holdings: {err}", ephemeral=(interaction.guild is not None))
+
+        # New transaction command
+        @bot.tree.command(name="transaction", description="Execute a transaction (buy/sell)")
+        @user_install
+        async def transaction(
+            interaction: discord.Interaction, 
+            action: str, 
+            quantity: str, 
+            ticker: str, 
+            accounts: str, 
+            dry: bool = True
+        ):
+            try:
+                await interaction.response.defer(thinking=True, ephemeral=(interaction.guild is not None))
+                await interaction.followup.send("Updates on your transaction(s) will be dmed to you as they happen!", ephemeral=(interaction.guild is not None))
+                orderObj = stockOrder()
+
+                # Set the transaction details
+                orderObj.set_action(action)
+                orderObj.set_amount(quantity)
+
+                # Set stocks
+                for stock in ticker.split(","):
+                    orderObj.set_stock(stock)
+
+                # Set brokers
+                if accounts == "all":
+                    orderObj.set_brokers(SUPPORTED_BROKERS)
+                elif accounts == "day1":
+                    orderObj.set_brokers(DAY1_BROKERS)
+                elif accounts == "most":
+                    orderObj.set_brokers(list(filter(lambda x: x != "vanguard", SUPPORTED_BROKERS)))
+                elif accounts == "fast":
+                    orderObj.set_brokers(DAY1_BROKERS + ["robinhood"])
+                else:
+                    orderObj.set_brokers([nicknames(broker) for broker in accounts.split(",")])
+
+                # Set dry run option
+                orderObj.set_dry(dry)
+
+                # Validate order object
+                orderObj.order_validate(preLogin=True)
+
+                event_loop = asyncio.get_event_loop()
+
+                # Run Transaction
+                await bot.loop.run_in_executor(
+                    None,
+                    fun_run,
+                    orderObj,
+                    ("_init", "_transaction"),
+                    bot,
+                    event_loop
+                )
+
+                await interaction.followup.send("Transaction complete", ephemeral=(interaction.guild is not None))
+
+            except Exception as err:
+                print(traceback.format_exc())
+                print(f"Error placing transaction: {err}")
+                await interaction.followup.send(f"Error placing transaction: {err}", ephemeral=(interaction.guild is not None))
 
         # Restart command
-        @bot.command(name="restart")
-        async def restart(ctx):
+        @bot.tree.command(name="restart", description="Restart the bot process")
+        @user_install
+        async def restart(interaction: discord.Interaction):
+            await interaction.response.defer(thinking=True, ephemeral=(interaction.guild is not None))
             print("Restarting...")
             print()
-            await ctx.send("Restarting...")
+            await interaction.followup.send("Restarting...", ephemeral=(interaction.guild is not None))
             await bot.close()
             if DOCKER_MODE:
                 os._exit(0)  # Special exit code to restart docker container
             else:
                 os.execv(sys.executable, [sys.executable] + sys.argv)
 
-        # Catch bad commands
         @bot.event
-        async def on_command_error(ctx, error):
-            print(f"Command Error: {error}")
-            await ctx.send(f"Command Error: {error}")
-            # Print help command
-            print("Type '!help' for a list of commands")
-            await ctx.send("Type '!help' for a list of commands")
+        async def on_application_command_error(interaction: discord.Interaction, error: Exception):
+            await interaction.response.defer(thinking=True, ephemeral=(interaction.guild is not None))
+            print(f"An error occurred: {error}")
+            await interaction.followup.send_message(f"An error occurred: {str(error)}", ephemeral=(interaction.guild is not None))
 
         # Run Discord bot
-        bot.run(DISCORD_TOKEN)
         print("Discord bot is running...")
+        bot.run(DISCORD_TOKEN)
         print()
