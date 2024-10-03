@@ -31,7 +31,7 @@ HEADLESS = os.getenv("HEADLESS", "true").lower() == "true"
 task_queue = Queue()
 
 
-def set_discord_bot_instance(bot_instance):
+def set_discord_bot_instance(bot_instance: commands.Bot):
     global DISCORD_BOT
     DISCORD_BOT = bot_instance
 
