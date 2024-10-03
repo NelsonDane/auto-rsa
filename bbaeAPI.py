@@ -152,7 +152,7 @@ def solve_captcha(bb: BBAEAPI, botObj, name, loop, use_email):
         # Retrieve input
         if botObj is not None and loop is not None:
             asyncio.run_coroutine_threadsafe(
-                send_captcha_to_discord(file),
+                send_captcha_to_discord(botObj, file),
                 loop,
             ).result()
             captcha_input = asyncio.run_coroutine_threadsafe(

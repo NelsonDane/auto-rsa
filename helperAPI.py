@@ -638,7 +638,7 @@ async def getOTPCodeDiscord(
             code = await botObj.wait_for(
                 "message",
                 # Only process messages in dms from the bot owner
-                check=lambda m: m.author == DISCORD_BOT.application.owner and isinstance(m.channel, discord.DMChannel),
+                check=lambda m: m.author == botObj.application.owner and isinstance(m.channel, discord.DMChannel),
                 timeout=timeout,
             )
         except asyncio.TimeoutError:
@@ -671,7 +671,7 @@ async def getUserInputDiscord(botObj: commands.Bot, prompt, timeout=60, loop=Non
     try:
         code = await botObj.wait_for(
             "message",
-            check=lambda m: m.author == DISCORD_BOT.application.owner and isinstance(m.channel, discord.DMChannel),
+            check=lambda m: m.author == botObj.application.owner and isinstance(m.channel, discord.DMChannel),
             timeout=timeout,
         )
     except asyncio.TimeoutError:
@@ -684,13 +684,13 @@ async def getUserInputDiscord(botObj: commands.Bot, prompt, timeout=60, loop=Non
     return code.content
 
 
-async def send_captcha_to_discord(file):
-    if DISCORD_BOT is None:
+async def send_captcha_to_discord(botObj: commands.Bot, file):
+    if botObj is None:
         print("Error: Bot instance is not available.")
         return
     try:
         discord_file = discord.File(file, filename="captcha.png")
-        await DISCORD_BOT.application.owner.send(file=discord_file, content="Here is your CAPTCHA image!")
+        await botObj.application.owner.send(file=discord_file, content="Here is your CAPTCHA image!")
     except Exception as e:
         print(f"An error occurred: {e}")
 
