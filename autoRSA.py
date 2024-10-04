@@ -380,7 +380,7 @@ if __name__ == "__main__":
         ):
             try:
                 await interaction.response.defer(thinking=True, ephemeral=interaction.guild is not None)
-                await interaction.followup.send("Checking holdings,you will be DMed shortly!", ephemeral=interaction.guild is not None)
+                await interaction.followup.send("Checking holdings, you will be DMed shortly!", ephemeral=interaction.guild is not None)
                 orderObj = stockOrder()
                 orderObj.set_holdings(True)
                 # Set brokers
