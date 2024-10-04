@@ -41,7 +41,7 @@ def wellsfargo_init(botObj, WELLSFARGO_EXTERNAL=None, DOCKER=False, loop=None):
 
     if not os.getenv("WELLSFARGO"):
         print("WELLSFARGO environment variable not found.")
-        return False
+        return None
     accounts = (
         os.environ["WELLSFARGO"].strip().split(",")
         if WELLSFARGO_EXTERNAL is None
