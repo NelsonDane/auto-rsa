@@ -25,7 +25,8 @@ from selenium_stealth import stealth
 load_dotenv()
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 DISCORD_CHANNEL = os.getenv("DISCORD_CHANNEL")
-HEADLESS = os.getenv("HEADLESS", "true").lower() == "true"
+HEADLESS = os.getenv("HEADLESS", "true").lower() != "false"
+SORT_BROKERS = os.getenv("SORT_BROKERS", "true").lower() != "false"
 
 # Create task queue
 task_queue = Queue()
@@ -154,9 +155,10 @@ class stockOrder:
         self.__notbrokers = list(dict.fromkeys(self.__notbrokers))
 
     def alphabetize(self):
-        self.__stock.sort()
-        self.__brokers.sort()
-        self.__notbrokers.sort()
+        if SORT_BROKERS:
+            self.__stock.sort()
+            self.__brokers.sort()
+            self.__notbrokers.sort()
 
     def order_validate(self, preLogin=False) -> None | ValueError:
         # Check for required fields (doesn't apply to holdings)
