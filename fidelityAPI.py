@@ -306,11 +306,15 @@ class FidelityAutomation:
             raise Exception("Not enough elements in fidelity positions csv")
 
         for row in reader:
+            # Skip empty rows
+            if row["Account Number"] is None:
+                continue
             # Last couple of rows have some disclaimers, filter those out
-            if row["Account Number"] is not None and "and" in str(
-                row["Account Number"]
-            ):
+            if "and" in row["Account Number"]:
                 break
+            # Skip accounts that start with 'Y' (Fidelity managed)
+            if row["Account Number"][0] == "Y":
+                continue
             # Get the value and remove '$' from it
             val = str(row["Current Value"]).replace("$", "")
             # Get the last price
