@@ -82,12 +82,16 @@ You should see `(autorsa-venv)` in your terminal prompt now. You will need to ac
 ```bash
 pip install -r requirements.txt
 ```
-5. Add `DISCORD_TOKEN` and `DISCORD_CHANNEL` to your `.env` file.
-6. Start the bot using the following command:
+5. Install Playwright's dependencies:
+```bash
+playwright install
+```
+6. Add `DISCORD_TOKEN` and `DISCORD_CHANNEL` to your `.env` file.
+7. Start the bot using the following command:
 ```bash
 python autoRSA.py discord
 ```
-7. The bot should appear online in Discord (You can also do `!ping` to check).
+8. The bot should appear online in Discord (You can also do `!ping` to check).
 
 ### CLI Tool Installation 💻
 To run the CLI tool, follow these steps:
@@ -165,6 +169,7 @@ For help:
 Note: There are two special keywords you can use when specifying accounts: `all` and `day1`. `all` will use every account that you have set up. `day1` will use "day 1" brokers, which are:
 - BBAE
 - Chase
+- DSPAC
 - Fennel
 - Firstrade
 - Public
@@ -210,6 +215,16 @@ Optional .env variables:
 
 `.env` file format:
 - `CHASE=CHASE_USERNAME:CHASE_PASSWORD:CELL_PHONE_LAST_FOUR:DEBUG`
+
+#### DSPAC
+Made by [ImNotOssy](https://github.com/ImNotOssy) using the [dSPAC_investing_api](https://github.com/ImNotOssy/dSPAC_investing_API). Go give them a ⭐ 
+- `DSPAC_USERNAME`
+- `DSPAC_PASSWORD`
+ 
+`.env` file format:
+- `DSPAC=DSPAC_USERNAME:DSPAC_PASSWORD`
+
+Note: `DSPAC_USERNAME` can either be email or phone number.
 
 ### Fennel
 Made by yours truly using the [fennel-invest-api](https://github.com/NelsonDane/fennel-invest-api). Consider giving me a ⭐
@@ -355,6 +370,17 @@ Optional `.env` variables:
 
 `.env` file format:
 - `VANGUARD=VANGUARD_USERNAME:VANGUARD_PASSWORD:PHONE_LAST_FOUR:DEBUG`
+
+### Wells Fargo
+Made by [PZES](https://github.com/PZES) using Selenium. Go give them a ⭐
+
+Required `.env` variables:
+- `WELLSFARGO_USERNAME`
+- `WELLSFARGO_PASSWORD`
+- `WELLSFARGO_PHONE_LAST_FOUR`
+
+`.env` file format:
+- `WELLSFARGO=WELLSFARGO_USERNAME:WELLSFARGO_PASSWORD:WELLSFARGO_PHONE_LAST_FOUR`
 
 
 ### Maybe future brokerages 🤷‍♀️

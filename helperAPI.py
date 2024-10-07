@@ -25,7 +25,8 @@ from selenium_stealth import stealth
 load_dotenv()
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 DISCORD_CHANNEL = os.getenv("DISCORD_CHANNEL")
-HEADLESS = os.getenv("HEADLESS", "true").lower() == "true"
+HEADLESS = os.getenv("HEADLESS", "true").lower() != "false"
+SORT_BROKERS = os.getenv("SORT_BROKERS", "true").lower() != "false"
 
 # Create task queue
 task_queue = Queue()
@@ -154,9 +155,10 @@ class stockOrder:
         self.__notbrokers = list(dict.fromkeys(self.__notbrokers))
 
     def alphabetize(self):
-        self.__stock.sort()
-        self.__brokers.sort()
-        self.__notbrokers.sort()
+        if SORT_BROKERS:
+            self.__stock.sort()
+            self.__brokers.sort()
+            self.__notbrokers.sort()
 
     def order_validate(self, preLogin=False) -> None | ValueError:
         # Check for required fields (doesn't apply to holdings)
@@ -231,11 +233,13 @@ class Brokerage:
         parent_name: str,
         account_name: str,
         stock: str,
-        quantity: float,
-        price: float,
+        quantity: float | str,
+        price: float | str,
     ):
-        quantity = 0 if quantity == "N/A" else quantity
-        price = 0 if price == "N/A" else price
+        if isinstance(quantity, str) and quantity.lower() == "n/a":
+            quantity = 0
+        if isinstance(price, str) and price.lower() == "n/a":
+            price = 0
         if parent_name not in self.__holdings:
             self.__holdings[parent_name] = {}
         if account_name not in self.__holdings[parent_name]:
@@ -533,6 +537,7 @@ def getDriver(DOCKER=False):
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_argument("--disable-extensions")
         options.add_argument("--disable-notifications")
+        options.add_argument("--log-level=3")
         if DOCKER:
             # Special Docker options
             options.add_argument("--disable-dev-shm-usage")
@@ -763,13 +768,23 @@ def printHoldings(brokerObj: Brokerage, loop=None, mask=True):
     print("==============================")
 
 
-def save_cookies(driver, filename, path=None):
+def save_cookies(driver, filename, path=None, important_cookies=None):
     if path is not None:
         filename = os.path.join(path, filename)
     if path is not None and not os.path.exists(path):
         os.makedirs(path)
+    cookies = driver.get_cookies()
+    if important_cookies is not None:
+        # Save only the important cookies
+        cookies_to_save = [
+            cookie for cookie in cookies if cookie["name"] in important_cookies
+        ]
+    else:
+        # Save all cookies
+        cookies_to_save = cookies
+    # Save cookies to a pickle file
     with open(filename, "wb") as f:
-        pickle.dump(driver.get_cookies(), f)
+        pickle.dump(cookies_to_save, f)
 
 
 def load_cookies(driver, filename, path=None):
@@ -777,19 +792,22 @@ def load_cookies(driver, filename, path=None):
         filename = os.path.join(path, filename)
     if not os.path.exists(filename):
         return False
-    with open(filename, "rb") as f:
-        cookies = pickle.load(f)
+    try:
+        with open(filename, "rb") as f:
+            cookies = pickle.load(f)
+        for cookie in cookies:
+            try:
+                driver.add_cookie(cookie)
+            except Exception:
+                continue
+        return True
+    except Exception as e:
+        print(f"Error loading cookies: {e}")
+        return False
+
+
+def clear_cookies(driver, important_cookies=None):
+    cookies = driver.get_cookies()
     for cookie in cookies:
-        try:
-            driver.add_cookie(cookie)
-        except Exception:
-            continue
-    return True
-
-
-def clear_cookies(driver, filename, path=None):
-    if path is not None:
-        filename = os.path.join(path, filename)
-    if os.path.exists(filename):
-        os.remove(filename)
-    driver.delete_all_cookies()
+        if important_cookies is None or cookie["name"] not in important_cookies:
+            driver.delete_cookie(cookie["name"])

@@ -22,6 +22,7 @@ try:
     # Custom API libraries
     from bbaeAPI import *
     from chaseAPI import *
+    from dspacAPI import *
     from fennelAPI import *
     from fidelityAPI import *
     from firstradeAPI import *
@@ -40,6 +41,7 @@ try:
     from tradierAPI import *
     from vanguardAPI import *
     from webullAPI import *
+    from wellsfargoAPI import *
 except Exception as e:
     print(f"Error importing libraries: {e}")
     print(traceback.format_exc())
@@ -54,6 +56,7 @@ load_dotenv()
 SUPPORTED_BROKERS = [
     "bbae",
     "chase",
+    "dspac",
     "fennel",
     "fidelity",
     "firstrade",
@@ -65,10 +68,12 @@ SUPPORTED_BROKERS = [
     "tradier",
     "vanguard",
     "webull",
+    "wellsfargo",
 ]
 DAY1_BROKERS = [
     "bbae",
     "chase",
+    "dspac",
     "fennel",
     "firstrade",
     "public",
@@ -86,6 +91,8 @@ DANGER_MODE = False
 def nicknames(broker):
     if broker == "bb":
         return "bbae"
+    if broker == "ds":
+        return "dspac"
     if broker in ["fid", "fido"]:
         return "fidelity"
     if broker == "ft":
@@ -98,6 +105,8 @@ def nicknames(broker):
         return "vanguard"
     if broker == "wb":
         return "webull"
+    if broker == "wf":
+        return "wellsfargo"
     return broker
 
 
@@ -113,8 +122,8 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
             try:
                 # Initialize broker
                 fun_name = broker + first_command
-                if broker.lower() == "fidelity":
-                    # Fidelity requires docker mode argument, botObj, and loop
+                if broker.lower() == "wellsfargo":
+                    # Fidelity requires docker mode argument
                     orderObj.set_logged_in(
                         globals()[fun_name](
                             DOCKER=DOCKER_MODE, botObj=botObj, loop=loop
@@ -127,12 +136,19 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                         globals()[fun_name](DOCKER=DOCKER_MODE, loop=loop),
                         broker,
                     )
-                elif broker.lower() in ["bbae", "fennel", "firstrade", "public"]:
+
+                elif broker.lower() in [
+                    "bbae",
+                    "dspac",
+                    "fennel",
+                    "firstrade",
+                    "public",
+                ]:
                     # Requires bot object and loop
                     orderObj.set_logged_in(
                         globals()[fun_name](botObj=botObj, loop=loop), broker
                     )
-                elif broker.lower() in ["chase", "vanguard"]:
+                elif broker.lower() in ["chase", "fidelity", "vanguard"]:
                     fun_name = broker + "_run"
                     # PLAYWRIGHT_BROKERS have to run all transactions with one function
                     th = ThreadHandler(
@@ -155,7 +171,7 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                     orderObj.set_logged_in(globals()[fun_name](), broker)
 
                 print()
-                if broker.lower() not in ["chase", "vanguard"]:
+                if broker.lower() not in ["chase", "fidelity", "vanguard"]:
                     # Verify broker is logged in
                     orderObj.order_validate(preLogin=False)
                     logged_in_broker = orderObj.get_logged_in(broker)
