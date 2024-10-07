@@ -64,17 +64,18 @@ def fennel_init(FENNEL_EXTERNAL=None, botObj=None, loop=None):
                 else:
                     raise e
             fennel_obj.set_logged_in_object(name, fb, "fb")
-            full_accounts = fb.get_full_accounts()
-            for a in full_accounts:
-                b = fb.get_portfolio_summary(a["id"])
-                fennel_obj.set_account_number(name, a["name"])
+            account_ids = fb.get_account_ids()
+            for i, an in enumerate(account_ids):
+                account_name = f"Account {i + 1}"
+                b = fb.get_portfolio_summary(an)
+                fennel_obj.set_account_number(name, account_name)
                 fennel_obj.set_account_totals(
                     name,
-                    a["name"],
+                    account_name,
                     b["cash"]["balance"]["canTrade"],
                 )
-                fennel_obj.set_logged_in_object(name, a["id"], a["name"])
-                print(f"Found account {a['name']}")
+                fennel_obj.set_logged_in_object(name, an, account_name)
+                print(f"Found {account_name}")
             print(f"{name}: Logged in")
         except Exception as e:
             print(f"Error logging into Fennel: {e}")
