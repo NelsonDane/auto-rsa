@@ -335,9 +335,9 @@ class FidelityAutomation:
             # If the last price isn't available, just use the current value
             if len(last_price) == 0:
                 last_price = val
-            # If the quantity is missing skip it
+            # If the quantity is missing set it to 1 (SPAXX)
             if len(quantity) == 0:
-                continue
+                quantity = 1
 
             # If the account number isn't populated yet, add it
             if row["Account Number"] not in self.account_dict:
