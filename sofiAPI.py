@@ -1,6 +1,5 @@
 import asyncio
 import os
-import logging
 import pyotp
 import nodriver as uc
 import requests
@@ -8,7 +7,6 @@ import traceback
 import datetime
 import json
 from dotenv import load_dotenv
-from time import sleep
 
 from helperAPI import (
     Brokerage,
@@ -20,9 +18,6 @@ from helperAPI import (
 )
 
 load_dotenv()
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 COOKIES_PATH = "creds"
 # Get or create the event loop
@@ -36,7 +31,6 @@ def create_creds_folder():
     """Create the 'creds' folder if it doesn't exist."""
     if not os.path.exists(COOKIES_PATH):
         os.makedirs(COOKIES_PATH)
-        logger.info(f"Created '{COOKIES_PATH}' folder.")
 
 
 async def save_cookies_to_pkl(browser, cookie_filename):
@@ -60,24 +54,22 @@ async def load_cookies_from_pkl(browser, page, cookie_filename):
     return False
 
 
-async def sofi_error(page, discord_loop=None):
+async def sofi_error(error: str, page=None, discord_loop=None):
     if page is not None:
         try:
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             screenshot_name = f"SoFi-error-{timestamp}.png"
             await page.save_screenshot(filename=screenshot_name, full_page=True)
-            print(f"Screenshot saved as {screenshot_name}")
         except Exception as e:
-            print(f"Failed to take screenshot: {str(e)}")
-
+            print(f"Failed to take screenshot: {e}")
     try:
-        error_message = f"SoFi Error: {traceback.format_exc()}"
-        printAndDiscord(error_message, discord_loop, embed=False)
+        printAndDiscord(f"Sofi error: {error}", discord_loop)
+        print(f"SoFi Error: {traceback.format_exc()}")
     except Exception as e:
-        print(f"Failed to log error: {str(e)}")
+        print(f"Failed to log error: {e}")
 
 
-async def get_current_url(page):
+async def get_current_url(page, discord_loop):
     """Get the current page URL by evaluating JavaScript."""
     await page.sleep(1)
     await page.select('body')
@@ -86,23 +78,21 @@ async def get_current_url(page):
         current_url = await page.evaluate("window.location.href")
         return current_url
     except Exception as e:
-        logger.error(f"Error fetching the current URL: {e}")
+        await sofi_error(f"Error fetching the current URL {e}", page, discord_loop)
         return None
 
 
 def sofi_run(orderObj: stockOrder, command=None, botObj=None, loop=None, SOFI_EXTERNAL=None):
-    logger.info("Initializing SoFi process...")
+    print("Initializing SoFi process...")
     load_dotenv()
     create_creds_folder()
     discord_loop = loop  # Keep the parameter as "loop" for consistency with other init functions
     browser = None
 
     if not os.getenv("SOFI") and SOFI_EXTERNAL is None:
-        logger.error("SoFi environment variable not found.")
         printAndDiscord("SoFi environment variable not found.", discord_loop)
         return None
 
-    logger.info("Loading SoFi accounts...")
     accounts = (
         os.environ["SOFI"].strip().split(",")
         if SOFI_EXTERNAL is None
@@ -133,17 +123,15 @@ def sofi_run(orderObj: stockOrder, command=None, botObj=None, loop=None, SOFI_EX
             else:
                 sofi_transaction(browser, orderObj, discord_loop)
     except Exception as e:
-        logger.error(f"Error during SoFi init process: {e}")
+        sofi_loop.run_until_complete(sofi_error(f"Error during SoFi init process: {e}", discord_loop))
         return None
     finally:
         if browser:
             try:
-                logger.info("Saving Cookies...")
                 sofi_loop.run_until_complete(save_cookies_to_pkl(browser, cookie_filename))
-                logger.info("Closing the browser...")
                 browser.stop()
             except Exception as e:
-                logger.error(f"Error closing the browser: {e}")
+                sofi_loop.run_until_complete(sofi_error(f"Error closing the browser: {e}", discord_loop))
     return None
 
 
@@ -156,14 +144,12 @@ def sofi_init(account, name, cookie_filename, botObj, browser, discord_loop, sof
         cookies_loaded = sofi_loop.run_until_complete(load_cookies_from_pkl(browser, page, cookie_filename))
 
         if cookies_loaded:
-            logger.info(f"Cookies loaded for {name}, checking if login is valid...")
             sofi_loop.run_until_complete(page.get('https://www.sofi.com/wealth/app/'))
             sofi_loop.run_until_complete(browser.sleep(1))
             sofi_loop.run_until_complete(page.select('body'))
-            current_url = sofi_loop.run_until_complete(get_current_url(page))
+            current_url = sofi_loop.run_until_complete(get_current_url(page, discord_loop))
 
             if current_url and "overview" in current_url:
-                logger.info(f"Successfully bypassed login for {name} using cookies.")
                 sofi_loop.run_until_complete(save_cookies_to_pkl(browser, cookie_filename))
                 return sofi_obj
 
@@ -171,32 +157,28 @@ def sofi_init(account, name, cookie_filename, botObj, browser, discord_loop, sof
         sofi_loop.run_until_complete(sofi_login_and_account(browser, page, account, name, botObj, discord_loop))
         sofi_obj.set_logged_in_object(name, browser)
     except Exception as e:
-        logger.error(f"Error during SoFi init process: {e}")
+        sofi_loop.run_until_complete(sofi_error(f"Error during SoFi init process: {e}", page, discord_loop))
         return None
     return sofi_obj
 
 
 async def sofi_login_and_account(browser, page, account, name, botObj, discord_loop):
     try:
-        logger.info(f"Navigating to SoFi login page for {name}...")
         page = await browser.get('https://www.sofi.com')
         if not page:
             raise Exception(f"Failed to load SoFi login page for {name}")
 
         await page.get('https://www.sofi.com/wealth/app')
-        logger.info(f"Entering username for {name}...")
         username_input = await page.select("input[id=username]")
         if not username_input:
             raise Exception(f"Unable to locate the username input field for {name}")
         await username_input.send_keys(account[0])
 
-        logger.info(f"Entering password for {name}...")
         password_input = await page.select("input[type=password]")
         if not password_input:
             raise Exception(f"Unable to locate the password input field for {name}")
         await password_input.send_keys(account[1])
 
-        logger.info(f"Clicking login button for {name}...")
         login_button = await page.find("Log In", best_match=True)
         if not login_button:
             raise Exception(f"Unable to locate the login button for {name}")
@@ -204,21 +186,15 @@ async def sofi_login_and_account(browser, page, account, name, botObj, discord_l
 
         await page.select('body')
 
-        current_url = await get_current_url(page)
-        if current_url and "overview" in current_url:
-            logger.info(f"Successfully logged in without needing 2FA for {name}.")
-        else:
-            logger.info(f"2FA required for {name}, starting 2FA handling...")
+        current_url = await get_current_url(page, discord_loop)
+        if not current_url and "overview" in current_url:
             await handle_2fa(page, account, name, botObj, discord_loop)
     except Exception as e:
-        logger.error(f"Error logging into account {name}: {e}")
-        await sofi_error(page, discord_loop)
-        raise
+        await sofi_error(f"Error logging into account {name}: {e}", page, discord_loop)
 
 
 async def sofi_account_info(browser, discord_loop) -> dict:
     try:
-        logger.info("Navigating to SoFi account overview page...")
         await browser.sleep(1)
         page = await browser.get('https://www.sofi.com/wealth/app/overview')
 
@@ -234,7 +210,6 @@ async def sofi_account_info(browser, discord_loop) -> dict:
 
         cookies_dict = {cookie.name: cookie.value for cookie in cookies}
 
-        logger.info("Sending request for account information...")
         response = requests.get(
             'https://www.sofi.com/wealth/backend/v1/json/accounts',
             headers=headers,
@@ -258,20 +233,13 @@ async def sofi_account_info(browser, discord_loop) -> dict:
                 'balance': float(current_value),
                 'id': account_id
             }
-
-            logger.info(f"Account Info Retrieved: {account_dict[account_number]}")
-
-        logger.info("Successfully retrieved and parsed account information.")
         return account_dict
-
     except Exception as e:
-        logger.error(f"Error fetching SoFi account information: {e}")
-        await sofi_error(page, discord_loop)
+        await sofi_error(f"Error fetching SoFi account information: {e}", page, discord_loop)
         raise
 
 
 def sofi_holdings(browser, name, sofi_obj, discord_loop):
-    logger.info(f"Processing holdings for {name}...")
     account_dict = sofi_loop.run_until_complete(sofi_account_info(browser, discord_loop))
     if not account_dict:
         raise Exception(f"Failed to retrieve account info for {name}")
@@ -284,7 +252,11 @@ def sofi_holdings(browser, name, sofi_obj, discord_loop):
         account_id = account_info.get('id')
         cookies = {cookie.name: cookie.value for cookie in sofi_loop.run_until_complete(browser.cookies.get_all())}
 
-        holdings = sofi_loop.run_until_complete(get_holdings_formatted(account_id, cookies))
+        try:
+            holdings = sofi_loop.run_until_complete(get_holdings_formatted(account_id, cookies))
+        except Exception as e:
+            sofi_loop.run_until_complete(sofi_error(f"Error fetching holdings for SOFI account {maskString(account_id)}: {e}", discord_loop))
+            continue
 
         for holding in holdings:
             company_name = holding.get('company_name', 'N/A')
@@ -295,52 +267,44 @@ def sofi_holdings(browser, name, sofi_obj, discord_loop):
             price = holding.get('price', 'N/A')
             sofi_obj.set_holdings(name, real_account_number, company_name, shares, price)
 
-        logger.info(f"Completed processing holdings for account {real_account_number}")
 
     # Log info after holdings are processed
-    logger.info(f"All holdings processed for {name}.")
+    print(f"All holdings processed for {name}.")
     printHoldings(sofi_obj, discord_loop)
 
 
 async def get_holdings_formatted(account_id, cookies):
-    try:
-        headers = {
-        'accept': 'application/json',
-        'accept-language': 'en-US,en;q=0.9',
-        'content-type': 'application/json',
-        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
-        'x-requested-with': 'XMLHttpRequest'
-        }
-        logger.info(f"Retrieving holdings for SOFI account {maskString(account_id)}...")
+    headers = {
+    'accept': 'application/json',
+    'accept-language': 'en-US,en;q=0.9',
+    'content-type': 'application/json',
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
+    'x-requested-with': 'XMLHttpRequest'
+    }
 
-        holdings_url = f"https://www.sofi.com/wealth/backend/api/v3/account/{account_id}/holdings?accountDataType=INTERNAL"
+    holdings_url = f"https://www.sofi.com/wealth/backend/api/v3/account/{account_id}/holdings?accountDataType=INTERNAL"
 
-        response = requests.get(holdings_url, headers=headers, cookies=cookies)
+    response = requests.get(holdings_url, headers=headers, cookies=cookies)
 
-        if response.status_code != 200:
-            raise Exception(f"Failed to fetch holdings, status code: {response.status_code}")
+    if response.status_code != 200:
+        raise Exception(f"Failed to fetch holdings, status code: {response.status_code}")
 
-        holdings_data = response.json()
+    holdings_data = response.json()
 
-        formatted_holdings = []
+    formatted_holdings = []
 
-        for holding in holdings_data.get('holdings', []):
-            company_name = holding.get('symbol', 'N/A')
-            shares = holding.get('shares', 'N/A')
-            price = holding.get('price', 'N/A')
+    for holding in holdings_data.get('holdings', []):
+        company_name = holding.get('symbol', 'N/A')
+        shares = holding.get('shares', 'N/A')
+        price = holding.get('price', 'N/A')
 
-            formatted_holdings.append({
-                'company_name': company_name if company_name else 'N/A',
-                'shares': float(shares) if shares is not None else 'N/A',
-                'price': float(price) if price is not None else 'N/A',
-            })
+        formatted_holdings.append({
+            'company_name': company_name if company_name else 'N/A',
+            'shares': float(shares) if shares is not None else 'N/A',
+            'price': float(price) if price is not None else 'N/A',
+        })
 
-        logger.info(f"Successfully retrieved and processed holdings for account {maskString(account_id)}.")
-        return formatted_holdings
-
-    except Exception as e:
-        logger.error(f"Error fetching holdings for SOFI account {maskString(account_id)}: {e}")
-        raise e
+    return formatted_holdings
 
 
 def get_2fa_code(secret):
@@ -355,8 +319,10 @@ async def handle_2fa(page, account, name, botObj, discord_loop):
     try:
         # Authenticator app 2FA handling (if secret exists)
         secret = account[2] if len(account) > 2 else None
+        # Checks for people that don't read the README
+        if secret.lower() == "none" or secret.lower() == "false":
+            secret = None
         if secret:
-            logger.info(f"Handling authenticator app 2FA for {name}...")
             remember = await page.select("input[id=rememberBrowser]")
             if remember:
                 await remember.click()
@@ -370,7 +336,6 @@ async def handle_2fa(page, account, name, botObj, discord_loop):
             verify_button = await page.find("Verify Code")
             if verify_button:
                 await verify_button.click()
-            logger.info(f"Authenticator app 2FA completed for {name}.")
         else:
             # Set a timeout duration for finding the SMS 2FA element
             sms_2fa_element = None
@@ -380,11 +345,10 @@ async def handle_2fa(page, account, name, botObj, discord_loop):
                     timeout=5
                 )
             except asyncio.TimeoutError:
-                logger.info(f"SMS 2FA text not found for {name}, proceeding to check for authenticator app 2FA...")
+                print(f"SMS 2FA text not found for {name}, proceeding to check for authenticator app 2FA...")
 
             if sms_2fa_element:
                 # SMS 2FA handling
-                logger.info(f"Waiting for SMS 2FA for {name}...")
                 remember = await page.select("input[id=rememberBrowser]")
                 if remember:
                     await remember.click()
@@ -407,14 +371,11 @@ async def handle_2fa(page, account, name, botObj, discord_loop):
                 verify_button = await page.find("Verify Code")
                 if verify_button:
                     await verify_button.click()
-                logger.info(f"SMS 2FA completed for {name}.")
             else:
                 raise Exception(f"No valid 2FA method found for {name}.")
         
     except Exception as e:
-        logger.error(f"Error during 2FA handling for {name}: {e}")
-        printAndDiscord(f"Error during 2FA handling for {name}", discord_loop)
-        raise e
+        await sofi_error(f"Error during 2FA handling for {name}: {e}", page, discord_loop)
 
 
 def sofi_transaction(browser, orderObj: stockOrder, discord_loop):
@@ -425,7 +386,7 @@ def sofi_transaction(browser, orderObj: stockOrder, discord_loop):
         elif orderObj.get_action() == "sell":
             sofi_loop.run_until_complete(sofi_sell(browser, stock, orderObj.get_amount(), discord_loop, dry_mode))
         else:
-            logger.error(f"Unknown action: {orderObj.get_action()}")
+            print(f"Unknown action: {orderObj.get_action()}")
 
 
 async def sofi_buy(browser, symbol, quantity, discord_loop, dry_mode=False):
@@ -450,8 +411,6 @@ async def sofi_buy(browser, symbol, quantity, discord_loop, dry_mode=False):
 
         limit_price = round(stock_price + 0.01, 2)
 
-        logger.info(f"Stock price for {symbol}: {stock_price}, placing order with limit price: {limit_price}")
-
         # Step 3: Fetch all funded accounts and their buying power
         accounts = await fetch_funded_accounts(cookies)
         if not accounts:
@@ -467,16 +426,13 @@ async def sofi_buy(browser, symbol, quantity, discord_loop, dry_mode=False):
             if total_price <= buying_power:
                 if dry_mode:
                     # Dry mode: Log what would have been done
-                    logger.info(f"[DRY MODE] Would place limit order for {symbol} in account {account_name} with limit price: {limit_price}")
                     printAndDiscord(f"[DRY MODE] Would place limit order for {symbol} in account {account_name} with limit price: {limit_price}", discord_loop)
                     continue
                 else:
                     if quantity < 1:
-                        logger.info(f"Fractional shares detected, placing fractional buy order for {quantity} shares.")
-                        result = await place_fractional_order(symbol, quantity, account_id, order_type='BUY', cookies=cookies, csrf_token=csrf_token, loop=discord_loop)
+                        result = await place_fractional_order(symbol, quantity, account_id, order_type='BUY', cookies=cookies, csrf_token=csrf_token, discord_loop=discord_loop)
                     else:
-                        logger.info(f"Placing buy order for {quantity} shares in account {maskString(account_id)}")
-                        result = await place_order(symbol, quantity, limit_price, account_id, order_type='BUY', cookies=cookies, csrf_token=csrf_token, loop=discord_loop)
+                        result = await place_order(symbol, quantity, limit_price, account_id, order_type='BUY', cookies=cookies, csrf_token=csrf_token, discord_loop=discord_loop)
                     # TODO: Actually parse this JSON for a successful message
                     if result:
                         printAndDiscord(f"Successfully bought {quantity} of {symbol} in account {maskString(account_id)}", discord_loop)
@@ -484,15 +440,13 @@ async def sofi_buy(browser, symbol, quantity, discord_loop, dry_mode=False):
                 printAndDiscord(f"Insufficient buying power in {account_name}. Needed: {total_price}, Available: {buying_power}", discord_loop)
 
     except Exception as e:
-        logger.error(f"Error during buy transaction for {symbol}: {e}")
-        printAndDiscord(f"Error during buy transaction for {symbol}: {e}", discord_loop)
+        await sofi_error(f"Error during buy transaction for {symbol}: {e}", page, discord_loop)
         raise
 
 
 async def sofi_sell(browser, symbol, quantity, discord_loop, dry_mode=False):
     try:
         # Step 1: Fetch holdings for the stock symbol
-        logger.info(f"Checking holdings for symbol: {symbol}")
         cookies = {cookie.name: cookie.value for cookie in await browser.cookies.get_all()}
         if not cookies:
             raise Exception("Failed to retrieve valid cookies for the session.")
@@ -519,6 +473,8 @@ async def sofi_sell(browser, symbol, quantity, discord_loop, dry_mode=False):
         if not account_holding_infos:
             raise Exception(f"No holdings found for symbol {symbol}. Cannot proceed with the sell order.")
 
+        # TODO: This is not the best way of handling this because when a stock is sellable in IRAs, but not individual
+        #  accounts, a message is not given to the user informing them which accounts are not sellable on.
         total_available_shares = sum([info['salableQuantity'] for info in account_holding_infos])
 
         if total_available_shares < quantity:
@@ -529,7 +485,6 @@ async def sofi_sell(browser, symbol, quantity, discord_loop, dry_mode=False):
             raise Exception(f"Failed to retrieve stock price for {symbol}")
 
         limit_price = round(stock_price - 0.01, 2)
-        logger.info(f"Stock price for {symbol}: {stock_price}, placing sell order with limit price: {limit_price}")
 
         # Loop through all accounts holding the stock
         for account in account_holding_infos:
@@ -539,28 +494,23 @@ async def sofi_sell(browser, symbol, quantity, discord_loop, dry_mode=False):
 
             # Skip accounts where available shares are less than the quantity to sell
             if available_shares < quantity:
-                logger.info(f"Skipping account {account_name} with {available_shares} shares, less than {quantity}.")
                 continue  # Move to the next account
 
             if dry_mode:
                 # Dry mode: Log what would have been done
-                logger.info(f"[DRY MODE] Would place sell order for {quantity} shares of {symbol} in account {maskString(account_id)}")
                 printAndDiscord(f"[DRY MODE] Would place sell order for {quantity} shares of {symbol} in account {maskString(account_id)}", discord_loop)
                 continue
             else:
                 if quantity < 1:
-                    logger.info(f"Fractional shares detected, placing fractional sell order for {quantity} shares in {account_name}.")
-                    result = await place_fractional_order(symbol, quantity, account_id, order_type='SELL', cookies=cookies, csrf_token=csrf_token, loop=discord_loop)
+                    result = await place_fractional_order(symbol, quantity, account_id, order_type='SELL', cookies=cookies, csrf_token=csrf_token, discord_loop=discord_loop)
                 else:
                     # Place the sell order
-                    logger.info(f"Placing sell order for {quantity} shares in account {account_name}")
-                    result = await place_order(symbol, quantity, limit_price, account_id, order_type='SELL', cookies=cookies, csrf_token=csrf_token, loop=discord_loop)
+                    result = await place_order(symbol, quantity, limit_price, account_id, order_type='SELL', cookies=cookies, csrf_token=csrf_token, discord_loop=discord_loop)
                 # TODO: Actually parse this JSON for a successful message
                 if result:
                     printAndDiscord(f"Successfully sold {quantity} of {symbol} in account {maskString(account_id)}", discord_loop)
     except Exception as e:
-        logger.error(f"Error during sell transaction for {symbol}: {e}")
-        printAndDiscord(f"Error during sell transaction for {symbol}: {e}", discord_loop)
+        await sofi_error(f"Error during sell transaction for {symbol}: {e}", discord_loop)
         raise
 
 
@@ -578,10 +528,10 @@ async def fetch_funded_accounts(cookies):
             accounts = response.json()
             return accounts
         else:
-            logger.error(f"Failed to fetch funded accounts. Status code: {response.status_code}")
+            print(f"Failed to fetch funded accounts. Status code: {response.status_code}")
             return None
     except Exception as e:
-        logger.error(f"Error fetching funded accounts: {e}")
+        await sofi_error(f"Error fetching funded accounts: {e}")
         return None
 
 
@@ -604,14 +554,14 @@ async def fetch_stock_price(symbol):
             else:
                 return None
         else:
-            logger.error(f"Failed to fetch stock price for {symbol}. Status code: {response.status_code}")
+            print(f"Failed to fetch stock price for {symbol}. Status code: {response.status_code}")
             return None
     except Exception as e:
-        logger.error(f"Error fetching stock price for {symbol}: {e}")
+        await sofi_error(f"Error fetching stock price for {symbol}: {e}")
         return None
 
 
-async def place_order(symbol, quantity, limit_price, account_id, order_type, cookies, csrf_token, loop=None):
+async def place_order(symbol, quantity, limit_price, account_id, order_type, cookies, csrf_token, discord_loop=None):
     try:
         headers = {
             'accept': 'application/json',
@@ -641,20 +591,19 @@ async def place_order(symbol, quantity, limit_price, account_id, order_type, coo
         response = requests.post(url, json=payload, headers=headers, cookies=cookies)
         
         if response.status_code == 200:
-            logger.info(f"Limit order placed successfully for {symbol}.")
             return response.json()
         else:
-            logger.error(f"Failed to place order for {symbol}. Status code: {response.status_code}")
-            logger.error(f"Response text: {response.text}")
+            print(f"Failed to place order for {symbol}. Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
             if "cannot be traded" in response.text.lower():
                 raise Exception(f"{symbol} cannot traded")
             return None
     except Exception as e:
-        printAndDiscord(f"Error placing order for {symbol}: {e}", loop)
+        await sofi_error(f"Error placing order for {symbol}: {e}", discord_loop)
         return None
 
 
-async def place_fractional_order(symbol, quantity, account_id, order_type, cookies, csrf_token, loop=None):
+async def place_fractional_order(symbol, quantity, account_id, order_type, cookies, csrf_token, discord_loop=None):
     try:
         # Step 1: Fetch the current stock price to calculate cashAmount
         stock_price = await fetch_stock_price(symbol)
@@ -663,8 +612,7 @@ async def place_fractional_order(symbol, quantity, account_id, order_type, cooki
         
         # Calculate the cash amount based on the quantity of fractional shares
         cash_amount = round(stock_price * quantity, 2)  # Round to 2 decimal places for currency
-        logger.info(f"Calculated cash amount for {quantity} fractional shares of {symbol}: {cash_amount}")
-        
+
         # Step 2: Prepare headers and payload for the fractional sell order
         headers = {
             'accept': 'application/json',
@@ -693,20 +641,13 @@ async def place_fractional_order(symbol, quantity, account_id, order_type, cooki
         response = requests.post(url, json=payload, headers=headers, cookies=cookies)
         
         if response.status_code == 200:
-            logger.info(f"Fractional sell order placed successfully for {quantity} shares of {symbol}.")
             return response.json()
         else:
-            logger.error(f"Failed to place fractional sell order for {symbol}. Status code: {response.status_code}")
-            logger.error(f"Response text: {response.text}")
+            print(f"Failed to place fractional sell order for {symbol}. Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
             if "cannot be traded" in response.text.lower():
                 raise Exception(f"{symbol} cannot traded")
             return None
     except Exception as e:
-        printAndDiscord(f"Error placing fractional order for {symbol}: {e}", loop)
+        await sofi_error(f"Error placing fractional order for {symbol}: {e}", discord_loop)
         return None
-
-
-if __name__ == '__main__':
-    logger.info("Starting SoFi bot...")
-    sofi_obj = sofi_init()
-    logger.info("SoFi bot finished execution.")
