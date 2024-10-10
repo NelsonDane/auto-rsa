@@ -485,7 +485,7 @@ async def sofi_sell(browser, symbol, quantity, discord_loop, dry_mode=False):
 
         # TODO: This is not the best way of handling this because when a stock is sellable in IRAs, but not individual
         #  accounts, a message is not given to the user informing them which accounts are not sellable on.
-        total_available_shares = sum([info['salableQuantity'] for info in account_holding_infos])
+        total_available_shares = sum(info['salableQuantity'] for info in account_holding_infos)
 
         if total_available_shares < quantity:
             raise Exception(f"Not enough shares to sell. Available: {total_available_shares}, Requested: {quantity}")
@@ -565,9 +565,8 @@ async def fetch_stock_price(symbol):
                 rounded_price = round(float(price), 2)
                 return rounded_price
             return None
-        else:
-            print(f"Failed to fetch stock price for {symbol}. Status code: {response.status_code}")
-            return None
+        print(f"Failed to fetch stock price for {symbol}. Status code: {response.status_code}")
+        return None
     except Exception as e:
         await sofi_error(f"Error fetching stock price for {symbol}: {e}")
         return None
