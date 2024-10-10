@@ -9,13 +9,13 @@ import subprocess
 import sys
 import textwrap
 import traceback
+import discord
 from pathlib import Path
 from queue import Queue
 from threading import Thread
 from time import sleep
 
 import pkg_resources
-import requests
 from discord.ext import commands
 from dotenv import load_dotenv
 from selenium import webdriver
@@ -23,13 +23,18 @@ from selenium.webdriver.chrome.service import Service as ChromiumService
 from selenium_stealth import stealth
 
 load_dotenv()
+
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-DISCORD_CHANNEL = os.getenv("DISCORD_CHANNEL")
 HEADLESS = os.getenv("HEADLESS", "true").lower() != "false"
 SORT_BROKERS = os.getenv("SORT_BROKERS", "true").lower() != "false"
 
 # Create task queue
 task_queue = Queue()
+
+
+def set_discord_bot_instance(bot_instance: commands.Bot):
+    global DISCORD_BOT
+    DISCORD_BOT = bot_instance
 
 
 class stockOrder:
@@ -577,46 +582,30 @@ def killSeleniumDriver(brokerObj: Brokerage):
 
 
 async def processTasks(message, embed=False):
-    # Send message to discord via request post
-    BASE_URL = f"https://discord.com/api/v10/channels/{DISCORD_CHANNEL}/messages"
-    HEADERS = {
-        "Authorization": f"Bot {DISCORD_TOKEN}",
-        "Content-Type": "application/json",
-    }
-    embed_length = len(message["fields"]) if embed else 1
-    for i in range(0, embed_length, 25):
-        PAYLOAD = {
-            "content": "" if embed else message,
-            "embeds": (
-                [
-                    {
-                        "title": message["title"] if i == 0 else "",
-                        "color": message["color"],
-                        "fields": message["fields"][i : i + 25],
-                    }
-                ]
-                if embed
-                else []
-            ),
-        }
-        # Keep trying until success
-        success = False
-        while success is False:
-            try:
-                response = requests.post(BASE_URL, headers=HEADERS, json=PAYLOAD)
-                # Process response
-                if response.status_code == 200:
-                    success = True
-                elif response.status_code == 429:
-                    rate_limit = response.json()["retry_after"] * 2
-                    await asyncio.sleep(rate_limit)
-                else:
-                    print(f"Error: {response.status_code}: {response.text}")
-                    break
-            except Exception as e:
-                print(f"Error Sending Message: {e}")
-                break
-        await asyncio.sleep(0.5)
+    # If embedding is enabled, build the embed
+    if embed:
+        embed_length = len(message["fields"]) if "fields" in message else 0
+        for i in range(0, embed_length, 25):
+            # Create an embed object for this batch of fields
+            embedObj = discord.Embed(
+                title=message["title"] if i == 0 else "",
+                color=message["color"]
+            )
+            # Add fields to the embed
+            for field in message["fields"][i : i + 25]:
+                embedObj.add_field(
+                    name=field["name"],
+                    value=field["value"],
+                    inline=field.get("inline", False)
+                )
+            # Send the embed as a follow-up message
+            await DISCORD_BOT.application.owner.send(embed=embedObj)
+    else:
+        # If not using embed, send a plain message as a follow-up
+        await DISCORD_BOT.application.owner.send(content=message)
+
+    # Optional: If you want to add a delay between messages (e.g., for multiple embeds)
+    await asyncio.sleep(0.5)
 
 
 def printAndDiscord(message, loop=None, embed=False):
@@ -650,9 +639,8 @@ async def getOTPCodeDiscord(
         try:
             code = await botObj.wait_for(
                 "message",
-                # Ignore bot messages and messages not in the correct channel
-                check=lambda m: m.author != botObj.user
-                and m.channel.id == int(os.getenv("DISCORD_CHANNEL")),
+                # Only process messages in dms from the bot owner
+                check=lambda m: m.author == botObj.application.owner and isinstance(m.channel, discord.DMChannel),
                 timeout=timeout,
             )
         except asyncio.TimeoutError:
@@ -673,6 +661,7 @@ async def getOTPCodeDiscord(
         if len(code.content) != code_len:
             printAndDiscord(f"OTP code must be {code_len} digits", loop)
             continue
+        printAndDiscord(f"OTP code for {brokerName} entered '{code.content}', attempting authentication", loop)
         return code.content
 
 
@@ -684,8 +673,7 @@ async def getUserInputDiscord(botObj: commands.Bot, prompt, timeout=60, loop=Non
     try:
         code = await botObj.wait_for(
             "message",
-            check=lambda m: m.author != botObj.user
-            and m.channel.id == int(DISCORD_CHANNEL),
+            check=lambda m: m.author == botObj.application.owner and isinstance(m.channel, discord.DMChannel),
             timeout=timeout,
         )
     except asyncio.TimeoutError:
@@ -694,28 +682,19 @@ async def getUserInputDiscord(botObj: commands.Bot, prompt, timeout=60, loop=Non
     if code.content.lower() == "cancel":
         printAndDiscord("Input canceled by user", loop)
         return None
+    printAndDiscord(f"Input entered '{code.content}'", loop)
     return code.content
 
 
-async def send_captcha_to_discord(file):
-    BASE_URL = f"https://discord.com/api/v10/channels/{DISCORD_CHANNEL}/messages"
-    HEADERS = {
-        "Authorization": f"Bot {DISCORD_TOKEN}",
-    }
-    files = {"file": ("captcha.png", file, "image/png")}
-    success = False
-    while not success:
-        response = requests.post(BASE_URL, headers=HEADERS, files=files)
-        if response.status_code == 200:
-            success = True
-        elif response.status_code == 429:
-            rate_limit = response.json()["retry_after"] * 2
-            await asyncio.sleep(rate_limit)
-        else:
-            print(
-                f"Error sending CAPTCHA image: {response.status_code}: {response.text}"
-            )
-            break
+async def send_captcha_to_discord(botObj: commands.Bot, file):
+    if botObj is None:
+        print("Error: Bot instance is not available.")
+        return
+    try:
+        discord_file = discord.File(file, filename="captcha.png")
+        await botObj.application.owner.send(file=discord_file, content="Here is your CAPTCHA image!")
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
 
 def maskString(string):
