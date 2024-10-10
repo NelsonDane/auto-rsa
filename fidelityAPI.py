@@ -316,9 +316,9 @@ class FidelityAutomation:
             if row["Account Number"][0] == "Y":
                 continue
             # Get the value and remove '$' from it
-            val = str(row["Current Value"]).replace("$", "")
+            val = str(row["Current Value"]).replace("$", "").replace("-", "")
             # Get the last price
-            last_price = str(row["Last Price"]).replace("$", "")
+            last_price = str(row["Last Price"]).replace("$", "").replace("-", "")
             # Get quantity
             quantity = str(row["Quantity"]).replace("-", "")
             # Get ticker
