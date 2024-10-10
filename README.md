@@ -82,12 +82,16 @@ You should see `(autorsa-venv)` in your terminal prompt now. You will need to ac
 ```bash
 pip install -r requirements.txt
 ```
-5. Add `DISCORD_TOKEN` and `DISCORD_CHANNEL` to your `.env` file.
-6. Start the bot using the following command:
+5. Install Playwright's dependencies:
+```bash
+playwright install
+```
+6. Add `DISCORD_TOKEN` and `DISCORD_CHANNEL` to your `.env` file.
+7. Start the bot using the following command:
 ```bash
 python autoRSA.py discord
 ```
-7. The bot should appear online in Discord (You can also do `!ping` to check).
+8. The bot should appear online in Discord (You can also do `!ping` to check).
 
 ### CLI Tool Installation 💻
 To run the CLI tool, follow these steps:
@@ -366,6 +370,17 @@ Optional `.env` variables:
 
 `.env` file format:
 - `VANGUARD=VANGUARD_USERNAME:VANGUARD_PASSWORD:PHONE_LAST_FOUR:DEBUG`
+
+### Wells Fargo
+Made by [PZES](https://github.com/PZES) using Selenium. Go give them a ⭐
+
+Required `.env` variables:
+- `WELLSFARGO_USERNAME`
+- `WELLSFARGO_PASSWORD`
+- `WELLSFARGO_PHONE_LAST_FOUR`
+
+`.env` file format:
+- `WELLSFARGO=WELLSFARGO_USERNAME:WELLSFARGO_PASSWORD:WELLSFARGO_PHONE_LAST_FOUR`
 
 
 ### Maybe future brokerages 🤷‍♀️
