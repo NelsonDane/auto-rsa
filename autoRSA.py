@@ -235,7 +235,8 @@ def argParser(args: list) -> stockOrder:
     orderObj.set_action(args[0])
     orderObj.set_amount(args[1])
     for stock in args[2].split(","):
-        orderObj.set_stock(stock)
+        if stock != "":
+            orderObj.set_stock(stock)
     # Next argument is a broker, set broker
     if args[3] == "all":
         orderObj.set_brokers(SUPPORTED_BROKERS)
