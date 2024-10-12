@@ -11,12 +11,7 @@ from tastytrade import Session
 from tastytrade.account import Account
 from tastytrade.dxfeed import Profile, Quote
 from tastytrade.instruments import Equity
-from tastytrade.order import (
-    NewOrder,
-    OrderAction,
-    OrderTimeInForce,
-    OrderType,
-)
+from tastytrade.order import NewOrder, OrderAction, OrderTimeInForce, OrderType
 from tastytrade.streamer import DXLinkStreamer
 from tastytrade.utils import TastytradeError
 
