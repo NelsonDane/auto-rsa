@@ -9,7 +9,7 @@ from decimal import Decimal as D
 from dotenv import load_dotenv
 from tastytrade import Session
 from tastytrade.account import Account
-from tastytrade.dxfeed.event import EventType
+from tastytrade.dxfeed import Profile, Quote
 from tastytrade.instruments import Equity
 from tastytrade.order import (
     NewOrder,
@@ -28,22 +28,16 @@ def order_setup(tt: Session, order_type, stock_price, stock, amount):
     symbol = Equity.get_equity(tt, stock)
     if order_type[2] == "Buy to Open":
         leg = symbol.build_leg(D(amount), OrderAction.BUY_TO_OPEN)
-        new_order = NewOrder(
-            time_in_force=OrderTimeInForce.DAY,
-            order_type=OrderType.MARKET,
-            legs=[leg],
-            price=stock_price if order_type[0] == "Limit" else None,
-            price_effect=PriceEffect.DEBIT,
-        )
     elif order_type[2] == "Sell to Close":
         leg = symbol.build_leg(D(amount), OrderAction.SELL_TO_CLOSE)
-        new_order = NewOrder(
-            time_in_force=OrderTimeInForce.DAY,
-            order_type=OrderType.MARKET,
-            legs=[leg],
-            price=stock_price if order_type[0] == "Limit" else None,
-            price_effect=PriceEffect.CREDIT,
-        )
+    else:
+        raise ValueError("Invalid order type")
+    new_order = NewOrder(
+        time_in_force=OrderTimeInForce.DAY,
+        order_type=OrderType.MARKET,
+        legs=[leg],
+        price=stock_price if order_type[0] == "Limit" else None,
+    )
     return new_order
 
 
@@ -156,10 +150,10 @@ async def tastytrade_execute(tt_o: Brokerage, orderObj: stockOrder, loop=None):
                     elif order_status == "Rejected":
                         # Retry with limit order
                         streamer = await DXLinkStreamer.create(obj)
-                        stock_limit = await streamer.subscribe(EventType.PROFILE, [s])
-                        stock_quote = await streamer.subscribe(EventType.QUOTE, [s])
-                        stock_limit = await streamer.get_event(EventType.PROFILE)
-                        stock_quote = await streamer.get_event(EventType.QUOTE)
+                        stock_limit = await streamer.subscribe(Profile, [s])
+                        stock_quote = await streamer.subscribe(Quote, [s])
+                        stock_limit = await streamer.get_event(Profile)
+                        stock_quote = await streamer.get_event(Quote)
                         printAndDiscord(
                             f"{key} {print_account} Error: {order_status} Trying Limit order...",
                             loop=loop,
