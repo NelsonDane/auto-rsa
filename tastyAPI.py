@@ -16,7 +16,6 @@ from tastytrade.order import (
     OrderAction,
     OrderTimeInForce,
     OrderType,
-    PriceEffect,
 )
 from tastytrade.streamer import DXLinkStreamer
 from tastytrade.utils import TastytradeError
