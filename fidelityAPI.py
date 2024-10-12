@@ -624,8 +624,8 @@ class FidelityAutomation:
                     return (False, "Order failed to complete")
             # If its a dry run, report back success
             return (True, None)
-        except PlaywrightTimeoutError:
-            return (False, "Driver timed out. Order not complete")
+        except PlaywrightTimeoutError as toe:
+            return (False, f"Driver timed out. Order not completed: {toe}")
         except Exception as e:
             return (False, e)
 

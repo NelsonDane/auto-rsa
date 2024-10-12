@@ -60,7 +60,7 @@ class stockOrder:
 
     def set_stock(self, stock: str) -> None | ValueError:
         # Only allow strings for now
-        if not isinstance(stock, str):
+        if not isinstance(stock, str) or stock == "":
             raise ValueError("Stock must be a string")
         self.__stock.append(stock.upper())
 
