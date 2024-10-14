@@ -19,6 +19,7 @@ from playwright_stealth import StealthConfig, stealth_sync
 from helperAPI import (
     Brokerage,
     getOTPCodeDiscord,
+    maskString,
     printAndDiscord,
     printHoldings,
     stockOrder,
@@ -824,22 +825,23 @@ def fidelity_transaction(
                 account_number,
                 orderObj.get_dry(),
             )
+            print_account = maskString(account_number)
             # Report error if occurred
             if not success:
                 printAndDiscord(
-                    f"{name} account xxxxx{account_number[-4:]}: {orderObj.get_action()} {orderObj.get_amount()} {error_message}",
+                    f"{name} account {print_account}: Error: {error_message}",
                     loop,
                 )
             # Print test run confirmation if test run
             elif success and orderObj.get_dry():
                 printAndDiscord(
-                    f"DRY: {name} account xxxxx{account_number[-4:]}: {orderObj.get_action()} {orderObj.get_amount()} shares of {stock}",
+                    f"DRY: {name} account {print_account}: {orderObj.get_action()} {orderObj.get_amount()} shares of {stock}",
                     loop,
                 )
             # Print real run confirmation if real run
             elif success and not orderObj.get_dry():
                 printAndDiscord(
-                    f"{name} account xxxxx{account_number[-4:]}: {orderObj.get_action()} {orderObj.get_amount()} shares of {stock}",
+                    f"{name} account {print_account}: {orderObj.get_action()} {orderObj.get_amount()} shares of {stock}",
                     loop,
                 )
 
