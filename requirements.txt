@@ -12,8 +12,7 @@ public-invest-api==1.0.4
 pyotp==2.9.0
 python-dotenv==1.0.1
 requests==2.32.3
-# robin-stocks==3.1.0
--e git+https://github.com/NelsonDane/robin_stocks.git@2387113072bb26bcc1bd3fed8b4d74b0afb19f29#egg=robin-stocks
+robin-stocks==3.2.1
 schwab-api==0.4.3
 selenium-stealth==1.0.6
 setuptools==75.1.0
