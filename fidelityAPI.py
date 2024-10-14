@@ -551,7 +551,9 @@ class FidelityAutomation:
             # If error occurred
             try:
                 self.page.get_by_role(
-                    "button", name="Place order clicking this"
+                    "button",
+                    name="Place order",
+                    exact=False,
                 ).wait_for(timeout=4000, state="visible")
             except PlaywrightTimeoutError:
                 # Error must be present (or really slow page for some reason)
@@ -611,11 +613,13 @@ class FidelityAutomation:
             # If its a real run
             if not dry:
                 self.page.get_by_role(
-                    "button", name="Place order clicking this"
+                    "button",
+                    name="Place order",
+                    exact=False,
                 ).click()
                 try:
                     # See that the order goes through
-                    self.page.get_by_text("Order received").wait_for(
+                    self.page.get_by_text("Order received", exact=True).wait_for(
                         timeout=5000, state="visible"
                     )
                     # If no error, return with success
