@@ -118,7 +118,9 @@ def sofi_run(orderObj: stockOrder, command=None, botObj=None, loop=None, SOFI_EX
             if headless:
                 browser_args.append("--headless=new")
             browser = sofi_loop.run_until_complete(uc.start(browser_args=browser_args))
+            print(f"Logging into {name}...")
             sofi_init(account, name, cookie_filename, botObj, browser, discord_loop, sofi_obj)
+            print(f"Logged in to {name}!")
             if second_command == "_holdings":
                 sofi_holdings(browser, name, sofi_obj, discord_loop)
             else:
@@ -136,7 +138,7 @@ def sofi_run(orderObj: stockOrder, command=None, botObj=None, loop=None, SOFI_EX
     return None
 
 
-def sofi_init(account, name, cookie_filename, botObj, browser, discord_loop, sofi_obj):
+def sofi_init(account, name, cookie_filename, botObj, browser, discord_loop, sofi_obj: Brokerage):
     page = None
     try:
         account = account.split(":")
@@ -189,7 +191,7 @@ async def sofi_login_and_account(browser, page, account, name, botObj, discord_l
         await page.select('body')
 
         current_url = await get_current_url(page, discord_loop)
-        if not current_url and "overview" in current_url:
+        if current_url is not None and "overview" not in current_url:
             await handle_2fa(page, account, name, botObj, discord_loop)
     except Exception as e:
         await sofi_error(f"Error logging into account {name}: {e}", page, discord_loop)
@@ -241,7 +243,7 @@ async def sofi_account_info(browser, discord_loop):
         return None
 
 
-def sofi_holdings(browser, name, sofi_obj, discord_loop):
+def sofi_holdings(browser, name, sofi_obj: Brokerage, discord_loop):
     account_dict: dict = sofi_loop.run_until_complete(sofi_account_info(browser, discord_loop))
     if not account_dict:
         raise Exception(f"Failed to retrieve account info for {name}")
@@ -322,9 +324,9 @@ async def handle_2fa(page, account, name, botObj, discord_loop):
         # Authenticator app 2FA handling (if secret exists)
         secret = account[2] if len(account) > 2 else None
         # Checks for people that don't read the README
-        if secret.lower() == "none" or secret.lower() == "false":
+        if isinstance(secret, str) and (secret.lower() == "none" or secret.lower() == "false"):
             secret = None
-        if secret:
+        if secret is not None:
             remember = await page.select("input[id=rememberBrowser]")
             if remember:
                 await remember.click()
