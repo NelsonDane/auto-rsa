@@ -33,10 +33,27 @@ def create_creds_folder():
         os.makedirs(COOKIES_PATH)
 
 
+def build_headers(csrf_token=None):
+    headers = {
+        'accept': 'application/json',
+        'accept-language': 'en-US,en;q=0.9',
+        'content-type': 'application/json',
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
+        'x-requested-with': 'XMLHttpRequest'
+    }
+    if csrf_token is not None:
+        headers['csrf-token'] = csrf_token
+        headers['origin'] = 'https://www.sofi.com'
+        headers['referer'] = 'https://www.sofi.com/'
+        headers['sec-fetch-site'] = 'same-origin'
+        headers['sec-fetch-mode'] = 'cors'
+        headers['sec-fetch-dest'] = 'empty'
+    return headers
+
+
 async def save_cookies_to_pkl(browser, cookie_filename):
     try:
         await browser.cookies.save(cookie_filename)
-        print("Cookies saved.")
     except Exception as e:
         print(f"Failed to save cookies: {e}")
 
@@ -45,7 +62,6 @@ async def load_cookies_from_pkl(browser, page, cookie_filename):
     try:
         await browser.cookies.load(cookie_filename)
         await page.reload()
-        print("Cookies loaded.")
         return True
     except ValueError as e:
         print(f"Failed to load cookies: {e}")
@@ -78,7 +94,7 @@ async def get_current_url(page, discord_loop):
         current_url = await page.evaluate("window.location.href")
         return current_url
     except Exception as e:
-        await sofi_error(f"Error fetching the current URL {e}", page, discord_loop)
+        await sofi_error(f"Error fetching the current URL {e}", page=page, discord_loop=discord_loop)
         return None
 
 
@@ -126,7 +142,7 @@ def sofi_run(orderObj: stockOrder, command=None, botObj=None, loop=None, SOFI_EX
             else:
                 sofi_transaction(browser, orderObj, discord_loop)
     except Exception as e:
-        sofi_loop.run_until_complete(sofi_error(f"Error during SoFi init process: {e}", discord_loop))
+        sofi_loop.run_until_complete(sofi_error(f"Error during SoFi init process: {e}", discord_loop=discord_loop))
         return None
     finally:
         if browser:
@@ -134,7 +150,7 @@ def sofi_run(orderObj: stockOrder, command=None, botObj=None, loop=None, SOFI_EX
                 sofi_loop.run_until_complete(save_cookies_to_pkl(browser, cookie_filename))
                 browser.stop()
             except Exception as e:
-                sofi_loop.run_until_complete(sofi_error(f"Error closing the browser: {e}", discord_loop))
+                sofi_loop.run_until_complete(sofi_error(f"Error closing the browser: {e}", discord_loop=discord_loop))
     return None
 
 
@@ -161,7 +177,7 @@ def sofi_init(account, name, cookie_filename, botObj, browser, discord_loop, sof
         sofi_loop.run_until_complete(sofi_login_and_account(browser, page, account, name, botObj, discord_loop))
         sofi_obj.set_logged_in_object(name, browser)
     except Exception as e:
-        sofi_loop.run_until_complete(sofi_error(f"Error during SoFi init process: {e}", page, discord_loop))
+        sofi_loop.run_until_complete(sofi_error(f"Error during SoFi init process: {e}", page=page, discord_loop=discord_loop))
         return None
     return sofi_obj
 
@@ -194,7 +210,7 @@ async def sofi_login_and_account(browser, page, account, name, botObj, discord_l
         if current_url is not None and "overview" not in current_url:
             await handle_2fa(page, account, name, botObj, discord_loop)
     except Exception as e:
-        await sofi_error(f"Error logging into account {name}: {e}", page, discord_loop)
+        await sofi_error(f"Error logging into account {name}: {e}", page=page, discord_loop=discord_loop)
 
 
 async def sofi_account_info(browser, discord_loop):
@@ -203,20 +219,10 @@ async def sofi_account_info(browser, discord_loop):
         await browser.get('https://www.sofi.com/wealth/app/overview')
 
         cookies = await browser.cookies.get_all()
-
-        headers = {
-            'accept': 'application/json',
-            'accept-language': 'en-US,en;q=0.9',
-            'content-type': 'application/json',
-            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
-            'x-requested-with': 'XMLHttpRequest'
-        }
-
         cookies_dict = {cookie.name: cookie.value for cookie in cookies}
-
         response = requests.get(
             'https://www.sofi.com/wealth/backend/v1/json/accounts',
-            headers=headers,
+            headers=build_headers(),
             cookies=cookies_dict
         )
 
@@ -239,7 +245,7 @@ async def sofi_account_info(browser, discord_loop):
             }
         return account_dict
     except Exception as e:
-        await sofi_error(f"Error fetching SoFi account information: {e}", discord_loop)
+        await sofi_error(f"Error fetching SoFi account information: {e}", discord_loop=discord_loop)
         return None
 
 
@@ -260,7 +266,7 @@ def sofi_holdings(browser, name, sofi_obj: Brokerage, discord_loop):
             holdings = sofi_loop.run_until_complete(get_holdings_formatted(account_id, cookies))
         except Exception as e:
             sofi_loop.run_until_complete(
-                sofi_error(f"Error fetching holdings for SOFI account {maskString(account_id)}: {e}", discord_loop))
+                sofi_error(f"Error fetching holdings for SOFI account {maskString(account_id)}: {e}", discord_loop=discord_loop))
             continue
 
         for holding in holdings:
@@ -278,17 +284,8 @@ def sofi_holdings(browser, name, sofi_obj: Brokerage, discord_loop):
 
 
 async def get_holdings_formatted(account_id, cookies):
-    headers = {
-        'accept': 'application/json',
-        'accept-language': 'en-US,en;q=0.9',
-        'content-type': 'application/json',
-        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
-        'x-requested-with': 'XMLHttpRequest'
-    }
-
     holdings_url = f"https://www.sofi.com/wealth/backend/api/v3/account/{account_id}/holdings?accountDataType=INTERNAL"
-
-    response = requests.get(holdings_url, headers=headers, cookies=cookies)
+    response = requests.get(holdings_url, headers=build_headers(), cookies=cookies)
 
     if response.status_code != 200:
         raise Exception(f"Failed to fetch holdings, status code: {response.status_code}")
@@ -379,7 +376,7 @@ async def handle_2fa(page, account, name, botObj, discord_loop):
                 raise Exception(f"No valid 2FA method found for {name}.")
 
     except Exception as e:
-        await sofi_error(f"Error during 2FA handling for {name}: {e}", page, discord_loop)
+        await sofi_error(f"Error during 2FA handling for {name}: {e}", page=page, discord_loop=discord_loop)
 
 
 def sofi_transaction(browser, orderObj: stockOrder, discord_loop):
@@ -443,8 +440,7 @@ async def sofi_buy(browser, symbol, quantity, discord_loop, dry_mode=False):
                 else:
                     result = await place_order(symbol, quantity, limit_price, account_id, order_type='BUY',
                                                cookies=cookies, csrf_token=csrf_token, discord_loop=discord_loop)
-                # TODO: Actually parse this JSON for a successful message
-                if result:
+                if result['header'] == 'Your order is placed.':  # Success
                     printAndDiscord(f"Successfully bought {quantity} of {symbol} in account {maskString(account_id)}",
                                     discord_loop)
             else:
@@ -452,8 +448,7 @@ async def sofi_buy(browser, symbol, quantity, discord_loop, dry_mode=False):
                     f"Insufficient buying power in {account_name}. Needed: {total_price}, Available: {buying_power}",
                     discord_loop)
     except Exception as e:
-        await sofi_error(f"Error during buy transaction for {symbol}: {e}", page, discord_loop)
-        raise
+        await sofi_error(f"Error during buy transaction for {symbol}: {e}", page=page, discord_loop=discord_loop)
 
 
 async def sofi_sell(browser, symbol, quantity, discord_loop, dry_mode=False):
@@ -469,12 +464,7 @@ async def sofi_sell(browser, symbol, quantity, discord_loop, dry_mode=False):
 
         # Fetch holdings for the specific symbol
         holdings_url = f"https://www.sofi.com/wealth/backend/api/v3/customer/holdings/symbol/{symbol}"
-        response = requests.get(holdings_url, headers={
-            'accept': 'application/json',
-            'content-type': 'application/json',
-            'x-requested-with': 'XMLHttpRequest',
-            'user-agent': 'Mozilla/5.0'
-        }, cookies=cookies)
+        response = requests.get(holdings_url, build_headers(), cookies=cookies)
 
         if response.status_code != 200:
             raise Exception(f"Failed to fetch holdings for {symbol}. Status code: {response.status_code}")
@@ -521,25 +511,17 @@ async def sofi_sell(browser, symbol, quantity, discord_loop, dry_mode=False):
                 # Place the sell order
                 result = await place_order(symbol, quantity, limit_price, account_id, order_type='SELL',
                                            cookies=cookies, csrf_token=csrf_token, discord_loop=discord_loop)
-            # TODO: Actually parse this JSON for a successful message
-            if result:
+            if result['header'] == 'Your order is placed.':  # Success
                 printAndDiscord(f"Successfully sold {quantity} of {symbol} in account {maskString(account_id)}",
                                 discord_loop)
     except Exception as e:
-        await sofi_error(f"Error during sell transaction for {symbol}: {e}", discord_loop)
-        raise
+        await sofi_error(f"Error during sell transaction for {symbol}: {e}", discord_loop=discord_loop)
 
 
 async def fetch_funded_accounts(cookies):
     try:
-        headers = {
-            'accept': 'application/json',
-            'content-type': 'application/json',
-            'x-requested-with': 'XMLHttpRequest',
-            'user-agent': 'Mozilla/5.0'
-        }
         url = 'https://www.sofi.com/wealth/backend/api/v1/user/funded-brokerage-accounts'
-        response = requests.get(url, headers=headers, cookies=cookies)
+        response = requests.get(url, headers=build_headers(), cookies=cookies)
         if response.status_code == 200:
             accounts = response.json()
             return accounts
@@ -552,13 +534,8 @@ async def fetch_funded_accounts(cookies):
 
 async def fetch_stock_price(symbol):
     try:
-        headers = {
-            'accept': 'application/json',
-            'x-requested-with': 'XMLHttpRequest',
-            'user-agent': 'Mozilla/5.0'
-        }
         url = f'https://www.sofi.com/wealth/backend/api/v1/tearsheet/quote?symbol={symbol}&productSubtype=BROKERAGE'
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=build_headers())
         if response.status_code == 200:
             data = response.json()
             price = data.get("price")
@@ -576,19 +553,6 @@ async def fetch_stock_price(symbol):
 
 async def place_order(symbol, quantity, limit_price, account_id, order_type, cookies, csrf_token, discord_loop=None):
     try:
-        headers = {
-            'accept': 'application/json',
-            'content-type': 'application/json',
-            'x-requested-with': 'XMLHttpRequest',
-            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
-            'csrf-token': csrf_token,
-            'origin': 'https://www.sofi.com',
-            'referer': 'https://www.sofi.com/',
-            'sec-fetch-site': 'same-origin',
-            'sec-fetch-mode': 'cors',
-            'sec-fetch-dest': 'empty'
-        }
-
         payload = {
             "operation": order_type,
             "quantity": str(quantity),
@@ -601,7 +565,7 @@ async def place_order(symbol, quantity, limit_price, account_id, order_type, coo
         }
 
         url = 'https://www.sofi.com/wealth/backend/api/v1/trade/order'
-        response = requests.post(url, json=payload, headers=headers, cookies=cookies)
+        response = requests.post(url, json=payload, headers=build_headers(csrf_token), cookies=cookies)
 
         if response.status_code == 200:
             return response.json()
@@ -612,7 +576,7 @@ async def place_order(symbol, quantity, limit_price, account_id, order_type, coo
             raise Exception(f"{symbol} cannot traded")
         return None
     except Exception as e:
-        await sofi_error(f"Error placing order for {symbol}: {e}", discord_loop)
+        await sofi_error(f"Error placing order for {symbol}: {e}", discord_loop=discord_loop)
         return None
 
 
@@ -626,17 +590,7 @@ async def place_fractional_order(symbol, quantity, account_id, order_type, cooki
         # Calculate the cash amount based on the quantity of fractional shares
         cash_amount = round(stock_price * quantity, 2)  # Round to 2 decimal places for currency
 
-        # Step 2: Prepare headers and payload for the fractional sell order
-        headers = {
-            'accept': 'application/json',
-            'content-type': 'application/json',
-            'x-requested-with': 'XMLHttpRequest',
-            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
-            'csrf-token': csrf_token,
-            'origin': 'https://www.sofi.com',
-            'referer': 'https://www.sofi.com/'
-        }
-
+        # Step 2: Prepare payload for the fractional sell order
         payload = {
             "operation": order_type,
             "cashAmount": cash_amount,  # Calculated cash amount based on stock price and quantity
@@ -651,7 +605,7 @@ async def place_fractional_order(symbol, quantity, account_id, order_type, cooki
 
         # Step 3: Send the request to sell fractional shares
         url = 'https://www.sofi.com/wealth/backend/api/v1/trade/order-fractional'
-        response = requests.post(url, json=payload, headers=headers, cookies=cookies)
+        response = requests.post(url, json=payload, headers=build_headers(csrf_token), cookies=cookies)
 
         if response.status_code == 200:
             return response.json()
@@ -662,5 +616,5 @@ async def place_fractional_order(symbol, quantity, account_id, order_type, cooki
             raise Exception(f"{symbol} cannot traded")
         return None
     except Exception as e:
-        await sofi_error(f"Error placing fractional order for {symbol}: {e}", discord_loop)
+        await sofi_error(f"Error placing fractional order for {symbol}: {e}", discord_loop=discord_loop)
         return None
