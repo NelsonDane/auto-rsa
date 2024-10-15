@@ -132,7 +132,7 @@ def wellsfargo_init(botObj, WELLSFARGO_EXTERNAL=None, DOCKER=False, loop=None):
                 balance_element = account_block.find_element(
                     By.CSS_SELECTOR, '[data-testid$="-balance"]'
                 )
-                balance = float(balance_element.text.replace("$", ""))
+                balance = float(balance_element.text.replace("$", "").replace(",", ""))
                 WELLSFARGO_obj.set_account_totals(name, masked_number_text, balance)
         except Exception as e:
             wellsfargo_error(driver, e)

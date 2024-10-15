@@ -19,6 +19,7 @@ from playwright_stealth import StealthConfig, stealth_sync
 from helperAPI import (
     Brokerage,
     getOTPCodeDiscord,
+    maskString,
     printAndDiscord,
     printHoldings,
     stockOrder,
@@ -306,17 +307,21 @@ class FidelityAutomation:
             raise Exception("Not enough elements in fidelity positions csv")
 
         for row in reader:
+            # Skip empty rows
+            if row["Account Number"] is None:
+                continue
             # Last couple of rows have some disclaimers, filter those out
-            if row["Account Number"] is not None and "and" in str(
-                row["Account Number"]
-            ):
+            if "and" in row["Account Number"]:
                 break
+            # Skip accounts that start with 'Y' (Fidelity managed)
+            if row["Account Number"][0] == "Y":
+                continue
             # Get the value and remove '$' from it
-            val = str(row["Current Value"]).replace("$", "")
+            val = str(row["Current Value"]).replace("$", "").replace("-", "")
             # Get the last price
-            last_price = str(row["Last Price"]).replace("$", "")
+            last_price = str(row["Last Price"]).replace("$", "").replace("-", "")
             # Get quantity
-            quantity = row["Quantity"]
+            quantity = str(row["Quantity"]).replace("-", "")
             # Get ticker
             ticker = str(row["Symbol"])
 
@@ -331,7 +336,7 @@ class FidelityAutomation:
             # If the last price isn't available, just use the current value
             if len(last_price) == 0:
                 last_price = val
-            # If the quantity is missing, just use 1
+            # If the quantity is missing set it to 1 (SPAXX)
             if len(quantity) == 0:
                 quantity = 1
 
@@ -546,7 +551,9 @@ class FidelityAutomation:
             # If error occurred
             try:
                 self.page.get_by_role(
-                    "button", name="Place order clicking this"
+                    "button",
+                    name="Place order",
+                    exact=False,
                 ).wait_for(timeout=4000, state="visible")
             except PlaywrightTimeoutError:
                 # Error must be present (or really slow page for some reason)
@@ -606,11 +613,13 @@ class FidelityAutomation:
             # If its a real run
             if not dry:
                 self.page.get_by_role(
-                    "button", name="Place order clicking this"
+                    "button",
+                    name="Place order",
+                    exact=False,
                 ).click()
                 try:
                     # See that the order goes through
-                    self.page.get_by_text("Order received").wait_for(
+                    self.page.get_by_text("Order received", exact=True).wait_for(
                         timeout=5000, state="visible"
                     )
                     # If no error, return with success
@@ -620,8 +629,8 @@ class FidelityAutomation:
                     return (False, "Order failed to complete")
             # If its a dry run, report back success
             return (True, None)
-        except PlaywrightTimeoutError:
-            return (False, "Driver timed out. Order not complete")
+        except PlaywrightTimeoutError as toe:
+            return (False, f"Driver timed out. Order not completed: {toe}")
         except Exception as e:
             return (False, e)
 
@@ -820,22 +829,23 @@ def fidelity_transaction(
                 account_number,
                 orderObj.get_dry(),
             )
+            print_account = maskString(account_number)
             # Report error if occurred
             if not success:
                 printAndDiscord(
-                    f"{name} account xxxxx{account_number[-4:]}: {orderObj.get_action()} {orderObj.get_amount()} {error_message}",
+                    f"{name} account {print_account}: Error: {error_message}",
                     loop,
                 )
             # Print test run confirmation if test run
             elif success and orderObj.get_dry():
                 printAndDiscord(
-                    f"DRY: {name} account xxxxx{account_number[-4:]}: {orderObj.get_action()} {orderObj.get_amount()} shares of {stock}",
+                    f"DRY: {name} account {print_account}: {orderObj.get_action()} {orderObj.get_amount()} shares of {stock}",
                     loop,
                 )
             # Print real run confirmation if real run
             elif success and not orderObj.get_dry():
                 printAndDiscord(
-                    f"{name} account xxxxx{account_number[-4:]}: {orderObj.get_action()} {orderObj.get_amount()} shares of {stock}",
+                    f"{name} account {print_account}: {orderObj.get_action()} {orderObj.get_amount()} shares of {stock}",
                     loop,
                 )
 
