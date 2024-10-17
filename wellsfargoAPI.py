@@ -438,10 +438,8 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                             )
                         )
                         driver.execute_script(
-                            "arguments[0].scrollIntoView(true);", submit
-                        )
-                        sleep(2)
-                        submit.click()
+                            "arguments[0].click();", submit
+                        )  # Was getting visibility issues even though scrolling to it
                         # Send confirmation
                         printAndDiscord(
                             f"{key} {WELLSFARGO_o.get_account_numbers(key)[account]}: {orderObj.get_action()} {orderObj.get_amount()} shares of {s}",
@@ -452,10 +450,8 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                             By.CSS_SELECTOR, ".btn-wfa-primary"
                         )
                         driver.execute_script(
-                            "arguments[0].scrollIntoView(true);", buy_next
+                            "arguments[0].click();", buy_next
                         )
-                        sleep(2)
-                        buy_next.click()
                         order_failed = False
                     elif orderObj.get_dry():
                         printAndDiscord(
