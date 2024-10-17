@@ -449,9 +449,7 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                         buy_next = driver.find_element(
                             By.CSS_SELECTOR, ".btn-wfa-primary"
                         )
-                        driver.execute_script(
-                            "arguments[0].click();", buy_next
-                        )
+                        driver.execute_script("arguments[0].click();", buy_next)
                         order_failed = False
                     elif orderObj.get_dry():
                         printAndDiscord(
