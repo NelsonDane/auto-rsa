@@ -116,7 +116,7 @@ def wellsfargo_init(botObj, WELLSFARGO_EXTERNAL=None, DOCKER=False, loop=None):
                 pass
 
             WebDriverWait(driver, 20).until(
-                EC.presence_of_element_located((By.LINK_TEXT, "Ad Choices"))
+                EC.presence_of_element_located((By.LINK_TEXT, "Locations"))
             )
 
             # TODO: This will not show accounts that do not have settled cash funds
