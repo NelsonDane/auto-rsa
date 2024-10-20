@@ -74,6 +74,8 @@ def webull_init(WEBULL_EXTERNAL=None):
                     break
                 # Webull uses a different internal account ID than displayed in app
                 ac = wb.get_account(v2=True)["accountSummaryVO"]
+                if check_day_trades(ac):
+                    continue  # Skip current account if day trades limit is reached
                 wb_obj.set_account_number(name, ac["accountNumber"])
                 print(maskString(ac["accountNumber"]))
                 wb_obj.set_logged_in_object(name, id, ac["accountNumber"])
@@ -216,3 +218,19 @@ def webull_transaction(wbo: Brokerage, orderObj: stockOrder, loop=None):
                         f"{key} {print_account}: Running in DRY mode. Transaction would've been: {orderObj.get_action()} {orderObj.get_amount()} of {s}",
                         loop,
                     )
+
+def check_day_trades(ac):
+    '''
+    Check if margin account then number of recent day trades and decide whether to skip that account.
+    '''
+    if ac["accountTypeName"] == "Margin Account":
+        total_day_trades = sum(int(day_trade["quantity"]) for day_trade in ac["dayTradeCounts"])
+
+        if total_day_trades >= 3:
+            print(maskString(ac["accountNumber"])+' Maximum day trades reached; skipping account.')
+            return True
+        else:
+            print(f"You can still make {3 - total_day_trades} day trades.")
+            return False
+    else:
+        return False
