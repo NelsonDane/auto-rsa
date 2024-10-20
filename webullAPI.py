@@ -230,7 +230,7 @@ def check_day_trades(ac):
             print(maskString(ac["accountNumber"])+' Maximum day trades reached; skipping account.')
             return True
         else:
-            print(f"You can still make {3 - total_day_trades} day trades.")
+            print(maskString(ac["accountNumber"])+f" You can still make {3 - total_day_trades} day trades.")
             return False
     else:
         return False
