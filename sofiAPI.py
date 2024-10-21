@@ -358,7 +358,6 @@ async def handle_2fa(page, account, name, botObj, discord_loop):
                     raise Exception(f"Unable to locate SMS 2FA input field for {name}")
 
                 if botObj is not None and discord_loop is not None:
-                    # Directly await the OTP code from Discord without specifying the loop
                     sms_code = asyncio.run_coroutine_threadsafe(
                         getOTPCodeDiscord(botObj, name, loop=discord_loop),
                         discord_loop,
@@ -475,8 +474,6 @@ async def sofi_sell(browser, symbol, quantity, discord_loop, dry_mode=False):
         if not account_holding_infos:
             raise Exception(f"No holdings found for symbol {symbol}. Cannot proceed with the sell order.")
 
-        # TODO: This is not the best way of handling this because when a stock is sellable in IRAs, but not individual
-        #  accounts, a message is not given to the user informing them which accounts are not sellable on.
         total_available_shares = sum(info['salableQuantity'] for info in account_holding_infos)
 
         if total_available_shares < quantity:
@@ -495,6 +492,8 @@ async def sofi_sell(browser, symbol, quantity, discord_loop, dry_mode=False):
 
             # Skip accounts where available shares are less than the quantity to sell
             if available_shares < quantity:
+                printAndDiscord(f"Not enough shares to sell {quantity} of {symbol} in account {maskString(account_id)}. Only {available_shares} available.",
+                                discord_loop)
                 continue  # Move to the next account
 
             if dry_mode:
@@ -512,8 +511,7 @@ async def sofi_sell(browser, symbol, quantity, discord_loop, dry_mode=False):
                 result = await place_order(symbol, quantity, limit_price, account_id, order_type='SELL',
                                            cookies=cookies, csrf_token=csrf_token, discord_loop=discord_loop)
             if result['header'] == 'Your order is placed.':  # Success
-                printAndDiscord(f"Successfully sold {quantity} of {symbol} in account {maskString(account_id)}",
-                                discord_loop)
+                printAndDiscord(f"Successfully sold {quantity} of {symbol} in account {maskString(account_id)}", discord_loop)
     except Exception as e:
         await sofi_error(f"Error during sell transaction for {symbol}: {e}", discord_loop=discord_loop)
 
