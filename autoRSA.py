@@ -36,6 +36,7 @@ try:
     from publicAPI import *
     from robinhoodAPI import *
     from schwabAPI import *
+    from sofiAPI import *
     from tastyAPI import *
     from tornadoAPI import *
     from tradierAPI import *
@@ -51,7 +52,6 @@ except Exception as e:
 # Initialize .env file
 load_dotenv()
 
-
 # Global variables
 SUPPORTED_BROKERS = [
     "bbae",
@@ -63,6 +63,7 @@ SUPPORTED_BROKERS = [
     "public",
     "robinhood",
     "schwab",
+    "sofi",
     "tastytrade",
     "tornado",
     "tradier",
@@ -78,6 +79,7 @@ DAY1_BROKERS = [
     "firstrade",
     "public",
     "schwab",
+    "sofi",
     "tastytrade",
     "tradier",
     "webull",
@@ -148,7 +150,7 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                     orderObj.set_logged_in(
                         globals()[fun_name](botObj=botObj, loop=loop), broker
                     )
-                elif broker.lower() in ["chase", "fidelity", "vanguard"]:
+                elif broker.lower() in ["chase", "fidelity", "sofi", "vanguard"]:
                     fun_name = broker + "_run"
                     # PLAYWRIGHT_BROKERS have to run all transactions with one function
                     th = ThreadHandler(
@@ -171,7 +173,7 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                     orderObj.set_logged_in(globals()[fun_name](), broker)
 
                 print()
-                if broker.lower() not in ["chase", "fidelity", "vanguard"]:
+                if broker.lower() not in ["chase", "fidelity", "sofi", "vanguard"]:
                     # Verify broker is logged in
                     orderObj.order_validate(preLogin=False)
                     logged_in_broker = orderObj.get_logged_in(broker)
