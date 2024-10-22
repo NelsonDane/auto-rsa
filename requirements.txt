@@ -7,7 +7,7 @@ fennel-invest-api==1.1.1
 firstrade==0.0.30
 GitPython==3.1.43
 # playwright stealth from pypi seems abandoned
--e git+https://github.com/MaxxRK/playwright_stealth.git@a6688bb792395f182d22dff3e330400bb0df1eca#egg=playwright_stealth
+-e git+https://github.com/MaxxRK/playwright_stealth.git@f87d7c3d67134ad6def356dce6545c2f42662dfb#egg=playwright_stealth
 public-invest-api==1.0.4
 pyotp==2.9.0
 python-dotenv==1.0.1
