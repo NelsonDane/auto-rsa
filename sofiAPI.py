@@ -5,7 +5,7 @@ import traceback
 
 import nodriver as uc
 import pyotp
-import requests
+from curl_cffi import requests
 from dotenv import load_dotenv
 
 from helperAPI import (
@@ -222,6 +222,7 @@ async def sofi_account_info(browser, discord_loop):
         cookies_dict = {cookie.name: cookie.value for cookie in cookies}
         response = requests.get(
             'https://www.sofi.com/wealth/backend/v1/json/accounts',
+            impersonate="chrome",
             headers=build_headers(),
             cookies=cookies_dict
         )
@@ -285,7 +286,7 @@ def sofi_holdings(browser, name, sofi_obj: Brokerage, discord_loop):
 
 async def get_holdings_formatted(account_id, cookies):
     holdings_url = f"https://www.sofi.com/wealth/backend/api/v3/account/{account_id}/holdings?accountDataType=INTERNAL"
-    response = requests.get(holdings_url, headers=build_headers(), cookies=cookies)
+    response = requests.get(holdings_url, impersonate="chrome", headers=build_headers(), cookies=cookies)
 
     if response.status_code != 200:
         raise Exception(f"Failed to fetch holdings, status code: {response.status_code}")
@@ -463,7 +464,7 @@ async def sofi_sell(browser, symbol, quantity, discord_loop, dry_mode=False):
 
         # Fetch holdings for the specific symbol
         holdings_url = f"https://www.sofi.com/wealth/backend/api/v3/customer/holdings/symbol/{symbol}"
-        response = requests.get(holdings_url, build_headers(), cookies=cookies)
+        response = requests.get(holdings_url, impersonate="chrome", headers=build_headers(), cookies=cookies)
 
         if response.status_code != 200:
             raise Exception(f"Failed to fetch holdings for {symbol}. Status code: {response.status_code}")
@@ -519,7 +520,7 @@ async def sofi_sell(browser, symbol, quantity, discord_loop, dry_mode=False):
 async def fetch_funded_accounts(cookies):
     try:
         url = 'https://www.sofi.com/wealth/backend/api/v1/user/funded-brokerage-accounts'
-        response = requests.get(url, headers=build_headers(), cookies=cookies)
+        response = requests.get(url, impersonate="chrome", headers=build_headers(), cookies=cookies)
         if response.status_code == 200:
             accounts = response.json()
             return accounts
@@ -533,7 +534,7 @@ async def fetch_funded_accounts(cookies):
 async def fetch_stock_price(symbol):
     try:
         url = f'https://www.sofi.com/wealth/backend/api/v1/tearsheet/quote?symbol={symbol}&productSubtype=BROKERAGE'
-        response = requests.get(url, headers=build_headers())
+        response = requests.get(url, impersonate="chrome", headers=build_headers())
         if response.status_code == 200:
             data = response.json()
             price = data.get("price")
@@ -563,7 +564,7 @@ async def place_order(symbol, quantity, limit_price, account_id, order_type, coo
         }
 
         url = 'https://www.sofi.com/wealth/backend/api/v1/trade/order'
-        response = requests.post(url, json=payload, headers=build_headers(csrf_token), cookies=cookies)
+        response = requests.post(url, impersonate="chrome", json=payload, headers=build_headers(csrf_token), cookies=cookies)
 
         if response.status_code == 200:
             return response.json()
@@ -603,7 +604,7 @@ async def place_fractional_order(symbol, quantity, account_id, order_type, cooki
 
         # Step 3: Send the request to sell fractional shares
         url = 'https://www.sofi.com/wealth/backend/api/v1/trade/order-fractional'
-        response = requests.post(url, json=payload, headers=build_headers(csrf_token), cookies=cookies)
+        response = requests.post(url, impersonate="chrome", json=payload, headers=build_headers(csrf_token), cookies=cookies)
 
         if response.status_code == 200:
             return response.json()
