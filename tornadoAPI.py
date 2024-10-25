@@ -17,7 +17,7 @@ from helperAPI import (
     killSeleniumDriver,
     printAndDiscord,
     printHoldings,
-    stockOrder
+    stockOrder,
 )
 
 load_dotenv()
