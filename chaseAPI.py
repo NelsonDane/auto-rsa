@@ -15,7 +15,7 @@ from helperAPI import (
     getOTPCodeDiscord,
     printAndDiscord,
     printHoldings,
-    stockOrder,
+    stockOrder
 )
 
 

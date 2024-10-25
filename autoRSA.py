@@ -31,7 +31,7 @@ try:
         check_package_versions,
         printAndDiscord,
         stockOrder,
-        updater,
+        updater
     )
     from publicAPI import *
     from robinhoodAPI import *
