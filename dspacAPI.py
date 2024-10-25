@@ -14,7 +14,7 @@ from helperAPI import (
     printAndDiscord,
     printHoldings,
     send_captcha_to_discord,
-    stockOrder
+    stockOrder,
 )
 
 
