@@ -174,6 +174,7 @@ Note: There are two special keywords you can use when specifying accounts: `all`
 - Firstrade
 - Public
 - Schwab
+- SoFi
 - Tastytrade
 - Tradier
 - Webull
@@ -310,6 +311,20 @@ To get your TOTP secret, follow this [guide](guides/schwabSetup.md).
 
 Note 1: Think or Swim must be enabled on all accounts. To enable, go to `Trade` > `Trading Platforms` > `Learn how to enable thinkorswim`. Then press `Continue` and expand the `thinkorswim Access Agreement` and accept it. Then press `Continue` again. Then select the checkbox for all available accounts and press `Submit`. It may take a day or two for the accounts to be enabled.
 
+### SoFi
+Made by [ImNotOssy](https://github.com/ImNotOssy) using Playwright. Go give them a ⭐
+
+Required `.env` variables:
+- `SOFI_USERNAME`
+- `SOFI_PASSWORD`
+ 
+Optional `.env` variables:
+- `SOFI_TOTP_SECRET` (Optional, leave blank if not needed)
+
+`.env` file format:
+- `SOFI=SOFI_USERNAME:SOFI_PASSWORD:SOFI_TOTP_SECRET`
+
+
 ### Tornado
 Made by [ImNotOssy](https://github.com/ImNotOssy) using Selenium. Go give them a ⭐
 
@@ -381,11 +396,3 @@ Required `.env` variables:
 
 `.env` file format:
 - `WELLSFARGO=WELLSFARGO_USERNAME:WELLSFARGO_PASSWORD:WELLSFARGO_PHONE_LAST_FOUR`
-
-
-### Maybe future brokerages 🤷‍♀️
-#### SoFi
-In progress [here](https://github.com/NelsonDane/auto-rsa/pull/237).
-### Never working brokerages 👎
-#### Stash
-Why.
