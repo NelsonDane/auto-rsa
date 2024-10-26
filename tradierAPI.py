@@ -84,9 +84,14 @@ def tradier_init(TRADIER_EXTERNAL=None):
             if account_num == 1:
                 an = json_response["profile"]["account"]["account_number"]
                 at = json_response["profile"]["account"]["type"]
+                a_status = json_response["profile"]["account"]["status"]
             else:
                 an = json_response["profile"]["account"][x]["account_number"]
                 at = json_response["profile"]["account"][x]["type"]
+                a_status = json_response["profile"]["account"][x]["status"]
+            if a_status != "active":
+                print(f"Ignoring {maskString(an)}: {a_status}")
+                continue
             print(maskString(an))
             tradier_obj.set_account_number(name, an)
             tradier_obj.set_account_type(name, an, at)
