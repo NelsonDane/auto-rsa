@@ -151,14 +151,14 @@ For example, to check your account holdings on Chase and Vanguard, but not Robin
 
 To restart the Discord bot:
 
-`!restart` (without appending `!rsa` or prefix)
+`/restart`
 
-For help:
+For help with the Discord bot:
 
-`!help` (without appending `!rsa` or prefix)
+`/help`
 
 ### Parameters Explanation ⚙️
-- `<prefix>`: string, The prefix for the command. For the Discord bot, this is `!rsa`. For the CLI tool, this is `python autoRSA.py`.
+- `<prefix>`: string, The prefix for the command. For the Discord bot, this is `/transaction` or `/holdings`. For the CLI tool, this is `python autoRSA.py`.
 - `<action>`: string, "buy" or "sell"
 - `<amount>`: integer, Amount to buy or sell.
 - `<ticker>`: string, The stock ticker to buy or sell. Separate multiple tickers with commas and no spaces.
