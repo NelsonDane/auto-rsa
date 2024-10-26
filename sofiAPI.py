@@ -486,7 +486,7 @@ async def sofi_buy(browser, symbol, quantity, discord_loop, dry_mode=False):
         if stock_price is None:
             raise Exception(f"Failed to retrieve stock price for {symbol}")
 
-        limit_price = round(stock_price + 0.01, 2)
+        limit_price = stock_price
 
         # Step 3: Fetch all funded accounts and their buying power
         accounts = await fetch_funded_accounts(cookies)
