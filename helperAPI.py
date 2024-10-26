@@ -23,7 +23,6 @@ from selenium.webdriver.chrome.service import Service as ChromiumService
 from selenium_stealth import stealth
 
 load_dotenv()
-
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 HEADLESS = os.getenv("HEADLESS", "true").lower() != "false"
 SORT_BROKERS = os.getenv("SORT_BROKERS", "true").lower() != "false"
