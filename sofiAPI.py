@@ -2,12 +2,12 @@ import asyncio
 import datetime
 import os
 import traceback
+from time import sleep
 
 import nodriver as uc
 import pyotp
 from curl_cffi import requests
 from dotenv import load_dotenv
-from time import sleep
 
 from helperAPI import (
     Brokerage,
