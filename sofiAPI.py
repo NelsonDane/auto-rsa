@@ -7,6 +7,7 @@ import nodriver as uc
 import pyotp
 from curl_cffi import requests
 from dotenv import load_dotenv
+from time import sleep
 
 from helperAPI import (
     Brokerage,
@@ -181,7 +182,23 @@ def sofi_init(
     try:
         account = account.split(":")
 
+        # The page sometimes doesn't load until after retrying
+        max_attempts = 5
+        attempts = 0
+        while attempts < max_attempts:
+            page = sofi_loop.run_until_complete(browser.get("https://www.sofi.com/"))
+            sofi_loop.run_until_complete(page)  # Wait for events to be processed
+            current_url = sofi_loop.run_until_complete(
+                get_current_url(page, discord_loop)
+            )
+            if current_url == "https://www.sofi.com/":
+                break
+
+            attempts += 1
+            print("Continuing")
+
         # Load cookies
+        sofi_loop.run_until_complete(page)  # Wait for events to be processed
         sleep(5)
         page = sofi_loop.run_until_complete(browser.get("https://www.sofi.com"))
         cookies_loaded = sofi_loop.run_until_complete(
