@@ -195,7 +195,6 @@ def sofi_init(
                 break
 
             attempts += 1
-            print("Continuing")
 
         # Load cookies
         sofi_loop.run_until_complete(page)  # Wait for events to be processed
