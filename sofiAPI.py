@@ -7,6 +7,7 @@ import nodriver as uc
 import pyotp
 from curl_cffi import requests
 from dotenv import load_dotenv
+from time import sleep
 
 from helperAPI import (
     Brokerage,
@@ -139,7 +140,9 @@ def sofi_run(
             ]
             if headless:
                 browser_args.append("--headless=new")
+            sleep(2)
             browser = sofi_loop.run_until_complete(uc.start(browser_args=browser_args))
+            sleep(5)
             print(f"Logging into {name}...")
             sofi_init(
                 account, name, cookie_filename, botObj, browser, discord_loop, sofi_obj
@@ -179,7 +182,23 @@ def sofi_init(
     try:
         account = account.split(":")
 
+        # The page sometimes doesn't load until after retrying
+        max_attempts = 5
+        attempts = 0
+        while attempts < max_attempts:
+            page = sofi_loop.run_until_complete(browser.get("https://www.sofi.com/"))
+            sofi_loop.run_until_complete(page)  # Wait for events to be processed
+            current_url = sofi_loop.run_until_complete(
+                get_current_url(page, discord_loop)
+            )
+            if current_url == "https://www.sofi.com/":
+                break
+
+            attempts += 1
+
         # Load cookies
+        sofi_loop.run_until_complete(page)  # Wait for events to be processed
+        sleep(5)
         page = sofi_loop.run_until_complete(browser.get("https://www.sofi.com"))
         cookies_loaded = sofi_loop.run_until_complete(
             load_cookies_from_pkl(browser, page, cookie_filename)
@@ -187,7 +206,7 @@ def sofi_init(
 
         if cookies_loaded:
             sofi_loop.run_until_complete(page.get("https://www.sofi.com/wealth/app/"))
-            sofi_loop.run_until_complete(browser.sleep(1))
+            sofi_loop.run_until_complete(browser.sleep(5))
             sofi_loop.run_until_complete(page.select("body"))
             current_url = sofi_loop.run_until_complete(
                 get_current_url(page, discord_loop)
@@ -218,11 +237,13 @@ def sofi_init(
 
 async def sofi_login_and_account(browser, page, account, name, botObj, discord_loop):
     try:
+        sleep(5)
         page = await browser.get("https://www.sofi.com")
         if not page:
             raise Exception(f"Failed to load SoFi login page for {name}")
 
         await page.get("https://www.sofi.com/wealth/app")
+        sleep(2)
         username_input = await page.select("input[id=username]")
         if not username_input:
             raise Exception(f"Unable to locate the username input field for {name}")
@@ -253,7 +274,7 @@ async def sofi_login_and_account(browser, page, account, name, botObj, discord_l
 
 async def sofi_account_info(browser, discord_loop):
     try:
-        await browser.sleep(1)
+        await browser.sleep(3)
         await browser.get("https://www.sofi.com/wealth/app/overview")
 
         cookies = await browser.cookies.get_all()
