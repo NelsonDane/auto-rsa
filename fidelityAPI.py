@@ -433,7 +433,8 @@ class FidelityAutomation:
     ) -> bool:
         """
         Process an order (transaction) using the dedicated trading page.
-        NOTE: If you use this function repeatedly but change the stock between ANY call,
+
+        `NOTE`: If you use this function repeatedly but change the stock between ANY call,
         RELOAD the page before calling this
 
         For buying:
@@ -441,19 +442,28 @@ class FidelityAutomation:
         For selling:
             Places a market order for the security
 
-        Parameters:
-            stock: str: The ticker that represents the security to be traded
-            quantity: float: The amount to buy or sell of the security
-            action: str: This must be 'buy' or 'sell'. It can be in any case state (i.e. 'bUY' is still valid)
-            account: str: The account number to trade under.
-            dry: bool: True for dry (test) run, False for real run.
+        Parameters
+        ----------
+        stock (str)
+            The ticker that represents the security to be traded
+        quantity (float)
+            The amount to buy or sell of the security
+        action (str)
+            This must be 'buy' or 'sell'. It can be in any case state (i.e. 'bUY' is still valid)
+        account (str)
+            The account number to trade under.
+        dry (bool)
+            True for dry (test) run, False for real run.
 
-        Returns:
-            (Success: bool, Error_message: str) If the order was successfully placed or tested (for dry runs) then True is
+        Returns
+        -------
+        (Success (bool), Error_message (str))
+            If the order was successfully placed or tested (for dry runs) then True is
             returned and Error_message will be None. Otherwise, False will be returned and Error_message will not be None
         """
         try:
             # Go to the trade page
+            self.page.wait_for_load_state(state="load")
             if (
                 self.page.url
                 != "https://digital.fidelity.com/ftgw/digital/trade-equity/index/orderEntry"
@@ -500,7 +510,7 @@ class FidelityAutomation:
                 self.page.get_by_role("button", name="View expanded ticket").click()
                 # Wait for it to take effect
                 self.page.get_by_role("button", name="Calculate shares").wait_for(
-                    timeout=2000
+                    timeout=5000
                 )
 
             # When enabling extended hour trading
@@ -570,7 +580,7 @@ class FidelityAutomation:
                     "button",
                     name="Place order",
                     exact=False,
-                ).wait_for(timeout=4000, state="visible")
+                ).wait_for(timeout=5000, state="visible")
             except PlaywrightTimeoutError:
                 # Error must be present (or really slow page for some reason)
                 # Try to report on error
@@ -640,9 +650,9 @@ class FidelityAutomation:
                     )
                     # If no error, return with success
                     return (True, None)
-                except PlaywrightTimeoutError:
+                except PlaywrightTimeoutError as toe:
                     # Order didn't go through for some reason, go to the next and say error
-                    return (False, "Order failed to complete")
+                    return (False, f"Timed out waiting for 'Order received': {toe}")
             # If its a dry run, report back success
             return (True, None)
         except PlaywrightTimeoutError as toe:
