@@ -11,7 +11,6 @@ import os
 import traceback
 
 import pyotp
-from time import sleep
 from dotenv import load_dotenv
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
@@ -147,7 +146,7 @@ class FidelityAutomation:
             self.wait_for_loading_sign()
             # The first spinner goes away then another one appears
             # This has been tested many times and this is necessary
-            self.page.wait_for_timeout(100)
+            self.page.wait_for_timeout(1000)
             self.wait_for_loading_sign()
 
             if "summary" in self.page.url:
@@ -158,7 +157,9 @@ class FidelityAutomation:
 
             # If we hit the 2fA page after trying to login
             if "login" in self.page.url:
-
+                self.wait_for_loading_sign()
+                widget = self.page.locator("#dom-widget div").first
+                widget.wait_for(timeout=5000, state='visible')
                 # If TOTP secret is provided, we are will use the TOTP key. See if authenticator code is present
                 if (
                     totp_secret is not None
@@ -740,7 +741,26 @@ class FidelityAutomation:
             print(f"An error occurred in get_list_of_accounts: {str(e)}")
             return None
 
+    def get_stocks_in_account(self, account_number: str) -> dict:
+        """
+        `self.getAccountInfo() must be called before this to work
 
+        Returns
+        -------
+        all_stock_dict (dict)
+            A dict of stocks that the account has.
+        """
+        if account_number in self.account_dict:
+            all_stock_dict = {}
+            for single_stock_dict in self.account_dict[account_number]["stocks"]:
+                stock = single_stock_dict.get("ticker", None)
+                quantity = single_stock_dict.get("quantity", None)
+                if stock is not None and quantity is not None:
+                    all_stock_dict[stock] = quantity
+            
+            return all_stock_dict
+        else:
+            return None
 
 def create_stock_dict(ticker: str, quantity: float, last_price: float, value: float, stock_list: list = None):
     """
@@ -762,6 +782,7 @@ def create_stock_dict(ticker: str, quantity: float, last_price: float, value: fl
     if stock_list is not None:
         stock_list.append(stock_dict)
     return stock_dict
+
 
 def validate_stocks(stocks: list):
     """
@@ -976,6 +997,8 @@ def fidelity_transaction(
 
     # Get the driver
     fidelity_browser: FidelityAutomation = fidelity_o.get_logged_in_objects(name)
+    # Get full list of accounts in case some had no holdings
+    fidelity_browser.get_list_of_accounts()
     # Go trade
     for stock in orderObj.get_stocks():
         # Say what we are doing
@@ -985,7 +1008,12 @@ def fidelity_transaction(
         )
         # Reload the page incase we were trading before
         fidelity_browser.page.reload()
-        for account_number in fidelity_o.get_account_numbers(name):
+        for account_number in fidelity_browser.account_dict:
+            # If we are selling, check to see if the account has the stock to sell
+            if orderObj.get_action().lower() == "sell":
+                if stock not in fidelity_browser.get_stocks_in_account(account_number):
+                    # Doesn't have it, skip account
+                    continue
             # Go trade for all accounts for that stock
             success, error_message = fidelity_browser.transaction(
                 stock,
