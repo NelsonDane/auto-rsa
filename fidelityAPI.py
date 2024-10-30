@@ -277,22 +277,36 @@ class FidelityAutomation:
 
     def getAccountInfo(self):
         """
-        Gets account numbers, account names, and account totals by downloading the csv of positions from fidelity.
+        Gets account numbers, account names, and account totals by downloading the csv of positions
+        from fidelity.
+        `Note` This will miss accounts that have no holdings! The positions csv doesn't show accounts
+        with only pending activity either. Use `self.get_list_of_accounts` for a full list of accounts.
 
         Post Conditions:
             self.account_dict is populated with holdings for each account
-        Returns:
-            account_dict: dict: A dictionary using account numbers as keys. Each key holds a dict which has:
-            'balance': float: Total account balance
-            'type': str: The account nickname or default name
-            'stocks': list: A list of dictionaries for each stock found. The dict has:
-                'ticker': str: The ticker of the stock held
-                'quantity': str: The quantity of stocks with 'ticker' held
-                'last_price': str: The last price of the stock with the $ sign removed
-                'value': str: The total value of the position
+
+        Returns
+        -------
+        account_dict (dict)
+            A dictionary using account numbers as keys. Each key holds a dict which has:
+            ```
+            {
+                'balance': float: Total account balance
+                'type': str: The account nickname or default name
+                'stocks': list: A list of dictionaries for each stock found. The dict has:
+                    {
+                        'ticker': str: The ticker of the stock held
+                        'quantity': str: The quantity of stocks with 'ticker' held
+                        'last_price': str: The last price of the stock with the $ sign removed
+                        'value': str: The total value of the position
+                    }
+            }
+            ```
         """
         # Go to positions page
+        self.page.wait_for_load_state(state="load")
         self.page.goto("https://digital.fidelity.com/ftgw/digital/portfolio/positions")
+        self.wait_for_loading_sign()
 
         # Download the positions as a csv
         with self.page.expect_download() as download_info:
@@ -350,39 +364,27 @@ class FidelityAutomation:
             # If the last price isn't available, just use the current value
             if len(last_price) == 0:
                 last_price = val
-            # If the quantity is missing set it to 1 (SPAXX)
+            # If the quantity is missing set it to 1 (For SPAXX or any other cash position)
             if len(quantity) == 0:
                 quantity = 1
 
-            # If the account number isn't populated yet, add it
-            if row["Account Number"] not in self.account_dict:
-                # Add retrieved info.
-                # Yeah I know is kinda messy and hard to think about but it works
-                # Just need a way to store all stocks with the account number
-                # 'stocks' is a list of dictionaries. Each ticker gets its own index and is described by a dictionary
-                self.account_dict[row["Account Number"]] = {
-                    "balance": float(val),
-                    "type": row["Account Name"],
-                    "stocks": [
-                        {
-                            "ticker": ticker,
-                            "quantity": quantity,
-                            "last_price": last_price,
-                            "value": val,
-                        }
-                    ],
-                }
-            # If it is present, add to it
-            else:
-                self.account_dict[row["Account Number"]]["stocks"].append(
-                    {
-                        "ticker": ticker,
-                        "quantity": quantity,
-                        "last_price": last_price,
-                        "value": val,
-                    }
-                )
-                self.account_dict[row["Account Number"]]["balance"] += float(val)
+            # Create list of dictionary for stock found
+            stock_list = [create_stock_dict(ticker, float(quantity), float(last_price), float(val))]
+            # Try setting in the account dict without overwrite
+            if not self.set_account_dict(
+                account_num=row["Account Number"],
+                balance=float(val),
+                nickname=row["Account Name"],
+                stocks=stock_list,
+                overwrite=False,
+            ):
+                # If the account exists already, add to it
+                self.add_stock_to_account_dict(row["Account Number"], stock_list[0])
+
+        # Close the file
+        csv_file.close()
+        # Delete the file
+        os.remove(positions_csv)
 
         # Close the file
         csv_file.close()
@@ -647,6 +649,65 @@ class FidelityAutomation:
             return (False, f"Driver timed out. Order not completed: {toe}")
         except Exception as e:
             return (False, e)
+
+
+
+def create_stock_dict(ticker: str, quantity: float, last_price: float, value: float, stock_list: list = None):
+    """
+    Creates a dictionary for a stock.
+    Appends it to a list if provided
+
+    Returns
+    -------
+    stock_dict (dict)
+        The dictionary for the stock with given info
+    """
+    # Build the dict for the stock
+    stock_dict = {
+        "ticker": ticker,
+        "quantity": quantity,
+        "last_price": last_price,
+        "value": value,
+    }
+    if stock_list is not None:
+        stock_list.append(stock_dict)
+    return stock_dict
+
+def validate_stocks(stocks: list):
+    """
+    Checks a list of stocks (which are dictionaries) for valid fields
+
+    Returns
+    -------
+    True
+        If stocks are none or valid
+    False
+        If fields are left empty or type are incorrect
+    """
+    if stocks is not None:
+        for stock in stocks:
+            try:
+                if (stock["ticker"] is None or
+                    stock["quantity"] is None or
+                    stock["last_price"] is None or
+                    stock["value"] is None
+                ):
+                    raise Exception("Missing fields")
+                if (type(stock["ticker"]) is not str or
+                    type(stock["quantity"]) is not float or 
+                    type(stock["last_price"]) is not float or 
+                    type(stock["value"]) is not float
+                ):
+                    raise Exception("Incorrect types for entries")
+            except Exception as e:
+                print(f"Error in stocks list. {e}")
+                print("Create list of dictionaries with the following fields populated to initialize with given list")
+                print("ticker: str")
+                print("quantity: float")
+                print("last_price: float")
+                print("value: float")
+                return False
+    return True
 
 
 def fidelity_run(
