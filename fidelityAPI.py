@@ -11,6 +11,7 @@ import os
 import traceback
 
 import pyotp
+from time import sleep
 from dotenv import load_dotenv
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
@@ -108,11 +109,25 @@ class FidelityAutomation:
         """
         Logs into fidelity using the supplied username and password.
 
-        Returns:
-            True, True: If completely logged in, return (True, True)
-            True, False: If 2FA is needed, this function will return (True, False) which signifies that the
-            initial login attempt was successful but further action is needed to finish logging in.
-            False, False: Initial login attempt failed.
+        Parameters
+        ----------
+        username (str)
+            The username of the user.
+        password (str)
+            The password of the user.
+        totp_secret (str)
+            The totp secret, if using, of the user.
+
+        Returns
+        -------
+        True, True
+            If completely logged in
+            
+        True, False
+            If 2FA is needed which signifies that the initial login attempt was successful but further action is needed to finish logging in.
+            
+        False, False
+            Initial login attempt failed.
         """
         try:
             # Go to the login page
@@ -127,19 +142,18 @@ class FidelityAutomation:
             self.page.get_by_label("Password", exact=True).click()
             self.page.get_by_label("Password", exact=True).fill(password)
             self.page.get_by_role("button", name="Log in").click()
-            try:
-                # See if we got to the summary page
-                self.page.wait_for_url(
-                    "https://digital.fidelity.com/ftgw/digital/portfolio/summary",
-                    timeout=30000,
-                )
-                # Got to the summary page, return True
-                return (True, True)
-            except PlaywrightTimeoutError:
-                # Didn't get there yet, continue trying
-                pass
+            
+            # Wait for loading spinner to go away
+            self.wait_for_loading_sign()
+            # The first spinner goes away then another one appears
+            # This has been tested many times and this is necessary
+            self.page.wait_for_timeout(100)
+            self.wait_for_loading_sign()
 
-            # Check to see if blank
+            if "summary" in self.page.url:
+                return (True, True)
+
+            # Check to see if TOTP secret is blank or "NA"
             totp_secret = None if totp_secret == "NA" else totp_secret
 
             # If we hit the 2fA page after trying to login
