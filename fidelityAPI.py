@@ -122,10 +122,10 @@ class FidelityAutomation:
         -------
         True, True
             If completely logged in
-            
+
         True, False
             If 2FA is needed which signifies that the initial login attempt was successful but further action is needed to finish logging in.
-            
+
         False, False
             Initial login attempt failed.
         """
@@ -142,7 +142,7 @@ class FidelityAutomation:
             self.page.get_by_label("Password", exact=True).click()
             self.page.get_by_label("Password", exact=True).fill(password)
             self.page.get_by_role("button", name="Log in").click()
-            
+
             # Wait for loading spinner to go away
             self.wait_for_loading_sign()
             # The first spinner goes away then another one appears
@@ -668,14 +668,14 @@ class FidelityAutomation:
         timeout (int)
             The number of milliseconds to wait before throwing a PlaywrightTimeoutError exception
         """
-        
+
         # Wait for all kinds of loading signs
         signs = [self.page.locator("div:nth-child(2) > .loading-spinner-mask-after").first,
                  self.page.locator(".pvd-spinner__mask-inner").first,
                  self.page.locator("pvd-loading-spinner").first,
                 ]
         for sign in signs:
-            sign.wait_for(timeout=timeout, state="hidden") 
+            sign.wait_for(timeout=timeout, state="hidden")
 
     def set_account_dict(self, account_num: str, balance: float = None, nickname: str = None, stocks: list = None, overwrite: bool = False):
         """
@@ -705,7 +705,7 @@ class FidelityAutomation:
         Returns
         -------
         True
-            If successful 
+            If successful
 
         False
             If entry exists and overwrite=False or stock list is incorrect
@@ -723,8 +723,8 @@ class FidelityAutomation:
                 "stocks": stocks if stocks is not None else []
             }
             return True
-        else:
-            return False
+
+        return False
 
     def add_stock_to_account_dict(self, account_num: str, stock: dict):
         """
@@ -744,24 +744,24 @@ class FidelityAutomation:
             return True
         return False
 
-    def get_list_of_accounts(self, set: bool = True):
+    def get_list_of_accounts(self, set_flag: bool = True):
         """
         Uses the transfers page's dropdown to obtain the list of accounts.
         Separates the account number and nickname and places them into `self.account_dict` if not already present
 
         Parameters
         ----------
-        set (bool) = True
-            If set is false, `self.account_dict` will not be updated and a dictionary of account numbers will be returned instead
+        set_flag (bool) = True
+            If set_flag is false, `self.account_dict` will not be updated and a dictionary of account numbers will be returned instead
 
         Post conditions
         ---------------
-        `self.account_dict` is updated with account numbers and nicknames if set is True or omitted
+        `self.account_dict` is updated with account numbers and nicknames if set_flag is True or omitted
 
         Returns
         -------
         account_dict
-            If set is False, returns the dictionary instead of setting self.account_dict
+            If set_flag is False, returns the dictionary instead of setting self.account_dict
         """
         try:
             # Go to the transfers page
@@ -776,30 +776,30 @@ class FidelityAutomation:
             local_dict = {}
             for option in options:
                 # Try to find accounts by using a regular expression
-                # This regex matches a string of numbers starting with a Z or a digit that 
-                # has a '(' in front of it and a ')' at the end. Must have at least 6 digits after the 
+                # This regex matches a string of numbers starting with a Z or a digit that
+                # has a '(' in front of it and a ')' at the end. Must have at least 6 digits after the
                 # Z or first digit.
-                account_number = re.search('(?<=\()(Z|\d)\d{6,}(?=\))', option.inner_text())
-                nickname = re.search('^.+?(?=\()', option.inner_text())
-                
+                account_number = re.search(r'(?<=\()(Z|\d)\d{6,}(?=\))', option.inner_text())
+                nickname = re.search(r'^.+?(?=\()', option.inner_text())
+
                 # Add to the account dict
-                if set and account_number and nickname:
+                if set_flag and account_number and nickname:
                     self.set_account_dict(
                         account_num=account_number.group(0),
                         nickname=nickname.group(0)
                     )
                 # Or to local copy
-                elif not set and account_number and nickname:
+                elif not set_flag and account_number and nickname:
                     local_dict[account_number.group(0)] = {
                         "balance": 0.0,
                         "nickname": nickname.group(0),
                         "stocks": []
                     }
 
-            if not set:
+            if not set_flag:
                 return local_dict
-            else:
-                return None
+            
+            return None
 
         except Exception as e:
             print(f"An error occurred in get_list_of_accounts: {str(e)}")
@@ -821,10 +821,10 @@ class FidelityAutomation:
                 quantity = single_stock_dict.get("quantity", None)
                 if stock is not None and quantity is not None:
                     all_stock_dict[stock] = quantity
-            
+
             return all_stock_dict
-        else:
-            return None
+
+        return None
 
 def create_stock_dict(ticker: str, quantity: float, last_price: float, value: float, stock_list: list = None):
     """
@@ -869,8 +869,8 @@ def validate_stocks(stocks: list):
                 ):
                     raise Exception("Missing fields")
                 if (type(stock["ticker"]) is not str or
-                    type(stock["quantity"]) is not float or 
-                    type(stock["last_price"]) is not float or 
+                    type(stock["quantity"]) is not float or
+                    type(stock["last_price"]) is not float or
                     type(stock["value"]) is not float
                 ):
                     raise Exception("Incorrect types for entries")
@@ -1074,10 +1074,12 @@ def fidelity_transaction(
         fidelity_browser.page.reload()
         for account_number in fidelity_browser.account_dict:
             # If we are selling, check to see if the account has the stock to sell
-            if orderObj.get_action().lower() == "sell":
-                if stock not in fidelity_browser.get_stocks_in_account(account_number):
-                    # Doesn't have it, skip account
-                    continue
+            if (orderObj.get_action().lower() == "sell" and
+                stock not in fidelity_browser.get_stocks_in_account(account_number)
+            ):
+                # Doesn't have it, skip account
+                continue
+
             # Go trade for all accounts for that stock
             success, error_message = fidelity_browser.transaction(
                 stock,
