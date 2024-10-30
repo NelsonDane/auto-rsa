@@ -660,6 +660,86 @@ class FidelityAutomation:
         except Exception as e:
             return (False, e)
 
+    def wait_for_loading_sign(self, timeout: int = 30000):
+        """
+        Waits for known loading signs present in Fidelity by looping through a list of discovered types.
+        Each iteration uses the timeout given.
+
+        Parameters
+        ----------
+        timeout (int)
+            The number of milliseconds to wait before throwing a PlaywrightTimeoutError exception
+        """
+        
+        # Wait for all kinds of loading signs
+        signs = [self.page.locator("div:nth-child(2) > .loading-spinner-mask-after").first,
+                 self.page.locator(".pvd-spinner__mask-inner").first,
+                 self.page.locator("pvd-loading-spinner").first,
+                ]
+        for sign in signs:
+            sign.wait_for(timeout=timeout, state="hidden") 
+
+    def get_list_of_accounts(self, set: bool = True):
+        """
+        Uses the transfers page's dropdown to obtain the list of accounts.
+        Separates the account number and nickname and places them into `self.account_dict` if not already present
+
+        Parameters
+        ----------
+        set (bool) = True
+            If set is false, `self.account_dict` will not be updated and a dictionary of account numbers will be returned instead
+
+        Post conditions
+        ---------------
+        `self.account_dict` is updated with account numbers and nicknames if set is True or omitted
+
+        Returns
+        -------
+        account_dict
+            If set is False, returns the dictionary instead of setting self.account_dict
+        """
+        try:
+            # Go to the transfers page
+            self.page.wait_for_load_state(state="load")
+            self.page.goto(url="https://digital.fidelity.com/ftgw/digital/transfer/?quicktransfer=cash-shares")
+            self.wait_for_loading_sign()
+
+            # Select the source account from the 'From' dropdown
+            from_select = self.page.get_by_label("From")
+            options = from_select.locator("option").all()
+
+            local_dict = {}
+            for option in options:
+                # Try to find accounts by using a regular expression
+                # This regex matches a string of numbers starting with a Z or a digit that 
+                # has a '(' in front of it and a ')' at the end. Must have at least 6 digits after the 
+                # Z or first digit.
+                account_number = re.search('(?<=\()(Z|\d)\d{6,}(?=\))', option.inner_text())
+                nickname = re.search('^.+?(?=\()', option.inner_text())
+                
+                # Add to the account dict
+                if set and account_number and nickname:
+                    self.set_account_dict(
+                        account_num=account_number.group(0),
+                        nickname=nickname.group(0)
+                    )
+                # Or to local copy
+                elif not set and account_number and nickname:
+                    local_dict[account_number.group(0)] = {
+                        "balance": 0.0,
+                        "nickname": nickname.group(0),
+                        "stocks": []
+                    }
+
+            if not set:
+                return local_dict
+            else:
+                return None
+
+        except Exception as e:
+            print(f"An error occurred in get_list_of_accounts: {str(e)}")
+            return None
+
 
 
 def create_stock_dict(ticker: str, quantity: float, last_price: float, value: float, stock_list: list = None):
