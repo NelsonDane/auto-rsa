@@ -274,8 +274,9 @@ async def sofi_login_and_account(browser, page, account, name, botObj, discord_l
 
 async def sofi_account_info(browser, discord_loop):
     try:
-        await browser.sleep(3)
+        await browser.sleep(1)
         await browser.get("https://www.sofi.com/wealth/app/overview")
+        await browser.sleep(5)
 
         cookies = await browser.cookies.get_all()
         cookies_dict = {cookie.name: cookie.value for cookie in cookies}
