@@ -108,11 +108,25 @@ class FidelityAutomation:
         """
         Logs into fidelity using the supplied username and password.
 
-        Returns:
-            True, True: If completely logged in, return (True, True)
-            True, False: If 2FA is needed, this function will return (True, False) which signifies that the
-            initial login attempt was successful but further action is needed to finish logging in.
-            False, False: Initial login attempt failed.
+        Parameters
+        ----------
+        username (str)
+            The username of the user.
+        password (str)
+            The password of the user.
+        totp_secret (str)
+            The totp secret, if using, of the user.
+
+        Returns
+        -------
+        True, True
+            If completely logged in
+            
+        True, False
+            If 2FA is needed which signifies that the initial login attempt was successful but further action is needed to finish logging in.
+            
+        False, False
+            Initial login attempt failed.
         """
         try:
             # Go to the login page
@@ -127,24 +141,25 @@ class FidelityAutomation:
             self.page.get_by_label("Password", exact=True).click()
             self.page.get_by_label("Password", exact=True).fill(password)
             self.page.get_by_role("button", name="Log in").click()
-            try:
-                # See if we got to the summary page
-                self.page.wait_for_url(
-                    "https://digital.fidelity.com/ftgw/digital/portfolio/summary",
-                    timeout=30000,
-                )
-                # Got to the summary page, return True
-                return (True, True)
-            except PlaywrightTimeoutError:
-                # Didn't get there yet, continue trying
-                pass
+            
+            # Wait for loading spinner to go away
+            self.wait_for_loading_sign()
+            # The first spinner goes away then another one appears
+            # This has been tested many times and this is necessary
+            self.page.wait_for_timeout(1000)
+            self.wait_for_loading_sign()
 
-            # Check to see if blank
+            if "summary" in self.page.url:
+                return (True, True)
+
+            # Check to see if TOTP secret is blank or "NA"
             totp_secret = None if totp_secret == "NA" else totp_secret
 
             # If we hit the 2fA page after trying to login
             if "login" in self.page.url:
-
+                self.wait_for_loading_sign()
+                widget = self.page.locator("#dom-widget div").first
+                widget.wait_for(timeout=5000, state='visible')
                 # If TOTP secret is provided, we are will use the TOTP key. See if authenticator code is present
                 if (
                     totp_secret is not None
@@ -263,22 +278,36 @@ class FidelityAutomation:
 
     def getAccountInfo(self):
         """
-        Gets account numbers, account names, and account totals by downloading the csv of positions from fidelity.
+        Gets account numbers, account names, and account totals by downloading the csv of positions
+        from fidelity.
+        `Note` This will miss accounts that have no holdings! The positions csv doesn't show accounts
+        with only pending activity either. Use `self.get_list_of_accounts` for a full list of accounts.
 
         Post Conditions:
             self.account_dict is populated with holdings for each account
-        Returns:
-            account_dict: dict: A dictionary using account numbers as keys. Each key holds a dict which has:
-            'balance': float: Total account balance
-            'type': str: The account nickname or default name
-            'stocks': list: A list of dictionaries for each stock found. The dict has:
-                'ticker': str: The ticker of the stock held
-                'quantity': str: The quantity of stocks with 'ticker' held
-                'last_price': str: The last price of the stock with the $ sign removed
-                'value': str: The total value of the position
+
+        Returns
+        -------
+        account_dict (dict)
+            A dictionary using account numbers as keys. Each key holds a dict which has:
+            ```
+            {
+                'balance': float: Total account balance
+                'type': str: The account nickname or default name
+                'stocks': list: A list of dictionaries for each stock found. The dict has:
+                    {
+                        'ticker': str: The ticker of the stock held
+                        'quantity': str: The quantity of stocks with 'ticker' held
+                        'last_price': str: The last price of the stock with the $ sign removed
+                        'value': str: The total value of the position
+                    }
+            }
+            ```
         """
         # Go to positions page
+        self.page.wait_for_load_state(state="load")
         self.page.goto("https://digital.fidelity.com/ftgw/digital/portfolio/positions")
+        self.wait_for_loading_sign()
 
         # Download the positions as a csv
         with self.page.expect_download() as download_info:
@@ -336,39 +365,27 @@ class FidelityAutomation:
             # If the last price isn't available, just use the current value
             if len(last_price) == 0:
                 last_price = val
-            # If the quantity is missing set it to 1 (SPAXX)
+            # If the quantity is missing set it to 1 (For SPAXX or any other cash position)
             if len(quantity) == 0:
                 quantity = 1
 
-            # If the account number isn't populated yet, add it
-            if row["Account Number"] not in self.account_dict:
-                # Add retrieved info.
-                # Yeah I know is kinda messy and hard to think about but it works
-                # Just need a way to store all stocks with the account number
-                # 'stocks' is a list of dictionaries. Each ticker gets its own index and is described by a dictionary
-                self.account_dict[row["Account Number"]] = {
-                    "balance": float(val),
-                    "type": row["Account Name"],
-                    "stocks": [
-                        {
-                            "ticker": ticker,
-                            "quantity": quantity,
-                            "last_price": last_price,
-                            "value": val,
-                        }
-                    ],
-                }
-            # If it is present, add to it
-            else:
-                self.account_dict[row["Account Number"]]["stocks"].append(
-                    {
-                        "ticker": ticker,
-                        "quantity": quantity,
-                        "last_price": last_price,
-                        "value": val,
-                    }
-                )
-                self.account_dict[row["Account Number"]]["balance"] += float(val)
+            # Create list of dictionary for stock found
+            stock_list = [create_stock_dict(ticker, float(quantity), float(last_price), float(val))]
+            # Try setting in the account dict without overwrite
+            if not self.set_account_dict(
+                account_num=row["Account Number"],
+                balance=float(val),
+                nickname=row["Account Name"],
+                stocks=stock_list,
+                overwrite=False,
+            ):
+                # If the account exists already, add to it
+                self.add_stock_to_account_dict(row["Account Number"], stock_list[0])
+
+        # Close the file
+        csv_file.close()
+        # Delete the file
+        os.remove(positions_csv)
 
         # Close the file
         csv_file.close()
@@ -417,7 +434,8 @@ class FidelityAutomation:
     ) -> bool:
         """
         Process an order (transaction) using the dedicated trading page.
-        NOTE: If you use this function repeatedly but change the stock between ANY call,
+
+        `NOTE`: If you use this function repeatedly but change the stock between ANY call,
         RELOAD the page before calling this
 
         For buying:
@@ -425,19 +443,28 @@ class FidelityAutomation:
         For selling:
             Places a market order for the security
 
-        Parameters:
-            stock: str: The ticker that represents the security to be traded
-            quantity: float: The amount to buy or sell of the security
-            action: str: This must be 'buy' or 'sell'. It can be in any case state (i.e. 'bUY' is still valid)
-            account: str: The account number to trade under.
-            dry: bool: True for dry (test) run, False for real run.
+        Parameters
+        ----------
+        stock (str)
+            The ticker that represents the security to be traded
+        quantity (float)
+            The amount to buy or sell of the security
+        action (str)
+            This must be 'buy' or 'sell'. It can be in any case state (i.e. 'bUY' is still valid)
+        account (str)
+            The account number to trade under.
+        dry (bool)
+            True for dry (test) run, False for real run.
 
-        Returns:
-            (Success: bool, Error_message: str) If the order was successfully placed or tested (for dry runs) then True is
+        Returns
+        -------
+        (Success (bool), Error_message (str))
+            If the order was successfully placed or tested (for dry runs) then True is
             returned and Error_message will be None. Otherwise, False will be returned and Error_message will not be None
         """
         try:
             # Go to the trade page
+            self.page.wait_for_load_state(state="load")
             if (
                 self.page.url
                 != "https://digital.fidelity.com/ftgw/digital/trade-equity/index/orderEntry"
@@ -484,7 +511,7 @@ class FidelityAutomation:
                 self.page.get_by_role("button", name="View expanded ticket").click()
                 # Wait for it to take effect
                 self.page.get_by_role("button", name="Calculate shares").wait_for(
-                    timeout=2000
+                    timeout=5000
                 )
 
             # When enabling extended hour trading
@@ -554,7 +581,7 @@ class FidelityAutomation:
                     "button",
                     name="Place order",
                     exact=False,
-                ).wait_for(timeout=4000, state="visible")
+                ).wait_for(timeout=5000, state="visible")
             except PlaywrightTimeoutError:
                 # Error must be present (or really slow page for some reason)
                 # Try to report on error
@@ -624,15 +651,174 @@ class FidelityAutomation:
                     )
                     # If no error, return with success
                     return (True, None)
-                except PlaywrightTimeoutError:
+                except PlaywrightTimeoutError as toe:
                     # Order didn't go through for some reason, go to the next and say error
-                    return (False, "Order failed to complete")
+                    return (False, f"Timed out waiting for 'Order received': {toe}")
             # If its a dry run, report back success
             return (True, None)
         except PlaywrightTimeoutError as toe:
             return (False, f"Driver timed out. Order not completed: {toe}")
         except Exception as e:
             return (False, e)
+
+    def wait_for_loading_sign(self, timeout: int = 30000):
+        """
+        Waits for known loading signs present in Fidelity by looping through a list of discovered types.
+        Each iteration uses the timeout given.
+
+        Parameters
+        ----------
+        timeout (int)
+            The number of milliseconds to wait before throwing a PlaywrightTimeoutError exception
+        """
+        
+        # Wait for all kinds of loading signs
+        signs = [self.page.locator("div:nth-child(2) > .loading-spinner-mask-after").first,
+                 self.page.locator(".pvd-spinner__mask-inner").first,
+                 self.page.locator("pvd-loading-spinner").first,
+                ]
+        for sign in signs:
+            sign.wait_for(timeout=timeout, state="hidden") 
+
+    def get_list_of_accounts(self, set: bool = True):
+        """
+        Uses the transfers page's dropdown to obtain the list of accounts.
+        Separates the account number and nickname and places them into `self.account_dict` if not already present
+
+        Parameters
+        ----------
+        set (bool) = True
+            If set is false, `self.account_dict` will not be updated and a dictionary of account numbers will be returned instead
+
+        Post conditions
+        ---------------
+        `self.account_dict` is updated with account numbers and nicknames if set is True or omitted
+
+        Returns
+        -------
+        account_dict
+            If set is False, returns the dictionary instead of setting self.account_dict
+        """
+        try:
+            # Go to the transfers page
+            self.page.wait_for_load_state(state="load")
+            self.page.goto(url="https://digital.fidelity.com/ftgw/digital/transfer/?quicktransfer=cash-shares")
+            self.wait_for_loading_sign()
+
+            # Select the source account from the 'From' dropdown
+            from_select = self.page.get_by_label("From")
+            options = from_select.locator("option").all()
+
+            local_dict = {}
+            for option in options:
+                # Try to find accounts by using a regular expression
+                # This regex matches a string of numbers starting with a Z or a digit that 
+                # has a '(' in front of it and a ')' at the end. Must have at least 6 digits after the 
+                # Z or first digit.
+                account_number = re.search('(?<=\()(Z|\d)\d{6,}(?=\))', option.inner_text())
+                nickname = re.search('^.+?(?=\()', option.inner_text())
+                
+                # Add to the account dict
+                if set and account_number and nickname:
+                    self.set_account_dict(
+                        account_num=account_number.group(0),
+                        nickname=nickname.group(0)
+                    )
+                # Or to local copy
+                elif not set and account_number and nickname:
+                    local_dict[account_number.group(0)] = {
+                        "balance": 0.0,
+                        "nickname": nickname.group(0),
+                        "stocks": []
+                    }
+
+            if not set:
+                return local_dict
+            else:
+                return None
+
+        except Exception as e:
+            print(f"An error occurred in get_list_of_accounts: {str(e)}")
+            return None
+
+    def get_stocks_in_account(self, account_number: str) -> dict:
+        """
+        `self.getAccountInfo() must be called before this to work
+
+        Returns
+        -------
+        all_stock_dict (dict)
+            A dict of stocks that the account has.
+        """
+        if account_number in self.account_dict:
+            all_stock_dict = {}
+            for single_stock_dict in self.account_dict[account_number]["stocks"]:
+                stock = single_stock_dict.get("ticker", None)
+                quantity = single_stock_dict.get("quantity", None)
+                if stock is not None and quantity is not None:
+                    all_stock_dict[stock] = quantity
+            
+            return all_stock_dict
+        else:
+            return None
+
+def create_stock_dict(ticker: str, quantity: float, last_price: float, value: float, stock_list: list = None):
+    """
+    Creates a dictionary for a stock.
+    Appends it to a list if provided
+
+    Returns
+    -------
+    stock_dict (dict)
+        The dictionary for the stock with given info
+    """
+    # Build the dict for the stock
+    stock_dict = {
+        "ticker": ticker,
+        "quantity": quantity,
+        "last_price": last_price,
+        "value": value,
+    }
+    if stock_list is not None:
+        stock_list.append(stock_dict)
+    return stock_dict
+
+
+def validate_stocks(stocks: list):
+    """
+    Checks a list of stocks (which are dictionaries) for valid fields
+
+    Returns
+    -------
+    True
+        If stocks are none or valid
+    False
+        If fields are left empty or type are incorrect
+    """
+    if stocks is not None:
+        for stock in stocks:
+            try:
+                if (stock["ticker"] is None or
+                    stock["quantity"] is None or
+                    stock["last_price"] is None or
+                    stock["value"] is None
+                ):
+                    raise Exception("Missing fields")
+                if (type(stock["ticker"]) is not str or
+                    type(stock["quantity"]) is not float or 
+                    type(stock["last_price"]) is not float or 
+                    type(stock["value"]) is not float
+                ):
+                    raise Exception("Incorrect types for entries")
+            except Exception as e:
+                print(f"Error in stocks list. {e}")
+                print("Create list of dictionaries with the following fields populated to initialize with given list")
+                print("ticker: str")
+                print("quantity: float")
+                print("last_price: float")
+                print("value: float")
+                return False
+    return True
 
 
 def fidelity_run(
@@ -811,6 +997,8 @@ def fidelity_transaction(
 
     # Get the driver
     fidelity_browser: FidelityAutomation = fidelity_o.get_logged_in_objects(name)
+    # Get full list of accounts in case some had no holdings
+    fidelity_browser.get_list_of_accounts()
     # Go trade
     for stock in orderObj.get_stocks():
         # Say what we are doing
@@ -820,7 +1008,12 @@ def fidelity_transaction(
         )
         # Reload the page incase we were trading before
         fidelity_browser.page.reload()
-        for account_number in fidelity_o.get_account_numbers(name):
+        for account_number in fidelity_browser.account_dict:
+            # If we are selling, check to see if the account has the stock to sell
+            if orderObj.get_action().lower() == "sell":
+                if stock not in fidelity_browser.get_stocks_in_account(account_number):
+                    # Doesn't have it, skip account
+                    continue
             # Go trade for all accounts for that stock
             success, error_message = fidelity_browser.transaction(
                 stock,
