@@ -680,6 +680,73 @@ class FidelityAutomation:
         for sign in signs:
             sign.wait_for(timeout=timeout, state="hidden") 
 
+    def set_account_dict(self, account_num: str, balance: float = None, nickname: str = None, stocks: list = None, overwrite: bool = False):
+        """
+        Create or rewrite (if overwrite=True) an entry in the account_dict.
+
+        Parameters
+        ----------
+        account_num (str)
+            The account number of a Fidelity account with no parenthesis. Ex: Z12345678
+        balance (float)
+            The balance of the account if present.
+        nickname (str)
+            The nickname of the account. Ex: Individual
+        stocks (list)
+            A list of dictionaries that contain stock info. Each dictionary is defined as:
+            ```
+            {
+                'ticker': str,
+                'quantity': float,
+                'last_price': float,
+                'value': float
+            }
+            ```
+        overwrite (bool)
+            Whether to overwrite an existing entry if found.
+
+        Returns
+        -------
+        True
+            If successful 
+
+        False
+            If entry exists and overwrite=False or stock list is incorrect
+        """
+        # Overwrite or create new entry
+        if overwrite or account_num not in self.account_dict:
+            # Check stocks first. This returns true is stocks is None
+            if not validate_stocks(stocks):
+                return False
+
+            # Use the info given
+            self.account_dict[account_num] = {
+                "balance": balance if balance is not None else 0.0,
+                "nickname": nickname,
+                "stocks": stocks if stocks is not None else []
+            }
+            return True
+        else:
+            return False
+
+    def add_stock_to_account_dict(self, account_num: str, stock: dict):
+        """
+        Add a stock to the account dict under an account.
+        You can use/import `create_stock_dict` for help.
+
+        Returns
+        -------
+        True
+            If successful
+        False
+            If account doesn't yet exist in account_dict
+        """
+        if account_num in self.account_dict:
+            self.account_dict[account_num]["stocks"].append(stock)
+            self.account_dict[account_num]["balance"] += stock["value"]
+            return True
+        return False
+
     def get_list_of_accounts(self, set: bool = True):
         """
         Uses the transfers page's dropdown to obtain the list of accounts.
