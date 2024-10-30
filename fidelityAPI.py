@@ -388,7 +388,6 @@ class FidelityAutomation:
         # Delete the file
         os.remove(positions_csv)
 
-
         return self.account_dict
 
     def summary_holdings(self) -> dict:
@@ -921,7 +920,7 @@ def fidelity_run(
         fidelityobj = fidelity_init(
             account=account,
             name=name,
-            headless=False,
+            headless=headless,
             botObj=botObj,
             loop=loop,
         )
@@ -1078,7 +1077,6 @@ def fidelity_transaction(
             if orderObj.get_action().lower() == "sell":
                 if stock not in fidelity_browser.get_stocks_in_account(account_number):
                     # Doesn't have it, skip account
-                    print(f"Account: {account_number} doesn't have {stock}")
                     continue
             # Go trade for all accounts for that stock
             success, error_message = fidelity_browser.transaction(
