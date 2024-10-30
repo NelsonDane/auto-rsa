@@ -10,6 +10,7 @@ import json
 import os
 import traceback
 
+import re
 import pyotp
 from dotenv import load_dotenv
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
@@ -387,9 +388,6 @@ class FidelityAutomation:
         # Delete the file
         os.remove(positions_csv)
 
-        # Close the file
-        csv_file.close()
-        os.remove(positions_csv)
 
         return self.account_dict
 
@@ -923,7 +921,7 @@ def fidelity_run(
         fidelityobj = fidelity_init(
             account=account,
             name=name,
-            headless=headless,
+            headless=False,
             botObj=botObj,
             loop=loop,
         )
@@ -997,7 +995,7 @@ def fidelity_init(account: str, name: str, headless=True, botObj=None, loop=None
         # Set info into fidelity brokerage object
         for acct in account_dict:
             fidelity_obj.set_account_number(name, acct)
-            fidelity_obj.set_account_type(name, acct, account_dict[acct]["type"])
+            fidelity_obj.set_account_type(name, acct, account_dict[acct]["nickname"])
             fidelity_obj.set_account_totals(name, acct, account_dict[acct]["balance"])
         print(f"Logged in to {name}!")
         return fidelity_obj
@@ -1080,6 +1078,7 @@ def fidelity_transaction(
             if orderObj.get_action().lower() == "sell":
                 if stock not in fidelity_browser.get_stocks_in_account(account_number):
                     # Doesn't have it, skip account
+                    print(f"Account: {account_number} doesn't have {stock}")
                     continue
             # Go trade for all accounts for that stock
             success, error_message = fidelity_browser.transaction(
