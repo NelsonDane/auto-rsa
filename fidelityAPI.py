@@ -361,14 +361,26 @@ class FidelityAutomation:
             # If the value isn't present, move to next row
             if len(val) == 0:
                 continue
-            if val.lower() == "n/a":
-                val = 0
             # If the last price isn't available, just use the current value
             if len(last_price) == 0:
                 last_price = val
             # If the quantity is missing set it to 1 (For SPAXX or any other cash position)
             if len(quantity) == 0:
                 quantity = 1
+            
+            # Check for anything that isn't a number 
+            try:
+                float(val)
+            except ValueError:
+                val = 0
+            try:
+                float(last_price)
+            except ValueError:
+                last_price = 0
+            try:
+                float(quantity)
+            except ValueError:
+                quantity = 0
 
             # Create list of dictionary for stock found
             stock_list = [create_stock_dict(ticker, float(quantity), float(last_price), float(val))]
