@@ -74,6 +74,7 @@ def plynk_holdings(plynk_obj: Brokerage, loop=None):
                         price = 0
                     plynk_obj.set_holdings(key, account, symbol, quantity, price)
             except Exception as e:
+                print(f"{key} {account}: Error getting holdings: {e}")
                 print(traceback.format_exc())
                 continue
     printHoldings(plynk_obj, loop)
