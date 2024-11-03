@@ -267,8 +267,20 @@ Required `.env` variables:
 
 If you get errors after upgrading, try clearing your cookies in the `creds` folder and then trying again.
 
+### Plynk
+Made by matthew55 using [plynk-api](https://github.com/matthew55/Plynk-API). Consider giving him a ⭐
+
+Required `.env` variables:
+- `PLYNK_USERNAME`
+- `PLYNK_PASSWORD`
+
+`.env` file format:
+- `PLYNK=PLYNK_USERNAME:PLYNK_PASSWORD`
+
+Note: You *must* turn on Real-time quotes in Account->Real-time quotes in order for your orders to be accurate.
+
 ### Public
-Made by yours truly using using [public-invest-api](https://github.com/NelsonDane/public-invest-api). Consider giving me a ⭐
+Made by yours truly using [public-invest-api](https://github.com/NelsonDane/public-invest-api). Consider giving me a ⭐
 
 Required `.env` variables:
 - `PUBLIC_USERNAME`

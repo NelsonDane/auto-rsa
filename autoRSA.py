@@ -33,6 +33,7 @@ try:
         stockOrder,
         updater,
     )
+    from plynkAPI import *
     from publicAPI import *
     from robinhoodAPI import *
     from schwabAPI import *
@@ -60,6 +61,7 @@ SUPPORTED_BROKERS = [
     "fennel",
     "fidelity",
     "firstrade",
+    "plynk",
     "public",
     "robinhood",
     "schwab",
@@ -144,6 +146,7 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                     "dspac",
                     "fennel",
                     "firstrade",
+                    "plynk",
                     "public",
                 ]:
                     # Requires bot object and loop
@@ -281,7 +284,7 @@ if __name__ == "__main__":
         DOCKER_MODE = DISCORD_BOT = True
     # If discord argument, run discord bot, no docker, no prompt
     elif sys.argv[1].lower() == "discord":
-        updater()
+        # updater()
         check_package_versions()
         print("Running Discord bot from command line")
         DISCORD_BOT = True
