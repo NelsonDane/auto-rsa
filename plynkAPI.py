@@ -63,12 +63,18 @@ def plynk_holdings(plynk_obj: Brokerage, loop=None):
                 holdings = plynk.get_account_holdings(account)
                 for holding in holdings:
                     symbol = holding['security']['symbol']
+                    if symbol is None:
+                        symbol = 'None'
                     quantity = holding['securityCount']
                     price = holding['currentValue']
+                    if price is not None:
+                        stock_details = plynk.get_stock_details(symbol)
+                        price = stock_details['securityDetails']['lastPrice']
+                    else:
+                        price = 0
                     plynk_obj.set_holdings(key, account, symbol, quantity, price)
             except Exception as e:
-                printAndDiscord(f"{key}: Error getting account holdings: {e}", loop)
-                traceback.format_exc()
+                print(traceback.format_exc())
                 continue
     printHoldings(plynk_obj, loop)
 
