@@ -9,7 +9,7 @@ firstrade==0.0.30
 GitPython==3.1.43
 nodriver==0.37
 # Plynk API
--e git+https://github.com/matthew55/Plynk-API.git@d23792e1603172bea4d8f2e32b278a04b5e3dd50#egg=plynk_api
+-e git+https://github.com/matthew55/Plynk-API.git@420fad935b726e869d10de1304f399b85c566613#egg=plynk_api
 # playwright stealth from pypi seems abandoned
 -e git+https://github.com/MaxxRK/playwright_stealth.git@f87d7c3d67134ad6def356dce6545c2f42662dfb#egg=playwright_stealth
 public-invest-api==1.0.4

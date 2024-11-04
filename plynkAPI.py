@@ -1,3 +1,4 @@
+import asyncio
 import os
 import traceback
 
@@ -6,6 +7,7 @@ from plynk_api import Plynk
 
 from helperAPI import (
     Brokerage,
+    getOTPCodeDiscord,
     maskString,
     printAndDiscord,
     printHoldings,
@@ -26,6 +28,22 @@ def plynk_init(PLYNK_EXTERNAL=None, botObj=None, loop=None):
         if PLYNK_EXTERNAL is None
         else PLYNK_EXTERNAL.strip().split(",")
     )
+
+    # This is used by Plynk API get the OTP when needed
+    def get_otp():
+        if botObj is not None and loop is not None:
+            # Sometimes codes take a long time to arrive
+            timeout = 300  # 5 minutes
+            otp_code = asyncio.run_coroutine_threadsafe(
+                getOTPCodeDiscord(botObj, name, timeout=timeout, loop=loop),
+                loop,
+            ).result()
+        else:
+            otp_code = input("Please enter the OTP you received: ")
+        if otp_code is None:
+            raise Exception("No 2FA code found")
+        return otp_code
+
     # Log in to Plynk account
     print("Logging in to Plynk...")
     for index, account in enumerate(plynk_creds):
@@ -38,7 +56,7 @@ def plynk_init(PLYNK_EXTERNAL=None, botObj=None, loop=None):
                 filename=f"{name}.pkl",
                 path="./creds/"
             )
-            plynk.login()
+            plynk.login(otp_callback=get_otp)
             # Plynk only has one account
             plynk_obj.set_logged_in_object(name, plynk)
             account_number = plynk.get_account_number()
