@@ -103,7 +103,7 @@ def public_holdings(pbo: Brokerage, loop=None):
                         pbo.set_holdings(key, account, sym, qty, current_price)
             except Exception as e:
                 printAndDiscord(f"{key}: Error getting account holdings: {e}", loop)
-                traceback.format_exc()
+                print(traceback.format_exc())
                 continue
     printHoldings(pbo, loop)
 
