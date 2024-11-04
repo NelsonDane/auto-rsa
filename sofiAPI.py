@@ -411,11 +411,15 @@ async def handle_2fa(page, account, name, botObj, discord_loop):
             secret = None
         if secret is not None:
             try:
-                remember = await asyncio.wait_for(page.select("input[id=rememberBrowser]"), timeout=5)
+                remember = await asyncio.wait_for(
+                    page.select("input[id=rememberBrowser]"), timeout=5
+                )
                 if remember:
                     await remember.click()
             except asyncio.TimeoutError:
-                print(f"'rememberBrowser' checkbox not found for {name}. Continuing without it...")
+                print(
+                    f"'rememberBrowser' checkbox not found for {name}. Continuing without it..."
+                )
 
             # Continue with 2FA input
             twofa_input = await page.select("input[id=code]")
@@ -443,11 +447,15 @@ async def handle_2fa(page, account, name, botObj, discord_loop):
             if sms_2fa_element:
                 # SMS 2FA handling
                 try:
-                    remember = await asyncio.wait_for(page.select("input[id=rememberBrowser]"), timeout=5)
+                    remember = await asyncio.wait_for(
+                        page.select("input[id=rememberBrowser]"), timeout=5
+                    )
                     if remember:
                         await remember.click()
                 except asyncio.TimeoutError:
-                    print(f"'rememberBrowser' checkbox not found for {name}. Continuing without it...")
+                    print(
+                        f"'rememberBrowser' checkbox not found for {name}. Continuing without it..."
+                    )
 
                 sms2fa_input = await page.select("input[id=code]")
                 if not sms2fa_input:
