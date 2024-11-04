@@ -164,6 +164,21 @@ def tradier_holdings(tradier_o: Brokerage, loop=None):
                 continue
     printHoldings(tradier_o, loop=loop)
 
+def get_bid_ask(obj: str, symbol: str):
+    """Fetch the bid and ask prices for a given symbol from Tradier."""
+    endpoint = "markets/quotes"
+    params = {"symbols": symbol, "greeks": "false"}
+    
+    # Make request to fetch bid and ask prices
+    response = make_request(endpoint, obj, params=params)
+    
+    if response and "quotes" in response and "quote" in response["quotes"]:
+        quote = response["quotes"]["quote"]
+        bid_price = quote.get("bid")
+        ask_price = quote.get("ask")
+        return bid_price, ask_price
+    else:
+        raise ValueError(f"Failed to retrieve bid and ask for {symbol}")
 
 def tradier_transaction(tradier_o: Brokerage, orderObj: stockOrder, loop=None):
     print()
@@ -178,9 +193,20 @@ def tradier_transaction(tradier_o: Brokerage, orderObj: stockOrder, loop=None):
                 f"{key}: {orderObj.get_action()}ing {orderObj.get_amount()} of {s}",
                 loop=loop,
             )
+            
             for account in tradier_o.get_account_numbers(key):
                 obj: str = tradier_o.get_logged_in_objects(key)
                 print_account = maskString(account)
+                
+                try:
+                    # Fetch current bid and ask prices
+                    bid_price, ask_price = get_bid_ask(obj, s)
+                except ValueError as e:
+                    printAndDiscord(
+                        f"Tradier account {key} Error: {e}", loop=loop
+                    )
+                    continue
+                
                 # Tradier doesn't support fractional shares
                 if not orderObj.get_amount().is_integer():
                     printAndDiscord(
@@ -188,6 +214,19 @@ def tradier_transaction(tradier_o: Brokerage, orderObj: stockOrder, loop=None):
                         loop=loop,
                     )
                     continue
+                
+                # Determine the limit price based on the action
+                if orderObj.get_action() == 'buy':
+                    limit_price = ask_price
+                elif orderObj.get_action() == 'sell':
+                    limit_price = bid_price
+                else:
+                    printAndDiscord(
+                        f"Tradier account {print_account} Error: Invalid action {orderObj.get_action()}",
+                        loop=loop,
+                    )
+                    continue
+
                 if not orderObj.get_dry():
                     try:
                         data = {
@@ -195,7 +234,8 @@ def tradier_transaction(tradier_o: Brokerage, orderObj: stockOrder, loop=None):
                             "symbol": s,
                             "side": orderObj.get_action(),
                             "quantity": orderObj.get_amount(),
-                            "type": "market",
+                            "type": "limit",  # Set to limit order
+                            "limit_price": limit_price,  # Use the determined limit price
                             "duration": "day",
                         }
                         json_response = make_request(
@@ -226,6 +266,6 @@ def tradier_transaction(tradier_o: Brokerage, orderObj: stockOrder, loop=None):
                         continue
                 else:
                     printAndDiscord(
-                        f"Tradier account {print_account}: Running in DRY mode. Trasaction would've been: {orderObj.get_action()} {orderObj.get_amount()} of {s}",
+                        f"Tradier account {print_account}: Running in DRY mode. Transaction would've been: {orderObj.get_action()} {orderObj.get_amount()} of {s} at limit price {limit_price}",
                         loop=loop,
                     )
