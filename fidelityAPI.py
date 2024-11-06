@@ -876,17 +876,19 @@ def validate_stocks(stocks: list):
     if stocks is not None:
         for stock in stocks:
             try:
-                if (stock["ticker"] is None or
+                if (
+                    stock["ticker"] is None or
                     stock["quantity"] is None or
                     stock["last_price"] is None or
                     stock["value"] is None
-                    ):
+                ):
                     raise Exception("Missing fields")
-                if (type(stock["ticker"]) is not str or
+                if (
+                    type(stock["ticker"]) is not str or
                     type(stock["quantity"]) is not float or
                     type(stock["last_price"]) is not float or
                     type(stock["value"]) is not float
-                    ):
+                ):
                     raise Exception("Incorrect types for entries")
             except Exception as e:
                 print(f"Error in stocks list. {e}")
@@ -1088,8 +1090,10 @@ def fidelity_transaction(
         fidelity_browser.page.reload()
         for account_number in fidelity_browser.account_dict:
             # If we are selling, check to see if the account has the stock to sell
-            if (orderObj.get_action().lower() == "sell" and
-                stock not in fidelity_browser.get_stocks_in_account(account_number)):
+            if (
+                orderObj.get_action().lower() == "sell" and
+                stock not in fidelity_browser.get_stocks_in_account(account_number)
+            ):
                 # Doesn't have it, skip account
                 continue
 
