@@ -367,8 +367,8 @@ class FidelityAutomation:
             # If the quantity is missing set it to 1 (For SPAXX or any other cash position)
             if len(quantity) == 0:
                 quantity = 1
-            
-            # Check for anything that isn't a number 
+
+            # Check for anything that isn't a number
             try:
                 float(val)
             except ValueError:
@@ -682,9 +682,10 @@ class FidelityAutomation:
         """
 
         # Wait for all kinds of loading signs
-        signs = [self.page.locator("div:nth-child(2) > .loading-spinner-mask-after").first,
-                 self.page.locator(".pvd-spinner__mask-inner").first,
-                 self.page.locator("pvd-loading-spinner").first,
+        signs = [
+                    self.page.locator("div:nth-child(2) > .loading-spinner-mask-after").first,
+                    self.page.locator(".pvd-spinner__mask-inner").first,
+                    self.page.locator("pvd-loading-spinner").first,
                 ]
         for sign in signs:
             sign.wait_for(timeout=timeout, state="hidden")
@@ -810,7 +811,7 @@ class FidelityAutomation:
 
             if not set_flag:
                 return local_dict
-            
+
             return None
 
         except Exception as e:
@@ -837,6 +838,7 @@ class FidelityAutomation:
             return all_stock_dict
 
         return None
+
 
 def create_stock_dict(ticker: str, quantity: float, last_price: float, value: float, stock_list: list = None):
     """
@@ -878,13 +880,13 @@ def validate_stocks(stocks: list):
                     stock["quantity"] is None or
                     stock["last_price"] is None or
                     stock["value"] is None
-                ):
+                    ):
                     raise Exception("Missing fields")
                 if (type(stock["ticker"]) is not str or
                     type(stock["quantity"]) is not float or
                     type(stock["last_price"]) is not float or
                     type(stock["value"]) is not float
-                ):
+                    ):
                     raise Exception("Incorrect types for entries")
             except Exception as e:
                 print(f"Error in stocks list. {e}")
@@ -1087,8 +1089,7 @@ def fidelity_transaction(
         for account_number in fidelity_browser.account_dict:
             # If we are selling, check to see if the account has the stock to sell
             if (orderObj.get_action().lower() == "sell" and
-                stock not in fidelity_browser.get_stocks_in_account(account_number)
-            ):
+                stock not in fidelity_browser.get_stocks_in_account(account_number)):
                 # Doesn't have it, skip account
                 continue
 
