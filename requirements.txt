@@ -10,7 +10,7 @@ GitPython==3.1.43
 nodriver==0.37
 # playwright stealth from pypi seems abandoned
 -e git+https://github.com/MaxxRK/playwright_stealth.git@f87d7c3d67134ad6def356dce6545c2f42662dfb#egg=playwright_stealth
-public-invest-api==1.0.4
+public-invest-api==1.1.0
 pyotp==2.9.0
 python-dotenv==1.0.1
 requests==2.32.3
