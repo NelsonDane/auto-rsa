@@ -1,7 +1,9 @@
 import asyncio
+import math
 import os
 import traceback
 
+from time import sleep
 from dotenv import load_dotenv
 from plynk_api import Plynk
 
@@ -99,8 +101,6 @@ def plynk_holdings(plynk_obj: Brokerage, loop=None):
 
 
 def plynk_transaction(plynk_obj: Brokerage, order_obj: stockOrder, loop=None):
-    raise NotImplementedError("Not implemented yet, ya bloody bloak!")
-
     print()
     print("==============================")
     print("Plynk")
@@ -116,22 +116,88 @@ def plynk_transaction(plynk_obj: Brokerage, order_obj: stockOrder, loop=None):
             for account in plynk_obj.get_account_numbers(key):
                 plynk: Plynk = plynk_obj.get_logged_in_objects(key)
                 print_account = maskString(account)
+                old_amount = order_obj.get_amount()
+                original_action = order_obj.get_action()
+                should_dance = False
+                stock_price = plynk.get_stock_price(stock)
+                if stock_price < 1.00:
+                    need_buy = 1.00/stock_price
+                    need_buy = math.ceil(need_buy) + 1  # Round up to nearest whole number + 1 to ensure order will be above 1.00
+                    should_dance = True
+                    print(
+                        f"Buying {need_buy} then selling {need_buy - 1} of {stock}"
+                    )
                 try:
-                    order = plynk.place_order(
-                        symbol=stock,
-                        quantity=order_obj.get_amount(),
-                        side=order_obj.get_action(),
-                        order_type="market",
-                        time_in_force="day",
-                        is_dry_run=order_obj.get_dry(),
-                    )
-                    if order["success"] is True:
-                        order = "Success"
-                    printAndDiscord(
-                        f"{key}: {order_obj.get_action()} {order_obj.get_amount()} of {stock} in {print_account}: {order}",
-                        loop,
-                    )
+                    if should_dance and order_obj.get_action() == "buy":
+                        order_obj.set_amount(need_buy)
+                        if not order_obj.get_dry():
+                            order = plynk.place_order_quantity(
+                                account_number = account,
+                                ticker=stock,
+                                quantity=order_obj.get_amount(),
+                                side=order_obj.get_action(),
+                                price="market",
+                            )
+                            if order["success"] is True:
+                                order = "Success"
+                            else:
+                                raise Exception(f"Error buying {need_buy} of {stock}")
+                        else:
+                            printAndDiscord(
+                                f"{key} {print_account}: Running in DRY mode. Transaction would've been: {order_obj.get_action()} {order_obj.get_amount()} of {stock}",
+                                loop,
+                            )
+                        order_obj.set_amount(need_buy - 1)
+                        order_obj.set_action("sell")
+                        if not order_obj.get_dry():
+                            sleep(1)
+                            order = plynk.place_order_quantity(
+                                account_number = account,
+                                ticker=stock,
+                                quantity=order_obj.get_amount(),
+                                side=order_obj.get_action(),
+                                price="market",
+                            )
+                            if order["success"] is True:
+                                order = "Success"
+                            else:
+                                raise Exception(
+                                    f"Error selling {need_buy - old_amount} of {stock}"
+                                )
+                        else:
+                            printAndDiscord(
+                                f"{key} {print_account}: Running in DRY mode. Transaction would've been: {order_obj.get_action()} {order_obj.get_amount()} of {stock}",
+                                loop,
+                            )
+                            
+                    else:
+                        if not order_obj.get_dry():  
+                            try:
+                                order = plynk.place_order_quantity(
+                                    account_number = account,
+                                    ticker=stock,
+                                    quantity=order_obj.get_amount(),
+                                    side=order_obj.get_action(),
+                                    price="market",
+                                )
+                                if order["success"] is True:
+                                    order = "Success"
+                            except RuntimeError as e:
+                                printAndDiscord(f"{key}: Error placing order: {e}", loop)
+                                continue
+                            printAndDiscord(
+                                f"{key}: {order_obj.get_action()} {order_obj.get_amount()} of {stock} in {print_account}: {order}",
+                                loop,
+                            )
+                        else:
+                            printAndDiscord(
+                                f"{key} {print_account}: Running in DRY mode. Transaction would've been: {order_obj.get_action()} {order_obj.get_amount()} of {stock}",
+                                loop,
+                            )     
                 except Exception as e:
                     printAndDiscord(f"{print_account}: Error placing order: {e}", loop)
                     traceback.print_exc()
-                    continue
+                finally:
+                    # Restore orderObj
+                    order_obj.set_amount(old_amount)
+                    order_obj.set_action(original_action)     
