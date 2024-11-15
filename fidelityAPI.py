@@ -20,6 +20,7 @@ from helperAPI import (
     stockOrder,
 )
 
+
 def fidelity_run(
     orderObj: stockOrder, command=None, botObj=None, loop=None, FIDELITY_EXTERNAL=None
 ):
