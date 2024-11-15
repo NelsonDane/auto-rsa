@@ -177,7 +177,7 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
                                 dry_run=orderObj.get_dry(),
                             )
                             print("The order verification produced the following messages: ")
-                            #pprint.pprint(order_conf)
+                            pprint.pprint(order_conf)
                             printAndDiscord(
                                 (
                                     f"{key} account {print_account}: The order verification was "
@@ -206,7 +206,7 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
                                 dry_run=orderObj.get_dry(),
                             )
                             print("The order verification produced the following messages: ")
-                            #pprint.pprint(order_conf)
+                            pprint.pprint(order_conf)
                             printAndDiscord(
                                 (
                                     f"{key} account {print_account}: The order verification was "
