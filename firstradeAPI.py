@@ -194,6 +194,8 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
                                 )
                             orderObj.set_amount(quantity - old_amount)
                             sleep(1)
+                            symbol_data = symbols.SymbolQuote(obj, account, s)
+                            price = symbol_data.last - 0.01
                             ft_order = order.Order(obj)
                             order_conf = ft_order.place_order(
                                 account=account,
