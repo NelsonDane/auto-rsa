@@ -241,14 +241,15 @@ Required `.env` variables:
 Fennel accounts don't have passwords, so you need to login by inputting the code sent to your email. The script will then save your session credentials for future use.
 
 ### Fidelity
-Made by yours truly using Selenium (and many hours of web scraping).
+Made by [kennyboy106](https://github.com/kennyboy106) using the [fidelity-api](https://github.com/kennyboy106/fidelity-api). Go give them a ⭐
 
 Required `.env` variables:
 - `FIDELITY_USERNAME`
 - `FIDELITY_PASSWORD`
+- `FIDELITY_TOTP` (If 2fa enabled, else NA)
 
 `.env` file format:
-- `FIDELITY=FIDELITY_USERNAME:FIDELITY_PASSWORD`
+- `FIDELITY=FIDELITY_USERNAME:FIDELITY_PASSWORD:FIDELITY_TOTP`
 
 ### Firstrade
 Made by [MaxxRK](https://github.com/MaxxRK/) using the [firstrade-api](https://github.com/MaxxRK/firstrade-api). Go give them a ⭐
