@@ -138,7 +138,6 @@ def plynk_transaction(plynk_obj: Brokerage, order_obj: stockOrder, loop=None):
                                 side=order_obj.get_action(),
                                 price="market",
                             )
-                            print(order)
                             if order["messages"].get('status', None) == 'SUCCESSFUL':
                                 printAndDiscord(
                                     f"{key}: {order_obj.get_action()} {order_obj.get_amount()} of {stock} in {print_account}: Success",
