@@ -192,6 +192,7 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
                                     f"{key} account {print_account}: The order verification produced the following messages: {order_conf}",
                                     loop,
                                 )
+                                raise Exception(f"Error buying {quantity} of {s}")
                             orderObj.set_amount(quantity - old_amount)
                             sleep(1)
                             symbol_data = symbols.SymbolQuote(obj, account, s)
@@ -223,6 +224,7 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
                                     f"{key} account {print_account}: The order verification produced the following messages: {order_conf}",
                                     loop,
                                 )
+                                raise Exception(f"Error selling {quantity - old_amount} of {s}")
                     else:
                         ft_order = order.Order(obj)
                         order_conf = ft_order.place_order(
