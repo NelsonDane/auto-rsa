@@ -157,7 +157,9 @@ def fidelity_holdings(fidelity_o: Brokerage, name: str, loop=None):
     """
 
     # Get the browser back from the fidelity object
-    fidelity_browser: fidelity.FidelityAutomation = fidelity_o.get_logged_in_objects(name)
+    fidelity_browser: fidelity.FidelityAutomation = fidelity_o.get_logged_in_objects(
+        name
+    )
     account_dict = fidelity_browser.account_dict
     for account_number in account_dict:
 
@@ -196,7 +198,9 @@ def fidelity_transaction(
     """
 
     # Get the driver
-    fidelity_browser: fidelity.FidelityAutomation = fidelity_o.get_logged_in_objects(name)
+    fidelity_browser: fidelity.FidelityAutomation = fidelity_o.get_logged_in_objects(
+        name
+    )
     # Get full list of accounts in case some had no holdings
     fidelity_browser.get_list_of_accounts()
     # Go trade
