@@ -10,6 +10,7 @@ from time import sleep
 from dotenv import load_dotenv
 from firstrade import account as ft_account
 from firstrade import order, symbols
+from firstrade.exceptions import QuoteRequestError
 
 from helperAPI import (
     Brokerage,
@@ -17,7 +18,7 @@ from helperAPI import (
     maskString,
     printAndDiscord,
     printHoldings,
-    stockOrder
+    stockOrder,
 )
 
 
@@ -95,12 +96,18 @@ def firstrade_holdings(firstrade_o: Brokerage, loop=None):
             try:
                 data = ft_account.FTAccountData(obj).get_positions(account=account)
                 for item in data["items"]:
+                    symbol = item["symbol"]
+                    try:
+                        quote = symbols.SymbolQuote(obj, account, symbol)
+                        price = quote.last
+                    except QuoteRequestError:
+                        price = 0
                     firstrade_o.set_holdings(
                         key,
                         account,
-                        item.get("symbol") or "Unknown",
+                        symbol,
                         item["quantity"],
-                        item["market_value"],
+                        price,
                     )
             except Exception as e:
                 printAndDiscord(f"{key} {account}: Error getting holdings: {e}", loop)

@@ -11,7 +11,7 @@ from helperAPI import (
     maskString,
     printAndDiscord,
     printHoldings,
-    stockOrder
+    stockOrder,
 )
 
 
@@ -97,8 +97,9 @@ def public_holdings(pbo: Brokerage, loop=None):
                         # Get symbol, quantity, and total value
                         sym = holding["instrument"]["symbol"]
                         qty = float(holding["quantity"])
-                        current_price = obj.get_symbol_price(sym)
-                        if current_price is None:
+                        try:
+                            current_price = obj.get_symbol_price(sym)
+                        except Exception:
                             current_price = "N/A"
                         pbo.set_holdings(key, account, sym, qty, current_price)
             except Exception as e:

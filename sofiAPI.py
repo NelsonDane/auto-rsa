@@ -140,13 +140,12 @@ def sofi_run(
             ]
             if headless:
                 browser_args.append("--headless=new")
-            sleep(2)
             browser = sofi_loop.run_until_complete(uc.start(browser_args=browser_args))
-            sleep(5)
             print(f"Logging into {name}...")
             sofi_init(
                 account, name, cookie_filename, botObj, browser, discord_loop, sofi_obj
             )
+            sofi_loop.run_until_complete(browser.sleep(5))
             print(f"Logged in to {name}!")
             if second_command == "_holdings":
                 sofi_holdings(browser, name, sofi_obj, discord_loop)
@@ -180,6 +179,7 @@ def sofi_init(
 ):
     page = None
     try:
+        sleep(5)
         account = account.split(":")
 
         # The page sometimes doesn't load until after retrying
@@ -198,8 +198,8 @@ def sofi_init(
 
         # Load cookies
         sofi_loop.run_until_complete(page)  # Wait for events to be processed
-        sleep(5)
         page = sofi_loop.run_until_complete(browser.get("https://www.sofi.com"))
+        sofi_loop.run_until_complete(browser.sleep(5))
         cookies_loaded = sofi_loop.run_until_complete(
             load_cookies_from_pkl(browser, page, cookie_filename)
         )
@@ -410,10 +410,18 @@ async def handle_2fa(page, account, name, botObj, discord_loop):
         ):
             secret = None
         if secret is not None:
-            remember = await page.select("input[id=rememberBrowser]")
-            if remember:
-                await remember.click()
+            try:
+                remember = await asyncio.wait_for(
+                    page.select("input[id=rememberBrowser]"), timeout=5
+                )
+                if remember:
+                    await remember.click()
+            except asyncio.TimeoutError:
+                print(
+                    f"'rememberBrowser' checkbox not found for {name}. Continuing without it..."
+                )
 
+            # Continue with 2FA input
             twofa_input = await page.select("input[id=code]")
             if not twofa_input:
                 raise Exception(f"Unable to locate 2FA input field for {name}")
@@ -438,16 +446,24 @@ async def handle_2fa(page, account, name, botObj, discord_loop):
 
             if sms_2fa_element:
                 # SMS 2FA handling
-                remember = await page.select("input[id=rememberBrowser]")
-                if remember:
-                    await remember.click()
+                try:
+                    remember = await asyncio.wait_for(
+                        page.select("input[id=rememberBrowser]"), timeout=5
+                    )
+                    if remember:
+                        await remember.click()
+                except asyncio.TimeoutError:
+                    print(
+                        f"'rememberBrowser' checkbox not found for {name}. Continuing without it..."
+                    )
+
                 sms2fa_input = await page.select("input[id=code]")
                 if not sms2fa_input:
                     raise Exception(f"Unable to locate SMS 2FA input field for {name}")
 
                 if botObj is not None and discord_loop is not None:
                     sms_code = asyncio.run_coroutine_threadsafe(
-                        getOTPCodeDiscord(botObj, name, loop=discord_loop),
+                        getOTPCodeDiscord(botObj, name, timeout=300, loop=discord_loop),
                         discord_loop,
                     ).result()
                     if sms_code is None:

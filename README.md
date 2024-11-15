@@ -217,6 +217,8 @@ Optional .env variables:
 `.env` file format:
 - `CHASE=CHASE_USERNAME:CHASE_PASSWORD:CELL_PHONE_LAST_FOUR:DEBUG`
 
+Note 1: Chase MUST be set to  "classic trading experience". In order to do so navigate to `Trade` > `Stocks & ETFs` > click on a `trading account` > then click on  `Switch back to classic trading experience`.
+
 #### DSPAC
 Made by [ImNotOssy](https://github.com/ImNotOssy) using the [dSPAC_investing_api](https://github.com/ImNotOssy/dSPAC_investing_API). Go give them a ⭐ 
 - `DSPAC_USERNAME`
