@@ -138,8 +138,12 @@ def plynk_transaction(plynk_obj: Brokerage, order_obj: stockOrder, loop=None):
                                 side=order_obj.get_action(),
                                 price="market",
                             )
-                            if order["success"] is True:
-                                order = "Success"
+                            print(order)
+                            if order["messages"].get('status', None) == 'SUCCESSFUL':
+                                printAndDiscord(
+                                    f"{key}: {order_obj.get_action()} {order_obj.get_amount()} of {stock} in {print_account}: Success",
+                                    loop,
+                                )
                             else:
                                 raise Exception(f"Error buying {need_buy} of {stock}")
                         else:
@@ -158,8 +162,11 @@ def plynk_transaction(plynk_obj: Brokerage, order_obj: stockOrder, loop=None):
                                 side=order_obj.get_action(),
                                 price="market",
                             )
-                            if order["success"] is True:
-                                order = "Success"
+                            if order["messages"].get('status', None) == 'SUCCESSFUL':
+                                printAndDiscord(
+                                    f"{key}: {order_obj.get_action()} {order_obj.get_amount()} of {stock} in {print_account}: Success",
+                                    loop,
+                                )
                             else:
                                 raise Exception(
                                     f"Error selling {need_buy - old_amount} of {stock}"
@@ -169,7 +176,7 @@ def plynk_transaction(plynk_obj: Brokerage, order_obj: stockOrder, loop=None):
                                 f"{key} {print_account}: Running in DRY mode. Transaction would've been: {order_obj.get_action()} {order_obj.get_amount()} of {stock}",
                                 loop,
                             )
-                            
+                               
                     else:
                         if not order_obj.get_dry():  
                             try:
@@ -180,7 +187,7 @@ def plynk_transaction(plynk_obj: Brokerage, order_obj: stockOrder, loop=None):
                                     side=order_obj.get_action(),
                                     price="market",
                                 )
-                                if order["success"] is True:
+                                if order["messages"]['status'] == 'SUCCESSFUL':
                                     order = "Success"
                             except RuntimeError as e:
                                 printAndDiscord(f"{key}: Error placing order: {e}", loop)
