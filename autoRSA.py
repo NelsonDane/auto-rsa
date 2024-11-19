@@ -200,6 +200,21 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                 print(f"Error in {fun_name} with {broker}: {ex}")
                 print(orderObj)
             print()
+            
+            # Print out the total holdings across all brokers
+            if "_holdings" in command:
+                totalValue = 0
+                for broker in set(orderObj.get_brokers()) - set(orderObj.get_notbrokers()):
+                    try: 
+                        broker = nicknames(broker)
+                        logged_in_broker = orderObj.get_logged_in(broker)
+                        if logged_in_broker is None:
+                            continue
+                        totalValue += sum(account["total"] for account in logged_in_broker.get_account_totals().values())
+                    except Exception as ex:
+                        print(f"Error getting account totals with {broker}: {ex}")   
+                printAndDiscord(f"Total: ${format(totalValue,'0.2f')}", loop)
+        
         printAndDiscord("All commands complete in all brokers", loop)
     else:
         print(f"Error: {command} is not a valid command")
