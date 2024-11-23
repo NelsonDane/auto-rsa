@@ -198,7 +198,10 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                         )
                 # Add to total sum
                 totalValue += sum(
-                    account["total"] for account in orderObj.get_logged_in(broker).get_account_totals().values()
+                    account["total"]
+                    for account in orderObj.get_logged_in(broker)
+                    .get_account_totals()
+                    .values()
                 )
             except Exception as ex:
                 print(traceback.format_exc())
@@ -208,7 +211,9 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
 
         # Print final total value and closing message
         if "_holdings" in command:
-            printAndDiscord(f"Total Value of All Accounts: ${format(totalValue, '0.2f')}", loop)
+            printAndDiscord(
+                f"Total Value of All Accounts: ${format(totalValue, '0.2f')}", loop
+            )
         printAndDiscord("All commands complete in all brokers", loop)
     else:
         print(f"Error: {command} is not a valid command")

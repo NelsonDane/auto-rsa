@@ -257,7 +257,9 @@ class Brokerage:
             self.__account_totals[parent_name] = {}
         self.__account_totals[parent_name][account_name] = round(float(total), 2)
         self.__account_totals[parent_name]["total"] = sum(
-            value for key, value in self.__account_totals[parent_name].items() if key != "total"
+            value
+            for key, value in self.__account_totals[parent_name].items()
+            if key != "total"
         )
 
     def set_account_type(self, parent_name: str, account_name: str, account_type: str):
