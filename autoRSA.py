@@ -208,7 +208,7 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
 
         # Print final total value and closing message
         if "_holdings" in command:
-            printAndDiscord(f"Total Value of All Accounts: ${format(totalValue,'0.2f')}", loop)
+            printAndDiscord(f"Total Value of All Accounts: ${format(totalValue, '0.2f')}", loop)
         printAndDiscord("All commands complete in all brokers", loop)
     else:
         print(f"Error: {command} is not a valid command")
