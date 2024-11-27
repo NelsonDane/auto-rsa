@@ -125,10 +125,6 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
     # Buy on each account
     for s in orderObj.get_stocks():
         for key in firstrade_o.get_account_numbers():
-            printAndDiscord(
-                f"{key} {orderObj.get_action()}ing {orderObj.get_amount()} {s} @ {orderObj.get_price()}",
-                loop,
-            )
             for account in firstrade_o.get_account_numbers(key):
                 obj: ft_account.FTSession = firstrade_o.get_logged_in_objects(key)
                 print_account = maskString(account)
@@ -167,7 +163,8 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
                         # Do the dance
                         quantity = 100
                         printAndDiscord(
-                            f"Buying {quantity} then selling {quantity - orderObj.get_amount()} of {s}"
+                            f"Buying {quantity} then selling {quantity - orderObj.get_amount()} of {s}",
+                            loop,
                         )
                         orderObj.set_amount(quantity)
                         ft_order = order.Order(obj)
@@ -189,7 +186,7 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
                                 f"{key} account {print_account}: The buy order verification was "
                                 + "successful"
                                 if buy_success
-                                else "unsuccessful"
+                                else f"{key} account {print_account}: The sell order verification was unsuccessful"
                             ),
                             loop,
                         )
@@ -223,7 +220,7 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
                                 f"{key} account {print_account}: The sell order verification was "
                                 + "successful"
                                 if sell_success
-                                else "unsuccessful"
+                                else f"{key} account {print_account}: The sell order verification was unsuccessful"
                             ),
                             loop,
                         )
@@ -254,7 +251,7 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
                                 f"{key} account {print_account}: The order verification was "
                                 + "successful"
                                 if order_success
-                                else "unsuccessful"
+                                else f"{key} account {print_account}: The sell order verification was unsuccessful"
                             ),
                             loop,
                         )
