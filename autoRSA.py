@@ -116,6 +116,7 @@ def nicknames(broker):
 # broker name + type of function
 def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
     if command in [("_init", "_holdings"), ("_init", "_transaction")]:
+        totalValue = 0
         for broker in orderObj.get_brokers():
             if broker in orderObj.get_notbrokers():
                 continue
@@ -195,11 +196,24 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                             f"All {broker.capitalize()} transactions complete",
                             loop,
                         )
+                # Add to total sum
+                totalValue += sum(
+                    account["total"]
+                    for account in orderObj.get_logged_in(broker)
+                    .get_account_totals()
+                    .values()
+                )
             except Exception as ex:
                 print(traceback.format_exc())
                 print(f"Error in {fun_name} with {broker}: {ex}")
                 print(orderObj)
             print()
+
+        # Print final total value and closing message
+        if "_holdings" in command:
+            printAndDiscord(
+                f"Total Value of All Accounts: ${format(totalValue, '0.2f')}", loop
+            )
         printAndDiscord("All commands complete in all brokers", loop)
     else:
         print(f"Error: {command} is not a valid command")
