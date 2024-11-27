@@ -8,7 +8,7 @@ fennel-invest-api==1.1.2
 fidelity-api==0.0.6
 firstrade==0.0.30
 GitPython==3.1.43
-nodriver==0.37
+nodriver==0.38.post1
 # playwright stealth from pypi seems abandoned
 -e git+https://github.com/MaxxRK/playwright_stealth.git@f87d7c3d67134ad6def356dce6545c2f42662dfb#egg=playwright_stealth
 public-invest-api==1.1.0
@@ -18,7 +18,7 @@ requests==2.32.3
 robin-stocks==3.2.1
 schwab-api==0.4.3
 selenium-stealth==1.0.6
-setuptools==75.5.0
+setuptools==75.6.0
 tastytrade==9.1
 vanguard-api==0.2.6
 -e git+https://github.com/NelsonDane/webull.git@ef14ae63f9e1436fbea77fe864df54847cf2f730#egg=webull
