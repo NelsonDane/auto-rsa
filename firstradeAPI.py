@@ -166,7 +166,7 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
                     if should_dance and orderObj.get_action() == "buy":
                         # Do the dance
                         quantity = 100
-                        print(
+                        printAndDiscord(
                             f"Buying {quantity} then selling {quantity - orderObj.get_amount()} of {s}"
                         )
                         orderObj.set_amount(quantity)
