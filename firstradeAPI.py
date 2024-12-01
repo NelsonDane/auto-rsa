@@ -178,7 +178,9 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
                             price=price,
                             dry_run=orderObj.get_dry(),
                         )
-                        print("The buy order verification produced the following messages: ")
+                        print(
+                            "The buy order verification produced the following messages: "
+                        )
                         pprint.pprint(order_conf)
                         buy_success = order_conf["error"] == ""
                         printAndDiscord(
@@ -212,7 +214,9 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
                             price=price,
                             dry_run=orderObj.get_dry(),
                         )
-                        print("The sell order verification produced the following messages: ")
+                        print(
+                            "The sell order verification produced the following messages: "
+                        )
                         pprint.pprint(order_conf)
                         sell_success = order_conf["error"] == ""
                         printAndDiscord(
@@ -229,7 +233,9 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
                                 f"{key} account {print_account}: The order verification produced the following messages: {order_conf}",
                                 loop,
                             )
-                            raise Exception(f"Error selling {quantity - old_amount} of {s}")
+                            raise Exception(
+                                f"Error selling {quantity - old_amount} of {s}"
+                            )
                     else:
                         # Normal buy/sell
                         ft_order = order.Order(obj)
@@ -243,7 +249,9 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
                             price=price,
                             dry_run=orderObj.get_dry(),
                         )
-                        print("The order verification produced the following messages: ")
+                        print(
+                            "The order verification produced the following messages: "
+                        )
                         pprint.pprint(order_conf)
                         order_success = order_conf["error"] == ""
                         printAndDiscord(
