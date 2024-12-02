@@ -52,12 +52,12 @@ To create your Discord bot and get your `DISCORD_TOKEN` for your `.env`, follow 
 There are two ways to run the Discord bot: using Docker or running the Python script. When running the bot using the Python script, the bot will only be online when the script is running. With Docker, the bot will run in the background, restarting and updating automatically.
 
 ### Discord Bot: Docker 🐳
-1. Add `DISCORD_TOKEN` and `DISCORD_CHANNEL` to your `.env` file.
+1. Add `DISCORD_TOKEN` to your `.env` file.
 2. Create the container using the provided [docker-compose.yml](docker-compose.yml) file:
 ```bash
 docker compose up -d
 ```
-3. The bot should appear online in Discord (You can also do `!ping` to check).
+3. The bot should appear online in Discord (You can also do `/ping` to check).
 
 Docker Note: If you make any changes to your `.env` file, you will need to restart the container by running `docker-compose up -d` again. The bot will also automatically stay up to date thanks to the included [Watchtower](https://containrrr.dev/watchtower/).
 
@@ -86,12 +86,12 @@ pip install -r requirements.txt
 ```bash
 playwright install
 ```
-6. Add `DISCORD_TOKEN` and `DISCORD_CHANNEL` to your `.env` file.
+6. Add `DISCORD_TOKEN` to your `.env` file.
 7. Start the bot using the following command:
 ```bash
 python autoRSA.py discord
 ```
-8. The bot should appear online in Discord (You can also do `!ping` to check).
+8. The bot should appear online in Discord (You can also do `/ping` to check).
 
 ### CLI Tool Installation 💻
 To run the CLI tool, follow these steps:
@@ -151,14 +151,14 @@ For example, to check your account holdings on Chase and Vanguard, but not Robin
 
 To restart the Discord bot:
 
-`!restart` (without appending `!rsa` or prefix)
+`/restart`
 
-For help:
+For help with the Discord bot:
 
-`!help` (without appending `!rsa` or prefix)
+`/help`
 
 ### Parameters Explanation ⚙️
-- `<prefix>`: string, The prefix for the command. For the Discord bot, this is `!rsa`. For the CLI tool, this is `python autoRSA.py`.
+- `<prefix>`: string, The prefix for the command. For the Discord bot, this is `/transaction` or `/holdings`. For the CLI tool, this is `python autoRSA.py`.
 - `<action>`: string, "buy" or "sell"
 - `<amount>`: integer, Amount to buy or sell.
 - `<ticker>`: string, The stock ticker to buy or sell. Separate multiple tickers with commas and no spaces.
