@@ -125,10 +125,6 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
     # Buy on each account
     for s in orderObj.get_stocks():
         for key in firstrade_o.get_account_numbers():
-            printAndDiscord(
-                f"{key} {orderObj.get_action()}ing {orderObj.get_amount()} {s} @ {orderObj.get_price()}",
-                loop,
-            )
             for account in firstrade_o.get_account_numbers(key):
                 obj: ft_account.FTSession = firstrade_o.get_logged_in_objects(key)
                 print_account = maskString(account)
@@ -137,54 +133,151 @@ def firstrade_transaction(firstrade_o: Brokerage, orderObj: stockOrder, loop=Non
                     printAndDiscord(
                         "Running in DRY mode. No transactions will be made.", loop
                     )
+                old_amount = orderObj.get_amount()
+                original_action = orderObj.get_action()
                 try:
+                    should_dance = False
                     symbol_data = symbols.SymbolQuote(obj, account, s)
                     if symbol_data.last < 1.00:
+                        if int(orderObj.get_amount()) < 100:
+                            should_dance = True
                         price_type = order.PriceType.LIMIT
+                        orderObj.set_price("limit")
                         if orderObj.get_action().capitalize() == "Buy":
                             price = symbol_data.last + 0.01
                         else:
                             price = symbol_data.last - 0.01
                     else:
                         price_type = order.PriceType.MARKET
+                        orderObj.set_price("market")
                         price = 0.00
                     if orderObj.get_action().capitalize() == "Buy":
                         order_type = order.OrderType.BUY
                     else:
                         order_type = order.OrderType.SELL
-                    ft_order = order.Order(obj)
-                    order_conf = ft_order.place_order(
-                        account=account,
-                        symbol=s,
-                        price_type=price_type,
-                        order_type=order_type,
-                        quantity=int(orderObj.get_amount()),
-                        duration=order.Duration.DAY,
-                        price=price,
-                        dry_run=orderObj.get_dry(),
-                    )
-
-                    print("The order verification produced the following messages: ")
-                    pprint.pprint(order_conf)
                     printAndDiscord(
-                        (
-                            f"{key} account {print_account}: The order verification was "
-                            + "successful"
-                            if order_conf["error"] == ""
-                            else "unsuccessful"
-                        ),
+                        f"{key} {orderObj.get_action()}ing {orderObj.get_amount()} {s} @ {orderObj.get_price()}",
                         loop,
                     )
-                    if not order_conf["error"] == "":
+                    if should_dance and orderObj.get_action() == "buy":
+                        # Do the dance
+                        quantity = 100
                         printAndDiscord(
-                            f"{key} account {print_account}: The order verification produced the following messages: {order_conf}",
+                            f"Buying {quantity} then selling {quantity - orderObj.get_amount()} of {s}",
                             loop,
                         )
+                        orderObj.set_amount(quantity)
+                        ft_order = order.Order(obj)
+                        order_conf = ft_order.place_order(
+                            account=account,
+                            symbol=s,
+                            price_type=price_type,
+                            order_type=order_type,
+                            quantity=orderObj.get_amount(),
+                            duration=order.Duration.DAY,
+                            price=price,
+                            dry_run=orderObj.get_dry(),
+                        )
+                        print(
+                            "The buy order verification produced the following messages: "
+                        )
+                        pprint.pprint(order_conf)
+                        buy_success = order_conf["error"] == ""
+                        printAndDiscord(
+                            (
+                                f"{key} account {print_account}: The buy order verification was "
+                                + "successful"
+                                if buy_success
+                                else f"{key} account {print_account}: The sell order verification was unsuccessful"
+                            ),
+                            loop,
+                        )
+                        if not buy_success:
+                            printAndDiscord(
+                                f"{key} account {print_account}: The order verification produced the following messages: {order_conf}",
+                                loop,
+                            )
+                            raise Exception(f"Error buying {quantity} of {s}")
+                        orderObj.set_amount(quantity - old_amount)
+                        # Rest before selling
+                        sleep(1)
+                        symbol_data = symbols.SymbolQuote(obj, account, s)
+                        price = symbol_data.last - 0.01
+                        ft_order = order.Order(obj)
+                        order_conf = ft_order.place_order(
+                            account=account,
+                            symbol=s,
+                            price_type=price_type,
+                            order_type=order.OrderType.SELL,
+                            quantity=orderObj.get_amount(),
+                            duration=order.Duration.DAY,
+                            price=price,
+                            dry_run=orderObj.get_dry(),
+                        )
+                        print(
+                            "The sell order verification produced the following messages: "
+                        )
+                        pprint.pprint(order_conf)
+                        sell_success = order_conf["error"] == ""
+                        printAndDiscord(
+                            (
+                                f"{key} account {print_account}: The sell order verification was "
+                                + "successful"
+                                if sell_success
+                                else f"{key} account {print_account}: The sell order verification was unsuccessful"
+                            ),
+                            loop,
+                        )
+                        if not sell_success:
+                            printAndDiscord(
+                                f"{key} account {print_account}: The order verification produced the following messages: {order_conf}",
+                                loop,
+                            )
+                            raise Exception(
+                                f"Error selling {quantity - old_amount} of {s}"
+                            )
+                    else:
+                        # Normal buy/sell
+                        ft_order = order.Order(obj)
+                        order_conf = ft_order.place_order(
+                            account=account,
+                            symbol=s,
+                            price_type=price_type,
+                            order_type=order_type,
+                            quantity=orderObj.get_amount(),
+                            duration=order.Duration.DAY,
+                            price=price,
+                            dry_run=orderObj.get_dry(),
+                        )
+                        print(
+                            "The order verification produced the following messages: "
+                        )
+                        pprint.pprint(order_conf)
+                        order_success = order_conf["error"] == ""
+                        printAndDiscord(
+                            (
+                                f"{key} account {print_account}: The order verification was "
+                                + "successful"
+                                if order_success
+                                else f"{key} account {print_account}: The sell order verification was unsuccessful"
+                            ),
+                            loop,
+                        )
+                        if not order_success:
+                            printAndDiscord(
+                                f"{key} account {print_account}: The order verification produced the following messages: {order_conf}",
+                                loop,
+                            )
                 except Exception as e:
                     printAndDiscord(
                         f"{key} {print_account}: Error submitting order: {e}", loop
                     )
                     print(traceback.format_exc())
                     continue
+
+                finally:
+                    # Restore orderObj
+                    orderObj.set_amount(old_amount)
+                    orderObj.set_action(original_action)
                 sleep(1)
                 print()
