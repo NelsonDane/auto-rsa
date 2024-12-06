@@ -596,9 +596,13 @@ def split_embed(embed):
     current_length = total_embed_length(current_embed)
     for field in embed["fields"]:
         field_length = len(field["name"]) + len(field["value"])
-        if (current_length + field_length > MAX_EMBED_LENGTH) or (len(current_embed["fields"]) >= MAX_FIELDS):
+        if (current_length + field_length > MAX_EMBED_LENGTH) or (
+            len(current_embed["fields"]) >= MAX_FIELDS
+        ):
             chunks.append(current_embed)
-            current_embed = {key: value for key, value in embed.items() if key != "fields"}
+            current_embed = {
+                key: value for key, value in embed.items() if key != "fields"
+            }
             current_embed["fields"] = []
             current_length = total_embed_length(current_embed)
         current_embed["fields"].append(field)
