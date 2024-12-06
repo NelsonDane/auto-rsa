@@ -11,7 +11,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV DISPLAY=:99
 
 # Install python, pip, and tzdata
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
     chromium-driver \
     dos2unix \
