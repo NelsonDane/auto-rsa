@@ -578,6 +578,39 @@ def killSeleniumDriver(brokerObj: Brokerage):
             print(f"Killed {count} {brokerObj.get_name()} drivers")
 
 
+def total_embed_length(embed):
+    # Get length of entire embed (title + fields)
+    fields = [embed["title"]]
+    fields.extend([field["name"] for field in embed["fields"]])
+    fields.extend([field["value"] for field in embed["fields"]])
+    return sum([len(field) for field in fields])
+
+
+def split_embed(embed):
+    MAX_EMBED_LENGTH = 6000
+    MAX_FIELDS = 25
+    # Split embed into chunks if too long
+    chunks = []
+    current_embed = {key: value for key, value in embed.items() if key != "fields"}
+    current_embed["fields"] = []
+    current_length = total_embed_length(current_embed)
+    for field in embed["fields"]:
+        field_length = len(field["name"]) + len(field["value"])
+        if (current_length + field_length > MAX_EMBED_LENGTH) or (
+            len(current_embed["fields"]) >= MAX_FIELDS
+        ):
+            chunks.append(current_embed)
+            current_embed = {
+                key: value for key, value in embed.items() if key != "fields"
+            }
+            current_embed["fields"] = []
+            current_length = total_embed_length(current_embed)
+        current_embed["fields"].append(field)
+        current_length += field_length
+    chunks.append(current_embed)
+    return chunks
+
+
 async def processTasks(message, embed=False):
     # Send message to discord via request post
     BASE_URL = f"https://discord.com/api/v10/channels/{DISCORD_CHANNEL}/messages"
@@ -585,21 +618,15 @@ async def processTasks(message, embed=False):
         "Authorization": f"Bot {DISCORD_TOKEN}",
         "Content-Type": "application/json",
     }
-    embed_length = len(message["fields"]) if embed else 1
-    for i in range(0, embed_length, 25):
+    # Split into chunks if needed
+    if embed:
+        full_embed = split_embed(message)
+    else:
+        full_embed = [{"content": message, "embeds": []}]
+    for embed_chunk in full_embed:
         PAYLOAD = {
             "content": "" if embed else message,
-            "embeds": (
-                [
-                    {
-                        "title": message["title"] if i == 0 else "",
-                        "color": message["color"],
-                        "fields": message["fields"][i : i + 25],
-                    }
-                ]
-                if embed
-                else []
-            ),
+            "embeds": [embed_chunk] if embed else [],
         }
         # Keep trying until success
         success = False
