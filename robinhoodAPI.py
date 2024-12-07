@@ -72,7 +72,7 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
                 )
         except Exception as e:
             print(f"Error: Unable to log in to Robinhood: {e}")
-            traceback.format_exc()
+            print(traceback.format_exc())
             return None
         print(f"Logged in to {name}")
     return rh_obj
@@ -101,7 +101,7 @@ def robinhood_holdings(rho: Brokerage, loop=None):
                         rho.set_holdings(key, account, sym, qty, current_price)
             except Exception as e:
                 printAndDiscord(f"{key}: Error getting account holdings: {e}", loop)
-                traceback.format_exc()
+                print(traceback.format_exc())
                 continue
     printHoldings(rho, loop)
 
@@ -192,8 +192,8 @@ def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, loop=None):
                                 loop,
                             )
                     except Exception as e:
-                        traceback.format_exc()
                         printAndDiscord(f"{key} Error submitting order: {e}", loop)
+                        print(traceback.format_exc())
                 else:
                     printAndDiscord(
                         f"{key} {print_account} Running in DRY mode. Transaction would've been: {orderObj.get_action()} {orderObj.get_amount()} of {s}",
