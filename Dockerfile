@@ -10,8 +10,18 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Default display to :99
 ENV DISPLAY=:99
 
-# Install python, pip, and tzdata
-RUN apt-get update && apt-get install -y \
+# Chromium requires Clang-19
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gnupg \
+    lsb-release \
+    software-properties-common \
+    wget \
+&& rm -rf /var/lib/apt/lists/*
+RUN wget https://apt.llvm.org/llvm.sh && chmod +x llvm.sh && ./llvm.sh 19
+RUN ln -s /usr/bin/clang-19 /usr/bin/clang
+
+# Install other dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
     chromium-driver \
     dos2unix \
