@@ -249,6 +249,13 @@ class Brokerage:
             "price": round(float(price), 2),
             "total": round(float(quantity) * float(price), 2),
         }
+        # Alphabetize by stock
+        self.__holdings[parent_name][account_name] = dict(
+            sorted(
+                self.__holdings[parent_name][account_name].items(),
+                key=lambda item: item[0],
+            )
+        )
 
     def set_account_totals(self, parent_name: str, account_name: str, total: float):
         if isinstance(total, str):
