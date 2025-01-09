@@ -388,7 +388,7 @@ Required `.env` variables:
 
 Optional `.env` variables:
 - `DEBUG` (Set to `True` to enable debug mode, otherwise `False`)
-- `VG_ACCOUNTS_USED=ACCOUNT#1:ACCOUNT#2` (Optional, if you want to specify which account#'s within each account to use for buying and selling)
+- `VG_ACCOUNT_NUMBERS=ACCOUNT#1:ACCOUNT#2` (Optional, if you want to specify which account#'s within each account to use for buying and selling)
 
 `.env` file format:
 - `VANGUARD=VANGUARD_USERNAME:VANGUARD_PASSWORD:PHONE_LAST_FOUR:DEBUG`
