@@ -306,6 +306,9 @@ Required `.env` variables:
 - `SCHWAB_PASSWORD`
 - `SCHWAB_TOTP_SECRET` (If 2fa is enabled, else NA)
 
+Optional `.env` variables:
+- `SCHWAB_ACCOUNT_NUMBERS=ACCOUNT#1:ACCOUNT#2` (Optional, if you want to specify which account#'s within each account to use for buying and selling)
+
 `.env` file format:
 - With 2fa: `SCHWAB=SCHWAB_USERNAME:SCHWAB_PASSWORD:SCHWAB_TOTP_SECRET`
 - Without 2fa: `SCHWAB=SCHWAB_USERNAME:SCHWAB_PASSWORD:NA`
@@ -385,6 +388,7 @@ Required `.env` variables:
 
 Optional `.env` variables:
 - `DEBUG` (Set to `True` to enable debug mode, otherwise `False`)
+- `VG_ACCOUNTS_USED=ACCOUNT#1:ACCOUNT#2` (Optional, if you want to specify which account#'s within each account to use for buying and selling)
 
 `.env` file format:
 - `VANGUARD=VANGUARD_USERNAME:VANGUARD_PASSWORD:PHONE_LAST_FOUR:DEBUG`

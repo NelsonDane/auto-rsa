@@ -140,7 +140,10 @@ def vanguard_transaction(vanguard_o: Brokerage, orderObj: stockOrder, loop=None)
     print("Vanguard")
     print("==============================")
     print()
-    # Buy on each account
+    # load env
+    load_dotenv()
+    purchase_accounts = os.environ["VG_ACCOUNT_NUMBERS"].split(":")
+    # Buy on all accounts unless specified accounts are given in .env
     for s in orderObj.get_stocks():
         for key in vanguard_o.get_account_numbers():
             printAndDiscord(
@@ -149,8 +152,19 @@ def vanguard_transaction(vanguard_o: Brokerage, orderObj: stockOrder, loop=None)
             )
             try:
                 for account in vanguard_o.get_account_numbers(key):
+                    skip_rest = False
                     print_account = maskString(account)
+                    for used_account in purchase_accounts:
+                        if account != used_account and used_account != [""]:
+                            printAndDiscord(
+                                f"{key} {print_account}: Skipping account, not in purchase_accounts",
+                                loop,
+                            )
+                            skip_rest = True
+                    if skip_rest:
+                        continue
                     obj: session.VanguardSession = vanguard_o.get_logged_in_objects(key)
+                    
                     # If DRY is True, don't actually make the transaction
                     if orderObj.get_dry():
                         printAndDiscord(
