@@ -16,7 +16,7 @@ from helperAPI import (
     maskString,
     printAndDiscord,
     printHoldings,
-    stockOrder
+    stockOrder,
 )
 
 
@@ -151,7 +151,11 @@ def vanguard_transaction(vanguard_o: Brokerage, orderObj: stockOrder, loop=None)
             try:
                 for account in vanguard_o.get_account_numbers(key):
                     print_account = maskString(account)
-                    if purchase_accounts != [""] and orderObj.get_action().lower() != "sell" and str(account) not in purchase_accounts:
+                    if (
+                        purchase_accounts != [""]
+                        and orderObj.get_action().lower() != "sell"
+                        and str(account) not in purchase_accounts
+                    ):
                         print(
                             f"Skipping account {print_account}, not in VG_ACCOUNT_NUMBERS"
                         )
