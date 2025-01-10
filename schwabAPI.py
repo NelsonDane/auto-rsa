@@ -87,7 +87,8 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
     print("Schwab")
     print("==============================")
     print()
-    # Buy on each account
+    # Use each account (unless specified in .env)
+    purchase_accounts = os.getenv("SCHWAB_ACCOUNT_NUMBERS", "").strip().split(":")
     for s in orderObj.get_stocks():
         for key in schwab_o.get_account_numbers():
             printAndDiscord(
@@ -97,6 +98,15 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
             obj: Schwab = schwab_o.get_logged_in_objects(key)
             for account in schwab_o.get_account_numbers(key):
                 print_account = maskString(account)
+                if (
+                    purchase_accounts != [""]
+                    and orderObj.get_action().lower() != "sell"
+                    and str(account) not in purchase_accounts
+                ):
+                    print(
+                        f"Skipping account {print_account}, not in SCHWAB_ACCOUNT_NUMBERS"
+                    )
+                    continue
                 # If DRY is True, don't actually make the transaction
                 if orderObj.get_dry():
                     printAndDiscord(
