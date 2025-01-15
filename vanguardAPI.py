@@ -16,7 +16,7 @@ from helperAPI import (
     maskString,
     printAndDiscord,
     printHoldings,
-    stockOrder
+    stockOrder,
 )
 
 
@@ -140,7 +140,8 @@ def vanguard_transaction(vanguard_o: Brokerage, orderObj: stockOrder, loop=None)
     print("Vanguard")
     print("==============================")
     print()
-    # Buy on each account
+    # Use each account (unless specified in .env)
+    purchase_accounts = os.getenv("VG_ACCOUNT_NUMBERS", "").strip().split(":")
     for s in orderObj.get_stocks():
         for key in vanguard_o.get_account_numbers():
             printAndDiscord(
@@ -150,6 +151,15 @@ def vanguard_transaction(vanguard_o: Brokerage, orderObj: stockOrder, loop=None)
             try:
                 for account in vanguard_o.get_account_numbers(key):
                     print_account = maskString(account)
+                    if (
+                        purchase_accounts != [""]
+                        and orderObj.get_action().lower() != "sell"
+                        and str(account) not in purchase_accounts
+                    ):
+                        print(
+                            f"Skipping account {print_account}, not in VG_ACCOUNT_NUMBERS"
+                        )
+                        continue
                     obj: session.VanguardSession = vanguard_o.get_logged_in_objects(key)
                     # If DRY is True, don't actually make the transaction
                     if orderObj.get_dry():
