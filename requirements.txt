@@ -15,7 +15,7 @@ public-invest-api==1.1.0
 pyotp==2.9.0
 python-dotenv==1.0.1
 requests==2.32.3
-robin-stocks==3.3.0
+robin-stocks==3.3.1
 schwab-api==0.4.3
 selenium-stealth==1.0.6
 setuptools==75.8.0
