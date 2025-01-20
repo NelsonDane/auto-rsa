@@ -4,7 +4,6 @@
 import os
 import traceback
 
-import pyotp
 import robin_stocks.robinhood as rh
 from dotenv import load_dotenv
 
@@ -44,7 +43,6 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None, botObj=None, loop=None):
             rh.login(
                 username=account[0],
                 password=account[1],
-                use_app = True,
                 store_session=True,
                 expiresIn=86400 * 30,  # 30 days
                 pickle_path="./creds/",

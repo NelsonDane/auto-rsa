@@ -16,7 +16,8 @@ pyotp==2.9.0
 python-dotenv==1.0.1
 requests==2.32.3
 # robin-stocks==3.3.1
--e git+https://github.com/MaxxRK/robin_stocks.git@aff2d153d6eeac202cd67bac9938d37a46d88316#egg=robin_stocks
+# https://github.com/jmfernandes/robin_stocks/pull/538
+-e git+https://github.com/jmfernandes/robin_stocks.git@0d4574fb11ba4f1ff0acc8046174924bfd7ec532#egg=robin_stocks
 schwab-api==0.4.3
 selenium-stealth==1.0.6
 setuptools==75.8.0
