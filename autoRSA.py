@@ -146,6 +146,7 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                     "fennel",
                     "firstrade",
                     "public",
+                    "robinhood",
                 ]:
                     # Requires bot object and loop
                     orderObj.set_logged_in(
