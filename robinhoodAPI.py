@@ -37,7 +37,10 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None, botObj=None, loop=None):
         index = RH.index(account) + 1
         name = f"Robinhood {index}"
         printAndDiscord(f"Logging in to {name}...", loop)
-        printAndDiscord(f"{name}: Check phone app for verification prompt. You have ~60 seconds.", loop)
+        printAndDiscord(
+            f"{name}: Check phone app for verification prompt. You have ~60 seconds.",
+            loop,
+        )
         try:
             account = account.split(":")
             rh.login(
