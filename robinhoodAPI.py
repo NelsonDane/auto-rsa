@@ -4,7 +4,6 @@
 import os
 import traceback
 
-import pyotp
 import robin_stocks.robinhood as rh
 from dotenv import load_dotenv
 
@@ -19,7 +18,7 @@ def login_with_cache(pickle_path, pickle_name):
     )
 
 
-def robinhood_init(ROBINHOOD_EXTERNAL=None):
+def robinhood_init(ROBINHOOD_EXTERNAL=None, botObj=None, loop=None):
     # Initialize .env file
     load_dotenv()
     # Import Robinhood account
@@ -37,15 +36,16 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
     for account in RH:
         index = RH.index(account) + 1
         name = f"Robinhood {index}"
-        print(f"Logging in to {name}...")
+        printAndDiscord(f"Logging in to {name}...", loop)
+        printAndDiscord(
+            f"{name}: Check phone app for verification prompt. You have ~60 seconds.",
+            loop,
+        )
         try:
             account = account.split(":")
             rh.login(
                 username=account[0],
                 password=account[1],
-                mfa_code=(
-                    None if account[2].upper() == "NA" else pyotp.TOTP(account[2]).now()
-                ),
                 store_session=True,
                 expiresIn=86400 * 30,  # 30 days
                 pickle_path="./creds/",
@@ -72,7 +72,7 @@ def robinhood_init(ROBINHOOD_EXTERNAL=None):
                 )
         except Exception as e:
             print(f"Error: Unable to log in to Robinhood: {e}")
-            traceback.format_exc()
+            print(traceback.format_exc())
             return None
         print(f"Logged in to {name}")
     return rh_obj
@@ -101,7 +101,7 @@ def robinhood_holdings(rho: Brokerage, loop=None):
                         rho.set_holdings(key, account, sym, qty, current_price)
             except Exception as e:
                 printAndDiscord(f"{key}: Error getting account holdings: {e}", loop)
-                traceback.format_exc()
+                print(traceback.format_exc())
                 continue
     printHoldings(rho, loop)
 
@@ -192,8 +192,8 @@ def robinhood_transaction(rho: Brokerage, orderObj: stockOrder, loop=None):
                                 loop,
                             )
                     except Exception as e:
-                        traceback.format_exc()
                         printAndDiscord(f"{key} Error submitting order: {e}", loop)
+                        print(traceback.format_exc())
                 else:
                     printAndDiscord(
                         f"{key} {print_account} Running in DRY mode. Transaction would've been: {orderObj.get_action()} {orderObj.get_amount()} of {s}",

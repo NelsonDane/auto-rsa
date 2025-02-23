@@ -97,8 +97,9 @@ def public_holdings(pbo: Brokerage, loop=None):
                         # Get symbol, quantity, and total value
                         sym = holding["instrument"]["symbol"]
                         qty = float(holding["quantity"])
-                        current_price = obj.get_symbol_price(sym)
-                        if current_price is None:
+                        try:
+                            current_price = obj.get_symbol_price(sym)
+                        except Exception:
                             current_price = "N/A"
                         pbo.set_holdings(key, account, sym, qty, current_price)
             except Exception as e:
@@ -134,8 +135,11 @@ def public_transaction(pbo: Brokerage, orderObj: stockOrder, loop=None):
                     )
                     if order["success"] is True:
                         order = "Success"
+                    dry_message = ""
+                    if orderObj.get_dry():
+                        dry_message = "DRY RUN: "
                     printAndDiscord(
-                        f"{key}: {orderObj.get_action()} {orderObj.get_amount()} of {s} in {print_account}: {order}",
+                        f"{dry_message}{orderObj.get_action()} {orderObj.get_amount()} of {s} in {print_account}: {order}",
                         loop,
                     )
                 except Exception as e:

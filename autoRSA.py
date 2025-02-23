@@ -11,7 +11,6 @@ import traceback
 print("Python version:", sys.version)
 if sys.version_info < (3, 10) or sys.version_info >= (3, 14):
     print("Error: Python version must be minimum 3.10 or maximum 3.13")
-    sys.exit(1)
 print()
 
 try:
@@ -36,6 +35,7 @@ try:
     from publicAPI import *
     from robinhoodAPI import *
     from schwabAPI import *
+    from sofiAPI import *
     from tastyAPI import *
     from tornadoAPI import *
     from tradierAPI import *
@@ -51,7 +51,6 @@ except Exception as e:
 # Initialize .env file
 load_dotenv()
 
-
 # Global variables
 SUPPORTED_BROKERS = [
     "bbae",
@@ -63,6 +62,7 @@ SUPPORTED_BROKERS = [
     "public",
     "robinhood",
     "schwab",
+    "sofi",
     "tastytrade",
     "tornado",
     "tradier",
@@ -78,6 +78,7 @@ DAY1_BROKERS = [
     "firstrade",
     "public",
     "schwab",
+    "sofi",
     "tastytrade",
     "tradier",
     "webull",
@@ -114,6 +115,7 @@ def nicknames(broker):
 # broker name + type of function
 def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
     if command in [("_init", "_holdings"), ("_init", "_transaction")]:
+        totalValue = 0
         for broker in orderObj.get_brokers():
             if broker in orderObj.get_notbrokers():
                 continue
@@ -143,12 +145,13 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                     "fennel",
                     "firstrade",
                     "public",
+                    "robinhood",
                 ]:
                     # Requires bot object and loop
                     orderObj.set_logged_in(
                         globals()[fun_name](botObj=botObj, loop=loop), broker
                     )
-                elif broker.lower() in ["chase", "fidelity", "vanguard"]:
+                elif broker.lower() in ["chase", "fidelity", "sofi", "vanguard"]:
                     fun_name = broker + "_run"
                     # PLAYWRIGHT_BROKERS have to run all transactions with one function
                     th = ThreadHandler(
@@ -171,7 +174,7 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                     orderObj.set_logged_in(globals()[fun_name](), broker)
 
                 print()
-                if broker.lower() not in ["chase", "fidelity", "vanguard"]:
+                if broker.lower() not in ["chase", "fidelity", "sofi", "vanguard"]:
                     # Verify broker is logged in
                     orderObj.order_validate(preLogin=False)
                     logged_in_broker = orderObj.get_logged_in(broker)
@@ -193,11 +196,24 @@ def fun_run(orderObj: stockOrder, command, botObj=None, loop=None):
                             f"All {broker.capitalize()} transactions complete",
                             loop,
                         )
+                # Add to total sum
+                totalValue += sum(
+                    account["total"]
+                    for account in orderObj.get_logged_in(broker)
+                    .get_account_totals()
+                    .values()
+                )
             except Exception as ex:
                 print(traceback.format_exc())
                 print(f"Error in {fun_name} with {broker}: {ex}")
                 print(orderObj)
             print()
+
+        # Print final total value and closing message
+        if "_holdings" in command:
+            printAndDiscord(
+                f"Total Value of All Accounts: ${format(totalValue, '0.2f')}", loop
+            )
         printAndDiscord("All commands complete in all brokers", loop)
     else:
         print(f"Error: {command} is not a valid command")

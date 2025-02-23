@@ -174,6 +174,7 @@ Note: There are two special keywords you can use when specifying accounts: `all`
 - Firstrade
 - Public
 - Schwab
+- SoFi
 - Tastytrade
 - Tradier
 - Webull
@@ -216,6 +217,8 @@ Optional .env variables:
 `.env` file format:
 - `CHASE=CHASE_USERNAME:CHASE_PASSWORD:CELL_PHONE_LAST_FOUR:DEBUG`
 
+Note 1: Chase MUST be set to  "classic trading experience". In order to do so navigate to `Trade` > `Stocks & ETFs` > click on a `trading account` > then click on  `Switch back to classic trading experience`.
+
 #### DSPAC
 Made by [ImNotOssy](https://github.com/ImNotOssy) using the [dSPAC_investing_api](https://github.com/ImNotOssy/dSPAC_investing_API). Go give them a ⭐ 
 - `DSPAC_USERNAME`
@@ -238,14 +241,15 @@ Required `.env` variables:
 Fennel accounts don't have passwords, so you need to login by inputting the code sent to your email. The script will then save your session credentials for future use.
 
 ### Fidelity
-Made by yours truly using Selenium (and many hours of web scraping).
+Made by [kennyboy106](https://github.com/kennyboy106) using the [fidelity-api](https://github.com/kennyboy106/fidelity-api). Go give them a ⭐
 
 Required `.env` variables:
 - `FIDELITY_USERNAME`
 - `FIDELITY_PASSWORD`
+- `FIDELITY_TOTP` (If 2fa enabled, else NA)
 
 `.env` file format:
-- `FIDELITY=FIDELITY_USERNAME:FIDELITY_PASSWORD`
+- `FIDELITY=FIDELITY_USERNAME:FIDELITY_PASSWORD:FIDELITY_TOTP`
 
 ### Firstrade
 Made by [MaxxRK](https://github.com/MaxxRK/) using the [firstrade-api](https://github.com/MaxxRK/firstrade-api). Go give them a ⭐
@@ -302,6 +306,9 @@ Required `.env` variables:
 - `SCHWAB_PASSWORD`
 - `SCHWAB_TOTP_SECRET` (If 2fa is enabled, else NA)
 
+Optional `.env` variables:
+- `SCHWAB_ACCOUNT_NUMBERS=ACCOUNT#1:ACCOUNT#2` (Optional, to specify the single account numbers the bot should use when buying. If not specified, all accounts will be used)
+
 `.env` file format:
 - With 2fa: `SCHWAB=SCHWAB_USERNAME:SCHWAB_PASSWORD:SCHWAB_TOTP_SECRET`
 - Without 2fa: `SCHWAB=SCHWAB_USERNAME:SCHWAB_PASSWORD:NA`
@@ -309,6 +316,20 @@ Required `.env` variables:
 To get your TOTP secret, follow this [guide](guides/schwabSetup.md).
 
 Note 1: Think or Swim must be enabled on all accounts. To enable, go to `Trade` > `Trading Platforms` > `Learn how to enable thinkorswim`. Then press `Continue` and expand the `thinkorswim Access Agreement` and accept it. Then press `Continue` again. Then select the checkbox for all available accounts and press `Submit`. It may take a day or two for the accounts to be enabled.
+
+### SoFi
+Made by [ImNotOssy](https://github.com/ImNotOssy) using Playwright. Go give them a ⭐
+
+Required `.env` variables:
+- `SOFI_USERNAME`
+- `SOFI_PASSWORD`
+ 
+Optional `.env` variables:
+- `SOFI_TOTP_SECRET` (Optional, leave blank if not needed)
+
+`.env` file format:
+- `SOFI=SOFI_USERNAME:SOFI_PASSWORD:SOFI_TOTP_SECRET`
+
 
 ### Tornado
 Made by [ImNotOssy](https://github.com/ImNotOssy) using Selenium. Go give them a ⭐
@@ -367,6 +388,7 @@ Required `.env` variables:
 
 Optional `.env` variables:
 - `DEBUG` (Set to `True` to enable debug mode, otherwise `False`)
+- `VG_ACCOUNT_NUMBERS=ACCOUNT#1:ACCOUNT#2` (Optional, to specify the single account numbers the bot should use when buying. If not specified, all accounts will be used)
 
 `.env` file format:
 - `VANGUARD=VANGUARD_USERNAME:VANGUARD_PASSWORD:PHONE_LAST_FOUR:DEBUG`
@@ -381,11 +403,3 @@ Required `.env` variables:
 
 `.env` file format:
 - `WELLSFARGO=WELLSFARGO_USERNAME:WELLSFARGO_PASSWORD:WELLSFARGO_PHONE_LAST_FOUR`
-
-
-### Maybe future brokerages 🤷‍♀️
-#### SoFi
-In progress [here](https://github.com/NelsonDane/auto-rsa/pull/237).
-### Never working brokerages 👎
-#### Stash
-Why.
