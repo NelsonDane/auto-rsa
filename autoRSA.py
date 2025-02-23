@@ -7,11 +7,10 @@ import os
 import sys
 import traceback
 
-# Check Python version (minimum 3.10, maximum 3.12)
+# Check Python version (minimum 3.10, maximum 3.13)
 print("Python version:", sys.version)
-if sys.version_info < (3, 10) or sys.version_info >= (3, 13):
-    print("Error: Python version must be between 3.10 and 3.12")
-    sys.exit(1)
+if sys.version_info < (3, 10) or sys.version_info >= (3, 14):
+    print("Error: Python version must be minimum 3.10 or maximum 3.13")
 print()
 
 try:
