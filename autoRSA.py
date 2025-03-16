@@ -234,7 +234,7 @@ def argParser(args: list) -> stockOrder:
             orderObj.set_brokers(DAY1_BROKERS)
         elif args[1] == "most":
             orderObj.set_brokers(
-                list(filter(lambda x: x != "vanguard", SUPPORTED_BROKonERS))
+                list(filter(lambda x: x != "vanguard", SUPPORTED_BROKERS))
             )
         elif args[1] == "fast":
             orderObj.set_brokers(DAY1_BROKERS + ["robinhood"])
