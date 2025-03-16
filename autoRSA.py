@@ -234,7 +234,7 @@ def argParser(args: list) -> stockOrder:
             orderObj.set_brokers(DAY1_BROKERS)
         elif args[1] == "most":
             orderObj.set_brokers(
-                list(filter(lambda x: x != "vanguard", SUPPORTED_BROKERS))
+                list(filter(lambda x: x != "vanguard", SUPPORTED_BROKonERS))
             )
         elif args[1] == "fast":
             orderObj.set_brokers(DAY1_BROKERS + ["robinhood"])
@@ -364,10 +364,13 @@ if __name__ == "__main__":
             await channel.send("Discord bot is started...")
 
         # Process the message only if it's from the specified channel
+        # Bypass process_commands to allow bot messages
         @bot.event
         async def on_message(message):
             if message.channel.id == DISCORD_CHANNEL:
-                await bot.process_commands(message)
+                ctx = await bot.get_context(message)
+                # the type of the invocation context's bot attribute will be correct
+                await bot.invoke(ctx)  # type: ignore
 
         # Bot ping-pong
         @bot.command(name="ping")
