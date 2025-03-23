@@ -364,10 +364,13 @@ if __name__ == "__main__":
             await channel.send("Discord bot is started...")
 
         # Process the message only if it's from the specified channel
+        # Bypass process_commands to allow bot messages
         @bot.event
         async def on_message(message):
-            if message.channel.id == DISCORD_CHANNEL:
-                await bot.process_commands(message)
+            if message.channel.id == DISCORD_CHANNEL and message.author != bot.user:
+                ctx = await bot.get_context(message)
+                # the type of the invocation context's bot attribute will be correct
+                await bot.invoke(ctx)  # type: ignore
 
         # Bot ping-pong
         @bot.command(name="ping")
