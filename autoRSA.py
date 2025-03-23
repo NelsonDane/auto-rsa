@@ -367,7 +367,7 @@ if __name__ == "__main__":
         # Bypass process_commands to allow bot messages
         @bot.event
         async def on_message(message):
-            if message.channel.id == DISCORD_CHANNEL:
+            if message.channel.id == DISCORD_CHANNEL and message.author != bot.user:
                 ctx = await bot.get_context(message)
                 # the type of the invocation context's bot attribute will be correct
                 await bot.invoke(ctx)  # type: ignore
