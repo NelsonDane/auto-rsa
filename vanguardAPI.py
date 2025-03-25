@@ -174,16 +174,23 @@ def vanguard_transaction(vanguard_o: Brokerage, orderObj: stockOrder, loop=None)
                         order_type = order.OrderSide.SELL
                     # Check if dance is needed
                     if int(orderObj.get_amount()) == 1:
-                        transaction_length = 1
+                        transaction_length = 2
+                        
                     else:
-                        transaction_length = 0
+                        transaction_length = 1
                     for i in range(transaction_length):
-                        if i == 0 and transaction_length == 1:
+                        print(i)
+                        if i == 0 and transaction_length == 2:
+                            printAndDiscord(
+                                    f"{key} account {print_account}: Buying 26 then selling 25 of {s}",
+                                    loop,
+                                )
                             dance_quantity = 26
-                        elif i == 0 and transaction_length == 0:
+                        elif i == 0 and transaction_length == 1:
                             dance_quantity = int(orderObj.get_amount())
                         else:
                             dance_quantity = 25
+                            order_type = order.OrderSide.SELL
                         messages = vg_order.place_order(
                             account_id=account,
                             quantity=dance_quantity,
