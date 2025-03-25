@@ -175,11 +175,9 @@ def vanguard_transaction(vanguard_o: Brokerage, orderObj: stockOrder, loop=None)
                     # Check if dance is needed
                     if int(orderObj.get_amount()) == 1:
                         transaction_length = 2
-                        
                     else:
                         transaction_length = 1
                     for i in range(transaction_length):
-                        print(i)
                         if i == 0 and transaction_length == 2:
                             printAndDiscord(
                                     f"{key} account {print_account}: Buying 26 then selling 25 of {s}",
