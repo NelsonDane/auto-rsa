@@ -172,85 +172,97 @@ def vanguard_transaction(vanguard_o: Brokerage, orderObj: stockOrder, loop=None)
                         order_type = order.OrderSide.BUY
                     else:
                         order_type = order.OrderSide.SELL
-                    messages = vg_order.place_order(
-                        account_id=account,
-                        quantity=int(orderObj.get_amount()),
-                        price_type=price_type,
-                        symbol=s,
-                        duration=order.Duration.DAY,
-                        order_type=order_type,
-                        dry_run=orderObj.get_dry(),
-                        after_hours=True,
-                    )
-                    print("The order verification produced the following messages: ")
-                    if (
-                        messages["ORDER CONFIRMATION"]
-                        == "No order confirmation page found. Order Failed."
-                    ):
-                        printAndDiscord(
-                            "Market order failed placing limit order.", loop
-                        )
-                        price_type = order.PriceType.LIMIT
-                        price = vg_order.get_quote(s) + 0.01
+                    # Check if dance is needed
+                    if int(orderObj.get_amount()) == 1:
+                        transaction_length = 1
+                    else:
+                        transaction_length = 0
+                    for i in range(transaction_length):
+                        if i == 0 and transaction_length == 1:
+                            dance_quantity = 26
+                        elif i == 0 and transaction_length == 0:
+                            dance_quantity = int(orderObj.get_amount())
+                        else:
+                            dance_quantity = 25
                         messages = vg_order.place_order(
                             account_id=account,
-                            quantity=int(orderObj.get_amount()),
+                            quantity=dance_quantity,
                             price_type=price_type,
                             symbol=s,
                             duration=order.Duration.DAY,
                             order_type=order_type,
-                            limit_price=price,
                             dry_run=orderObj.get_dry(),
+                            after_hours=True,
                         )
-                    if orderObj.get_dry():
-                        if messages["ORDER PREVIEW"] != "":
-                            pprint.pprint(messages["ORDER PREVIEW"])
-                        printAndDiscord(
-                            (
-                                f"{key} account {print_account}: The order verification was "
-                                + (
-                                    "successful"
-                                    if messages["ORDER PREVIEW"]
-                                    not in ["", "No order preview page found."]
-                                    else "unsuccessful"
-                                )
-                            ),
-                            loop,
-                        )
+                        print("The order verification produced the following messages: ")
                         if (
-                            messages["ORDER INVALID"]
-                            != "No invalid order message found."
+                            messages["ORDER CONFIRMATION"]
+                            == "No order confirmation page found. Order Failed."
                         ):
                             printAndDiscord(
-                                f"{key} account {print_account}: The order verification produced the following messages: {messages['ORDER INVALID']}",
-                                loop,
+                                "Market order failed placing limit order.", loop
                             )
-                    else:
-                        if messages["ORDER CONFIRMATION"] != "":
-                            pprint.pprint(messages["ORDER CONFIRMATION"])
-                        printAndDiscord(
-                            (
-                                f"{key} account {print_account}: The order verification was "
-                                + (
-                                    "successful"
-                                    if messages["ORDER CONFIRMATION"]
-                                    not in [
-                                        "",
-                                        "No order confirmation page found. Order Failed.",
-                                    ]
-                                    else "unsuccessful"
-                                )
-                            ),
-                            loop,
-                        )
-                        if (
-                            messages["ORDER INVALID"]
-                            != "No invalid order message found."
-                        ):
+                            price_type = order.PriceType.LIMIT
+                            price = vg_order.get_quote(s) + 0.01
+                            messages = vg_order.place_order(
+                                account_id=account,
+                                quantity=dance_quantity,
+                                price_type=price_type,
+                                symbol=s,
+                                duration=order.Duration.DAY,
+                                order_type=order_type,
+                                limit_price=price,
+                                dry_run=orderObj.get_dry(),
+                            )
+                        if orderObj.get_dry():
+                            if messages["ORDER PREVIEW"] != "":
+                                pprint.pprint(messages["ORDER PREVIEW"])
                             printAndDiscord(
-                                f"{key} account {print_account}: The order verification produced the following messages: {messages['ORDER INVALID']}",
+                                (
+                                    f"{key} account {print_account}: The order verification was "
+                                    + (
+                                        "successful"
+                                        if messages["ORDER PREVIEW"]
+                                        not in ["", "No order preview page found."]
+                                        else "unsuccessful"
+                                    )
+                                ),
                                 loop,
                             )
+                            if (
+                                messages["ORDER INVALID"]
+                                != "No invalid order message found."
+                            ):
+                                printAndDiscord(
+                                    f"{key} account {print_account}: The order verification produced the following messages: {messages['ORDER INVALID']}",
+                                    loop,
+                                )
+                        else:
+                            if messages["ORDER CONFIRMATION"] != "":
+                                pprint.pprint(messages["ORDER CONFIRMATION"])
+                            printAndDiscord(
+                                (
+                                    f"{key} account {print_account}: The order verification was "
+                                    + (
+                                        "successful"
+                                        if messages["ORDER CONFIRMATION"]
+                                        not in [
+                                            "",
+                                            "No order confirmation page found. Order Failed.",
+                                        ]
+                                        else "unsuccessful"
+                                    )
+                                ),
+                                loop,
+                            )
+                            if (
+                                messages["ORDER INVALID"]
+                                != "No invalid order message found."
+                            ):
+                                printAndDiscord(
+                                    f"{key} account {print_account}: The order verification produced the following messages: {messages['ORDER INVALID']}",
+                                    loop,
+                                )
             except Exception as e:
                 printAndDiscord(
                     f"{key} {print_account}: Error submitting order: {e}", loop
