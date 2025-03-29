@@ -180,9 +180,9 @@ def vanguard_transaction(vanguard_o: Brokerage, orderObj: stockOrder, loop=None)
                     for i in range(transaction_length):
                         if i == 0 and transaction_length == 2:
                             printAndDiscord(
-                                    f"{key} account {print_account}: Buying 26 then selling 25 of {s}",
-                                    loop,
-                                )
+                                f"{key} account {print_account}: Buying 26 then selling 25 of {s}",
+                                loop,
+                            )
                             dance_quantity = 26
                         elif i == 0 and transaction_length == 1:
                             dance_quantity = int(orderObj.get_amount())
@@ -199,7 +199,9 @@ def vanguard_transaction(vanguard_o: Brokerage, orderObj: stockOrder, loop=None)
                             dry_run=orderObj.get_dry(),
                             after_hours=True,
                         )
-                        print("The order verification produced the following messages: ")
+                        print(
+                            "The order verification produced the following messages: "
+                        )
                         if (
                             messages["ORDER CONFIRMATION"]
                             == "No order confirmation page found. Order Failed."
