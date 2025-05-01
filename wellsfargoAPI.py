@@ -478,3 +478,4 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                     WebDriverWait(driver, 3).until(
                         EC.element_to_be_clickable((By.CSS_SELECTOR, "#btn-continue"))
                     ).click()
+        killSeleniumDriver(WELLSFARGO_o)
