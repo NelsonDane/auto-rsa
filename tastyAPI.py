@@ -57,7 +57,7 @@ def tastytrade_init(TASTYTRADE_EXTERNAL=None):
         try:
             tasty = Session(account[0], account[1])
             tasty_obj.set_logged_in_object(name, tasty, "session")
-            an = Account.get_accounts(tasty)
+            an = Account.get(tasty)
             tasty_obj.set_logged_in_object(name, an, "accounts")
             for acct in an:
                 tasty_obj.set_account_number(name, acct.account_number)
@@ -76,6 +76,7 @@ def tastytrade_holdings(tt_o: Brokerage, loop=None):
     for key in tt_o.get_account_numbers():
         obj: Session = tt_o.get_logged_in_objects(key, "session")
         for index, account in enumerate(tt_o.get_logged_in_objects(key, "accounts")):
+            account: Account
             try:
                 an = tt_o.get_account_numbers(key)[index]
                 positions = account.get_positions(obj)
