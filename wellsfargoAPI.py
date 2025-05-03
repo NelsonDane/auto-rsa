@@ -10,7 +10,7 @@ from selenium import webdriver
 from selenium.common.exceptions import (
     ElementNotInteractableException,
     NoSuchElementException,
-    TimeoutException
+    TimeoutException,
 )
 from selenium.webdriver import Keys
 from selenium.webdriver.common.by import By
@@ -26,7 +26,7 @@ from helperAPI import (
     printAndDiscord,
     printHoldings,
     stockOrder,
-    type_slowly
+    type_slowly,
 )
 
 
@@ -478,3 +478,4 @@ def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=N
                     WebDriverWait(driver, 3).until(
                         EC.element_to_be_clickable((By.CSS_SELECTOR, "#btn-continue"))
                     ).click()
+        killSeleniumDriver(WELLSFARGO_o)

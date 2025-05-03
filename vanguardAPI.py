@@ -173,7 +173,10 @@ def vanguard_transaction(vanguard_o: Brokerage, orderObj: stockOrder, loop=None)
                     else:
                         order_type = order.OrderSide.SELL
                     # Check if dance is needed
-                    if int(orderObj.get_amount()) == 1:
+                    if (
+                        int(orderObj.get_amount()) == 1
+                        and orderObj.get_action() == "buy"
+                    ):
                         transaction_length = 2
                     else:
                         transaction_length = 1
