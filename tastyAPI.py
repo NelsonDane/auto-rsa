@@ -19,7 +19,7 @@ from helperAPI import Brokerage, maskString, printAndDiscord, printHoldings, sto
 
 
 def order_setup(tt: Session, order_type, stock_price, stock, amount):
-    symbol = Equity.get_equity(tt, stock)
+    symbol = Equity.get(tt, stock)
     if order_type[2] == "Buy to Open":
         leg = symbol.build_leg(D(amount), OrderAction.BUY_TO_OPEN)
     elif order_type[2] == "Sell to Close":
