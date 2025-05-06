@@ -162,80 +162,122 @@ def wellsfargo_holdings(WELLSFARGO_o: Brokerage, loop=None):
                 position.click()
             except Exception as e:
                 wellsfargo_error(driver, e)
+                killSeleniumDriver(WELLSFARGO_o)
+                return
 
-            # Find accounts
-            open_dropdown = WebDriverWait(driver, 20).until(
-                EC.element_to_be_clickable((By.XPATH, "//*[@id='dropdown1']"))
-            )
-            open_dropdown.click()
-
-            accounts = driver.execute_script(
-                "return document.getElementById('dropdownlist1').getElementsByTagName('li').length;"
-            )
-            accounts = int(accounts - 3)  # Adjust based on actual implementation
-        except TimeoutException:
-            print("Could not get to holdings")
-            killSeleniumDriver(WELLSFARGO_o)
-            return
-
-        account_masks = WELLSFARGO_o.get_account_numbers(key)
-        for account in range(accounts):
-            if account >= len(account_masks):
-                continue
+            # Check if multi-account dropdown exists
             try:
-                # Choose account
+                WebDriverWait(driver, 5).until(
+                    EC.presence_of_element_located((By.XPATH, "//*[@id='dropdown1']"))
+                )
+                is_multi_account = True
+            except TimeoutException:
+                is_multi_account = False
+
+            account_masks = WELLSFARGO_o.get_account_numbers(key)
+            if not account_masks:
+                print(f"Error: No account masks found stored for {key}")
+                killSeleniumDriver(WELLSFARGO_o)
+                return
+
+            if is_multi_account:
+                # Original multi-account logic
                 open_dropdown = WebDriverWait(driver, 20).until(
                     EC.element_to_be_clickable((By.XPATH, "//*[@id='dropdown1']"))
                 )
                 open_dropdown.click()
-                sleep(1)
-                find_account = """
-                    var items = document.getElementById('dropdownlist1').getElementsByTagName('li');
-                    for (var i = 0; i < items.length; i++) {
-                        if (items[i].innerText.includes(arguments[0])) {
-                            items[i].click();
-                            return i;
-                        }
-                    }
-                    return -1;
-                """
-                select_account = driver.execute_script(
-                    find_account, account_masks[account].replace("*", "")
+
+                accounts = driver.execute_script(
+                    "return document.getElementById('dropdownlist1').getElementsByTagName('li').length;"
                 )
-                if select_account == -1:
-                    print("Could not find the account with the specified text")
-                    continue
-            except Exception:
-                print("Could not change account")
-                killSeleniumDriver(WELLSFARGO_o)
-                continue
+                accounts = int(accounts - 3)  # Adjust based on actual implementation
 
-            # Sleep to allow new table to load.
-            sleep(1)
-            rows = driver.find_elements(By.CSS_SELECTOR, "tbody tr")
+                for account in range(accounts):
+                    if account >= len(account_masks):
+                        continue
+                    try:
+                        open_dropdown = WebDriverWait(driver, 20).until(
+                            EC.element_to_be_clickable((By.XPATH, "//*[@id='dropdown1']"))
+                        )
+                        open_dropdown.click()
+                        sleep(1)
+                        find_account = """
+                            var items = document.getElementById('dropdownlist1').getElementsByTagName('li');
+                            for (var i = 0; i < items.length; i++) {
+                                if (items[i].innerText.includes(arguments[0])) {
+                                    items[i].click();
+                                    return i;
+                                }
+                            }
+                            return -1;
+                        """
+                        select_account = driver.execute_script(
+                            find_account, account_masks[account].replace("*", "")
+                        )
+                        if select_account == -1:
+                            print("Could not find the account with the specified text")
+                            continue
+                    except Exception:
+                        print("Could not change account")
+                        killSeleniumDriver(WELLSFARGO_o)
+                        continue
 
-            for row in rows:
-                cells = row.find_elements(By.CSS_SELECTOR, "td")
-                if len(cells) >= 9:
-                    # Extracting data
-                    name_match = re.search(r"^[^\n]*", cells[1].text)
-                    amount_match = re.search(
-                        r"-?\d+(\.\d+)?", cells[3].text.replace("\n", "")
-                    )
-                    price_match = re.search(
-                        r"-?\d+(\.\d+)?", cells[4].text.replace("\n", "")
-                    )
-                    name = name_match.group(0) if name_match else cells[1].text
-                    amount = amount_match.group(0) if amount_match else "0"
-                    price = price_match.group(0) if price_match else "0"
+                    sleep(1)
+                    rows = driver.find_elements(By.CSS_SELECTOR, "tbody tr")
 
-                    WELLSFARGO_o.set_holdings(
-                        key,
-                        WELLSFARGO_o.get_account_numbers(key)[account],
-                        name.strip(),
-                        float(amount),
-                        float(price),
-                    )
+                    for row in rows:
+                        cells = row.find_elements(By.CSS_SELECTOR, "td")
+                        if len(cells) >= 9:
+                            name_match = re.search(r"^[^\n]*", cells[1].text)
+                            amount_match = re.search(
+                                r"-?\d+(\.\d+)?", cells[3].text.replace("\n", "")
+                            )
+                            price_match = re.search(
+                                r"-?\d+(\.\d+)?", cells[4].text.replace("\n", "")
+                            )
+                            name = name_match.group(0) if name_match else cells[1].text
+                            amount = amount_match.group(0) if amount_match else "0"
+                            price = price_match.group(0) if price_match else "0"
+
+                            WELLSFARGO_o.set_holdings(
+                                key,
+                                account_masks[account],
+                                name.strip(),
+                                float(amount),
+                                float(price),
+                            )
+            else:
+                # Single account logic
+                current_mask = account_masks[0]
+                sleep(1)
+                rows = driver.find_elements(By.CSS_SELECTOR, "tbody tr")
+
+                for row in rows:
+                    cells = row.find_elements(By.CSS_SELECTOR, "td")
+                    if len(cells) >= 9:
+                        name_match = re.search(r"^[^\n]*", cells[1].text)
+                        amount_match = re.search(
+                            r"-?\d+(\.\d+)?", cells[3].text.replace("\n", "")
+                        )
+                        price_match = re.search(
+                            r"-?\d+(\.\d+)?", cells[4].text.replace("\n", "")
+                        )
+                        name = name_match.group(0) if name_match else cells[1].text
+                        amount = amount_match.group(0) if amount_match else "0"
+                        price = price_match.group(0) if price_match else "0"
+
+                        WELLSFARGO_o.set_holdings(
+                            key,
+                            current_mask,
+                            name.strip(),
+                            float(amount),
+                            float(price),
+                        )
+
+        except TimeoutException:
+            print("Could not get to holdings")
+            killSeleniumDriver(WELLSFARGO_o)
+            return
 
         printHoldings(WELLSFARGO_o, loop)
         killSeleniumDriver(WELLSFARGO_o)
