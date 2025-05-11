@@ -197,7 +197,9 @@ def wellsfargo_holdings(WELLSFARGO_o: Brokerage, loop=None):
                         continue
                     try:
                         open_dropdown = WebDriverWait(driver, 20).until(
-                            EC.element_to_be_clickable((By.XPATH, "//*[@id='dropdown1']"))
+                            EC.element_to_be_clickable(
+                                (By.XPATH, "//*[@id='dropdown1']")
+                            )
                         )
                         open_dropdown.click()
                         sleep(1)
