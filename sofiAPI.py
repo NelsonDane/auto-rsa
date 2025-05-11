@@ -113,7 +113,6 @@ def sofi_run(
     browser = None
 
     if not os.getenv("SOFI") and SOFI_EXTERNAL is None:
-        printAndDiscord("SoFi environment variable not found.", discord_loop)
         return None
 
     accounts = (
