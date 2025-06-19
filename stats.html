@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}Statistics - Trading Platform{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">System Statistics</h2>
+    
+    <div class="row">
+        <!-- Summary Cards -->
+        <div class="col-md-4 mb-4">
+            <div class="card bg-dark text-light">
+                <div class="card-body">
+                    <h5 class="card-title text-info">Total Accounts</h5>
+                    <p class="card-text display-6">{{ stats.total_accounts }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4 mb-4">
+            <div class="card bg-dark text-light">
+                <div class="card-body">
+                    <h5 class="card-title text-info">Total Holdings</h5>
+                    <p class="card-text display-6">{{ stats.total_holdings }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4 mb-4">
+            <div class="card bg-dark text-light">
+                <div class="card-body">
+                    <h5 class="card-title text-info">Total Trades</h5>
+                    <p class="card-text display-6">{{ stats.total_trades }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Account Performance Table -->
+    <div class="card bg-dark text-light mt-4">
+        <div class="card-body">
+            <h5 class="card-title text-info mb-4">Account Performance</h5>
+            <div class="table-responsive">
+                <table class="table table-dark table-hover">
+                    <thead>
+                        <tr>
+                            <th>Account Number</th>
+                            <th>Status</th>
+                            <th>Last Login</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for account in stats.accounts %}
+                        <tr>
+                            <td>{{ account.account_number }}</td>
+                            <td>
+                                {% if account.active %}
+                                <span class="badge bg-success">Active</span>
+                                {% else %}
+                                <span class="badge bg-danger">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ account.last_login.strftime('%Y-%m-%d %H:%M:%S') if account.last_login else 'Never' }}</td>
+                            <td>
+                                <a href="{{ url_for('portfolio_dashboard', account_id=account.id) }}" 
+                                   class="btn btn-sm btn-info">View Portfolio</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

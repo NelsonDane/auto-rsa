@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}View Transactions - Trading Platform{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Transaction History</h2>
+    <div class="card bg-dark">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-dark table-hover">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Brokerage</th>
+                            <th>Account</th>
+                            <th>Account Number</th>
+                            <th>Stock</th>
+                            <th>Price</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for transaction in transactions %}
+                        <tr>
+                            <td>{{ transaction.Time }}</td>
+                            <td>{{ transaction.Brokerage }}</td>
+                            <td>{{ transaction.Account }}</td>
+                            <td>{{ transaction.Account_Number }}</td>
+                            <td>{{ transaction.Stock }}</td>
+                            <td>${{ "%.4f"|format(transaction.Price|float) }}</td>
+                            <td>{{ transaction.Action }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

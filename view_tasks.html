@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}View Accounts - Trading Platform{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Trading Accounts</h2>
+    
+    <div class="card bg-dark text-light">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-dark table-hover">
+                    <thead>
+                        <tr>
+                            <th>Brokerage</th>
+                            <th>Username</th>
+                            <th>Account Numbers</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for task in tasks %}
+                        <tr>
+                            <td>{{ task.Brokerage }}</td>
+                            <td>{{ task.Username }}</td>
+                            <td>{{ task.AccountNumbers }}</td>
+                            <td>
+                                <button class="btn btn-danger btn-sm remove-account" 
+                                        data-username="{{ task.Username }}">
+                                    Remove
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.remove-account').forEach(button => {
+        button.addEventListener('click', function() {
+            const username = this.dataset.username;
+            if (confirm('Are you sure you want to remove this account?')) {
+                fetch(`/remove_account/${username}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'}
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.reload();
+                    } else {
+                        alert('Error removing account: ' + data.error);
+                    }
+                })
+                .catch(error => alert('Error: ' + error));
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

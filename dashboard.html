@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}Portfolio Dashboard - Trading Platform{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Portfolio Dashboard - Account {{ account.account_number }}</h2>
+    
+    <div class="row">
+        <!-- Summary Cards -->
+        <div class="col-md-4 mb-4">
+            <div class="card bg-dark text-light">
+                <div class="card-body">
+                    <h5 class="card-title text-info">Total Value</h5>
+                    <p class="card-text display-6">${{ "%.2f"|format(metrics.total_value) }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4 mb-4">
+            <div class="card bg-dark text-light">
+                <div class="card-body">
+                    <h5 class="card-title text-info">Total Gain/Loss</h5>
+                    <p class="card-text display-6" 
+                       style="color: {{ 'var(--bs-success)' if metrics.total_gain_loss >= 0 else 'var(--bs-danger)' }}">
+                        ${{ "%.2f"|format(metrics.total_gain_loss) }}
+                        ({{ "%.1f"|format(metrics.gain_loss_percentage) }}%)
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4 mb-4">
+            <div class="card bg-dark text-light">
+                <div class="card-body">
+                    <h5 class="card-title text-info">Holdings</h5>
+                    <p class="card-text display-6">{{ metrics.number_of_holdings }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Risk Metrics -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card bg-dark text-light">
+                <div class="card-body">
+                    <h5 class="card-title text-info">Risk Metrics</h5>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Volatility:</span>
+                        <span>{{ "%.2f"|format(metrics.volatility) }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Sharpe Ratio:</span>
+                        <span>{{ "%.2f"|format(metrics.sharpe_ratio) }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span>Diversification Score:</span>
+                        <span>{{ "%.2f"|format(metrics.diversification_score) }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Holdings Table -->
+    <div class="card bg-dark text-light">
+        <div class="card-body">
+            <h5 class="card-title text-info mb-4">Current Holdings</h5>
+            <div class="table-responsive">
+                <table class="table table-dark table-hover">
+                    <thead>
+                        <tr>
+                            <th>Symbol</th>
+                            <th>Quantity</th>
+                            <th>Market Value</th>
+                            <th>Gain/Loss</th>
+                            <th>Gain/Loss %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for holding in metrics.holdings %}
+                        <tr>
+                            <td>{{ holding.symbol }}</td>
+                            <td>{{ holding.quantity }}</td>
+                            <td>${{ "%.2f"|format(holding.market_value) }}</td>
+                            <td style="color: {{ 'var(--bs-success)' if holding.gain_loss >= 0 else 'var(--bs-danger)' }}">
+                                ${{ "%.2f"|format(holding.gain_loss) }}
+                            </td>
+                            <td style="color: {{ 'var(--bs-success)' if holding.gain_loss_percentage >= 0 else 'var(--bs-danger)' }}">
+                                {{ "%.1f"|format(holding.gain_loss_percentage) }}%
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mt-4">
+        <a href="{{ url_for('portfolio_report', account_id=account.id) }}" class="btn btn-info">View Detailed Report</a>
+        <a href="{{ url_for('portfolio_performance', account_id=account.id) }}" class="btn btn-secondary">Performance History</a>
+    </div>
+</div>
+{% endblock %}
