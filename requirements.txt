@@ -23,3 +23,10 @@ tastytrade==9.11
 vanguard-api==0.3.0
 -e git+https://github.com/NelsonDane/webull.git@ef14ae63f9e1436fbea77fe864df54847cf2f730#egg=webull
 PyQt5==5.15.10 # Added for GUI development
+PyQt5-WebEngine==5.15.6 # For QWebEngineView; ensure compatibility with PyQt5 version
+Flask>=2.0 # For the local web server
+Flask-SocketIO>=5.0 # For real-time communication with web UI
+python-engineio>=4.0 # Dependency for Flask-SocketIO
+python-socketio>=5.0 # Dependency for Flask-SocketIO
+Werkzeug>=2.0 # Flask dependency, specifying to avoid older versions
+Jinja2>=3.0 # Templating engine for Flask
