@@ -9,12 +9,12 @@ import subprocess
 import sys
 import textwrap
 import traceback
+from importlib.metadata import version
 from pathlib import Path
 from queue import Queue
 from threading import Thread
 from time import sleep
 
-import pkg_resources
 import requests
 from discord.ext import commands
 from dotenv import load_dotenv
@@ -466,7 +466,7 @@ def check_package_versions():
             continue
         package_name = package.split("==")[0].lower()
         required_version = package.split("==")[1]
-        installed_version = pkg_resources.get_distribution(package_name).version
+        installed_version = version(package_name)
         if installed_version < required_version:
             print(
                 f"Required package {package_name} is out of date (Want {required_version} but have {installed_version})."
