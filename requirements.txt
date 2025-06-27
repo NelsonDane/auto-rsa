@@ -13,7 +13,7 @@ nodriver==0.45.2
 public-invest-api==1.3.4
 pyotp==2.9.0
 python-dotenv==1.1.0
-requests==2.32.3
+requests==2.32.4
 robin-stocks==3.4.0
 # schwab-api==0.4.3
 -e git+https://github.com/yanowitz/schwab-api.git@367ef565c35bf5c96b6d456c46c18ce05603d87a#egg=schwab-api
