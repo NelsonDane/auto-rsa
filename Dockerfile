@@ -1,7 +1,7 @@
 # Nelson Dane
 
 # Build from python slim image
-FROM python:3.13-slim
+FROM python:3.13.7-slim
 
 # Set ENV variables
 ENV TZ=America/New_York
