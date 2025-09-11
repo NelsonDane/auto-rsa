@@ -52,6 +52,7 @@ def wellsfargo_init(botObj, WELLSFARGO_EXTERNAL=None, DOCKER=False, loop=None):
         index = accounts.index(account) + 1
         name = f"WELLSFARGO {index}"
         account = account.split(":")
+        driver = None
         try:
             printAndDiscord("Logging into WELLS FARGO...", loop)
             driver = getDriver(DOCKER)
@@ -63,7 +64,6 @@ def wellsfargo_init(botObj, WELLSFARGO_EXTERNAL=None, DOCKER=False, loop=None):
             try:
                 username_field = driver.find_element(By.XPATH, "//*[@id='j_username']")
                 type_slowly(username_field, account[0])
-                # Wait for the password field and enter the password
                 password_field = driver.find_element(By.XPATH, "//*[@id='j_password']")
                 type_slowly(password_field, account[1])
 
@@ -74,18 +74,19 @@ def wellsfargo_init(botObj, WELLSFARGO_EXTERNAL=None, DOCKER=False, loop=None):
                 )
                 login_button.click()
                 WebDriverWait(driver, 20).until(check_if_page_loaded)
-                print("=====================================================\n")
             except TimeoutException:
                 print("TimeoutException: Login failed.")
-                return False
+                if driver:
+                    driver.quit()
+                return None
+
             WELLSFARGO_obj.set_logged_in_object(name, driver)
+            
+            # Handle 2FA
             try:
                 auth_popup = WebDriverWait(driver, 10).until(
                     EC.presence_of_element_located(
-                        (
-                            By.CSS_SELECTOR,
-                            ".ResponsiveModalContent__modalContent___guT3p",
-                        )
+                        (By.CSS_SELECTOR, ".ResponsiveModalContent__modalContent___guT3p")
                     )
                 )
                 auth_list = auth_popup.find_element(
@@ -96,8 +97,7 @@ def wellsfargo_init(botObj, WELLSFARGO_EXTERNAL=None, DOCKER=False, loop=None):
                     if account[2] in li.text:
                         li.click()
                         break
-                print("Clicked on phone number")
-                # Get the OTP code from the user
+                
                 if botObj is not None and loop is not None:
                     code = asyncio.run_coroutine_threadsafe(
                         getOTPCodeDiscord(botObj, name, timeout=300, loop=loop),
@@ -105,6 +105,10 @@ def wellsfargo_init(botObj, WELLSFARGO_EXTERNAL=None, DOCKER=False, loop=None):
                     ).result()
                 else:
                     code = input("Enter security code: ")
+
+                if code is None:
+                    raise Exception("2FA code not provided.")
+
                 code_input = WebDriverWait(driver, 20).until(
                     EC.presence_of_element_located((By.ID, "otp"))
                 )
@@ -113,32 +117,43 @@ def wellsfargo_init(botObj, WELLSFARGO_EXTERNAL=None, DOCKER=False, loop=None):
                     EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']"))
                 ).click()
             except TimeoutException:
-                pass
+                pass # 2FA not always required
 
-            WebDriverWait(driver, 20).until(
-                EC.presence_of_element_located((By.LINK_TEXT, "Locations"))
+            # Wait for dashboard to load
+            WebDriverWait(driver, 30).until(
+                EC.presence_of_element_located((By.XPATH, "//*[@data-testid='Investments']"))
             )
 
-            # TODO: This will not show accounts that do not have settled cash funds
-            account_blocks = driver.find_elements(
-                By.CSS_SELECTOR, 'li[data-testid^="WELLSTRADE"]'
+            # Find the Investments category tile
+            investments_category = driver.find_element(By.XPATH, "//*[@data-testid='Investments']")
+            
+            # Find all individual account tiles within the Investments category
+            account_blocks = investments_category.find_elements(
+                By.XPATH, ".//li[contains(@class, 'AccountTile__account-tile')]"
             )
+
             for account_block in account_blocks:
+                # Extract the masked account number
                 masked_number_element = account_block.find_element(
                     By.CSS_SELECTOR, '[data-testid$="-masked-number"]'
                 )
-                masked_number_text = masked_number_element.text.replace(".", "*")
+                masked_number_text = masked_number_element.text.replace("...", "xxxx")
                 WELLSFARGO_obj.set_account_number(name, masked_number_text)
+
+                # Extract the balance
                 balance_element = account_block.find_element(
                     By.CSS_SELECTOR, '[data-testid$="-balance"]'
                 )
-                balance = float(balance_element.text.replace("$", "").replace(",", ""))
+                balance_text = balance_element.text.replace("$", "").replace(",", "").strip()
+                balance = float(balance_text)
                 WELLSFARGO_obj.set_account_totals(name, masked_number_text, balance)
+
         except Exception as e:
-            wellsfargo_error(driver, e)
-            driver.close()
-            driver.quit()
+            wellsfargo_error(driver, str(e))
+            if driver:
+                driver.quit()
             return None
+            
     return WELLSFARGO_obj
 
 
@@ -146,143 +161,93 @@ def wellsfargo_holdings(WELLSFARGO_o: Brokerage, loop=None):
     for key in WELLSFARGO_o.get_account_numbers():
         driver: webdriver = WELLSFARGO_o.get_logged_in_objects(key)
         try:
-            brokerage = WebDriverWait(driver, 20).until(
-                EC.element_to_be_clickable((By.XPATH, "//*[@id='BROKERAGE_LINK7P']"))
+            print("Navigating to the Brokerage page by clicking the link...")
+            WebDriverWait(driver, 30).until(
+                EC.element_to_be_clickable((By.ID, "BROKERAGE_LINK7P"))
+            ).click()
+            WebDriverWait(driver, 20).until(
+                EC.presence_of_element_located((By.ID, "goholdings"))
             )
-            brokerage.click()
+            print("DEBUG: Session established.")
 
-            try:
-                more = WebDriverWait(driver, 20).until(
-                    EC.element_to_be_clickable((By.LINK_TEXT, "Holdings Snapshot"))
-                )
-                more.click()
-                position = WebDriverWait(driver, 10).until(
-                    EC.element_to_be_clickable((By.ID, "btnpositions"))
-                )
-                position.click()
-            except Exception as e:
-                wellsfargo_error(driver, e)
-                killSeleniumDriver(WELLSFARGO_o)
-                return
+            current_url = driver.current_url
+            if '_x=' not in current_url:
+                raise Exception("Could not find session token in URL.")
+            session_token = current_url.split('_x=')[1]
+            base_url = "https://wfawellstrade.wellsfargo.com/BW/holdings.do?account="
+            
+            print(f"DEBUG: Captured session token: {session_token}")
 
-            # Check if multi-account dropdown exists
-            try:
-                WebDriverWait(driver, 5).until(
-                    EC.presence_of_element_located((By.XPATH, "//*[@id='dropdown1']"))
-                )
-                is_multi_account = True
-            except TimeoutException:
-                is_multi_account = False
-
+            last_account_holdings = None
             account_masks = WELLSFARGO_o.get_account_numbers(key)
-            if not account_masks:
-                print(f"Error: No account masks found stored for {key}")
-                killSeleniumDriver(WELLSFARGO_o)
-                return
 
-            if is_multi_account:
-                # Original multi-account logic
-                open_dropdown = WebDriverWait(driver, 20).until(
-                    EC.element_to_be_clickable((By.XPATH, "//*[@id='dropdown1']"))
-                )
-                open_dropdown.click()
+            for i in range(len(account_masks) + 2):
+                try:
+                    direct_url = f"{base_url}{i}&_x={session_token}"
+                    print(f"\n--- Navigating to holdings for account index {i} ---")
+                    driver.get(direct_url)
 
-                accounts = driver.execute_script(
-                    "return document.getElementById('dropdownlist1').getElementsByTagName('li').length;"
-                )
-                accounts = int(accounts - 3)  # Adjust based on actual implementation
+                    holdings_table_xpath = "//table[@id='holdings-table']/tbody/tr"
+                    WebDriverWait(driver, 30).until(
+                        EC.presence_of_all_elements_located((By.XPATH, holdings_table_xpath))
+                    )
+                    
+                    current_mask_element = WebDriverWait(driver, 10).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, "#dropdown1_label .acctmask"))
+                    )
+                    current_mask = current_mask_element.text.strip().replace('*', 'xxxx')
+                    print(f"DEBUG: Successfully loaded holdings page for account {current_mask}")
 
-                for account in range(accounts):
-                    if account >= len(account_masks):
-                        continue
-                    try:
-                        open_dropdown = WebDriverWait(driver, 20).until(
-                            EC.element_to_be_clickable(
-                                (By.XPATH, "//*[@id='dropdown1']")
-                            )
-                        )
-                        open_dropdown.click()
-                        sleep(1)
-                        find_account = """
-                            var items = document.getElementById('dropdownlist1').getElementsByTagName('li');
-                            for (var i = 0; i < items.length; i++) {
-                                if (items[i].innerText.includes(arguments[0])) {
-                                    items[i].click();
-                                    return i;
-                                }
-                            }
-                            return -1;
-                        """
-                        select_account = driver.execute_script(
-                            find_account, account_masks[account].replace("*", "")
-                        )
-                        if select_account == -1:
-                            print("Could not find the account with the specified text")
-                            continue
-                    except Exception:
-                        print("Could not change account")
-                        killSeleniumDriver(WELLSFARGO_o)
-                        continue
-
-                    sleep(1)
-                    rows = driver.find_elements(By.CSS_SELECTOR, "tbody tr")
-
+                    rows = driver.find_elements(By.XPATH, holdings_table_xpath)
+                    current_holdings = {}
+                    
+                    # --- START: Corrected Parsing Logic ---
                     for row in rows:
-                        cells = row.find_elements(By.CSS_SELECTOR, "td")
-                        if len(cells) >= 9:
-                            name_match = re.search(r"^[^\n]*", cells[1].text)
-                            amount_match = re.search(
-                                r"-?\d+(\.\d+)?", cells[3].text.replace("\n", "")
-                            )
-                            price_match = re.search(
-                                r"-?\d+(\.\d+)?", cells[4].text.replace("\n", "")
-                            )
-                            name = name_match.group(0) if name_match else cells[1].text
-                            amount = amount_match.group(0) if amount_match else "0"
-                            price = price_match.group(0) if price_match else "0"
+                        # Find all cells in the current row
+                        cells = row.find_elements(By.TAG_NAME, "td")
+                        
+                        # Ensure it's a valid data row
+                        if len(cells) >= 6:
+                            try:
+                                # Use more specific selectors based on the provided HTML
+                                name_div = cells[0].find_element(By.CSS_SELECTOR, "div.symbol-name")
+                                name = name_div.text.strip()
 
-                            WELLSFARGO_o.set_holdings(
-                                key,
-                                account_masks[account],
-                                name.strip(),
-                                float(amount),
-                                float(price),
-                            )
-            else:
-                # Single account logic
-                current_mask = account_masks[0]
-                sleep(1)
-                rows = driver.find_elements(By.CSS_SELECTOR, "tbody tr")
+                                quantity = cells[1].text.strip().replace(",", "")
+                                price = cells[2].text.strip().replace("$", "").replace(",", "")
 
-                for row in rows:
-                    cells = row.find_elements(By.CSS_SELECTOR, "td")
-                    if len(cells) >= 9:
-                        name_match = re.search(r"^[^\n]*", cells[1].text)
-                        amount_match = re.search(
-                            r"-?\d+(\.\d+)?", cells[3].text.replace("\n", "")
-                        )
-                        price_match = re.search(
-                            r"-?\d+(\.\d+)?", cells[4].text.replace("\n", "")
-                        )
-                        name = name_match.group(0) if name_match else cells[1].text
-                        amount = amount_match.group(0) if amount_match else "0"
-                        price = price_match.group(0) if price_match else "0"
+                                if name and "cash" not in name.lower() and quantity and float(quantity) > 0:
+                                    print(f"Found Position: {name}, Qty: {quantity}, Price: {price}")
+                                    current_holdings[name] = {"quantity": float(quantity), "price": float(price)}
+                                    WELLSFARGO_o.set_holdings(
+                                        key, current_mask, name, float(quantity), float(price)
+                                    )
+                            except NoSuchElementException:
+                                # This can happen for summary rows or other non-holding rows, so we just skip them
+                                continue
+                    # --- END: Corrected Parsing Logic ---
 
-                        WELLSFARGO_o.set_holdings(
-                            key,
-                            current_mask,
-                            name.strip(),
-                            float(amount),
-                            float(price),
-                        )
+                    if current_holdings and current_holdings == last_account_holdings:
+                        print(f"DEBUG: Duplicate holdings found. Assuming end of accounts.")
+                        if current_mask in WELLSFARGO_o.get_holdings(key):
+                             del WELLSFARGO_o.get_holdings(key)[current_mask]
+                        break
+                    
+                    last_account_holdings = current_holdings
+                    print(f"Finished parsing holdings for account {current_mask}.")
 
-        except TimeoutException:
-            print("Could not get to holdings")
+                except TimeoutException:
+                    print(f"DEBUG: Timed out waiting for holdings at index {i}. This is the end of the account list.")
+                    break
+                except Exception as e:
+                    wellsfargo_error(driver, f"Error processing account index {i}: {e}")
+                    continue
+
+        except Exception as e:
+            wellsfargo_error(driver, str(e))
+        finally:
+            printHoldings(WELLSFARGO_o, loop)
             killSeleniumDriver(WELLSFARGO_o)
-            return
-
-        printHoldings(WELLSFARGO_o, loop)
-        killSeleniumDriver(WELLSFARGO_o)
 
 
 def wellsfargo_transaction(WELLSFARGO_o: Brokerage, orderObj: stockOrder, loop=None):
