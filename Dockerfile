@@ -1,7 +1,7 @@
 # Nelson Dane
 
 # Build from python slim image
-FROM python:3.13-slim
+FROM python:3.13.7-slim@sha256:58c30f5bfaa718b5803a53393190b9c68bd517c44c6c94c1b6c8c172bcfad040
 
 # Set ENV variables
 ENV TZ=America/New_York
@@ -14,7 +14,6 @@ ENV DISPLAY=:99
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gnupg \
     lsb-release \
-    software-properties-common \
     wget \
 && rm -rf /var/lib/apt/lists/*
 RUN wget https://apt.llvm.org/llvm.sh && chmod +x llvm.sh && ./llvm.sh 19
@@ -34,9 +33,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY ./requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
-# Install playwright
-RUN playwright install firefox && \
-    playwright install-deps
+# Install playwrightj
+# Don't install deps: https://github.com/microsoft/playwright/issues/13738
+# RUN playwright install firefox && \
+    # playwright install-deps
+RUN playwright install firefox
 
 # CD into app
 WORKDIR /app
