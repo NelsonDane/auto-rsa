@@ -38,16 +38,32 @@ def schwab_init(SCHWAB_EXTERNAL=None):
                 totp_secret=None if account[2] == "NA" else account[2],
             )
             account_info = schwab.get_account_info_v2()
+            if not account_info:
+                raise Exception("Failed to retrieve account information from Schwab.")
+
             account_list = list(account_info.keys())
             print_accounts = [maskString(a) for a in account_list]
             print(f"The following Schwab accounts were found: {print_accounts}")
             print("Logged in to Schwab!")
             schwab_obj.set_logged_in_object(name, schwab)
-            for account in account_list:
-                schwab_obj.set_account_number(name, account)
+            for acc_id in account_list:
+                schwab_obj.set_account_number(name, acc_id)
                 schwab_obj.set_account_totals(
-                    name, account, account_info[account]["account_value"]
+                    name, acc_id, account_info[acc_id]["account_value"]
                 )
+                holdings = account_info[acc_id]["positions"]
+                for item in holdings:
+                    sym = item["symbol"]
+                    if sym == "":
+                        sym = "Unknown"
+                    mv = round(float(item["market_value"]), 2)
+                    qty = float(item["quantity"])
+                    if qty == 0:
+                        current_price = 0
+                    else:
+                        current_price = round(mv / qty, 2)
+                    schwab_obj.set_holdings(name, acc_id, sym, qty, current_price)
+
         except Exception as e:
             print(f"Error logging in to Schwab: {e}")
             print(traceback.format_exc())
@@ -56,28 +72,7 @@ def schwab_init(SCHWAB_EXTERNAL=None):
 
 
 def schwab_holdings(schwab_o: Brokerage, loop=None):
-    # Get holdings on each account
-    for key in schwab_o.get_account_numbers():
-        obj: Schwab = schwab_o.get_logged_in_objects(key)
-        all_holdings = obj.get_account_info_v2()
-        for account in schwab_o.get_account_numbers(key):
-            try:
-                holdings = all_holdings[account]["positions"]
-                for item in holdings:
-                    sym = item["symbol"]
-                    if sym == "":
-                        sym = "Unknown"
-                    mv = round(float(item["market_value"]), 2)
-                    qty = float(item["quantity"])
-                    # Schwab doesn't return current price, so we have to calculate it
-                    if qty == 0:
-                        current_price = 0
-                    else:
-                        current_price = round(mv / qty, 2)
-                    schwab_o.set_holdings(key, account, sym, qty, current_price)
-            except Exception as e:
-                printAndDiscord(f"{key} {account}: Error getting holdings: {e}", loop)
-                print(traceback.format_exc())
+    # This function now only prints the already-stored holdings. No new API calls.
     printHoldings(schwab_o, loop)
 
 
