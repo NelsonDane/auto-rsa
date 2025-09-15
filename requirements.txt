@@ -1,6 +1,7 @@
 asyncio==3.4.3
 bbae-invest-api==0.1.3
-chaseinvest-api==0.3.2
+#chaseinvest-api==0.3.2
+-e git+https://github.com/ImNotOssy/chaseinvest-api.git@209e311c17cd414870e9c9ae583ec6f829d158a7#egg=chaseinvest-api
 curl_cffi==0.7.4
 discord.py==2.5.2
 dspac_invest_api==0.1.3
