@@ -1,6 +1,6 @@
 asyncio==3.4.3
 bbae-invest-api==0.1.3
-chaseinvest-api==0.3.2
+chaseinvest-api==0.3.3
 curl_cffi==0.7.4
 discord.py==2.5.2
 dspac_invest_api==0.1.3
