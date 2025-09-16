@@ -37,11 +37,9 @@ def schwab_init(SCHWAB_EXTERNAL=None):
                 password=account[1],
                 totp_secret=None if account[2] == "NA" else account[2],
             )
-            
-            # --- Start of FIX ---
+
             # Use the older get_account_info() function which correctly fetches all accounts
             account_info = schwab.get_account_info()
-            # --- End of FIX ---
 
             if not account_info:
                 raise Exception("Failed to retrieve account information from Schwab.")
@@ -121,13 +119,13 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
                         account_id=account,
                         dry_run=orderObj.get_dry(),
                     )
-                    
+
                     # Define known error messages
                     error_messages = {
                         "One share buy orders for this security must be phoned into a representative.": "Order failed: One share buy orders must be phoned in.",
                         "This order may result in an oversold/overbought position in your account.": "Order failed: This may result in an oversold/overbought position."
                     }
-                    
+
                     handled = False
                     if not success:
                         for error, friendly_message in error_messages.items():
@@ -137,10 +135,10 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
                                     loop,
                                 )
                                 handled = True
-                                break # Exit the inner loop once an error is handled
-                    
+                                break  # Exit the inner loop once an error is handled
+
                     if handled:
-                        continue # Skip to the next account or stock
+                        continue  # Skip to the next account or stock
 
                     printAndDiscord(
                         (
@@ -151,7 +149,7 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
                         ),
                         loop,
                     )
-                    
+
                     if not success:
                         messages, success = obj.trade(
                             ticker=s,
