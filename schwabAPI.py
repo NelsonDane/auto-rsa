@@ -37,7 +37,10 @@ def schwab_init(SCHWAB_EXTERNAL=None):
                 password=account[1],
                 totp_secret=None if account[2] == "NA" else account[2],
             )
-            account_info = schwab.get_account_info_v2()
+
+            # Use the older get_account_info() function which correctly fetches all accounts
+            account_info = schwab.get_account_info()
+
             if not account_info:
                 raise Exception("Failed to retrieve account information from Schwab.")
 
@@ -53,6 +56,7 @@ def schwab_init(SCHWAB_EXTERNAL=None):
                 )
                 holdings = account_info[acc_id]["positions"]
                 for item in holdings:
+                    # The old function returns a simple string for description, not a dict
                     sym = item["symbol"]
                     if sym == "":
                         sym = "Unknown"
@@ -115,15 +119,37 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
                         account_id=account,
                         dry_run=orderObj.get_dry(),
                     )
+
+                    # Define known error messages
+                    error_messages = {
+                        "One share buy orders for this security must be phoned into a representative.": "Order failed: One share buy orders must be phoned in.",
+                        "This order may result in an oversold/overbought position in your account.": "Order failed: This may result in an oversold/overbought position."
+                    }
+
+                    handled = False
+                    if not success:
+                        for error, friendly_message in error_messages.items():
+                            if any(error in str(msg) for msg in messages):
+                                printAndDiscord(
+                                    f"{key} account {print_account}: {friendly_message}",
+                                    loop,
+                                )
+                                handled = True
+                                break  # Exit the inner loop once an error is handled
+
+                    if handled:
+                        continue  # Skip to the next account or stock
+
                     printAndDiscord(
                         (
                             f"{key} account {print_account}: The order verification was "
                             + "successful"
                             if success
-                            else "unsuccessful, retrying..."
+                            else "unsuccessful, retrying with legacy API..."
                         ),
                         loop,
                     )
+
                     if not success:
                         messages, success = obj.trade(
                             ticker=s,
@@ -141,10 +167,11 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
                             ),
                             loop,
                         )
-                        printAndDiscord(
-                            f"{key} account {print_account}: The order verification produced the following messages: {messages}",
-                            loop,
-                        )
+                        if not success:
+                            printAndDiscord(
+                                f"{key} account {print_account}: The order verification produced the following messages: {messages}",
+                                loop,
+                            )
                 except Exception as e:
                     printAndDiscord(
                         f"{key} {print_account}: Error submitting order: {e}", loop
