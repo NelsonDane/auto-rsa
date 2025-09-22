@@ -123,7 +123,7 @@ def schwab_transaction(schwab_o: Brokerage, orderObj: stockOrder, loop=None):
                     # Define known error messages
                     error_messages = {
                         "One share buy orders for this security must be phoned into a representative.": "Order failed: One share buy orders must be phoned in.",
-                        "This order may result in an oversold/overbought position in your account.": "Order failed: This may result in an oversold/overbought position."
+                        "This order may result in an oversold/overbought position in your account.": "Order failed: This may result in an oversold/overbought position.",
                     }
 
                     handled = False
