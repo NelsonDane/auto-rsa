@@ -7,7 +7,7 @@ from time import sleep
 import json
 from bs4 import BeautifulSoup
 
-import zendriver as uc # uc is a common alias for zendriver, like in sofiAPI.py
+import zendriver as uc
 from zendriver import SpecialKeys, KeyEvents, KeyPressEvent 
 from dotenv import load_dotenv
 
@@ -23,7 +23,6 @@ from helperAPI import (
 
 load_dotenv()
 
-# --- NEW ---
 # Controls detailed logging. Set to "true" in your .env file to enable.
 DEBUG = os.getenv("WELLSFARGO_DEBUG", "false").lower() == "true"
 
@@ -31,7 +30,6 @@ def log(message):
     """Prints a message to the console if DEBUG is True."""
     if DEBUG:
         print(f"[DEBUG] {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {message}")
-# --- END NEW ---
 
 COOKIES_PATH = "creds"
 # wf_loop for Wells Fargo specific asyncio operations
@@ -173,7 +171,6 @@ async def handle_wellsfargo_2fa(page: uc.Tab, botObj, discord_loop):
 
         # Step 2: Get the OTP code from the user via Discord
         log("Requesting OTP code from Discord.")
-        # As you requested, using the existing helper function
         otp_code = await getOTPCodeDiscord(botObj, "Wells Fargo", timeout=300, loop=discord_loop)
         if not otp_code:
             raise Exception("Did not receive Wells Fargo OTP code in time.")
@@ -324,7 +321,6 @@ async def wellsfargo_init(account_cred_str: str, account_name_key: str, cookie_f
         await browser.sleep(3)
         await page.select("body")
 
-        # --- MODIFICATION STARTS HERE ---
         current_url = await get_current_url(page, discord_loop)
 
         # Check if we landed on the 2FA / Identity Verification page
@@ -332,7 +328,6 @@ async def wellsfargo_init(account_cred_str: str, account_name_key: str, cookie_f
             await handle_wellsfargo_2fa(page, botObj, discord_loop)
             # After 2FA, get the URL again to confirm we've moved on
             current_url = await get_current_url(page, discord_loop)
-        # --- MODIFICATION ENDS HERE ---
 
         if "login" in current_url.lower() and "brokoverview" not in current_url.lower():
 
@@ -444,7 +439,6 @@ async def fetch_initial_account_data(page: uc.Tab, wf_brokerage_obj: Brokerage, 
     except Exception as e:
         await wellsfargo_error(f"Error fetching initial account data for {account_name_key}: {e}", page, discord_loop)
 
-# --- CORRECTED TRANSACTION FUNCTION ---
 async def wellsfargo_transaction(wf_brokerage_obj: Brokerage, orderObj: stockOrder, account_name_key: str, browser: uc.Browser, page: uc.Tab, discord_loop):
     log("wellsfargo_transaction started.")
     try:
@@ -485,9 +479,6 @@ async def wellsfargo_transaction(wf_brokerage_obj: Brokerage, orderObj: stockOrd
                     log(f"Element '.acctmask' returned None or empty list for index {account_index}. Assuming end of accounts and breaking loop.")
                     break
 
-                # --- CORRECTED LINE BASED ON DOCUMENTATION ---
-                # Old line: full_text = await final_element.text_content()
-                # New line uses the .text_all property with no await
                 full_text = final_element.text_all
                 
                 account_mask = re.sub(r'Account ending with', '', full_text).strip().replace('*', '')
@@ -529,20 +520,13 @@ async def wellsfargo_transaction(wf_brokerage_obj: Brokerage, orderObj: stockOrd
                     symbol_input = await page.select("#Symbol", timeout=5)
                     await symbol_input.send_keys(stock_symbol)
 
-                    # --- FIX STARTS HERE ---
-                    # Old line that caused the error:
-                    # await page.press("Tab") 
-                    
-                    # New line: Send the Tab key directly to the symbol_input element
                     await symbol_input.send_keys(SpecialKeys.TAB)
-                    # --- FIX ENDS HERE ---
 
                     log("Waiting for quote to load...")
                     await asyncio.sleep(5)
                 except asyncio.TimeoutError:
                     raise Exception("Failed to find symbol input field.")
 
-                # --- NEW ---
                 # 2a. Check Owned Shares for Sell Orders
                 if action == "Sell":
                     try:
@@ -578,15 +562,12 @@ async def wellsfargo_transaction(wf_brokerage_obj: Brokerage, orderObj: stockOrd
                         printAndDiscord(error_message, discord_loop)
                         log(error_message)
                         continue # Skip to the next stock
-                # --- END NEW ---
 
                 # 3. Get Quote & Determine Order Type
                 try:
                     # The 'select' method will wait up to 10 seconds for the element to appear.
-                    # We have removed the unreliable asyncio.sleep().
                     last_price_element = await page.select("#last", timeout=10)
 
-                    # --- FIX STARTS HERE ---
                     # Add a check to ensure the element was actually found before using it.
                     if not last_price_element:
                         raise Exception("Price element #last could not be found after 10 seconds. The page may not have loaded the quote correctly.")
@@ -594,7 +575,6 @@ async def wellsfargo_transaction(wf_brokerage_obj: Brokerage, orderObj: stockOrd
                     last_price_str = last_price_element.get('value')
                     if not last_price_str: 
                         raise Exception("Price element #last was found, but its value is empty.")
-                    # --- FIX ENDS HERE ---
 
                     last_price = float(last_price_str)
                     log(f"Last price for {stock_symbol} is ${last_price}")
@@ -622,8 +602,6 @@ async def wellsfargo_transaction(wf_brokerage_obj: Brokerage, orderObj: stockOrd
 
                 except asyncio.TimeoutError:
                     raise Exception("Failed to find the Quantity input field '#OrderQuantity'.")
-                # --- FIX ENDS HERE ---
-
                 
                 # 5. Select Order Type
                 try:
@@ -720,7 +698,6 @@ async def wellsfargo_transaction(wf_brokerage_obj: Brokerage, orderObj: stockOrd
 
     except Exception as e:
         await wellsfargo_error(f"Error during Wells Fargo transaction logic for {account_name_key}: {e}", page, discord_loop, browser)
-# --- END CORRECTED ---
 
 
 async def wellsfargo_holdings(wf_brokerage_obj: Brokerage, account_name_key: str, browser: uc.Browser, page: uc.Tab, discord_loop):
