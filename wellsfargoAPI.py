@@ -305,14 +305,12 @@ async def wellsfargo_init(account_cred_str: str, account_name_key: str, cookie_f
         await username_field.clear_input()
         if not username_field:
             raise Exception(f"Unable to locate the username input field")
-        await username_field.send_keys(" ")
         await username_field.send_keys(credentials[0])
 
         log("Locating and filling password field.")
         password_field = await page.select("input[id=j_password]")
         if not password_field:
             raise Exception(f"Unable to locate the password input field")
-        await password_field.send_keys(" ")
         await password_field.send_keys(credentials[1])
 
         await browser.sleep(2)
@@ -369,7 +367,6 @@ async def wellsfargo_init(account_cred_str: str, account_name_key: str, cookie_f
         await wellsfargo_error(f"Error during Wells Fargo init for {account_name_key}: {e}", current_page_for_error, discord_loop, browser=None)
         wf_brokerage_obj.set_logged_in_object(account_name_key, None)
 
-    wf_brokerage_obj.set_logged_in_object(account_name_key, True)
     log(f"wellsfargo_init finished for {account_name_key}.")
 
 
