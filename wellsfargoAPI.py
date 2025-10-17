@@ -497,6 +497,12 @@ async def wellsfargo_transaction(wf_brokerage_obj: Brokerage, orderObj: stockOrd
             log(f"New account found: *{account_mask}. Stored for processing.")
 
             for stock_symbol in orderObj.get_stocks():
+
+                trade_url = f"https://wfawellstrade.wellsfargo.com/BW/equity.do?account={account_index}&symbol=&selectedAction=&{dynamic_x_param}"
+                log(f"Navigating to fresh trade URL for stock '{stock_symbol}': {trade_url}")
+                await page.get(trade_url)
+                await asyncio.sleep(3)
+
                 log(f"Processing order for stock: {stock_symbol} in account *{account_mask}")
                 action = orderObj.get_action().capitalize()
                 quantity = orderObj.get_amount()
