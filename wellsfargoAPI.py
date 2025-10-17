@@ -588,7 +588,7 @@ async def wellsfargo_transaction(wf_brokerage_obj: Brokerage, orderObj: stockOrd
                     # This will catch the timeout from page.select and provide a clearer error.
                     raise Exception("Timed out waiting for the last price element (#last) to appear.")
 
-                order_type = "Market" if last_price >= 1.00 else "Limit"
+                order_type = "Market" if last_price >= 2.00 else "Limit"
                 log(f"Order type determined: {order_type}")
 
                 # 4. Enter Quantity
