@@ -46,6 +46,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install python dependencies
 COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
+ENV XDG_CACHE_HOME=/tmp/.cache
+ENV PLAYWRIGHT_BROWSERS_PATH=/tmp/pw-browsers
 
 # Install playwright
 RUN playwright install firefox
@@ -55,4 +57,10 @@ COPY . .
 
 # Set the entrypoint to our entrypoint.sh
 COPY --from=builder /app/entrypoint.sh .
+RUN chmod 755 /app/entrypoint.sh
+
+# Create user and switch to it
+RUN useradd -m appuser
+USER appuser
+
 ENTRYPOINT ["/app/entrypoint.sh"]
