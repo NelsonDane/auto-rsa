@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Add Account - Trading Platform{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Add Trading Account</h2>
+    
+    <div class="card bg-dark text-light">
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('add_account') }}">
+                <div class="mb-3">
+                    <label for="brokerage" class="form-label">Brokerage</label>
+                    <select class="form-select" id="brokerage" name="brokerage" required>
+                        <option value="Fidelity">Fidelity</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="username" class="form-label">Username</label>
+                    <input type="text" class="form-control" id="username" name="username" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="password" class="form-label">Password</label>
+                    <input type="password" class="form-control" id="password" name="password" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="account_numbers" class="form-label">Account Numbers (comma-separated)</label>
+                    <input type="text" class="form-control" id="account_numbers" name="account_numbers" required>
+                    <div class="form-text text-light">Enter multiple account numbers separated by commas</div>
+                </div>
+                
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary">Add Account</button>
+                    <a href="{{ url_for('view_tasks') }}" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}Manual Pending Trades - Trading Platform{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Manual Pending Trades</h2>
+
+    {% if trades %}
+    <div class="card bg-dark text-light">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-dark table-hover">
+                    <thead>
+                        <tr>
+                            <th>Trade ID</th>
+                            <th>Account</th>
+                            <th>Symbol</th>
+                            <th>Quantity</th>
+                            <th>Price</th>
+                            <th>Type</th>
+                            <th>Created At</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for trade in trades %}
+                        <tr>
+                            <td>{{ trade.id }}</td>
+                            <td>{{ trade.account.account_number }}</td>
+                            <td>{{ trade.symbol }}</td>
+                            <td>{{ trade.quantity }}</td>
+                            <td>${{ "%.2f"|format(trade.price) if trade.price else "Market" }}</td>
+                            <td>{{ trade.type }}</td>
+                            <td>{{ trade.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            <td>
+                                <div class="btn-group">
+                                    <button class="btn btn-success btn-sm approve-trade" 
+                                            data-trade-id="{{ trade.id }}">
+                                        Approve
+                                    </button>
+                                    <button class="btn btn-danger btn-sm reject-trade" 
+                                            data-trade-id="{{ trade.id }}">
+                                        Reject
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        No pending trades found.
+    </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle approve trade
+    document.querySelectorAll('.approve-trade').forEach(button => {
+        button.addEventListener('click', function() {
+            const tradeId = this.dataset.tradeId;
+            if (confirm('Are you sure you want to approve this trade?')) {
+                fetch(`/approve_trade/${tradeId}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'}
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Error approving trade: ' + data.error);
+                    }
+                })
+                .catch(error => alert('Error: ' + error));
+            }
+        });
+    });
+
+    // Handle reject trade
+    document.querySelectorAll('.reject-trade').forEach(button => {
+        button.addEventListener('click', function() {
+            const tradeId = this.dataset.tradeId;
+            if (confirm('Are you sure you want to reject this trade?')) {
+                fetch(`/reject_trade/${tradeId}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'}
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Error rejecting trade: ' + data.error);
+                    }
+                })
+                .catch(error => alert('Error: ' + error));
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

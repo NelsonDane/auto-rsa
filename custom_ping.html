@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Custom Ping - Trading Platform{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Custom Ping</h2>
+    <div class="card bg-dark">
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('custom_ping_page') }}">
+                <div class="mb-3">
+                    <label for="symbol" class="form-label">Stock Symbol</label>
+                    <input type="text" class="form-control" id="symbol" name="symbol" required>
+                </div>
+                <div class="mb-3">
+                    <label for="action" class="form-label">Action</label>
+                    <select class="form-select" id="action" name="action" required>
+                        <option value="buy">Buy</option>
+                        <option value="sell">Sell</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="price" class="form-label">Price</label>
+                    <input type="number" step="0.0001" class="form-control" id="price" name="price" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Send Ping</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - Trading Platform{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">System Settings</h2>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form method="POST" class="mb-4">
+        <div class="card bg-dark">
+            <div class="card-body">
+                <h5 class="card-title text-info">Trade Settings</h5>
+                <div class="form-check mb-3">
+                    <input type="checkbox" class="form-check-input" id="manual_confirm_trades" 
+                           name="manual_confirm_trades" {% if settings.manual_confirm_trades %}checked{% endif %}>
+                    <label class="form-check-label" for="manual_confirm_trades">
+                        Require manual confirmation for trades
+                    </label>
+                </div>
+
+                <h5 class="card-title text-info mt-4">Discord Notifications</h5>
+                <div class="mb-3">
+                    <label for="discord_webhook_url" class="form-label">Discord Webhook URL</label>
+                    <input type="url" class="form-control" id="discord_webhook_url" name="discord_webhook_url"
+                           value="{{ settings.discord_webhook_url or '' }}" 
+                           placeholder="https://discord.com/api/webhooks/...">
+                    <div class="form-text">Enter your Discord webhook URL to receive trade notifications</div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Save Settings</button>
+                <button type="button" id="test-webhook" class="btn btn-info ms-2">
+                    Test Webhook
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const webhookInput = document.getElementById('discord_webhook_url');
+    const testButton = document.getElementById('test-webhook');
+
+    testButton.addEventListener('click', function() {
+        const webhookUrl = webhookInput.value.trim();
+        if (!webhookUrl) {
+            alert('Please enter a webhook URL first');
+            return;
+        }
+
+        // Disable button during test
+        testButton.disabled = true;
+        testButton.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Testing...';
+
+        fetch('/test_webhook', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                webhook_url: webhookUrl
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Webhook test successful! Check your Discord channel.');
+            } else {
+                alert('Webhook test failed: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            alert('Error testing webhook: ' + error);
+        })
+        .finally(() => {
+            testButton.disabled = false;
+            testButton.innerHTML = 'Test Webhook';
+        });
+    });
+});
+</script>
+{% endblock %}

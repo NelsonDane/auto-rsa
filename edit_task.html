@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Edit Task</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='toast.css') }}">
+</head>
+<body>
+    <h1>Edit Task</h1>
+    <form action="/update_task" method="post">
+        <input type="hidden" name="task_id" value="{{ task_id }}">
+        <input type="hidden" name="brokerage" value="{{ task[0] }}">
+        <label for="brokerage">Brokerage:</label>
+        <input type="text" id="brokerage" value="{{ task[0] }}" readonly><br>
+
+        <label for="username">Username:</label>
+        <input type="text" id="username" name="username" value="{{ task[1] }}" required><br>
+
+        <label for="password">Password:</label>
+        <input type="text" id="password" name="password" value="{{ task[2] }}" required><br>
+
+        <label for="account_numbers">Account Numbers:</label>
+        <input type="text" id="account_numbers" name="account_numbers" value="{{ task[3] }}" required><br>
+
+        <input type="submit" value="Update Task">
+    </form>
+    <a href="/view_tasks" class="nav-button">Back to Tasks</a>
+</body>
+</html>

@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+
+{% block title %}System Status - Trading Platform{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Status Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="mb-2">Task Status: <span id="task-status" class="badge bg-secondary">Idle</span></h4>
+            <h4 class="mb-0">Total Accounts: <span id="total-accounts">{{ active_accounts }}</span></h4>
+        </div>
+        <div>
+            <button id="start-button" class="btn btn-success me-2">Start</button>
+            <button id="stop-button" class="btn btn-danger me-2" disabled>Stop</button>
+            <button id="login-all-button" class="btn btn-info">Login All Accounts</button>
+        </div>
+    </div>
+
+    <!-- Error Alert -->
+    <div id="error-alert" class="alert alert-danger alert-dismissible fade d-none" role="alert">
+        <span id="error-message"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+
+    <!-- Main Content -->
+    <div class="content-wrapper">
+        <!-- Status Panel -->
+        <div class="status-group">
+            <div class="status-item">
+                <div class="status-row">
+                    <span class="status-label">Brokerage:</span>
+                    <span class="status-value" id="brokerage-status">N/A</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Username:</span>
+                    <span class="status-value" id="username-status">N/A</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Account:</span>
+                    <span class="status-value" id="account-status">N/A</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Stock:</span>
+                    <span class="status-value" id="stock-status">N/A</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Action:</span>
+                    <span class="status-value" id="action-status">N/A</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Status:</span>
+                    <span class="status-value" id="current-status">N/A</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Log Terminal -->
+        <div class="log-terminal" id="log-terminal"></div>
+    </div>
+
+    <!-- Navigation Buttons -->
+    <div class="nav-buttons">
+        <a href="{{ url_for('stats') }}" class="btn btn-secondary">Stats</a>
+        <a href="{{ url_for('add_account') }}" class="btn btn-secondary">Add Account</a>
+        <a href="{{ url_for('view_tasks') }}" class="btn btn-secondary">View Accounts</a>
+        <a href="{{ url_for('manual_pending_trades') }}" class="btn btn-secondary">Manual Pending Trades</a>
+        <a href="{{ url_for('view_transactions') }}" class="btn btn-secondary">View Transactions</a>
+        <a href="{{ url_for('custom_ping') }}" class="btn btn-secondary">Custom Ping</a>
+        <a href="{{ url_for('settings') }}" class="btn btn-secondary">Settings</a>
+    </div>
+</div>
+
+<!-- WebSocket Script -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const logTerminal = document.getElementById('log-terminal');
+    const errorAlert = document.getElementById('error-alert');
+    const errorMessage = document.getElementById('error-message');
+
+    // Initialize Socket.IO with reconnection handling
+    const socket = io({
+        transports: ['websocket'],
+        secure: window.location.protocol === 'https:',
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000
+    });
+
+    function showError(message, autoHide = false) {
+        errorMessage.textContent = message;
+        errorAlert.classList.remove('d-none');
+        errorAlert.classList.add('show');
+        
+        if (autoHide) {
+            setTimeout(() => {
+                errorAlert.classList.remove('show');
+                setTimeout(() => errorAlert.classList.add('d-none'), 150);
+            }, 5000);
+        }
+    }
+
+    function updateButtonStates(status) {
+        if (status === 'Running') {
+            startButton.disabled = true;
+            stopButton.disabled = false;
+            loginAllButton.disabled = true;
+        } else if (status === 'Stopping') {
+            startButton.disabled = true;
+            stopButton.disabled = true;
+            loginAllButton.disabled = true;
+        } else {
+            startButton.disabled = false;
+            stopButton.disabled = true;
+            loginAllButton.disabled = false;
+        }
+    }
+
+    // Status elements
+    const brokerageStatus = document.getElementById('brokerage-status');
+    const usernameStatus = document.getElementById('username-status');
+    const accountStatus = document.getElementById('account-status');
+    const stockStatus = document.getElementById('stock-status');
+    const actionStatus = document.getElementById('action-status');
+    const currentStatus = document.getElementById('current-status');
+    const taskStatus = document.getElementById('task-status');
+    const totalAccounts = document.getElementById('total-accounts');
+    const startButton = document.getElementById('start-button');
+    const stopButton = document.getElementById('stop-button');
+    const loginAllButton = document.getElementById('login-all-button');
+
+    // Socket event handlers
+    socket.on('connect', () => {
+        console.log('Connected to WebSocket server');
+    });
+
+    socket.on('connect_error', (error) => {
+        showError(`WebSocket connection error: ${error.message}`, true);
+    });
+
+    socket.on('reconnect_failed', () => {
+        showError('Failed to reconnect to server after multiple attempts');
+    });
+
+    socket.on('log', (data) => {
+        const logEntry = document.createElement('div');
+        logEntry.className = `log-message ${data.level.toLowerCase()}`;
+        logEntry.textContent = `${data.timestamp} - ${data.message}`;
+        logTerminal.appendChild(logEntry);
+        logTerminal.scrollTop = logTerminal.scrollHeight;
+    });
+
+    socket.on('status', (data) => {
+        try {
+            if (data.status) {
+                brokerageStatus.textContent = data.status.brokerage || 'N/A';
+                usernameStatus.textContent = data.status.username || 'N/A';
+                accountStatus.textContent = data.status.account_number || 'N/A';
+                stockStatus.textContent = data.status.stock || 'N/A';
+                actionStatus.textContent = data.status.action || 'N/A';
+                currentStatus.textContent = data.status.status || 'N/A';
+                
+                const status = data.status.task_status;
+                taskStatus.textContent = status;
+                taskStatus.className = `badge ${
+                    status === 'Running' ? 'bg-success' :
+                    status === 'Stopping' ? 'bg-warning' :
+                    status === 'Error' ? 'bg-danger' :
+                    'bg-secondary'
+                }`;
+                
+                updateButtonStates(status);
+                
+                if (data.total_accounts) {
+                    totalAccounts.textContent = data.total_accounts;
+                }
+            }
+        } catch (error) {
+            console.error('Error processing status update:', error);
+            showError('Error updating status display', true);
+        }
+    });
+
+    // Button handlers
+    startButton.addEventListener('click', function() {
+        fetch('/start', { 
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success) {
+                showError(data.error || 'Failed to start tasks');
+            }
+        })
+        .catch(error => {
+            showError('Error starting tasks: ' + error);
+        });
+    });
+
+    stopButton.addEventListener('click', function() {
+        fetch('/stop', { 
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success) {
+                showError(data.error || 'Failed to stop tasks');
+                if (data.errors && data.errors.length) {
+                    data.errors.forEach(err => {
+                        console.error('Stop error:', err);
+                    });
+                }
+            }
+        })
+        .catch(error => {
+            showError('Error stopping tasks: ' + error);
+        });
+    });
+
+    loginAllButton.addEventListener('click', function() {
+        fetch('/login_all_accounts', { 
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success) {
+                showError(data.error || 'Failed to login accounts');
+            }
+        })
+        .catch(error => {
+            showError('Error logging in: ' + error);
+        });
+    });
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', function() {
+        socket.close();
+    });
+});
+</script>
+{% endblock %}
