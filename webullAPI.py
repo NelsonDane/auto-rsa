@@ -43,6 +43,11 @@ def webull_init(WEBULL_EXTERNAL=None):
         if WEBULL_EXTERNAL is None
         else WEBULL_EXTERNAL.strip().split(",")
     )
+    access_token = os.getenv("WB_ACCESS_TOKEN")
+    refresh_token = os.getenv("WB_REFRESH_TOKEN")
+    uuid_val = os.getenv("WB_UUID")
+    account_id = os.getenv("WB_ACCOUNT_ID")
+
     for index, account in enumerate(accounts):
         print("Logging in to Webull...")
         name = f"Webull {index + 1}"
@@ -56,7 +61,14 @@ def webull_init(WEBULL_EXTERNAL=None):
             for i in range(MAX_WB_RETRIES):
                 wb = webull()
                 wb.set_did(account[2])
-                wb.login(account[0], account[1])
+                wb.login(
+                    username=account[0],
+                    password=account[1],
+                    accessToken=access_token,
+                    refreshToken=refresh_token,
+                    uuidVal=uuid_val,
+                    accountId=account_id
+                )
                 wb.get_trade_token(account[3])
                 id_test = wb.get_account_id(0)
                 if id_test is not None:
