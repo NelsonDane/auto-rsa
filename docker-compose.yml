@@ -1,7 +1,7 @@
 services:
     auto-rsa:
         container_name: auto-rsa
-        image: docker.io/nelsondane/auto-rsa:latest # or change to other branch you want to use
+        image: docker.io/nelsondane/auto-rsa:latest@sha256:bed295bbe9b2616ed230bcfcd519465226d63eaa6ab7d1fbda90858c5ae87c99 # or change to other branch you want to use
         # build: . # uncomment this line if you want to build the image locally with "docker compose up -d --build"
         restart: unless-stopped
         env_file:
@@ -13,7 +13,7 @@ services:
     watchtower:
         # Auto update the auto-rsa container every hour
         # For more info see: https://containrrr.dev/watchtower/arguments/
-        image: containrrr/watchtower
+        image: containrrr/watchtower@sha256:6dd50763bbd632a83cb154d5451700530d1e44200b268a4e9488fefdfcf2b038
         container_name: watchtower
         hostname: auto-rsa
         environment:
