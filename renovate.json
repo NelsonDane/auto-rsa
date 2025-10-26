@@ -1,3 +1,11 @@
 {
-  "$schema": "https://docs.renovatebot.com/renovate-schema.json"
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "packageRules": [
+    {
+      "description": "Don't pin docker-compose images since it's just an example",
+      "enabled": false,
+      "matchFileNames": ["docker-compose.yml"],
+      "matchUpdateTypes": ["pin"]
+    }
+  ]
 }
