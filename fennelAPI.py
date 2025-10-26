@@ -66,7 +66,7 @@ def fennel_init(FENNEL_EXTERNAL: str | None = None, botObj=None, loop=None):
 def fennel_holdings(fbo: Brokerage, loop=None):
     for key in fbo.get_account_numbers():
         for account in fbo.get_account_numbers(key):
-            obj: Fennel = fbo.get_logged_in_objects(key, "fb")
+            obj: Fennel = fbo.get_logged_in_objects(key, "fb") # pyright: ignore[reportAssignmentType]
             account_info: models.accounts_pb2.Account = fbo.get_logged_in_objects(key, account)
             try:
                 # Get account holdings
@@ -99,7 +99,7 @@ def fennel_transaction(fbo: Brokerage, orderObj: stockOrder, loop=None):
                 loop,
             )
             for account in fbo.get_account_numbers(key):
-                obj: Fennel = fbo.get_logged_in_objects(key, "fb")
+                obj: Fennel = fbo.get_logged_in_objects(key, "fb") # pyright: ignore[reportAssignmentType]
                 account_info: models.accounts_pb2.Account = fbo.get_logged_in_objects(key, account)
                 try:
                     if not orderObj.get_dry():
@@ -107,7 +107,7 @@ def fennel_transaction(fbo: Brokerage, orderObj: stockOrder, loop=None):
                             account_id=account_info.id,
                             symbol=s,
                             shares=orderObj.get_amount(),
-                            side=orderObj.get_action(),
+                            side="BUY" if orderObj.get_action().lower() == "buy" else "SELL"
                         )
                         message = f"Success: {order.success}, Status: {order.status}, ID: {order.id}"
                     else:
