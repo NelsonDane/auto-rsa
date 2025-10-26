@@ -1,10 +1,10 @@
 # Nelson Dane
 
 # Build from python slim image
-FROM python:3.13.7-slim@sha256:58c30f5bfaa718b5803a53393190b9c68bd517c44c6c94c1b6c8c172bcfad040 AS builder
+FROM python:3.13.7-slim@sha256:5f55cdf0c5d9dc1a415637a5ccc4a9e18663ad203673173b8cda8f8dcacef689 AS builder
 
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
@@ -25,12 +25,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY entrypoint.sh .
 RUN dos2unix entrypoint.sh && chmod +x entrypoint.sh
 
-FROM python:3.13.7-slim@sha256:58c30f5bfaa718b5803a53393190b9c68bd517c44c6c94c1b6c8c172bcfad040
+FROM python:3.13.7-slim@sha256:5f55cdf0c5d9dc1a415637a5ccc4a9e18663ad203673173b8cda8f8dcacef689
 
 # Set ENV variables
-ENV TZ=America/New_York
-ENV DEBIAN_FRONTEND=noninteractive
-ENV DISPLAY=:99
+ENV TZ=America/New_York \
+    DEBIAN_FRONTEND=noninteractive \
+    DISPLAY=:99 \
+    XDG_CACHE_HOME=/tmp/.cache \
+    PLAYWRIGHT_BROWSERS_PATH=/tmp/pw-browsers
 
 WORKDIR /app
 
@@ -55,4 +57,10 @@ COPY . .
 
 # Set the entrypoint to our entrypoint.sh
 COPY --from=builder /app/entrypoint.sh .
+RUN chmod 755 /app/entrypoint.sh
+
+# Create user and switch to it
+RUN useradd -m appuser && chown -R appuser:appuser /app
+USER appuser
+
 ENTRYPOINT ["/app/entrypoint.sh"]
