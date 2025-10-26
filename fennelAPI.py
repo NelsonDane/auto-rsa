@@ -1,4 +1,3 @@
-import asyncio
 import os
 import traceback
 
@@ -7,7 +6,6 @@ from fennel_invest_api import Fennel, models
 from email_validator import validate_email, EmailNotValidError
 from helperAPI import (
     Brokerage,
-    getOTPCodeDiscord,
     printAndDiscord,
     printHoldings,
     stockOrder
