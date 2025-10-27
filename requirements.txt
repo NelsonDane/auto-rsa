@@ -1,19 +1,19 @@
 asyncio==3.4.3
 bbae-invest-api==0.1.3
-chaseinvest-api==0.3.3
+chaseinvest-api==0.3.5
 curl_cffi==0.7.4
-discord.py==2.6.3
+discord.py==2.6.4
 dspac_invest_api==0.1.3
-fennel-invest-api==1.2.0
+fennel-invest-api==2.0.0
 fidelity-api==0.0.12
-firstrade==0.0.33
+firstrade==0.0.34
 GitPython==3.1.45
-nodriver==0.45.2
+nodriver==0.47.0
 -e git+https://github.com/MaxxRK/playwright_stealth@64856026a91e85f7639c17ddc9cad42496233da9#egg=playwright_stealth
-public-invest-api==1.3.5
+publicdotcom-py==0.1.1
 pyotp==2.9.0
-python-dotenv==1.1.1
-requests==2.32.4
+python-dotenv==1.2.1
+requests==2.32.5
 # robin-stocks==3.4.0
 -e git+https://github.com/ImNotOssy/robin_stocks.git@be1348497d1c1668434ac032ce2361dffda4e687#egg=robin_stocks
 # schwab-api==0.4.3

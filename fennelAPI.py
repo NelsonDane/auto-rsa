@@ -1,20 +1,18 @@
-import asyncio
 import os
 import traceback
 
 from dotenv import load_dotenv
-from fennel_invest_api import Fennel
-
+from fennel_invest_api import Fennel, models
+from email_validator import validate_email, EmailNotValidError
 from helperAPI import (
     Brokerage,
-    getOTPCodeDiscord,
     printAndDiscord,
     printHoldings,
     stockOrder
 )
 
 
-def fennel_init(FENNEL_EXTERNAL=None, botObj=None, loop=None):
+def fennel_init(FENNEL_EXTERNAL: str | None = None, botObj=None, loop=None):
     # Initialize .env file
     load_dotenv()
     # Import Fennel account
@@ -32,50 +30,30 @@ def fennel_init(FENNEL_EXTERNAL=None, botObj=None, loop=None):
     for index, account in enumerate(FENNEL):
         name = f"Fennel {index + 1}"
         try:
-            fb = Fennel(filename=f"fennel{index + 1}.pkl", path="./creds/")
+            # The hold way was with an email. If we detect email, send message to tell them to switch
             try:
-                if botObj is None and loop is None:
-                    # Login from CLI
-                    fb.login(
-                        email=account,
-                        wait_for_code=True,
-                    )
-                else:
-                    # Login from Discord and check for 2fa required message
-                    fb.login(
-                        email=account,
-                        wait_for_code=False,
-                    )
-            except Exception as e:
-                if "2FA" in str(e) and botObj is not None and loop is not None:
-                    # Sometimes codes take a long time to arrive
-                    timeout = 300  # 5 minutes
-                    otp_code = asyncio.run_coroutine_threadsafe(
-                        getOTPCodeDiscord(botObj, name, timeout=timeout, loop=loop),
-                        loop,
-                    ).result()
-                    if otp_code is None:
-                        raise Exception("No 2FA code found")
-                    fb.login(
-                        email=account,
-                        wait_for_code=False,
-                        code=otp_code,
-                    )
-                else:
-                    raise e
+                validate_email(account)
+                printAndDiscord(
+                    f"{name}: Fennel no longer supports email login. Please switch to PAT tokens. See README for more info.",
+                    loop,
+                )
+                continue
+            except EmailNotValidError:
+                pass
+            # Login with PAT. If not error then we succeeded
+            fb = Fennel(pat_token=account)
             fennel_obj.set_logged_in_object(name, fb, "fb")
-            account_ids = fb.get_account_ids()
-            for i, an in enumerate(account_ids):
-                account_name = f"Account {i + 1}"
-                b = fb.get_portfolio_summary(an)
-                fennel_obj.set_account_number(name, account_name)
+            account_info = fb.get_account_info()
+            for i, an in enumerate(account_info):
+                b = fb.get_portfolio_cash_summary(account_id=an.id)
+                fennel_obj.set_account_number(name, an.name)
                 fennel_obj.set_account_totals(
                     name,
-                    account_name,
-                    b["cash"]["balance"]["canTrade"],
+                    an.name,
+                    b.cash_available,
                 )
-                fennel_obj.set_logged_in_object(name, an, account_name)
-                print(f"Found {account_name}")
+                fennel_obj.set_logged_in_object(name, an, an.name)
+                print(f"Found {an.name}")
             print(f"{name}: Logged in")
         except Exception as e:
             print(f"Error logging into Fennel: {e}")
@@ -88,21 +66,19 @@ def fennel_init(FENNEL_EXTERNAL=None, botObj=None, loop=None):
 def fennel_holdings(fbo: Brokerage, loop=None):
     for key in fbo.get_account_numbers():
         for account in fbo.get_account_numbers(key):
-            obj: Fennel = fbo.get_logged_in_objects(key, "fb")
-            account_id = fbo.get_logged_in_objects(key, account)
+            obj: Fennel = fbo.get_logged_in_objects(key, "fb") # pyright: ignore[reportAssignmentType]
+            account_info: models.accounts_pb2.Account = fbo.get_logged_in_objects(key, account)
             try:
                 # Get account holdings
-                positions = obj.get_stock_holdings(account_id)
+                positions = obj.get_portfolio_positions(account_id=account_info.id)
                 if positions != []:
                     for holding in positions:
-                        qty = holding["investment"]["ownedShares"]
-                        if float(qty) == 0:
+                        if int(holding.shares) == 0:
                             continue
-                        sym = holding["security"]["ticker"]
-                        cp = holding["security"]["currentStockPrice"]
-                        if cp is None:
-                            cp = "N/A"
-                        fbo.set_holdings(key, account, sym, qty, cp)
+                        price = holding.value
+                        if price is None:
+                            price = "N/A"
+                        fbo.set_holdings(key, account, holding.symbol, holding.shares, price)
             except Exception as e:
                 printAndDiscord(f"Error getting Fennel holdings: {e}")
                 print(traceback.format_exc())
@@ -123,24 +99,19 @@ def fennel_transaction(fbo: Brokerage, orderObj: stockOrder, loop=None):
                 loop,
             )
             for account in fbo.get_account_numbers(key):
-                obj: Fennel = fbo.get_logged_in_objects(key, "fb")
-                account_id = fbo.get_logged_in_objects(key, account)
+                obj: Fennel = fbo.get_logged_in_objects(key, "fb") # pyright: ignore[reportAssignmentType]
+                account_info: models.accounts_pb2.Account = fbo.get_logged_in_objects(key, account)
                 try:
-                    order = obj.place_order(
-                        account_id=account_id,
-                        ticker=s,
-                        quantity=orderObj.get_amount(),
-                        side=orderObj.get_action(),
-                        dry_run=orderObj.get_dry(),
-                    )
-                    if orderObj.get_dry():
-                        message = "Dry Run Success"
-                        if not order.get("dry_run_success", False):
-                            message = "Dry Run Failed"
+                    if not orderObj.get_dry():
+                        order = obj.place_order(
+                            account_id=account_info.id,
+                            symbol=s,
+                            shares=orderObj.get_amount(),
+                            side="BUY" if orderObj.get_action().lower() == "buy" else "SELL"
+                        )
+                        message = f"Success: {order.success}, Status: {order.status}, ID: {order.id}"
                     else:
-                        message = "Success"
-                        if order.get("data", {}).get("createOrder") != "pending":
-                            message = order.get("data", {}).get("createOrder")
+                        message = "Dry Run Success"
                     printAndDiscord(
                         f"{key}: {orderObj.get_action()} {orderObj.get_amount()} of {s} in {account}: {message}",
                         loop,

@@ -123,7 +123,7 @@ class stockOrder:
     def get_amount(self) -> float:
         return self.__amount
 
-    def get_stocks(self) -> list:
+    def get_stocks(self) -> list[str]:
         return self.__stock
 
     def get_time(self) -> str:

@@ -1,0 +1,10 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "packageRules": [
+    {
+      "description": "Don't update docker-compose.yml since it's just an example",
+      "enabled": false,
+      "matchFileNames": ["docker-compose.yml"]
+    }
+  ]
+}
