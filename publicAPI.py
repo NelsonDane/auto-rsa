@@ -1,9 +1,10 @@
 import os
 import traceback
 import uuid
+from decimal import Decimal
 
 from dotenv import load_dotenv
-from public_api_sdk import InstrumentType, OrderExpirationRequest, OrderInstrument, OrderRequest, PublicApiClient
+from public_api_sdk import InstrumentType, OrderExpirationRequest, OrderInstrument, OrderRequest, PublicApiClient, AccountType
 from public_api_sdk.auth_config import ApiKeyAuthConfig
 from email_validator import validate_email, EmailNotValidError
 from public_api_sdk import PreflightRequest, OrderSide, OrderType, TimeInForce
@@ -101,6 +102,19 @@ def public_transaction(pbo: Brokerage, orderObj: stockOrder, loop=None):
                 loop,
             )
             for account in pbo.get_account_numbers(key):
+                #Check to only trade on brokerage accounts not HYSA
+                account_type = pbo.get_account_type(key, account)
+
+                tradable_accounts = [
+                    AccountType.BROKERAGE,
+                    AccountType.ROTH_IRA,
+                    AccountType.TRADITIONAL_IRA
+                ]
+
+                if account_type not in tradable_accounts:
+                    print(f"{maskString(account)}: Skipping, account type is {account_type} (non-tradable).")
+                    continue
+
                 obj: PublicApiClient = pbo.get_logged_in_objects(key, "pb") # pyright: ignore[reportAssignmentType]
                 print_account = maskString(account)
                 # Dry run
@@ -111,7 +125,7 @@ def public_transaction(pbo: Brokerage, orderObj: stockOrder, loop=None):
                             order_side=OrderSide(orderObj.get_action().upper()),
                             order_type=OrderType.MARKET,
                             expiration=OrderExpirationRequest(time_in_force=TimeInForce.DAY, expiration_time=None),
-                            quantity=int(orderObj.get_amount()),
+                            quantity=str(orderObj.get_amount()),
                             amount=None,
                             limit_price=None,
                             stop_price=None,
@@ -133,7 +147,7 @@ def public_transaction(pbo: Brokerage, orderObj: stockOrder, loop=None):
                             order_side=OrderSide(orderObj.get_action().upper()),
                             order_type=OrderType.MARKET,
                             expiration=OrderExpirationRequest(time_in_force=TimeInForce.DAY, expiration_time=None),
-                            quantity=int(orderObj.get_amount()),
+                            quantity=str(orderObj.get_amount()),
                             amount=None,
                             limit_price=None,
                             stop_price=None,
