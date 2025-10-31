@@ -20,6 +20,6 @@ requests==2.32.5
 -e git+https://github.com/yanowitz/schwab-api.git@3437fbc4d6e70d941202b74e801139161118e69a#egg=schwab-api
 selenium-stealth==1.0.6
 setuptools==80.9.0
-tastytrade==9.11
+tastytrade==9.13
 vanguard-api==0.3.1
 -e git+https://github.com/NelsonDane/webull.git@ef14ae63f9e1436fbea77fe864df54847cf2f730#egg=webull
