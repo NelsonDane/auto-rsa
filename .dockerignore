@@ -2,9 +2,8 @@
 *
 
 # Main files
-!autoRSA.py
+!src/
 !entrypoint.sh
-!requirements.txt
-
-# Broker APIs
-!**/*API*.py
+!pyproject.toml
+!uv.lock
+!README.md

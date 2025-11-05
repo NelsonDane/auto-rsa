@@ -1,4 +1,4 @@
-# ✨ AutoRSA ✨ 
+# AutoRSA
 ## Discord Bot and CLI Tool
 A CLI tool and Discord bot to buy, sell, and monitor holdings across multiple brokerage accounts!
 
@@ -11,47 +11,44 @@ A CLI tool and Discord bot to buy, sell, and monitor holdings across multiple br
 
 This program uses APIs to interface with your brokerages. When available, official APIs are always used. If an official API is not available, then a third-party API is used. As a last resort, Selenium or Playwright Stealth are used to automate the browser.
 
-## DISCLAIMER 😳
+## DISCLAIMER
 DISCLAIMER: I am not a financial advisor and not affiliated with any of the brokerages listed below. Use this tool at your own risk. I am not responsible for any losses or damages you may incur by using this project. This tool is provided as-is with no warranty.
 
-## Having an Issue? 🤔
+## Having an Issue?
 I am not responding to issues on this repository. If you have an issue, please Sponsor me below and I will help you directly on Discord (for Sponsors and Contributors only).
 
 [![Sponsor](https://img.shields.io/badge/sponsor-30363D?style=for-the-badge&logo=GitHub-Sponsors&logoColor=#white)](https://github.com/sponsors/NelsonDane)
 [![ko-fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=white
 )](https://ko-fi.com/X8X6LFCI0)
 
-However, if you fix the issue yourself, please submit a pull request and I will review it.
+However, if you fix the issue yourself and would like to share, please submit a pull request and I will review it. If accepted, you can access the Discord server for free.
 
-## Installation 📝
+## Installation
 There are two ways to use this program: as a Discord bot or as a CLI tool. The setup instructions will be a little different depending on which method you choose. However, both methods require the same pre-setup steps, and the same `.env` file format.
 
-### Pre-Setup 🛠️
-1. Install `git` for your operating system.
-2. Clone this repository and cd into it:
-```bash
-git clone https://github.com/NelsonDane/auto-rsa.git
-cd auto-rsa
-```
-3. Copy the `.env.example` file to a new file called `.env`:
+### Env Setup
+1. Copy the `.env.example` file to a new file called `.env`:
+
 #### MacOS & Linux
 ```bash
 cp .env.example .env
 ```
+
 #### Windows
 ```powershell
 copy .env.example .env
 ```
-4. Fill in the `.env` file with your brokerage credentials. See the [Supported Brokerages](#-supported-brokerages-) section for more information.
+
+2. Fill in the `.env` file with your brokerage credentials. See the [Supported Brokerages](#-supported-brokerages-) section for more information.
 
 Now follow the instructions for either the Discord Bot or CLI Tool. Once setup is complete, see the [Usage](#-usage-) section for how to use the program.
 
-### Discord Bot Installation 🤖
+### Discord Bot Installation
 To create your Discord bot and get your `DISCORD_TOKEN` for your `.env`, follow this [guide](guides/discordBot.md).
 
 There are two ways to run the Discord bot: using Docker or running the Python script. When running the bot using the Python script, the bot will only be online when the script is running. With Docker, the bot will run in the background, restarting and updating automatically.
 
-### Discord Bot: Docker 🐳
+### Discord Bot: Docker
 1. Add `DISCORD_TOKEN` and `DISCORD_CHANNEL` to your `.env` file.
 2. Create the container using the provided [docker-compose.yml](docker-compose.yml) file:
 ```bash
@@ -61,13 +58,14 @@ docker compose up -d
 
 Docker Note: If you make any changes to your `.env` file, you will need to restart the container by running `docker-compose up -d` again. The bot will also automatically stay up to date thanks to the included [Watchtower](https://containrrr.dev/watchtower/).
 
-### Discord Bot: Python Script 🏃‍♀️
-1. Install Python 3.10 or higher
+### Discord Bot: Python Script
+The fastest way to get started is by using [uv](https://github.com/astral-sh/uv).
+1. Install [uv](https://github.com/astral-sh/uv?tab=readme-ov-file#installation).
 2. Create a Python virtual environment:
 ```bash
-python -m venv autorsa-venv
+uv venv autorsa-venv python=3.12
 ```
-3. Activate the virtual environment:
+4. Activate the virtual environment:
 #### MacOS & Linux
 ```bash
 source ./autorsa-venv/bin/activate
@@ -78,9 +76,9 @@ source ./autorsa-venv/bin/activate
 ```
 You should see `(autorsa-venv)` in your terminal prompt now. You will need to activate this virtual environment every time you close and reopen your terminal.
 
-4. Install the required packages:
+4. Install the package:
 ```bash
-pip install -r requirements.txt
+uv pip install auto_rsa_bot
 ```
 5. Install Playwright's dependencies:
 ```bash
@@ -89,12 +87,18 @@ playwright install
 6. Add `DISCORD_TOKEN` and `DISCORD_CHANNEL` to your `.env` file.
 7. Start the bot using the following command:
 ```bash
-python autoRSA.py discord
+auto_rsa_bot discord
 ```
 8. The bot should appear online in Discord (You can also do `!ping` to check).
 
 ### CLI Tool Installation 💻
 To run the CLI tool, follow these steps:
+1. Install [uv](https://github.com/astral-sh/uv?tab=readme-ov-file#installation).
+2. Create a Python virtual environment:
+```bash
+uv venv autorsa-venv python=3.12
+```
+3. Activate the virtual environment:
 1. Install Python 3.10 or higher
 2. Create a Python virtual environment:
 ```bash
@@ -111,13 +115,13 @@ source ./autorsa-venv/bin/activate
 ```
 You should see `(autorsa-venv)` in your terminal prompt now. You will need to activate this virtual environment every time you close and reopen your terminal.
 
-4. Install the required packages:
+4. Install the package:
 ```bash
-pip install -r requirements.txt
+uv pip install auto_rsa_bot
 ```
-5. Run the script using `python autoRSA.py`. It should say that no arguments were given, then exit. This is expected, and means everything was installed and set up correctly.
+5. Run the script using `uv auto_rsa_bot`. It should say that no arguments were given, then exit. This is expected, and means everything was installed and set up correctly.
 
-## Usage 👀
+## Usage
 
 To buy and sell stocks, use this command:
 
@@ -158,7 +162,7 @@ For help:
 `!help` (without appending `!rsa` or prefix)
 
 ### Parameters Explanation ⚙️
-- `<prefix>`: string, The prefix for the command. For the Discord bot, this is `!rsa`. For the CLI tool, this is `python autoRSA.py`.
+- `<prefix>`: string, The prefix for the command. For the Discord bot, this is `!rsa`. For the CLI tool, this is `auto_rsa_bot`.
 - `<action>`: string, "buy" or "sell"
 - `<amount>`: integer, Amount to buy or sell.
 - `<ticker>`: string, The stock ticker to buy or sell. Separate multiple tickers with commas and no spaces.
