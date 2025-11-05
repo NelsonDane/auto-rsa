@@ -1,0 +1,27 @@
+# Python Type Checking
+name: Python Type Checking
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  mypy:
+    name: Test Python Versions
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.12", "3.13", "3.14"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
+      - name: Install requirements
+        run: uv sync --all-groups
+      - name: Run mypy
+        run: uv run mypy --python-version ${{ matrix.python }}

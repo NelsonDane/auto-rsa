@@ -1,0 +1,78 @@
+[project]
+name = "auto_rsa_bot"
+version = "2.0.0"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "asyncio==3.4.3",
+    "bbae-invest-api==0.1.3",
+    "chaseinvest-api==0.3.5",
+    "curl-cffi==0.7.4",
+    "discord-py==2.6.4",
+    "dspac-invest-api==0.1.3",
+    "fennel-invest-api==2.0.0",
+    "fidelity-api==0.0.12",
+    "firstrade==0.0.34",
+    "gitpython==3.1.45",
+    "nodriver==0.47.0",
+    "playwright_stealth@git+https://github.com/MaxxRK/playwright_stealth@64856026a91e85f7639c17ddc9cad42496233da9",
+    "publicdotcom-py==0.1.1",
+    "pyotp==2.9.0",
+    "python-dotenv==1.2.1",
+    "requests==2.32.5",
+    "robin_stocks@git+https://github.com/ImNotOssy/robin_stocks.git@be1348497d1c1668434ac032ce2361dffda4e687",
+    "schwab_api@git+https://github.com/yanowitz/schwab-api.git@3437fbc4d6e70d941202b74e801139161118e69a",
+    "selenium-stealth==1.0.6",
+    "tastytrade==9.11",
+    "typer>=0.20.0",
+    "vanguard-api==0.3.1",
+    "webull@git+https://github.com/NelsonDane/webull.git@ef14ae63f9e1436fbea77fe864df54847cf2f730",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.18.2",
+    "ruff>=0.13.3",
+    "types-requests>=2.32.4.20250913",
+]
+
+[project.scripts]
+auto_rsa_bot = "src.cli:app"
+
+[tool.uv]
+package = true
+
+[build-system]
+requires = ["uv_build>=0.7.19,<0.8.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "src"
+module-root = "."
+
+[tool.ruff]
+target-version = "py312"
+extend = "./styles/ruff.toml"
+include = ["src/*"]
+
+[tool.ruff.lint]
+ignore = [
+    "BLE001",  # Allow blind exception catch
+    "T201",    # Allow prints
+    "TRY002",  # Create own exception
+    "TRY301",  # Allow raising exceptions
+    "DOC201",  # Don't require returns in doc
+    "DOC501",  # Don't require raises in doc
+]
+[tool.ruff.lint.per-file-ignores]
+"src/brokerages/*" = [
+    "PLR0913", # Allow too many arguments
+    "PLR1702", # Allow many nested blocks
+]
+
+
+[tool.mypy]
+files = ["src"]
+# strict = true
+python_version = "3.12"
+disable_error_code = ["import-untyped"]
