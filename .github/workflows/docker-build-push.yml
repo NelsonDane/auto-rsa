@@ -5,9 +5,15 @@ on:
     branches:
       - 'main'
       - 'develop*'
+  pull_request:
+    branches:
+      - 'main'
+      - 'develop*'
+  workflow_dispatch:
 
 jobs:
-  call-workflow-dockerhub-build-push:
+  dockerhub-build-and-push:
+    name: Build and Push Docker Image
     uses: NelsonDane/Custom-GitHub-Actions/.github/workflows/docker-registry-build-push.yml@e64ec758b6758d58955cab25a0e330f9bab380dd
     with:
       image_name: auto-rsa

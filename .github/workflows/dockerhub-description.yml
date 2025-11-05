@@ -8,7 +8,8 @@ on:
       - .github/workflows/dockerhub-description.yml
 
 jobs:
-  call-dockerhub-action:
+  update-dockerhub-description:
+    name: Update Docker Hub Description
     uses: NelsonDane/Custom-GitHub-Actions/.github/workflows/dockerhub-description.yml@e64ec758b6758d58955cab25a0e330f9bab380dd
     with:
       dockerhub_repo_name: auto-rsa
