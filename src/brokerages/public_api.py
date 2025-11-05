@@ -6,10 +6,16 @@ from typing import cast
 
 from dotenv import load_dotenv
 from email_validator import EmailNotValidError, validate_email
-from public_api_sdk import InstrumentType, OrderExpirationRequest, OrderInstrument, OrderRequest, OrderSide, OrderType, PreflightRequest, PublicApiClient, TimeInForce
+from public_api_sdk import AccountType, InstrumentType, OrderExpirationRequest, OrderInstrument, OrderRequest, OrderSide, OrderType, PreflightRequest, PublicApiClient, TimeInForce
 from public_api_sdk.auth_config import ApiKeyAuthConfig
 
 from src.helper_api import Brokerage, StockOrder, mask_string, print_all_holdings, print_and_discord
+
+TRADABLE_ACCOUNT_TYPES = [
+    AccountType.BROKERAGE,
+    AccountType.ROTH_IRA,
+    AccountType.TRADITIONAL_IRA,
+]
 
 
 def public_init(loop: AbstractEventLoop | None = None) -> Brokerage | None:
@@ -89,6 +95,12 @@ def public_transaction(pbo: Brokerage, order_obj: StockOrder, loop: AbstractEven
                 loop,
             )
             for account in pbo.get_account_numbers(key):
+                # Check to only trade on brokerage accounts not HYSA
+                account_type = pbo.get_account_types(key, account)
+                if account_type not in TRADABLE_ACCOUNT_TYPES:
+                    print_and_discord(f"{mask_string(account)}: Skipping non-tradable account type: {account_type}")
+                    continue
+                # Get Public API object
                 obj = cast("PublicApiClient", pbo.get_logged_in_objects(key, "pb"))
                 print_account = mask_string(account)
                 # Dry run
