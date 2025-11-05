@@ -1,19 +1,12 @@
 import os
 import traceback
 import uuid
-<<<<<<< HEAD:publicAPI.py
-from decimal import Decimal
-
-from dotenv import load_dotenv
-from public_api_sdk import InstrumentType, OrderExpirationRequest, OrderInstrument, OrderRequest, PublicApiClient, AccountType
-=======
 from asyncio import AbstractEventLoop
 from typing import cast
 
 from dotenv import load_dotenv
 from email_validator import EmailNotValidError, validate_email
 from public_api_sdk import InstrumentType, OrderExpirationRequest, OrderInstrument, OrderRequest, OrderSide, OrderType, PreflightRequest, PublicApiClient, TimeInForce
->>>>>>> main:src/brokerages/public_api.py
 from public_api_sdk.auth_config import ApiKeyAuthConfig
 
 from src.helper_api import Brokerage, StockOrder, mask_string, print_all_holdings, print_and_discord
@@ -96,26 +89,8 @@ def public_transaction(pbo: Brokerage, order_obj: StockOrder, loop: AbstractEven
                 loop,
             )
             for account in pbo.get_account_numbers(key):
-<<<<<<< HEAD:publicAPI.py
-                #Check to only trade on brokerage accounts not HYSA
-                account_type = pbo.get_account_type(key, account)
-
-                tradable_accounts = [
-                    AccountType.BROKERAGE,
-                    AccountType.ROTH_IRA,
-                    AccountType.TRADITIONAL_IRA
-                ]
-
-                if account_type not in tradable_accounts:
-                    print(f"{maskString(account)}: Skipping, account type is {account_type} (non-tradable).")
-                    continue
-
-                obj: PublicApiClient = pbo.get_logged_in_objects(key, "pb") # pyright: ignore[reportAssignmentType]
-                print_account = maskString(account)
-=======
                 obj = cast("PublicApiClient", pbo.get_logged_in_objects(key, "pb"))
                 print_account = mask_string(account)
->>>>>>> main:src/brokerages/public_api.py
                 # Dry run
                 if order_obj.get_dry():
                     try:
@@ -124,11 +99,7 @@ def public_transaction(pbo: Brokerage, order_obj: StockOrder, loop: AbstractEven
                             order_side=OrderSide(order_obj.get_action().upper()),
                             order_type=OrderType.MARKET,
                             expiration=OrderExpirationRequest(time_in_force=TimeInForce.DAY, expiration_time=None),
-<<<<<<< HEAD:publicAPI.py
-                            quantity=str(orderObj.get_amount()),
-=======
                             quantity=int(order_obj.get_amount()),
->>>>>>> main:src/brokerages/public_api.py
                             amount=None,
                             limit_price=None,
                             stop_price=None,
@@ -150,11 +121,7 @@ def public_transaction(pbo: Brokerage, order_obj: StockOrder, loop: AbstractEven
                             order_side=OrderSide(order_obj.get_action().upper()),
                             order_type=OrderType.MARKET,
                             expiration=OrderExpirationRequest(time_in_force=TimeInForce.DAY, expiration_time=None),
-<<<<<<< HEAD:publicAPI.py
-                            quantity=str(orderObj.get_amount()),
-=======
                             quantity=int(order_obj.get_amount()),
->>>>>>> main:src/brokerages/public_api.py
                             amount=None,
                             limit_price=None,
                             stop_price=None,
