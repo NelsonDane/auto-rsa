@@ -23,7 +23,7 @@ dependencies = [
     "robin_stocks@git+https://github.com/ImNotOssy/robin_stocks.git@be1348497d1c1668434ac032ce2361dffda4e687",
     "schwab_api@git+https://github.com/yanowitz/schwab-api.git@3437fbc4d6e70d941202b74e801139161118e69a",
     "selenium-stealth==1.0.6",
-    "tastytrade==9.11",
+    "tastytrade==9.13",
     "typer>=0.20.0",
     "vanguard-api==0.3.1",
     "webull@git+https://github.com/NelsonDane/webull.git@ef14ae63f9e1436fbea77fe864df54847cf2f730",
