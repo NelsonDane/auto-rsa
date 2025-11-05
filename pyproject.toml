@@ -7,7 +7,7 @@ dependencies = [
     "asyncio==3.4.3",
     "bbae-invest-api==0.1.3",
     "chaseinvest-api==0.3.5",
-    "curl-cffi==0.7.4",
+    "curl-cffi==0.13.0",
     "discord-py==2.6.4",
     "dspac-invest-api==0.1.3",
     "fennel-invest-api==2.0.0",
