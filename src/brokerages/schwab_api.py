@@ -8,9 +8,9 @@ from time import sleep
 from typing import cast
 
 from dotenv import load_dotenv
-from schwab_api import Schwab
 
 from src.helper_api import Brokerage, StockOrder, mask_string, print_all_holdings, print_and_discord
+from src.vendors.schwab_api.schwab_api.schwab import Schwab
 
 # Define known transaction errors
 TRANSACTION_ERRORS = {

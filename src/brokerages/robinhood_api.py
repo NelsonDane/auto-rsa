@@ -7,10 +7,10 @@ import traceback
 from asyncio import AbstractEventLoop
 from typing import Any, cast
 
-import robin_stocks.robinhood as rh
 from dotenv import load_dotenv
 
 from src.helper_api import Brokerage, StockOrder, mask_string, print_all_holdings, print_and_discord
+from src.vendors.robin_stocks.robin_stocks import robinhood as rh
 
 
 def login_with_cache(pickle_path: str, pickle_name: str) -> None:

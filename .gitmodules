@@ -1,3 +1,14 @@
 [submodule "styles"]
 	path = styles
 	url = https://github.com/NelsonDane/styles.git
+[submodule "src/vendors/robin_stocks"]
+	path = src/vendors/robin_stocks
+	url = https://github.com/ImNotOssy/robin_stocks
+	branch = multi
+[submodule "src/vendors/webull"]
+	path = src/vendors/webull
+	url = https://github.com/NelsonDane/webull
+	branch = dev
+[submodule "src/vendors/schwab_api"]
+	path = src/vendors/schwab_api
+	url = https://github.com/yanowitz/schwab-api.git

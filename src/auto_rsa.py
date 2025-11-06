@@ -1,18 +1,40 @@
 # Nelson Dane
 # Script to automate RSA stock purchases
 
+# ruff: noqa: ERA001
+
 # Import libraries
 import asyncio
+import importlib.util
 import os
 import sys
 import traceback
+import warnings
 from importlib.metadata import version
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from src.helper_api import is_up_to_date
 
 if TYPE_CHECKING:
     from src.helper_api import Brokerage
+
+
+# Filter out old playwright warning: temporary
+warnings.filterwarnings(
+    "ignore",
+    message="pkg_resources is deprecated as an API",
+    category=UserWarning,
+)
+
+# Point "robin_stocks" to the actual inner folder. Workaround until package update
+vendor_root = Path(__file__).resolve().parent / "vendors" / "robin_stocks" / "robin_stocks"
+spec = importlib.util.spec_from_file_location("robin_stocks", vendor_root / "__init__.py")
+if spec is not None:
+    robin_stocks = importlib.util.module_from_spec(spec)
+    sys.modules["robin_stocks"] = robin_stocks
+    if spec.loader is not None:
+        spec.loader.exec_module(robin_stocks)
 
 # Print Startup Info
 print(f"Python version: {sys.version}")
@@ -28,10 +50,12 @@ try:
 
     # Custom API libraries (These are inferred from the namespace in fun_run, so the import is needed)
     from .brokerages.bbae_api import bbae_holdings, bbae_init, bbae_transaction
-    from .brokerages.chase_api import chase_run
+
+    # from .brokerages.chase_api import chase_run
     from .brokerages.dspac_api import dspac_holdings, dspac_init, dspac_transaction
     from .brokerages.fennel_api import fennel_holdings, fennel_init, fennel_transaction
-    from .brokerages.fidelity_api import fidelity_run
+
+    # from .brokerages.fidelity_api import fidelity_run
     from .brokerages.firstrade_api import firstrade_holdings, firstrade_init, firstrade_transaction
     from .brokerages.public_api import public_holdings, public_init, public_transaction
     from .brokerages.robinhood_api import robinhood_holdings, robinhood_init, robinhood_transaction
@@ -40,7 +64,8 @@ try:
     from .brokerages.tasty_api import tastytrade_holdings, tastytrade_init, tastytrade_transaction
     from .brokerages.tornado_api import tornado_holdings, tornado_init, tornado_transaction
     from .brokerages.tradier_api import tradier_holdings, tradier_init, tradier_transaction
-    from .brokerages.vanguard_api import vanguard_run
+
+    # from .brokerages.vanguard_api import vanguard_run
     from .brokerages.webull_api import webull_holdings, webull_init, webull_transaction
     from .brokerages.wellsfargo_api import wellsfargo_holdings, wellsfargo_init, wellsfargo_transaction
     from .brokers import AllBrokersInfo, BrokerName
@@ -80,23 +105,25 @@ def fun_run(  # noqa: C901, PLR0912, PLR0915
                 case BrokerName.BBAE:
                     success = bbae_init(bot_obj=bot_obj, loop=loop)
                 case BrokerName.CHASE:
-                    th = ThreadHandler(
-                        chase_run,
-                        order_obj=order_obj,
-                        bot_obj=bot_obj,
-                        loop=loop,
-                    )
+                    print_and_discord("Chase is temporarily disabled, please stand by...", loop)
+                    # th = ThreadHandler(
+                    #     chase_run,
+                    #     order_obj=order_obj,
+                    #     bot_obj=bot_obj,
+                    #     loop=loop,
+                    # )
                 case BrokerName.DSPAC:
                     success = dspac_init(bot_obj=bot_obj, loop=loop)
                 case BrokerName.FENNEL:
                     success = fennel_init(loop=loop)
                 case BrokerName.FIDELITY:
-                    th = ThreadHandler(
-                        fidelity_run,
-                        order_obj=order_obj,
-                        bot_obj=bot_obj,
-                        loop=loop,
-                    )
+                    print_and_discord("Fidelity is temporarily disabled, please stand by...", loop)
+                    # th = ThreadHandler(
+                    #     fidelity_run,
+                    #     order_obj=order_obj,
+                    #     bot_obj=bot_obj,
+                    #     loop=loop,
+                    # )
                 case BrokerName.FIRSTRADE:
                     success = firstrade_init(bot_obj=bot_obj, loop=loop)
                 case BrokerName.PUBLIC:
@@ -119,12 +146,13 @@ def fun_run(  # noqa: C901, PLR0912, PLR0915
                 case BrokerName.TRADIER:
                     success = tradier_init()
                 case BrokerName.VANGUARD:
-                    th = ThreadHandler(
-                        vanguard_run,
-                        order_obj=order_obj,
-                        bot_obj=bot_obj,
-                        loop=loop,
-                    )
+                    print_and_discord("Vanguard is temporarily disabled, please stand by...", loop)
+                    # th = ThreadHandler(
+                    #     vanguard_run,
+                    #     order_obj=order_obj,
+                    #     bot_obj=bot_obj,
+                    #     loop=loop,
+                    # )
                 case BrokerName.WEBULL:
                     success = webull_init()
                 case BrokerName.WELLS_FARGO:

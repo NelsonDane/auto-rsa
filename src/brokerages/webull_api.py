@@ -8,9 +8,9 @@ from time import sleep
 from typing import cast
 
 from dotenv import load_dotenv
-from webull import webull
 
 from src.helper_api import Brokerage, StockOrder, mask_string, print_all_holdings, print_and_discord
+from src.vendors.webull.webull import webull
 
 MAX_WB_RETRIES = 3  # Number of times to retry logging in if not successful
 MAX_WB_ACCOUNTS = 11  # Different account types
@@ -52,7 +52,8 @@ def webull_init() -> Brokerage | None:
             print(f"Invalid number of parameters for {name}, got {len(account)}, expected 4")
             return None
         try:
-            for i in range(MAX_WB_RETRIES):
+            wb: webull | None = None
+            for _ in range(MAX_WB_RETRIES):
                 wb = webull()
                 wb.set_did(account[2])
                 wb.login(account[0], account[1])
@@ -60,9 +61,9 @@ def webull_init() -> Brokerage | None:
                 id_test = wb.get_account_id(0)
                 if id_test is not None:
                     break
-                if i == MAX_WB_RETRIES - 1:
-                    msg = f"Unable to log in to {name} after {i + 1} tries. Check credentials."
-                    raise Exception(msg)
+            if wb is None:
+                msg = f"Unable to log in to {name}. Check credentials."
+                raise Exception(msg)
             wb_obj.set_logged_in_object(name, wb, "wb")
             wb_obj.set_logged_in_object(name, account[3], "trading_pin")
             # Get all accounts
