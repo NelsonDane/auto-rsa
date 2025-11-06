@@ -23,6 +23,9 @@ I am not responding to issues on this repository. If you have an issue, please S
 
 However, if you fix the issue yourself and would like to share, please submit a pull request and I will review it. If accepted, you can access the Discord server for free.
 
+## Contributing
+Want to contribute? That's awesome! Check out the [Contributing Guide](CONTRIBUTING.md) for more information.
+
 ## Installation
 There are two ways to use this program: as a Discord bot or as a CLI tool. The setup instructions will be a little different depending on which method you choose. However, both methods require the same pre-setup steps, and the same `.env` file format.
 
@@ -59,11 +62,10 @@ docker compose up -d
 Docker Note: If you make any changes to your `.env` file, you will need to restart the container by running `docker-compose up -d` again. The bot will also automatically stay up to date thanks to the included [Watchtower](https://containrrr.dev/watchtower/).
 
 ### Discord Bot: Python Script
-The fastest way to get started is by using [uv](https://github.com/astral-sh/uv).
-1. Install [uv](https://github.com/astral-sh/uv?tab=readme-ov-file#installation).
+1. Install Python 3.12 or higher
 2. Create a Python virtual environment:
 ```bash
-uv venv autorsa-venv python=3.12
+python -m venv autorsa-venv
 ```
 4. Activate the virtual environment:
 #### MacOS & Linux
@@ -78,7 +80,7 @@ You should see `(autorsa-venv)` in your terminal prompt now. You will need to ac
 
 4. Install the package:
 ```bash
-uv pip install auto_rsa_bot
+pip install auto_rsa_bot
 ```
 5. Install Playwright's dependencies:
 ```bash
@@ -93,13 +95,7 @@ auto_rsa_bot discord
 
 ### CLI Tool Installation 💻
 To run the CLI tool, follow these steps:
-1. Install [uv](https://github.com/astral-sh/uv?tab=readme-ov-file#installation).
-2. Create a Python virtual environment:
-```bash
-uv venv autorsa-venv python=3.12
-```
-3. Activate the virtual environment:
-1. Install Python 3.10 or higher
+1. Install Python 3.12 or higher
 2. Create a Python virtual environment:
 ```bash
 python -m venv autorsa-venv
@@ -117,9 +113,9 @@ You should see `(autorsa-venv)` in your terminal prompt now. You will need to ac
 
 4. Install the package:
 ```bash
-uv pip install auto_rsa_bot
+pip install auto_rsa_bot
 ```
-5. Run the script using `uv auto_rsa_bot`. It should say that no arguments were given, then exit. This is expected, and means everything was installed and set up correctly.
+5. Run the script using `auto_rsa_bot`. It should say that no arguments were given, then exit. This is expected, and means everything was installed and set up correctly.
 
 ## Usage
 

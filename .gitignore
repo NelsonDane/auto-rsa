@@ -2,7 +2,7 @@
 did.bin
 .DS_Store
 .env
-*.json
+.vscode/launch.json
 *.pkl
 *.png
 __pycache__/
