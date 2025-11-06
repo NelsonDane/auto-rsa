@@ -253,7 +253,7 @@ dev = [
 requires-dist = [
     { name = "asyncio", specifier = "==3.4.3" },
     { name = "bbae-invest-api", specifier = "==0.1.3" },
-    { name = "chaseinvest-api", specifier = "==0.3.5" },
+    { name = "chaseinvest-api", specifier = "==0.3.6" },
     { name = "cryptography", specifier = ">=46.0.3" },
     { name = "curl-cffi", specifier = "==0.13.0" },
     { name = "discord-py", specifier = "==2.6.4" },
@@ -275,7 +275,7 @@ requires-dist = [
     { name = "setuptools", specifier = "<81" },
     { name = "tastytrade", specifier = "==9.11" },
     { name = "typer", specifier = ">=0.20.0" },
-    { name = "vanguard-api", specifier = "==0.3.1" },
+    { name = "vanguard-api", specifier = "==0.3.3" },
 ]
 
 [package.metadata.requires-dev]
@@ -437,15 +437,15 @@ wheels = [
 
 [[package]]
 name = "chaseinvest-api"
-version = "0.3.5"
+version = "0.3.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "playwright" },
-    { name = "playwright-stealth" },
+    { name = "playwright-sm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/38/25/b35e7c48154a8dec124e6fb5680ebb6afd24d044fd30efe351a26c533fce/chaseinvest_api-0.3.5.tar.gz", hash = "sha256:e28640495c990ee9b46324239c4324d979b866909647d66b374152f45cf7f8b9", size = 18139, upload_time = "2025-10-14T00:29:19.204Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a3/57/31baa834a5adbb1d59fdeeb277f5885419d257c0105262103db89865f761/chaseinvest_api-0.3.6.tar.gz", hash = "sha256:abcb5cc031a791ac5091d0f11c7a88bf55349644167a7a1439f4423206359755", size = 18134, upload_time = "2025-11-06T02:06:03.571Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/40/c8/ca8309ea8254a0b3d1ba10db768e25da0e3ea25e36a00adedac199305734/chaseinvest_api-0.3.5-py3-none-any.whl", hash = "sha256:2c08e98b34461f8467ea943d8b27019cd30fb7a9c6764b992c0d4417e791b765", size = 17689, upload_time = "2025-10-14T00:29:17.954Z" },
+    { url = "https://files.pythonhosted.org/packages/e2/59/29a0dcb325abf2f9f75707c93cf42e2a6cac1bb1ae2db321ccc019c22019/chaseinvest_api-0.3.6-py3-none-any.whl", hash = "sha256:dbb9a1149a49e762d983e022c91f74b289a3224f84899f228fe3a2767c16023e", size = 17686, upload_time = "2025-11-06T02:06:02.105Z" },
 ]
 
 [[package]]
@@ -1389,6 +1389,18 @@ wheels = [
 ]
 
 [[package]]
+name = "playwright-sm"
+version = "0.0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "playwright" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/75/64/2070bebe07ceac8ecb2a756073e4ba181b91412b14b1089c57e0407fd4f7/playwright_sm-0.0.1.tar.gz", hash = "sha256:7c418e7fdf481006fa9128357dc0c992b39ed0b4547f408dfe38198af8602238", size = 21251, upload_time = "2025-11-06T01:37:11.175Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/15/cb/28fb511e0f42b7914d0489ae23d6c998f7c9c0624e4e855557eaba035b6e/playwright_sm-0.0.1-py3-none-any.whl", hash = "sha256:fbf20136350402f04cb2c38e6abdb8052627919544e363e980449a03bf20f6d4", size = 28223, upload_time = "2025-11-06T01:37:09.007Z" },
+]
+
+[[package]]
 name = "playwright-stealth"
 version = "1.0.6"
 source = { registry = "https://pypi.org/simple" }
@@ -2000,15 +2012,15 @@ socks = [
 
 [[package]]
 name = "vanguard-api"
-version = "0.3.1"
+version = "0.3.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "playwright" },
-    { name = "playwright-stealth" },
+    { name = "playwright-sm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/00/a1/4805e0ee2b2a4ea4f354a7e78b3d2b6b335c6617cd8d5dcf6ba267aa0a9e/vanguard_api-0.3.1.tar.gz", hash = "sha256:ac01f9e792ca39c111e3c7ad1d940bd2b916dc7edae0cb29b0aad6588fdede56", size = 12200, upload_time = "2025-06-17T13:34:22.367Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/41/74/8e1b144bb8fb89c66897134eba5242ba3dd2c08b5877851c3736fa7143e8/vanguard_api-0.3.3.tar.gz", hash = "sha256:5c60d4c0eeaaea32448309d7c97a7d54356cea54abf4b69940dc7d48c17ef1cd", size = 13055, upload_time = "2025-11-06T02:07:22.427Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c9/9e/7db51cb5494de515acc5079695385746d365fd60d9435d5031e993c287d1/vanguard_api-0.3.1-py3-none-any.whl", hash = "sha256:47649d7c5c556ab8b29ebc0cac239bf8a5287a6a09628a8356af85ddfebe18b1", size = 12358, upload_time = "2025-06-17T13:34:21.312Z" },
+    { url = "https://files.pythonhosted.org/packages/f7/0f/8c214dfadc75438042e3dcf1fd69e8213860832c8d3ed47d9f21ccb386ba/vanguard_api-0.3.3-py3-none-any.whl", hash = "sha256:9725483e23b64c9c50cd8d7972e09b167c9f4ad1c0697c2767957dbffa4303a7", size = 12356, upload_time = "2025-11-06T02:07:21.737Z" },
 ]
 
 [[package]]
