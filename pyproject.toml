@@ -24,6 +24,7 @@ dependencies = [
     "python-dotenv==1.2.1",
     "python-vipaccess>=0.14.2",
     "requests==2.32.5",
+    "schwab-api2>=0.3.0",
     "selenium-stealth==1.0.6",
     "setuptools<81",
     "tastytrade==9.11",

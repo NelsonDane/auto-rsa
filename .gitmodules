@@ -9,6 +9,3 @@
 	path = src/vendors/webull
 	url = https://github.com/NelsonDane/webull
 	branch = dev
-[submodule "src/vendors/schwab_api"]
-	path = src/vendors/schwab_api
-	url = https://github.com/yanowitz/schwab-api.git

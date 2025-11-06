@@ -71,6 +71,7 @@ def chase_init(account: str, index: int, *, headless: bool = True, bot_obj: Bot 
     # Create brokerage class object and call it chase_obj
     chase_obj = Brokerage("Chase")
     name = f"Chase {index}"
+    ch_session: session.ChaseSession | None = None
     try:
         # Split the login into into seperate items
         user_pass = account.split(":")
@@ -116,16 +117,19 @@ def chase_init(account: str, index: int, *, headless: bool = True, bot_obj: Bot 
             print_accounts.append(chase_account.mask)
         print(f"The following Chase accounts were found: {print_accounts}")
     except Exception as e:
-        ch_session.close_browser()
+        if ch_session:
+            ch_session.close_browser()
         print(f"Error logging in to Chase: {e}")
         print(traceback.format_exc())
         return None
     return (chase_obj, all_accounts)
 
 
-def chase_holdings(chase_o: Brokerage, all_accounts: ch_account.AllAccount, loop: asyncio.AbstractEventLoop | None = None) -> None:
+def chase_holdings(chase_o: Brokerage, all_accounts: ch_account.AllAccount, loop: asyncio.AbstractEventLoop | None = None) -> None:  # noqa: C901
     """Retrieve and display all Chase account holdings."""
     # Get holdings on each account. This loop only ever runs once.
+    ch_session: session.ChaseSession | None = None
+    account = ""
     for key in chase_o.get_account_numbers():
         try:
             # Retrieve account masks and iterate through them
@@ -154,12 +158,14 @@ def chase_holdings(chase_o: Brokerage, all_accounts: ch_account.AllAccount, loop
                                 qty = data.positions[i]["tradedUnitQuantity"]
                             chase_o.set_holdings(key, account, sym, qty, current_price)
         except Exception as e:
-            ch_session.close_browser()
+            if ch_session:
+                ch_session.close_browser()
             print_and_discord(f"{key} {account}: Error getting holdings: {e}", loop)
             print(traceback.format_exc())
             continue
         print_all_holdings(chase_o, loop)
-    ch_session.close_browser()
+    if ch_session:
+        ch_session.close_browser()
 
 
 def chase_transaction(chase_obj: Brokerage, all_accounts: ch_account.AllAccount, order_obj: StockOrder, loop: asyncio.AbstractEventLoop | None = None) -> None:  # noqa: C901, PLR0912, PLR0915
@@ -170,6 +176,8 @@ def chase_transaction(chase_obj: Brokerage, all_accounts: ch_account.AllAccount,
     print("==============================")
     print()
 
+    ch_session: session.ChaseSession | None = None
+    account = ""
     # Buy on each account
     for ticker in order_obj.get_stocks():
         # This loop should only run once, but it provides easy access to the chase session by using key to get it back from
@@ -268,7 +276,8 @@ def chase_transaction(chase_obj: Brokerage, all_accounts: ch_account.AllAccount,
                 print_and_discord(f"{key} {account}: Error submitting order: {e}", loop)
                 print(traceback.format_exc())
                 continue
-    ch_session.close_browser()
+    if ch_session:
+        ch_session.close_browser()
     print_and_discord(
         "All Chase transactions complete",
         loop,
