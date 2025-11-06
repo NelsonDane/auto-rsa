@@ -1,7 +1,6 @@
 # Nelson Dane
 # Script to automate RSA stock purchases
 
-# ruff: noqa: ERA001
 
 # Import libraries
 import asyncio
@@ -25,6 +24,11 @@ warnings.filterwarnings(
     "ignore",
     message="pkg_resources is deprecated as an API",
     category=UserWarning,
+)
+warnings.filterwarnings(
+    "ignore",
+    message="SyntaxWarning: 'continue' in a 'finally' block",
+    category=SyntaxWarning,
 )
 
 # Point "robin_stocks" to the actual inner folder. Workaround until package update
@@ -53,8 +57,7 @@ try:
     from .brokerages.chase_api import chase_run
     from .brokerages.dspac_api import dspac_holdings, dspac_init, dspac_transaction
     from .brokerages.fennel_api import fennel_holdings, fennel_init, fennel_transaction
-
-    # from .brokerages.fidelity_api import fidelity_run
+    from .brokerages.fidelity_api import fidelity_run
     from .brokerages.firstrade_api import firstrade_holdings, firstrade_init, firstrade_transaction
     from .brokerages.public_api import public_holdings, public_init, public_transaction
     from .brokerages.robinhood_api import robinhood_holdings, robinhood_init, robinhood_transaction
@@ -114,13 +117,12 @@ def fun_run(  # noqa: C901, PLR0912, PLR0915
                 case BrokerName.FENNEL:
                     success = fennel_init(loop=loop)
                 case BrokerName.FIDELITY:
-                    print_and_discord("Fidelity is temporarily disabled, please stand by...", loop)
-                    # th = ThreadHandler(
-                    #     fidelity_run,
-                    #     order_obj=order_obj,
-                    #     bot_obj=bot_obj,
-                    #     loop=loop,
-                    # )
+                    th = ThreadHandler(
+                        fidelity_run,
+                        order_obj=order_obj,
+                        bot_obj=bot_obj,
+                        loop=loop,
+                    )
                 case BrokerName.FIRSTRADE:
                     success = firstrade_init(bot_obj=bot_obj, loop=loop)
                 case BrokerName.PUBLIC:
