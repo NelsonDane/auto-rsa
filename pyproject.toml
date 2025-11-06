@@ -16,7 +16,7 @@ dependencies = [
     "fidelity-api==0.0.12",
     "firstrade==0.0.34",
     "gitpython==3.1.45",
-    "nodriver==0.47.0",
+    "nodriver==0.48.0",
     "paho-mqtt>=2.1.0",
     "playwright-stealth==1.0.6",
     "publicdotcom-py==0.1.1",
