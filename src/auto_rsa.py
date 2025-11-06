@@ -50,8 +50,7 @@ try:
 
     # Custom API libraries (These are inferred from the namespace in fun_run, so the import is needed)
     from .brokerages.bbae_api import bbae_holdings, bbae_init, bbae_transaction
-
-    # from .brokerages.chase_api import chase_run
+    from .brokerages.chase_api import chase_run
     from .brokerages.dspac_api import dspac_holdings, dspac_init, dspac_transaction
     from .brokerages.fennel_api import fennel_holdings, fennel_init, fennel_transaction
 
@@ -105,13 +104,12 @@ def fun_run(  # noqa: C901, PLR0912, PLR0915
                 case BrokerName.BBAE:
                     success = bbae_init(bot_obj=bot_obj, loop=loop)
                 case BrokerName.CHASE:
-                    print_and_discord("Chase is temporarily disabled, please stand by...", loop)
-                    # th = ThreadHandler(
-                    #     chase_run,
-                    #     order_obj=order_obj,
-                    #     bot_obj=bot_obj,
-                    #     loop=loop,
-                    # )
+                    th = ThreadHandler(
+                        chase_run,
+                        order_obj=order_obj,
+                        bot_obj=bot_obj,
+                        loop=loop,
+                    )
                 case BrokerName.DSPAC:
                     success = dspac_init(bot_obj=bot_obj, loop=loop)
                 case BrokerName.FENNEL:
