@@ -18,7 +18,7 @@ dependencies = [
     "gitpython==3.1.45",
     "nodriver==0.47.0",
     "paho-mqtt>=2.1.0",
-    "playwright-stealth==1.0.6",
+    "playwright-stealth==2.0.0",
     "publicdotcom-py==0.1.1",
     "pyotp==2.9.0",
     "python-dotenv==1.2.1",
