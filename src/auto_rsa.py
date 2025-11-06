@@ -63,8 +63,7 @@ try:
     from .brokerages.tasty_api import tastytrade_holdings, tastytrade_init, tastytrade_transaction
     from .brokerages.tornado_api import tornado_holdings, tornado_init, tornado_transaction
     from .brokerages.tradier_api import tradier_holdings, tradier_init, tradier_transaction
-
-    # from .brokerages.vanguard_api import vanguard_run
+    from .brokerages.vanguard_api import vanguard_run
     from .brokerages.webull_api import webull_holdings, webull_init, webull_transaction
     from .brokerages.wellsfargo_api import wellsfargo_holdings, wellsfargo_init, wellsfargo_transaction
     from .brokers import AllBrokersInfo, BrokerName
@@ -144,13 +143,12 @@ def fun_run(  # noqa: C901, PLR0912, PLR0915
                 case BrokerName.TRADIER:
                     success = tradier_init()
                 case BrokerName.VANGUARD:
-                    print_and_discord("Vanguard is temporarily disabled, please stand by...", loop)
-                    # th = ThreadHandler(
-                    #     vanguard_run,
-                    #     order_obj=order_obj,
-                    #     bot_obj=bot_obj,
-                    #     loop=loop,
-                    # )
+                    th = ThreadHandler(
+                        vanguard_run,
+                        order_obj=order_obj,
+                        bot_obj=bot_obj,
+                        loop=loop,
+                    )
                 case BrokerName.WEBULL:
                     success = webull_init()
                 case BrokerName.WELLS_FARGO:
