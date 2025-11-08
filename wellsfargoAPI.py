@@ -3,10 +3,7 @@ import datetime
 import os
 import re
 import traceback
-from time import sleep
-import json
 from bs4 import BeautifulSoup
-
 import zendriver as uc
 from zendriver import SpecialKeys, KeyEvents, KeyPressEvent 
 from dotenv import load_dotenv
@@ -18,7 +15,6 @@ from helperAPI import (
     printAndDiscord,
     printHoldings,
     stockOrder,
-    maskString,
 )
 
 load_dotenv()
@@ -46,6 +42,24 @@ def create_creds_folder():
     if not os.path.exists(COOKIES_PATH):
         os.makedirs(COOKIES_PATH)
         log("'creds' folder created.")
+
+async def save_cookies_to_pkl(browser, cookie_filename):
+    try:
+        await browser.cookies.save(cookie_filename)
+    except Exception as e:
+        print(f"Failed to save cookies: {e}")
+
+
+async def load_cookies_from_pkl(browser, page, cookie_filename):
+    try:
+        await browser.cookies.load(cookie_filename)
+        await page.reload()
+        return True
+    except ValueError as e:
+        print(f"Failed to load cookies: {e}")
+    except FileNotFoundError:
+        print("Cookie file does not exist.")
+    return False
 
 
 async def wellsfargo_error(error: str, page=None, discord_loop=None, browser=None):
@@ -90,7 +104,7 @@ async def get_current_url(page, discord_loop):
         return None
 
 
-def wellsfargo_run(orderObj=None, command=None, botObj=None, loop=None, WELLSFARGO_EXTERNAL=None):
+def wellsfargo_run(orderObj=None, command=None, botObj=None, loop=None, WELLSFARGO_EXTERNAL=None, **kwargs):
     """
     Main function to run Wells Fargo operations using asyncio.
     This function itself is synchronous and designed to be called from a synchronous context (like autoRSA's fun_run).
@@ -149,46 +163,139 @@ def wellsfargo_run(orderObj=None, command=None, botObj=None, loop=None, WELLSFAR
 
 
 async def handle_wellsfargo_2fa(page: uc.Tab, botObj, discord_loop):
-    """Handles the Wells Fargo 2FA 'Verify Your Identity' page."""
-    log("2FA page detected. Starting OTP process.")
+    """Handles the Wells Fargo 2FA 'Verify Your Identity' page, including the new push notification flow."""
+    log("2FA page detected. Starting 2FA process.")
     try:
-        # Step 1: Find and click the 'Mobile' phone number button
-        log("Looking for the 'Mobile' phone number option...")
-        # We find all list items, then look for the one containing "Mobile" to be robust
-        contact_options = await page.select_all('[role="listitem"]', timeout=10)
-        mobile_button = None
-        for option in contact_options:
-            if "Mobile" in option.text_all:
-                mobile_button = await option.select("button")
-                break
+        # === NEW PUSH NOTIFICATION LOGIC ===
+        try:
+            # Wait for the page to load and check for the push notification text
+            await page.select("body", timeout=2)
+            content = await page.get_content()
+
+            if "We sent a notification to your phone" in content:
+                log("Push notification page detected.")
+                printAndDiscord(
+                    "Wells Fargo sent a push notification. **Please check your mobile device and approve it.** Waiting up to 2 minutes...",
+                    discord_loop,
+                )
+
+                # Wait for up to 120 seconds, checking the URL every 2 seconds
+                for _ in range(60):  # 60 * 2 seconds = 120 seconds
+                    await asyncio.sleep(2)
+                    current_url = await get_current_url(page, discord_loop)
+                    if "brokoverview" in current_url:
+                        log("Push notification approved. Login successful.")
+                        return  # Successfully logged in via push
+
+                # If the loop finishes, we timed out
+                log("Push notification timed out (120 seconds).")
+                printAndDiscord(
+                    "Push notification timed out. Attempting 'Try another method'...",
+                    discord_loop,
+                )
+
+                # Click "Try another method"
+                try_another_method_btn = await page.select(
+                    "#buttonTryAnotherMethod", timeout=10
+                )
+                if not try_another_method_btn:
+                    raise Exception(
+                        "Push notification timed out, but could not find the 'Try another method' button."
+                    )
+
+                await try_another_method_btn.click()
+                log("Clicked 'Try another method'. Waiting for options page.")
+                await asyncio.sleep(5)  # Wait for the next page to load
+
+            else:
+                log("Push notification text not found, proceeding to check for other 2FA methods.")
+            
+            log("Looking for 'Text me a code' button...")
+            await asyncio.sleep(2) # Reduced sleep from 20s to 2s
+
+            text_me_btn = await page.find("#optionSMS button", timeout=10)
+
+            if not text_me_btn:
+                raise Exception("Could not find 'Text me a code' button with selector '#optionSMS button'.")
+
+            await text_me_btn.click()
+            log("Clicked 'Text me a code'. Waiting for phone number list.")
+            await asyncio.sleep(5)  # Wait for the next page to load
+
+        except Exception as e_text_btn:
+            raise Exception(f"Error on Step 1 (Text me a code): {e_text_btn}")
+
+        except asyncio.TimeoutError:
+            # This is NOT an error. It just means the page loaded but didn't have the push text.
+            log(
+                "Push notification page not found (timeout). Proceeding with standard 2FA options."
+            )
+        except Exception as e_push:
+            # An actual error during the push check, but we can still try the other method
+            log(
+                f"Error during push notification check: {e_push}. Will attempt standard 2FA."
+            )
+
+        # === END NEW PUSH LOGIC / START STANDARD OTP LOGIC ===
+
+        # At this point, we are either:
+        # 1. On the "select method" page from the start.
+        # 2. On the "select method" page after clicking "Try another method".
+
+        # === NEW SEQUENTIAL LOGIC ===
+
+        # Step 2: Find and click the "Mobile" button from the list
+        log("Looking for 'Mobile' phone number button...")
+        try:
+            mobile_btn = None
+            contact_options = await page.select_all('[role="listitem"] button', timeout=10)
+            
+            if not contact_options:
+                raise Exception("Found no phone number options on the page.")
+
+            for option in contact_options:
+                if "Mobile" in option.text_all:
+                    mobile_btn = option
+                    log("Found 'Mobile' button.")
+                    break
+            
+            if not mobile_btn:
+                raise Exception("Could not find 'Mobile' in the list of phone number options.")
+            
+            await mobile_btn.click()
+            log("Mobile/Text option selected. Waiting for OTP input page.")
+            await asyncio.sleep(5)  # Wait for the next page to load
+
+        except Exception as e_mobile_btn:
+            raise Exception(f"Error on Step 2 (Mobile button): {e_mobile_btn}")
+
+
+        # Step 3: Get the OTP code from the user via Discord
+        if not botObj:
+            # This check is still necessary!
+            raise Exception("botObj is None. Cannot get OTP from Discord. Check how wellsfargo_run is called from your main script.")
         
-        if not mobile_button:
-            raise Exception("Could not find the 'Mobile' option for 2FA.")
-
-        await mobile_button.click()
-        log("Mobile option selected. Waiting for OTP input page.")
-        await asyncio.sleep(5) # Wait for the next page to load
-
-        # Step 2: Get the OTP code from the user via Discord
         log("Requesting OTP code from Discord.")
-        otp_code = await getOTPCodeDiscord(botObj, "Wells Fargo", timeout=300, loop=discord_loop)
+        otp_code = await getOTPCodeDiscord(
+            botObj, "Wells Fargo", timeout=300, loop=discord_loop
+        )
         if not otp_code:
             raise Exception("Did not receive Wells Fargo OTP code in time.")
         log("OTP code received.")
 
-        # Step 3: Enter the OTP code
+        # Step 4: Enter the OTP code
         log("Entering OTP code into the input field.")
         otp_input = await page.select("#otp", timeout=10)
         if not otp_input:
             raise Exception("Could not find the OTP input field with id='otp'.")
         await otp_input.send_keys(otp_code)
 
-        # Step 4: Click the 'Continue' button
+        # Step 5: Click the 'Continue' button
         log("Clicking the Continue button.")
         continue_button = await page.select('button[type="submit"]', timeout=10)
         if not continue_button:
             raise Exception("Could not find the final 'Continue' submit button.")
-        
+
         await continue_button.click()
         log("2FA process submitted successfully.")
         # Wait for the login to complete and the main page to load
@@ -241,8 +348,10 @@ async def _async_wellsfargo_run_wrapper(accounts_env, wf_brokerage_obj_to_popula
             if wf_brokerage_obj_to_populate.get_logged_in_objects(account_name_key):
                 log(f"Login successful for {account_name_key}. Proceeding with action.")
                 if not page or page.closed: 
-                    if browser.tabs: page = browser.tabs[0]
-                    else: page = await browser()
+                    if browser.tabs:
+                        page = browser.tabs[0]
+                    else:
+                        page = await browser()
 
                 if action_to_perform == "_holdings":
                     await wellsfargo_holdings(
@@ -270,6 +379,7 @@ async def _async_wellsfargo_run_wrapper(accounts_env, wf_brokerage_obj_to_popula
         finally:
             if browser:
                 try:
+                    await save_cookies_to_pkl(browser, cookie_filename)
                     await browser.stop()
                     print(f"Browser stopped for {account_name_key}.")
                     log(f"Browser stopped for {account_name_key}.")
@@ -295,19 +405,23 @@ async def wellsfargo_init(account_cred_str: str, account_name_key: str, cookie_f
 
         log("Navigating to Wells Fargo Advisors homepage.")
         await page.get("https://www.wellsfargoadvisors.com/")
+        await load_cookies_from_pkl(browser, page, cookie_filename)
+        await page.reload()
+        await page.get("https://www.wellsfargoadvisors.com/")
 
         log("Locating and filling username field.")
+        await browser.sleep(2)
         username_field = await page.select("input[id=j_username]")
         await username_field.click()
         await username_field.clear_input()
         if not username_field:
-            raise Exception(f"Unable to locate the username input field")
+            raise Exception("Unable to locate the username input field")
         await username_field.send_keys(credentials[0])
 
         log("Locating and filling password field.")
         password_field = await page.select("input[id=j_password]")
         if not password_field:
-            raise Exception(f"Unable to locate the password input field")
+            raise Exception("Unable to locate the password input field")
         await password_field.send_keys(credentials[1])
 
         await browser.sleep(2)
@@ -318,7 +432,7 @@ async def wellsfargo_init(account_cred_str: str, account_name_key: str, cookie_f
         await login_button.click()
         
         # Give the page a moment to redirect after login click
-        await browser.sleep(3)
+        await browser.sleep(2)
         await page.select("body")
 
         current_url = await get_current_url(page, discord_loop)
