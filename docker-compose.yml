@@ -1,8 +1,8 @@
 services:
     auto-rsa:
         container_name: auto-rsa
-        # image: docker.io/nelsondane/auto-rsa:latest # or change to other branch you want to use
-        build: . # uncomment this line if you want to build the image locally with "docker compose up -d --build"
+        image: docker.io/nelsondane/auto-rsa:latest # or change to other branch you want to use
+        # build: . # uncomment this line if you want to build the image locally with "docker compose up -d --build"
         restart: unless-stopped
         env_file:
             - .env
@@ -10,21 +10,21 @@ services:
         volumes:
             - ./creds:/app/creds
 
-    # watchtower:
-    #     # Auto update the auto-rsa container every hour
-    #     # For more info see: https://containrrr.dev/watchtower/arguments/
-    #     image: containrrr/watchtower
-    #     container_name: watchtower
-    #     hostname: auto-rsa
-    #     environment:
-    #         - WATCHTOWER_CLEANUP=true
-    #         - WATCHTOWER_INCLUDE_STOPPED=true
-    #         - WATCHTOWER_POLL_INTERVAL=3600
-    #         # For more info on notifications see: https://containrrr.dev/watchtower/notifications/
-    #         # - WATCHTOWER_NOTIFICATIONS=shoutrrr
-    #         # - WATCHTOWER_NOTIFICATION_URL=discord://TOKEN@WEBHOOKID
-    #     command:
-    #         - auto-rsa
-    #     volumes:
-    #         - /var/run/docker.sock:/var/run/docker.sock
-    #     restart: unless-stopped
+    watchtower:
+        # Auto update the auto-rsa container every hour
+        # For more info see: https://containrrr.dev/watchtower/arguments/
+        image: containrrr/watchtower
+        container_name: watchtower
+        hostname: auto-rsa
+        environment:
+            - WATCHTOWER_CLEANUP=true
+            - WATCHTOWER_INCLUDE_STOPPED=true
+            - WATCHTOWER_POLL_INTERVAL=3600
+            # For more info on notifications see: https://containrrr.dev/watchtower/notifications/
+            # - WATCHTOWER_NOTIFICATIONS=shoutrrr
+            # - WATCHTOWER_NOTIFICATION_URL=discord://TOKEN@WEBHOOKID
+        command:
+            - auto-rsa
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock
+        restart: unless-stopped
