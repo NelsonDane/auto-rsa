@@ -14,7 +14,7 @@ dependencies = [
     "fennel-invest-api==2.0.0",
     "fidelity-api==0.0.16",
     "firstrade==0.0.34",
-    "nodriver==0.48.0",
+    "nodriver==0.48.1",
     "paho-mqtt>=2.1.0",
     "publicdotcom-py==0.1.3",
     "pyotp==2.9.0",
