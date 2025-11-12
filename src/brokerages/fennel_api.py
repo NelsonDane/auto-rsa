@@ -40,7 +40,7 @@ def fennel_init(loop: AbstractEventLoop | None = None) -> Brokerage | None:
                 pass
             # Login with PAT. If not error then we succeeded
             fb = Fennel(pat_token=account)
-            fennel_obj.set_logged_in_object(name, fb)
+            fennel_obj.set_logged_in_object(name, fb, "fb")
             account_info = fb.get_account_info()
             for an in account_info:
                 b = fb.get_portfolio_cash_summary(account_id=an.id)
@@ -64,7 +64,7 @@ def fennel_init(loop: AbstractEventLoop | None = None) -> Brokerage | None:
 def fennel_holdings(fbo: Brokerage, loop: AbstractEventLoop | None = None) -> None:
     """Retrieve and display all Fennel account holdings."""
     for key in fbo.get_account_numbers():
-        obj = cast("Fennel", fbo.get_logged_in_objects(key))
+        obj = cast("Fennel", fbo.get_logged_in_objects(key, "fb"))
         for account in fbo.get_account_numbers(key):
             account_info = cast("Account", fbo.get_logged_in_objects(key, account))
             try:
@@ -97,7 +97,7 @@ def fennel_transaction(fbo: Brokerage, order_obj: StockOrder, loop: AbstractEven
                 loop,
             )
             for account in fbo.get_account_numbers(key):
-                obj = cast("Fennel", fbo.get_logged_in_objects(key))
+                obj = cast("Fennel", fbo.get_logged_in_objects(key, "fb"))
                 account_info = cast("Account", fbo.get_logged_in_objects(key, account))
                 try:
                     if not order_obj.get_dry():
