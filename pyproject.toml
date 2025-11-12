@@ -19,7 +19,7 @@ dependencies = [
     "nodriver==0.48.0",
     "paho-mqtt>=2.1.0",
     "playwright-stealth==1.0.6",
-    "publicdotcom-py==0.1.1",
+    "publicdotcom-py==0.1.3",
     "pyotp==2.9.0",
     "python-dotenv==1.2.1",
     "python-vipaccess>=0.14.2",

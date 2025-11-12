@@ -2,6 +2,7 @@ import os
 import traceback
 import uuid
 from asyncio import AbstractEventLoop
+from decimal import Decimal
 from typing import cast
 
 from dotenv import load_dotenv
@@ -111,7 +112,7 @@ def public_transaction(pbo: Brokerage, order_obj: StockOrder, loop: AbstractEven
                             order_side=OrderSide(order_obj.get_action().upper()),
                             order_type=OrderType.MARKET,
                             expiration=OrderExpirationRequest(time_in_force=TimeInForce.DAY, expiration_time=None),
-                            quantity=int(order_obj.get_amount()),
+                            quantity=Decimal(order_obj.get_amount()),
                             amount=None,
                             limit_price=None,
                             stop_price=None,
@@ -133,7 +134,7 @@ def public_transaction(pbo: Brokerage, order_obj: StockOrder, loop: AbstractEven
                             order_side=OrderSide(order_obj.get_action().upper()),
                             order_type=OrderType.MARKET,
                             expiration=OrderExpirationRequest(time_in_force=TimeInForce.DAY, expiration_time=None),
-                            quantity=int(order_obj.get_amount()),
+                            quantity=Decimal(order_obj.get_amount()),
                             amount=None,
                             limit_price=None,
                             stop_price=None,
