@@ -1,6 +1,6 @@
 # Nelson Dane
 
-FROM ghcr.io/astral-sh/uv:bookworm-slim@sha256:430f10227c44f7688a095c27bfe234d8ca26a3603472db6ed2cf4e90ad19732a AS builder
+FROM ghcr.io/astral-sh/uv:bookworm-slim@sha256:fed35578111d95a027d4f2802a81ea41713f7b5abcdc5f04579ef833049e23d4 AS builder
 # Layer taken from: https://www.joshkasuboski.com/posts/distroless-python-uv/
 
 # UV Flags
