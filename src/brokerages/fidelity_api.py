@@ -251,5 +251,3 @@ def fidelity_transaction(
 
 
 DEFAULT_CREDS_LENGTH = 2
-
-
