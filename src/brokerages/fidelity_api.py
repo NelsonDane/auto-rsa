@@ -248,4 +248,8 @@ def fidelity_transaction(
 
     # Close browser
     fidelity_browser.close_browser()
+
+
 DEFAULT_CREDS_LENGTH = 2
+
+
