@@ -16,7 +16,7 @@ dependencies = [
     "firstrade==0.0.34",
     "nodriver==0.48.1",
     "paho-mqtt>=2.1.0",
-    "publicdotcom-py==0.1.5",
+    "publicdotcom-py==0.1.6",
     "pyotp==2.9.0",
     "python-dotenv==1.2.1",
     "requests==2.32.5",
