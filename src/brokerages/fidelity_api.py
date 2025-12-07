@@ -14,9 +14,9 @@ from dotenv import load_dotenv
 
 try:
     # Prefer vendored fidelity (patched) if available
-    from src.vendors.fidelity import fidelity
+    from src.vendors.fidelity import fidelity as fidelity_mod
 except ImportError:  # pragma: no cover - fallback to installed package
-    from fidelity import fidelity  # type: ignore[import-untyped]
+    from fidelity import fidelity as fidelity_mod  # type: ignore[import-untyped]
 
 from src.helper_api import Brokerage, StockOrder, get_otp_from_discord, mask_string, print_all_holdings, print_and_discord
 
@@ -86,7 +86,7 @@ def fidelity_init(account: str, name: str, *, headless: bool = True, bot_obj: Bo
         # Split the login into into separate items
         account_creds = account.split(":")
         # Create a Fidelity browser object
-        fidelity_browser = fidelity.FidelityAutomation(
+        fidelity_browser = fidelity_mod.FidelityAutomation(
             headless=headless,
             title=name,
             profile_path="./creds",
@@ -98,7 +98,7 @@ def fidelity_init(account: str, name: str, *, headless: bool = True, bot_obj: Bo
             fidelity_browser.login(
                 account_creds[0],
                 account_creds[1],
-                account_creds[2] if len(account_creds) > 2 else None,  # noqa: PLR2004
+                account_creds[2] if len(account_creds) > 2 else "",
             ),
         )
         # If 2FA is present, ask for code
@@ -149,7 +149,7 @@ def fidelity_holdings(fidelity_o: Brokerage, name: str, loop: asyncio.AbstractEv
     Prints holdings for each account and provides a summary if the user has more than 5 accounts.
     """
     # Get the browser back from the fidelity object
-    fidelity_browser = cast("fidelity.FidelityAutomation", fidelity_o.get_logged_in_objects(name))
+    fidelity_browser = cast("fidelity_mod.FidelityAutomation", fidelity_o.get_logged_in_objects(name))
     account_dict = fidelity_browser.account_dict
     for account_number in account_dict:
         for d in account_dict[account_number]["stocks"]:
@@ -177,7 +177,7 @@ def fidelity_transaction(
 ) -> None:
     """Call FidelityAutomation.transaction() and process its return."""
     # Get the driver
-    fidelity_browser = cast("fidelity.FidelityAutomation", fidelity_o.get_logged_in_objects(name))
+    fidelity_browser = cast("fidelity_mod.FidelityAutomation", fidelity_o.get_logged_in_objects(name))
     # Get full list of accounts in case some had no holdings
     fidelity_browser.get_list_of_accounts()
     # Go trade
