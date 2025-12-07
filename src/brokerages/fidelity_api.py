@@ -14,9 +14,9 @@ from dotenv import load_dotenv
 
 try:
     # Prefer vendored fidelity (patched) if available
-    from src.vendors.fidelity import fidelity as fidelity_mod
+    from src.vendors.fidelity import fidelity as fidelity_mod  # type: ignore[no-redef]
 except ImportError:  # pragma: no cover - fallback to installed package
-    from fidelity import fidelity as fidelity_mod  # type: ignore[import-untyped]
+    from fidelity import fidelity as fidelity_mod  # type: ignore[import-untyped,no-redef]
 
 from src.helper_api import Brokerage, StockOrder, get_otp_from_discord, mask_string, print_all_holdings, print_and_discord
 
@@ -98,7 +98,7 @@ def fidelity_init(account: str, name: str, *, headless: bool = True, bot_obj: Bo
             fidelity_browser.login(
                 account_creds[0],
                 account_creds[1],
-                account_creds[2] if len(account_creds) > 2 else "",
+                account_creds[2] if len(account_creds) > DEFAULT_CREDS_LENGTH else "",
             ),
         )
         # If 2FA is present, ask for code
@@ -248,3 +248,4 @@ def fidelity_transaction(
 
     # Close browser
     fidelity_browser.close_browser()
+DEFAULT_CREDS_LENGTH = 2
