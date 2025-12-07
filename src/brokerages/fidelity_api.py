@@ -16,7 +16,7 @@ try:
     # Prefer vendored fidelity (patched) if available
     from src.vendors.fidelity import fidelity
 except ImportError:  # pragma: no cover - fallback to installed package
-    from fidelity import fidelity  # type: ignore
+    from fidelity import fidelity  # type: ignore[import-untyped]
 
 from src.helper_api import Brokerage, StockOrder, get_otp_from_discord, mask_string, print_all_holdings, print_and_discord
 
