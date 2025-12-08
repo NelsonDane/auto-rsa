@@ -944,32 +944,32 @@ async def wellsfargo_holdings(wf_brokerage_obj: Brokerage, account_name_key: str
 
         for account_id in registered_accounts:
             try:
-                if not hasattr(wf_brokerage_obj, '_account_indices'):
+                if not hasattr(wf_brokerage_obj, "_account_indices"):
                     log("CRITICAL - _account_indices attribute not found on brokerage object. Cannot look up account index.")
                     continue
-                    
+
                 account_data = wf_brokerage_obj._account_indices.get(account_name_key, {}).get(account_id, {})
-                account_index = account_data.get('index', '')
-                stored_x_param = account_data.get('x_param', '')
-                
+                account_index = account_data.get("index", "")
+                stored_x_param = account_data.get("x_param", "")
+
                 log(f"Processing holdings for account '{account_id}'. Stored index: '{account_index}'.")
 
                 if not account_index:
                     log(f"Skipping account '{account_id}' - no account index stored.")
                     continue
-                
+
                 x_param_to_use = stored_x_param if stored_x_param else current_x_param
-                
+
                 holdings_url = f"https://wfawellstrade.wellsfargo.com/BW/holdings.do?account={account_index}"
                 if x_param_to_use:
                     holdings_url += f"&{x_param_to_use}"
-                
+
                 log(f"Navigating to holdings URL: {holdings_url}")
                 await page.get(holdings_url)
                 await asyncio.sleep(5)
-                
+
                 await extract_holdings_from_table(page, wf_brokerage_obj, account_name_key, account_id, discord_loop)
-                
+
             except Exception as e_account:
                 await wellsfargo_error(f"Error processing account {account_id}: {e_account}", page, discord_loop)
         
@@ -1024,6 +1024,7 @@ async def extract_holdings_from_table(page: uc.Tab, wf_brokerage_obj: Brokerage,
 
     except Exception as e_table:
         await wellsfargo_error(f"Error during main extraction logic: {e_table}", page, discord_loop)
+
 
 
 

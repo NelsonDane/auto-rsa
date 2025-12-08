@@ -68,7 +68,7 @@ try:
     from .brokerages.tradier_api import tradier_holdings, tradier_init, tradier_transaction
     from .brokerages.vanguard_api import vanguard_run
     from .brokerages.webull_api import webull_holdings, webull_init, webull_transaction
-    from .brokerages.wellsfargo_api import wellsfargo_run
+    from .brokerages.wellsfargo_api import wellsfargo_holdings, wellsfargo_run, wellsfargo_transaction
     from .brokers import AllBrokersInfo, BrokerName
     from .helper_api import StockOrder, ThreadHandler, print_and_discord
 except Exception as e:
