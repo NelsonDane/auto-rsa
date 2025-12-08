@@ -16,10 +16,12 @@ load_dotenv()
 # Controls detailed logging. Set to "true" in your .env file to enable.
 DEBUG = os.getenv("WELLSFARGO_DEBUG", "false").lower() == "true"
 
+
 def log(message):
     """Prints a message to the console if DEBUG is True."""
     if DEBUG:
         print(f"[DEBUG] {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {message}")
+
 
 COOKIES_PATH = "creds"
 # wf_loop for Wells Fargo specific asyncio operations
@@ -36,7 +38,6 @@ def create_creds_folder():
     if not os.path.exists(COOKIES_PATH):
         os.makedirs(COOKIES_PATH)
         log("'creds' folder created.")
-
 
 
 async def wellsfargo_error(error: str, page=None, discord_loop=None, browser=None):
@@ -75,9 +76,7 @@ async def get_current_url(page, discord_loop):
         log(f"Current URL is: {current_url}")
         return current_url
     except Exception as e:
-        await wellsfargo_error(
-            f"Error fetching the current URL {e}", page=page, discord_loop=discord_loop
-        )
+        await wellsfargo_error(f"Error fetching the current URL {e}", page=page, discord_loop=discord_loop)
         return None
 
 
@@ -119,20 +118,10 @@ def wellsfargo_run(orderObj=None, command=None, botObj=None, loop=None, WELLSFAR
 
     try:
         # Run the async process and get the populated object back
-        populated_obj = wf_loop.run_until_complete(
-            _async_wellsfargo_run_wrapper(
-                accounts_env,
-                final_wf_brokerage_obj,
-                action_to_perform,
-                botObj,
-                discord_loop,
-                orderObj,
-                DOCKER
-            )
-        )
+        populated_obj = wf_loop.run_until_complete(_async_wellsfargo_run_wrapper(accounts_env, final_wf_brokerage_obj, action_to_perform, botObj, discord_loop, orderObj, DOCKER))
 
         if populated_obj and orderObj:
-            orderObj.set_logged_in(populated_obj, 'wellsfargo')
+            orderObj.set_logged_in(populated_obj, "wellsfargo")
             log("Populated brokerage object set in main orderObj.")
 
         return populated_obj
@@ -251,13 +240,9 @@ async def handle_wellsfargo_2fa(page: uc.Tab, botObj, discord_loop, phone_suffix
                 )
 
                 # Click "Try another method"
-                try_another_method_btn = await page.select(
-                    "#buttonTryAnotherMethod", timeout=10
-                )
+                try_another_method_btn = await page.select("#buttonTryAnotherMethod", timeout=10)
                 if not try_another_method_btn:
-                    raise Exception(
-                        "Push notification timed out, but could not find the 'Try another method' button."
-                    )
+                    raise Exception("Push notification timed out, but could not find the 'Try another method' button.")
 
                 await try_another_method_btn.click()
                 log("Clicked 'Try another method'. Waiting for options page.")
@@ -296,14 +281,10 @@ async def handle_wellsfargo_2fa(page: uc.Tab, botObj, discord_loop, phone_suffix
 
         except asyncio.TimeoutError:
             # This is NOT an error. It just means the page loaded but didn't have the push text.
-            log(
-                "Push notification page not found (timeout). Proceeding with standard 2FA options."
-            )
+            log("Push notification page not found (timeout). Proceeding with standard 2FA options.")
         except Exception as e_push:
             # An actual error during the push check, but we can still try the other method
-            log(
-                f"Error during push notification check: {e_push}. Will attempt standard 2FA."
-            )
+            log(f"Error during push notification check: {e_push}. Will attempt standard 2FA.")
 
         # === END NEW PUSH LOGIC / START STANDARD OTP LOGIC ===
 
@@ -338,14 +319,10 @@ async def handle_wellsfargo_2fa(page: uc.Tab, botObj, discord_loop, phone_suffix
         except Exception as e_mobile_btn:
             raise Exception(f"Error on Step 2 (Mobile button): {e_mobile_btn}")
 
-
         # Step 3: Get the OTP code from the user via Discord
         if botObj:
             log("Requesting OTP code from Discord.")
-            future = asyncio.run_coroutine_threadsafe(
-                get_otp_from_discord(botObj, "Wells Fargo", timeout=300, loop=discord_loop),
-                discord_loop
-            )
+            future = asyncio.run_coroutine_threadsafe(get_otp_from_discord(botObj, "Wells Fargo", timeout=300, loop=discord_loop), discord_loop)
             otp_code = await asyncio.wrap_future(future)
         else:
             log("Prompting for OTP code via CLI input.")
@@ -420,16 +397,7 @@ async def _async_wellsfargo_run_wrapper(accounts_env, wf_brokerage_obj_to_popula
                 page = browser.tabs[0]
             log("Browser started and page object acquired.")
 
-            await wellsfargo_init(
-                account_cred_str,
-                account_name_key,
-                cookie_filename,
-                botObj,
-                browser,
-                page,
-                wf_brokerage_obj_to_populate,
-                discord_loop
-            )
+            await wellsfargo_init(account_cred_str, account_name_key, cookie_filename, botObj, browser, page, wf_brokerage_obj_to_populate, discord_loop)
 
             if wf_brokerage_obj_to_populate.get_logged_in_objects(account_name_key):
                 log(f"Login successful for {account_name_key}. Proceeding with action.")
@@ -440,23 +408,10 @@ async def _async_wellsfargo_run_wrapper(accounts_env, wf_brokerage_obj_to_popula
                         page = await browser()  # type: ignore[operator]
 
                 if action_to_perform == "_holdings":
-                    await wellsfargo_holdings(
-                        wf_brokerage_obj_to_populate,
-                        account_name_key,
-                        browser,
-                        page,
-                        discord_loop
-                    )
+                    await wellsfargo_holdings(wf_brokerage_obj_to_populate, account_name_key, browser, page, discord_loop)
                 elif action_to_perform == "_transaction":
                     log(f"Calling wellsfargo_transaction for {account_name_key}.")
-                    await wellsfargo_transaction(
-                        wf_brokerage_obj_to_populate,
-                        orderObj,
-                        account_name_key,
-                        browser,
-                        page,
-                        discord_loop
-                    )
+                    await wellsfargo_transaction(wf_brokerage_obj_to_populate, orderObj, account_name_key, browser, page, discord_loop)
                 print(f"Async process for account {account_name_key} completed.")
 
         except Exception as e:
@@ -469,8 +424,10 @@ async def _async_wellsfargo_run_wrapper(accounts_env, wf_brokerage_obj_to_popula
                     # Close all tabs individually to prevent exit hangs
                     if browser.tabs:
                         for tab in browser.tabs:
-                            try: await tab.close()
-                            except: pass
+                            try:
+                                await tab.close()
+                            except:
+                                pass
                     await asyncio.sleep(1)
 
                     # Standard stop
@@ -482,9 +439,10 @@ async def _async_wellsfargo_run_wrapper(accounts_env, wf_brokerage_obj_to_popula
 
                 # Failsafe: Force kill the process if it still exists
                 try:
-                    if hasattr(browser, '_process') and browser._process:
+                    if hasattr(browser, "_process") and browser._process:
                         browser._process.kill()
-                except: pass
+                except:
+                    pass
 
             browser = None
             page = None
@@ -547,7 +505,6 @@ async def wellsfargo_init(account_cred_str: str, account_name_key: str, cookie_f
             current_url = await get_current_url(page, discord_loop)
 
         if "login" in current_url.lower() and "brokoverview" not in current_url.lower():
-
             error_message_on_page = "N/A"
             try:
                 error_element_selectors = [".alert-msg-summary p", "#messagetext", ".messageHyberLinkClass"]
@@ -588,14 +545,14 @@ async def fetch_initial_account_data(page: uc.Tab, wf_brokerage_obj: Brokerage, 
     try:
         current_url = await get_current_url(page, discord_loop)
 
-        x_param_match = re.search(r'_x=([^&]+)', current_url)
+        x_param_match = re.search(r"_x=([^&]+)", current_url)
         x_param = f"_x={x_param_match.group(1)}" if x_param_match else ""
         log(f"Extracted x_param: '{x_param}' from URL.")
 
         content = await page.get_content()
-        soup = BeautifulSoup(content, 'html.parser')
+        soup = BeautifulSoup(content, "html.parser")
 
-        account_rows = soup.select('tr[data-p_account]')
+        account_rows = soup.select("tr[data-p_account]")
         log(f"Found {len(account_rows)} potential account rows on summary page.")
 
         if not account_rows:
@@ -622,13 +579,13 @@ async def fetch_initial_account_data(page: uc.Tab, wf_brokerage_obj: Brokerage, 
                     log("Skipping row, no rowheader found.")
                     continue
 
-                nickname_el = account_name_el.select_one('.ellipsis')
+                nickname_el = account_name_el.select_one(".ellipsis")
                 nickname = nickname_el.get_text(strip=True) if nickname_el else "N/A"
 
-                account_number_div = account_name_el.select_one('div:not(.ellipsis-container)')
-                account_number = account_number_div.get_text(strip=True).replace('*', '') if account_number_div else "N/A"
+                account_number_div = account_name_el.select_one("div:not(.ellipsis-container)")
+                account_number = account_number_div.get_text(strip=True).replace("*", "") if account_number_div else "N/A"
 
-                balance_cells = row.select('td[data-sort-value]')
+                balance_cells = row.select("td[data-sort-value]")
                 balance_text = balance_cells[-1].get_text(strip=True) if balance_cells else "$0.00"
                 balance = float(balance_text.replace("$", "").replace(",", ""))
 
@@ -643,8 +600,8 @@ async def fetch_initial_account_data(page: uc.Tab, wf_brokerage_obj: Brokerage, 
                     wf_brokerage_obj._account_indices[account_name_key] = {}  # type: ignore[attr-defined]
 
                 wf_brokerage_obj._account_indices[account_name_key][account_id] = {  # type: ignore[attr-defined]
-                    'index': account_index,
-                    'x_param': x_param
+                    "index": account_index,
+                    "x_param": x_param,
                 }
                 log(f"Stored index '{account_index}' and x_param for account '{account_id}'.")
 
@@ -657,6 +614,7 @@ async def fetch_initial_account_data(page: uc.Tab, wf_brokerage_obj: Brokerage, 
     except Exception as e:
         await wellsfargo_error(f"Error fetching initial account data for {account_name_key}: {e}", page, discord_loop)
 
+
 async def wellsfargo_transaction(wf_brokerage_obj: Brokerage, orderObj: StockOrder, account_name_key: str, browser: uc.Browser, page: uc.Tab, discord_loop):
     log("wellsfargo_transaction started.")
     try:
@@ -666,7 +624,7 @@ async def wellsfargo_transaction(wf_brokerage_obj: Brokerage, orderObj: StockOrd
             return
 
         current_url = await get_current_url(page, discord_loop)
-        x_param_match = re.search(r'(_x=[^&]+)', current_url)
+        x_param_match = re.search(r"(_x=[^&]+)", current_url)
         if not x_param_match:
             raise Exception("Could not find the dynamic '_x' parameter in the current URL.")
 
@@ -699,7 +657,7 @@ async def wellsfargo_transaction(wf_brokerage_obj: Brokerage, orderObj: StockOrd
 
                 full_text = final_element.text_all
 
-                account_mask = re.sub(r'Account ending with', '', full_text).strip().replace('*', '')
+                account_mask = re.sub(r"Account ending with", "", full_text).strip().replace("*", "")
                 log(f"Found account mask on page: *{account_mask}")
 
             except asyncio.TimeoutError:
@@ -715,7 +673,6 @@ async def wellsfargo_transaction(wf_brokerage_obj: Brokerage, orderObj: StockOrd
             log(f"New account found: *{account_mask}. Stored for processing.")
 
             for stock_symbol in orderObj.get_stocks():
-
                 trade_url = f"https://wfawellstrade.wellsfargo.com/BW/equity.do?account={account_index}&symbol=&selectedAction=&{dynamic_x_param}"
                 log(f"Navigating to fresh trade URL for stock '{stock_symbol}': {trade_url}")
                 await page.get(trade_url)
@@ -770,13 +727,13 @@ async def wellsfargo_transaction(wf_brokerage_obj: Brokerage, orderObj: StockOrd
                             message = f"Skipped selling {stock_symbol} in account *{account_mask}: You own 0 shares."
                             print_and_discord(message, discord_loop)
                             log(message)
-                            continue # Skip to the next stock
+                            continue  # Skip to the next stock
 
                         if quantity > owned_shares:
                             message = f"Skipped selling {stock_symbol} in account *{account_mask}: Order quantity ({quantity}) exceeds shares owned ({owned_shares})."
                             print_and_discord(message, discord_loop)
                             log(message)
-                            continue # Skip to the next stock
+                            continue  # Skip to the next stock
 
                     except asyncio.TimeoutError:
                         log("Warning: Timed out waiting for the 'shares owned' element. Proceeding with caution.")
@@ -785,7 +742,7 @@ async def wellsfargo_transaction(wf_brokerage_obj: Brokerage, orderObj: StockOrd
                         error_message = f"An error occurred while checking owned shares for {stock_symbol}: {e}"
                         print_and_discord(error_message, discord_loop)
                         log(error_message)
-                        continue # Skip to the next stock
+                        continue  # Skip to the next stock
 
                 # 3. Get Quote & Determine Order Type
                 try:
@@ -796,7 +753,7 @@ async def wellsfargo_transaction(wf_brokerage_obj: Brokerage, orderObj: StockOrd
                     if not last_price_element:
                         raise Exception("Price element #last could not be found after 10 seconds. The page may not have loaded the quote correctly.")
 
-                    last_price_str = last_price_element.get('value')
+                    last_price_str = last_price_element.get("value")
                     if not last_price_str:
                         raise Exception("Price element #last was found, but its value is empty.")
 
@@ -887,7 +844,7 @@ async def wellsfargo_transaction(wf_brokerage_obj: Brokerage, orderObj: StockOrd
                         print_and_discord(f"Wells Fargo HARD Error for {stock_symbol}: Confirmation page did not load, and no specific error message was found.", discord_loop)
 
                     log(f"Skipping final confirmation for {stock_symbol} due to hard error.")
-                    continue # Skip to the next stock
+                    continue  # Skip to the next stock
 
                 # 10. Check for Soft Warnings
                 try:
@@ -939,7 +896,7 @@ async def wellsfargo_holdings(wf_brokerage_obj: Brokerage, account_name_key: str
             return
 
         current_url = await get_current_url(page, discord_loop)
-        x_param_match = re.search(r'_x=([^&]+)', current_url)
+        x_param_match = re.search(r"_x=([^&]+)", current_url)
         current_x_param = f"_x={x_param_match.group(1)}" if x_param_match else ""
 
         for account_id in registered_accounts:
@@ -981,18 +938,19 @@ async def wellsfargo_holdings(wf_brokerage_obj: Brokerage, account_name_key: str
         current_page_for_error = page if page and not page.closed else (browser.tabs[0] if browser and browser.tabs else None)
         await wellsfargo_error(f"Error fetching Wells Fargo holdings for {account_name_key}: {e}", current_page_for_error, discord_loop, browser)
 
+
 async def extract_holdings_from_table(page: uc.Tab, wf_brokerage_obj: Brokerage, login_key: str, current_wf_account_id: str, discord_loop):
     log(f"Extracting holdings from table for account '{current_wf_account_id}'.")
     try:
         content = await page.get_content()
-        soup = BeautifulSoup(content, 'html.parser')
+        soup = BeautifulSoup(content, "html.parser")
 
-        holding_rows = soup.select('tbody > tr.level1')
+        holding_rows = soup.select("tbody > tr.level1")
         log(f"Found {len(holding_rows)} holding rows in table.")
 
         for row in holding_rows:
             try:
-                symbol_el = row.select_one('a.navlink.quickquote')
+                symbol_el = row.select_one("a.navlink.quickquote")
                 if not symbol_el:
                     continue
                 symbol = symbol_el.text.replace(",popup", "").strip()
@@ -1000,20 +958,20 @@ async def extract_holdings_from_table(page: uc.Tab, wf_brokerage_obj: Brokerage,
                 name_el = row.select_one('td[role="rowheader"] .data-content > div:last-child')
                 name = name_el.get_text(strip=True) if name_el else "N/A"
 
-                all_numeric_cells = row.select('td.datanumeric')
+                all_numeric_cells = row.select("td.datanumeric")
 
                 quantity = 0.0
                 price = 0.0
 
                 if len(all_numeric_cells) > 2:
-                    qty_div = all_numeric_cells[1].select_one('div:first-child')
+                    qty_div = all_numeric_cells[1].select_one("div:first-child")
                     if qty_div:
                         quantity_text = qty_div.get_text(strip=True)
                         quantity = float(quantity_text)
 
-                    price_div = all_numeric_cells[2].select_one('div:first-child')
+                    price_div = all_numeric_cells[2].select_one("div:first-child")
                     if price_div:
-                        price_text = price_div.get_text(strip=True).replace('$', '').replace(',', '')
+                        price_text = price_div.get_text(strip=True).replace("$", "").replace(",", "")
                         price = float(price_text)
 
                 if symbol and quantity > 0:
@@ -1025,5 +983,3 @@ async def extract_holdings_from_table(page: uc.Tab, wf_brokerage_obj: Brokerage,
 
     except Exception as e_table:
         await wellsfargo_error(f"Error during main extraction logic: {e_table}", page, discord_loop)
-
-
