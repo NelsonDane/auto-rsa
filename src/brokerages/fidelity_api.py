@@ -11,7 +11,12 @@ from typing import cast
 
 from discord.ext.commands import Bot
 from dotenv import load_dotenv
-from fidelity import fidelity
+
+try:
+    # Prefer vendored fidelity (patched) if available
+    from src.vendors.fidelity import fidelity as fidelity_mod  # type: ignore[no-redef]
+except ImportError:  # pragma: no cover - fallback to installed package
+    from fidelity import fidelity as fidelity_mod  # type: ignore[import-untyped,no-redef]
 
 from src.helper_api import Brokerage, StockOrder, get_otp_from_discord, mask_string, print_all_holdings, print_and_discord
 
@@ -20,17 +25,26 @@ def fidelity_run(
     order_obj: StockOrder,
     bot_obj: Bot | None = None,
     loop: asyncio.AbstractEventLoop | None = None,
+    *,
+    fidelity_accounts: str | None = None,
+    docker_mode: bool = False,
+    command: tuple[str, str] | None = None,
 ) -> None:
     """Entry point from main function. Gathers credentials and go through commands for each set of credentials found in the FIDELITY env variable."""
     # Initialize .env file
     load_dotenv()
-    # Import Chase account
-    if not os.getenv("FIDELITY"):
+    # Import Fidelity accounts from the supplied string or the environment
+    account_env = fidelity_accounts or os.getenv("FIDELITY")
+    if not account_env:
         print("Fidelity not found, skipping...")
         return
-    accounts = os.environ["FIDELITY"].strip().split(",")
-    # Get headless flag
-    headless = os.getenv("HEADLESS", "true").lower() == "true"
+    accounts = account_env.strip().split(",")
+    # Determine whether to run holdings or transactions
+    run_holdings = order_obj.get_holdings()
+    if command is not None and len(command) > 1:
+        run_holdings = command[1] == "_holdings"
+    # Headless: force non-headless in docker mode (uses Xvfb), otherwise respect env
+    headless = False if docker_mode else os.getenv("HEADLESS", "true").lower() == "true"
 
     # For each set of login info, i.e. separate chase accounts
     for account in accounts:
@@ -48,7 +62,7 @@ def fidelity_run(
         if fidelityobj is not None:
             # Store the Brokerage object for fidelity under 'fidelity' in the orderObj
             order_obj.set_logged_in(fidelityobj, "fidelity")
-            if order_obj.get_holdings():
+            if run_holdings:
                 fidelity_holdings(fidelityobj, name, loop=loop)
             # Only other option is _transaction
             else:
@@ -72,7 +86,7 @@ def fidelity_init(account: str, name: str, *, headless: bool = True, bot_obj: Bo
         # Split the login into into separate items
         account_creds = account.split(":")
         # Create a Fidelity browser object
-        fidelity_browser = fidelity.FidelityAutomation(
+        fidelity_browser = fidelity_mod.FidelityAutomation(
             headless=headless,
             title=name,
             profile_path="./creds",
@@ -84,7 +98,7 @@ def fidelity_init(account: str, name: str, *, headless: bool = True, bot_obj: Bo
             fidelity_browser.login(
                 account_creds[0],
                 account_creds[1],
-                account_creds[2] if len(account_creds) > 2 else "NA",  # noqa: PLR2004
+                account_creds[2] if len(account_creds) > DEFAULT_CREDS_LENGTH else "",
             ),
         )
         # If 2FA is present, ask for code
@@ -135,7 +149,7 @@ def fidelity_holdings(fidelity_o: Brokerage, name: str, loop: asyncio.AbstractEv
     Prints holdings for each account and provides a summary if the user has more than 5 accounts.
     """
     # Get the browser back from the fidelity object
-    fidelity_browser = cast("fidelity.FidelityAutomation", fidelity_o.get_logged_in_objects(name))
+    fidelity_browser = cast("fidelity_mod.FidelityAutomation", fidelity_o.get_logged_in_objects(name))
     account_dict = fidelity_browser.account_dict
     for account_number in account_dict:
         for d in account_dict[account_number]["stocks"]:
@@ -163,7 +177,7 @@ def fidelity_transaction(
 ) -> None:
     """Call FidelityAutomation.transaction() and process its return."""
     # Get the driver
-    fidelity_browser = cast("fidelity.FidelityAutomation", fidelity_o.get_logged_in_objects(name))
+    fidelity_browser = cast("fidelity_mod.FidelityAutomation", fidelity_o.get_logged_in_objects(name))
     # Get full list of accounts in case some had no holdings
     fidelity_browser.get_list_of_accounts()
     # Go trade
@@ -181,17 +195,37 @@ def fidelity_transaction(
                 # Doesn't have it, skip account
                 continue
 
+            # Support optional limit orders if a numeric price is provided
+            transaction_kwargs: dict[str, float] = {}
+            price_input = order_obj.get_price()
+            if isinstance(price_input, (int, float)):
+                transaction_kwargs["limit_price"] = float(price_input)
+
             # Go trade for all accounts for that stock
-            success, error_message = cast(
-                "tuple[bool, str | None]",
-                fidelity_browser.transaction(
-                    stock,
-                    order_obj.get_amount(),
-                    order_obj.get_action(),
-                    account_number,
-                    order_obj.get_dry(),
-                ),
-            )
+            try:
+                success, error_message = cast(
+                    "tuple[bool, str | None]",
+                    fidelity_browser.transaction(
+                        stock,
+                        order_obj.get_amount(),
+                        order_obj.get_action(),
+                        account_number,
+                        order_obj.get_dry(),
+                        **transaction_kwargs,
+                    ),
+                )
+            except TypeError:
+                # Older versions of fidelity_browser may not accept limit_price
+                success, error_message = cast(
+                    "tuple[bool, str | None]",
+                    fidelity_browser.transaction(
+                        stock,
+                        order_obj.get_amount(),
+                        order_obj.get_action(),
+                        account_number,
+                        order_obj.get_dry(),
+                    ),
+                )
             print_account = mask_string(account_number)
             # Report error if occurred
             if not success:
@@ -214,3 +248,6 @@ def fidelity_transaction(
 
     # Close browser
     fidelity_browser.close_browser()
+
+
+DEFAULT_CREDS_LENGTH = 2
