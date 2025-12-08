@@ -170,6 +170,19 @@ def fun_run(  # noqa: C901, PLR0912, PLR0915
                 if err is not None:
                     msg = f"Error in {broker}: Function did not complete successfully: {err}"
                     raise Exception(msg)
+                # For holdings, try to read totals from the broker object populated inside the thread
+                if order_obj.get_holdings():
+                    try:
+                        logged_in_thread_broker = order_obj.get_logged_in(broker)
+                        broker_total = sum(account["total"] for account in logged_in_thread_broker.get_account_totals().values())
+                        print_and_discord(
+                            f"Total Value of All Accounts: ${format(broker_total, '0.2f')}",
+                            loop,
+                        )
+                        total_value += broker_total
+                    except KeyError:
+                        # If the thread didn't set the broker object (e.g., login skipped), just move on
+                        pass
                 continue
             if success is None:
                 msg = f"Error in {broker}: Function did not complete successfully"
