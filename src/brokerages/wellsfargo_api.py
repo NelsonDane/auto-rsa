@@ -87,6 +87,10 @@ def wellsfargo_run(orderObj=None, command=None, botObj=None, loop=None, WELLSFAR
     This function itself is synchronous and designed to be called from a synchronous context (like autoRSA's fun_run).
     It then runs the async parts using the globally defined wf_loop.
     """
+    # Normalize order object name if passed as order_obj
+    if orderObj is None and "order_obj" in kwargs:
+        orderObj = kwargs.get("order_obj")
+
     print("Starting Wells Fargo run process...")
     log("wellsfargo_run initiated.")
     load_dotenv()
@@ -145,41 +149,41 @@ async def handle_wellsfargo_2fa(page: uc.Tab, botObj, discord_loop, phone_suffix
     log("2FA page detected. Starting 2FA process.")
     try:
         # If already on code entry screen, just enter the code
-        try:
-            code_input = await page.select("input[id='otp']", timeout=10)
-            if not code_input:
-                code_input = await page.select("input[name='otp']", timeout=10)
-            if not code_input:
-                code_input = await page.select("input[type='tel']", timeout=10)
-            if code_input:
-                log("Detected OTP input field; requesting code.")
-                if botObj:
-                    future = asyncio.run_coroutine_threadsafe(
-                        get_otp_from_discord(botObj, "Wells Fargo", timeout=300, loop=discord_loop),
-                        discord_loop,
-                    )
-                    otp_code = await asyncio.wrap_future(future)
-                else:
-                    otp_code = input("Enter Wells Fargo OTP code: ").strip()
-                if not otp_code:
-                    raise Exception("Did not receive Wells Fargo OTP code in time.")
-                await code_input.send_keys(otp_code)
-                # Click continue/submit
-                continue_btn = None
-                for sel in ["button[type='submit']", "button:has-text('Continue')"]:
-                    try:
-                        continue_btn = await page.select(sel, timeout=3)
-                        if continue_btn:
-                            break
-                    except asyncio.TimeoutError:
-                        continue
-                if continue_btn:
-                    await continue_btn.click()
-                    log("OTP submitted; returning from 2FA handler.")
-                    await asyncio.sleep(2)
-                    return
-        except asyncio.TimeoutError:
-            pass
+        code_input = None
+        for sel in ["input[id='otp']", "input[name='otp']", "input[type='tel']", "input[type='number']"]:
+            try:
+                code_input = await page.select(sel, timeout=3)
+                if code_input:
+                    break
+            except asyncio.TimeoutError:
+                continue
+        if code_input:
+            log("Detected OTP input field; requesting code.")
+            if botObj:
+                future = asyncio.run_coroutine_threadsafe(
+                    get_otp_from_discord(botObj, "Wells Fargo", timeout=300, loop=discord_loop),
+                    discord_loop,
+                )
+                otp_code = await asyncio.wrap_future(future)
+            else:
+                otp_code = input("Enter Wells Fargo OTP code: ").strip()
+            if not otp_code:
+                raise Exception("Did not receive Wells Fargo OTP code in time.")
+            await code_input.send_keys(otp_code)
+            # Click continue/submit
+            continue_btn = None
+            for sel in ["button[type='submit']", "button:has-text('Continue')", "button:has-text('Submit')"]:
+                try:
+                    continue_btn = await page.select(sel, timeout=3)
+                    if continue_btn:
+                        break
+                except asyncio.TimeoutError:
+                    continue
+            if continue_btn:
+                await continue_btn.click()
+                log("OTP submitted; returning from 2FA handler.")
+                await asyncio.sleep(2)
+                return
 
         # If already past 2FA, skip
         current_url = await get_current_url(page, discord_loop)
@@ -187,24 +191,29 @@ async def handle_wellsfargo_2fa(page: uc.Tab, botObj, discord_loop, phone_suffix
             log("Already on brokerage overview; skipping 2FA.")
             return
 
-        # Quick path: if a list of contact options is already shown, pick one
+        # Quick path: if a list of contact options is already shown, pick one (including Try another method)
         try:
-            contact_options = await page.select_all("button", timeout=10)
+            contact_options = await page.select_all("button", timeout=5)
+            chosen = None
             if contact_options:
-                selected = None
-                if phone_suffix_for_2fa:
+                for option in contact_options:
+                    if option.text_all and "Try another method" in option.text_all:
+                        chosen = option
+                        break
+                if not chosen and phone_suffix_for_2fa:
                     for option in contact_options:
                         if phone_suffix_for_2fa in option.text_all:
-                            selected = option
+                            chosen = option
                             break
-                if not selected:
+                if not chosen:
                     for option in contact_options:
-                        if "Mobile" in option.text_all or "Home" in option.text_all:
-                            selected = option
+                        if option.text_all and ("Mobile" in option.text_all or "Home" in option.text_all):
+                            chosen = option
                             break
-                if not selected:
-                    selected = contact_options[0]
-                await selected.click()
+                if not chosen and contact_options:
+                    chosen = contact_options[0]
+            if chosen:
+                await chosen.click()
                 log("Selected contact option from list; continuing 2FA.")
                 await asyncio.sleep(3)
                 # After selecting, the OTP input should appear
