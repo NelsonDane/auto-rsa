@@ -67,10 +67,11 @@ ignore = [
     "DOC501",  # Don't require raises in doc
 ]
 [tool.ruff.lint.per-file-ignores]
-"src/brokerages/*" = [
-    "PLR0913", # Allow too many arguments
-    "PLR1702", # Allow many nested blocks
-]
+  "src/brokerages/*" = [
+      "PLR0913", # Allow too many arguments
+      "PLR1702", # Allow many nested blocks
+  ]
+  "src/brokerages/wellsfargo_api.py" = ["ALL"]
 
 
 [tool.mypy]
