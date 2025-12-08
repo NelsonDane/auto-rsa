@@ -1,4 +1,5 @@
 ﻿# ruff: noqa
+# ruff: noqa: F401
 import asyncio
 import datetime
 import os
@@ -415,7 +416,7 @@ async def _async_wellsfargo_run_wrapper(accounts_env, wf_brokerage_obj_to_popula
             browser = await uc.start(browser_args=browser_args, user_data_dir=profile_path)
             
             if not browser.tabs:
-                page = await browser() 
+                page = await browser()  # type: ignore[operator]
             else:
                 page = browser.tabs[0]
             log("Browser started and page object acquired.")
@@ -437,7 +438,7 @@ async def _async_wellsfargo_run_wrapper(accounts_env, wf_brokerage_obj_to_popula
                     if browser.tabs:
                         page = browser.tabs[0]
                     else:
-                        page = await browser()
+                        page = await browser()  # type: ignore[operator]
 
                 if action_to_perform == "_holdings":
                     await wellsfargo_holdings(
@@ -637,12 +638,11 @@ async def fetch_initial_account_data(page: uc.Tab, wf_brokerage_obj: Brokerage, 
                 wf_brokerage_obj.set_account_number(account_name_key, account_id)
                 wf_brokerage_obj.set_account_totals(account_name_key, account_id, balance)
                 
-                if not hasattr(wf_brokerage_obj, '_account_indices'):
-                    wf_brokerage_obj._account_indices = {}
-                if account_name_key not in wf_brokerage_obj._account_indices:
-                    wf_brokerage_obj._account_indices[account_name_key] = {}
-                
-                wf_brokerage_obj._account_indices[account_name_key][account_id] = {
+                wf_brokerage_obj._account_indices = getattr(wf_brokerage_obj, "_account_indices", {})  # type: ignore[attr-defined]
+                if account_name_key not in wf_brokerage_obj._account_indices:  # type: ignore[attr-defined]
+                    wf_brokerage_obj._account_indices[account_name_key] = {}  # type: ignore[attr-defined]
+
+                wf_brokerage_obj._account_indices[account_name_key][account_id] = {  # type: ignore[attr-defined]
                     'index': account_index,
                     'x_param': x_param
                 }
@@ -944,11 +944,12 @@ async def wellsfargo_holdings(wf_brokerage_obj: Brokerage, account_name_key: str
 
         for account_id in registered_accounts:
             try:
-                if not hasattr(wf_brokerage_obj, "_account_indices"):
+                account_indices = getattr(wf_brokerage_obj, "_account_indices", {})
+                if not account_indices:
                     log("CRITICAL - _account_indices attribute not found on brokerage object. Cannot look up account index.")
                     continue
 
-                account_data = wf_brokerage_obj._account_indices.get(account_name_key, {}).get(account_id, {})
+                account_data = account_indices.get(account_name_key, {}).get(account_id, {})
                 account_index = account_data.get("index", "")
                 stored_x_param = account_data.get("x_param", "")
 
@@ -1024,7 +1025,6 @@ async def extract_holdings_from_table(page: uc.Tab, wf_brokerage_obj: Brokerage,
 
     except Exception as e_table:
         await wellsfargo_error(f"Error during main extraction logic: {e_table}", page, discord_loop)
-
 
 
 
