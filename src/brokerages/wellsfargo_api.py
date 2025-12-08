@@ -1,6 +1,4 @@
-﻿# ruff: noqa
-# ruff: noqa: F401
-import asyncio
+# ruff: noqa: F401`nimport asyncio
 import datetime
 import os
 import re
@@ -611,7 +609,8 @@ async def fetch_initial_account_data(page: uc.Tab, wf_brokerage_obj: Brokerage, 
         
         for row in account_rows:
             try:
-                account_index = row.get('data-p_account', '').strip()
+                raw_account_index = row.get("data-p_account")
+                account_index = str(raw_account_index or "").strip()
                 if account_index == "-1":
                     log("Skipping 'All Accounts' summary row.")
                     continue
@@ -1025,6 +1024,5 @@ async def extract_holdings_from_table(page: uc.Tab, wf_brokerage_obj: Brokerage,
 
     except Exception as e_table:
         await wellsfargo_error(f"Error during main extraction logic: {e_table}", page, discord_loop)
-
 
 
