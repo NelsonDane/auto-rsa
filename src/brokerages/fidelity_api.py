@@ -5,6 +5,7 @@
 # Adapted from Nelson Dane's Selenium based code and created with the help of playwright codegen
 
 import asyncio
+import datetime
 import os
 import traceback
 from typing import cast
@@ -169,7 +170,7 @@ def fidelity_holdings(fidelity_o: Brokerage, name: str, loop: asyncio.AbstractEv
     fidelity_browser.close_browser()
 
 
-def fidelity_transaction(
+def fidelity_transaction(  # noqa: C901
     fidelity_o: Brokerage,
     name: str,
     order_obj: StockOrder,
@@ -180,74 +181,100 @@ def fidelity_transaction(
     fidelity_browser = cast("fidelity_mod.FidelityAutomation", fidelity_o.get_logged_in_objects(name))
     # Get full list of accounts in case some had no holdings
     fidelity_browser.get_list_of_accounts()
-    # Go trade
-    for stock in order_obj.get_stocks():
-        # Say what we are doing
-        print_and_discord(
-            f"{name}: {order_obj.get_action()}ing {order_obj.get_amount()} of {stock}",
-            loop,
-        )
-        # Reload the page incase we were trading before
-        fidelity_browser.page.reload()
-        for account_number in fidelity_browser.account_dict:
-            # If we are selling, check to see if the account has the stock to sell
-            if order_obj.get_action().lower() == "sell" and stock not in fidelity_browser.get_stocks_in_account(account_number):
-                # Doesn't have it, skip account
-                continue
+    try:
+        # Go trade
+        for stock in order_obj.get_stocks():
+            # Say what we are doing
+            print_and_discord(
+                f"{name}: {order_obj.get_action()}ing {order_obj.get_amount()} of {stock}",
+                loop,
+            )
+            # Reload the page incase we were trading before
+            fidelity_browser.page.reload()
+            for account_number in fidelity_browser.account_dict:
+                # If we are selling, check to see if the account has the stock to sell
+                if order_obj.get_action().lower() == "sell" and stock not in fidelity_browser.get_stocks_in_account(account_number):
+                    # Doesn't have it, skip account
+                    continue
 
-            # Support optional limit orders if a numeric price is provided
-            transaction_kwargs: dict[str, float] = {}
-            price_input = order_obj.get_price()
-            if isinstance(price_input, (int, float)):
-                transaction_kwargs["limit_price"] = float(price_input)
+                # Support optional limit orders if a numeric price is provided
+                transaction_kwargs: dict[str, float] = {}
+                price_input = order_obj.get_price()
+                if isinstance(price_input, (int, float)):
+                    transaction_kwargs["limit_price"] = float(price_input)
 
-            # Go trade for all accounts for that stock
-            try:
-                success, error_message = cast(
-                    "tuple[bool, str | None]",
-                    fidelity_browser.transaction(
-                        stock,
-                        order_obj.get_amount(),
-                        order_obj.get_action(),
-                        account_number,
-                        order_obj.get_dry(),
-                        **transaction_kwargs,
-                    ),
-                )
-            except TypeError:
-                # Older versions of fidelity_browser may not accept limit_price
-                success, error_message = cast(
-                    "tuple[bool, str | None]",
-                    fidelity_browser.transaction(
-                        stock,
-                        order_obj.get_amount(),
-                        order_obj.get_action(),
-                        account_number,
-                        order_obj.get_dry(),
-                    ),
-                )
-            print_account = mask_string(account_number)
-            # Report error if occurred
-            if not success:
-                print_and_discord(
-                    f"{name} account {print_account}: Error: {error_message}",
-                    loop,
-                )
-            # Print test run confirmation if test run
-            elif success and order_obj.get_dry():
-                print_and_discord(
-                    f"DRY: {name} account {print_account}: {order_obj.get_action()} {order_obj.get_amount()} shares of {stock}",
-                    loop,
-                )
-            # Print real run confirmation if real run
-            elif success and not order_obj.get_dry():
-                print_and_discord(
-                    f"{name} account {print_account}: {order_obj.get_action()} {order_obj.get_amount()} shares of {stock}",
-                    loop,
-                )
+                # Go trade for all accounts for that stock
+                try:
+                    success, error_message = cast(
+                        "tuple[bool, str | None]",
+                        fidelity_browser.transaction(
+                            stock,
+                            order_obj.get_amount(),
+                            order_obj.get_action(),
+                            account_number,
+                            order_obj.get_dry(),
+                            **transaction_kwargs,
+                        ),
+                    )
+                except TypeError:
+                    # Older versions of fidelity_browser may not accept limit_price
+                    success, error_message = cast(
+                        "tuple[bool, str | None]",
+                        fidelity_browser.transaction(
+                            stock,
+                            order_obj.get_amount(),
+                            order_obj.get_action(),
+                            account_number,
+                            order_obj.get_dry(),
+                        ),
+                    )
+                except Exception as e:
+                    success = False
+                    error_message = str(e)
 
-    # Close browser
-    fidelity_browser.close_browser()
+                print_account = mask_string(account_number)
+                # Report error if occurred
+                if not success:
+                    friendly_error = error_message or "Unknown error during transaction"
+                    lowered = friendly_error.lower()
+                    # Some accounts (e.g., 401k) aren't tradable; treat that as a skip, not an error
+                    if "not available in trade dropdown" in lowered:
+                        print_and_discord(
+                            f"{name} account {print_account}: Skipping (not available in trade dropdown)",
+                            loop,
+                        )
+                    else:
+                        print_and_discord(
+                            f"{name} account {print_account}: Error: {friendly_error}",
+                            loop,
+                        )
+                        _save_error_screenshot(fidelity_browser, f"{name}-{print_account}-{stock}")
+                # Print test run confirmation if test run
+                elif success and order_obj.get_dry():
+                    print_and_discord(
+                        f"DRY: {name} account {print_account}: {order_obj.get_action()} {order_obj.get_amount()} shares of {stock}",
+                        loop,
+                    )
+                # Print real run confirmation if real run
+                elif success and not order_obj.get_dry():
+                    print_and_discord(
+                        f"{name} account {print_account}: {order_obj.get_action()} {order_obj.get_amount()} shares of {stock}",
+                        loop,
+                    )
+    finally:
+        # Close browser
+        fidelity_browser.close_browser()
+
+
+def _save_error_screenshot(fidelity_browser: "fidelity_mod.FidelityAutomation", label: str) -> None:
+    """Save a screenshot of the current Fidelity page to help debug transaction errors."""
+    try:
+        timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d_%H%M%S")
+        filename = f"fidelity-error-{label}-{timestamp}.png"
+        fidelity_browser.page.screenshot(path=filename, full_page=True)
+        print(f"Screenshot saved: {filename}")
+    except Exception as e:
+        print(f"Failed to save Fidelity screenshot: {e}")
 
 
 DEFAULT_CREDS_LENGTH = 2
