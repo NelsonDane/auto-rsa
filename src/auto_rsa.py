@@ -115,7 +115,7 @@ def fun_run(  # noqa: C901, PLR0912, PLR0915
                 case BrokerName.DSPAC:
                     success = dspac_init(bot_obj=bot_obj, loop=loop)
                 case BrokerName.FENNEL:
-                    success = fennel_init(loop=loop)
+                    success = fennel_init(bot_obj=bot_obj, loop=loop)
                 case BrokerName.FIDELITY:
                     th = ThreadHandler(
                         fidelity_run,

@@ -233,12 +233,12 @@ Note: `DSPAC_USERNAME` can either be email or phone number.
 Made by yours truly using the [fennel-invest-api](https://github.com/NelsonDane/fennel-invest-api). Consider giving me a ⭐
 
 Required `.env` variables:
-- `FENNEL_PAT` (Personal Access Token)
+- `FENNEL_EMAIL` (Login email)
 
 `.env` file format:
-- `FENNEL=FENNEL_PAT`
+- `FENNEL=FENNEL_EMAIL`
 
-To get your Personal Access Token (PAT), generate one from your [Fennel Dashboard](https://dash.fennel.com/).
+Note: You may be prompted for a 2FA/OTP code during login (CLI or Discord).
 
 ### Fidelity
 Made by [kennyboy106](https://github.com/kennyboy106) using the [fidelity-api](https://github.com/kennyboy106/fidelity-api). Go give them a ⭐
