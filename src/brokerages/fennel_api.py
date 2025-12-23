@@ -11,6 +11,14 @@ from fennel_invest_api import Fennel
 from src.helper_api import Brokerage, StockOrder, get_otp_from_discord, print_all_holdings, print_and_discord
 
 
+class FennelLoginError(RuntimeError):
+    """Raised when Fennel login fails."""
+
+
+class FennelRetryError(RuntimeError):
+    """Raised when a Fennel operation fails after retries."""
+
+
 def fennel_init(bot_obj: Bot | None = None, loop: asyncio.AbstractEventLoop | None = None) -> Brokerage | None:
     """Initialize Fennel API."""
     # Initialize .env file
@@ -26,80 +34,10 @@ def fennel_init(bot_obj: Bot | None = None, loop: asyncio.AbstractEventLoop | No
     for index, account in enumerate(big_fennel):
         name = f"Fennel {index + 1}"
         try:
-            try:
-                fb = Fennel(filename=f"fennel{index + 1}.pkl", path="./creds/")
-                if bot_obj is None or loop is None:
-                    # Login from CLI
-                    fb.login(
-                        email=account,
-                        wait_for_code=True,
-                    )
-                else:
-                    # Login from Discord and check for 2fa required message
-                    fb.login(
-                        email=account,
-                        wait_for_code=False,
-                    )
-            except Exception as e:
-                if "2FA" in str(e) and bot_obj is not None and loop is not None:
-                    # Sometimes codes take a long time to arrive
-                    timeout = 300  # 5 minutes
-                    otp_code = asyncio.run_coroutine_threadsafe(
-                        get_otp_from_discord(bot_obj, name, timeout=timeout, loop=loop),
-                        loop,
-                    ).result()
-                    if otp_code is None:
-                        raise Exception("No OTP code found")
-                    fb.login(
-                        email=account,
-                        wait_for_code=False,
-                        code=otp_code,
-                    )
-                else:
-                    raise
+            fb = _login_fennel_account(account, index, bot_obj, loop, name)
             fennel_obj.set_logged_in_object(name, fb, "fb")
             _wrap_market_open_retry(fb, label=name, loop=loop)
-            try:
-                full_accounts = fb.get_full_accounts()
-            except AttributeError:
-                account_ids = _get_account_ids_with_retry(fb, label=name, loop=loop)
-                for account_index, account_id in enumerate(account_ids):
-                    account_name = f"Account {account_index + 1}"
-                    fennel_obj.set_account_number(name, account_name)
-                    summary = _get_portfolio_summary_with_retry(fb, account_id, label=f"{name} {account_name}", loop=loop)
-                    if summary is None:
-                        print_and_discord(
-                            f"{name} {account_name}: Unable to fetch portfolio summary, using 0 total",
-                            loop,
-                        )
-                        total_cash = 0
-                    else:
-                        total_cash = summary["cash"]["balance"]["canTrade"]
-                    fennel_obj.set_account_totals(
-                        name,
-                        account_name,
-                        total_cash,
-                    )
-                    fennel_obj.set_logged_in_object(name, account_id, account_name)
-                    print(f"Found {account_name}")
-            else:
-                for account_info in full_accounts:
-                    fennel_obj.set_account_number(name, account_info["name"])
-                    try:
-                        total_cash = account_info["portfolio"]["cash"]["balance"]["canTrade"]
-                    except KeyError:
-                        print_and_discord(
-                            f"{name} {account_info.get('name', 'Account')}: Unable to read portfolio summary, using 0 total",
-                            loop,
-                        )
-                        total_cash = 0
-                    fennel_obj.set_account_totals(
-                        name,
-                        account_info["name"],
-                        total_cash,
-                    )
-                    fennel_obj.set_logged_in_object(name, account_info["id"], account_info["name"])
-                    print(f"Found {account_info['name']}")
+            _populate_fennel_accounts(fennel_obj, fb, name, loop)
             print(f"{name}: Logged in")
         except Exception as e:
             print(f"Error logging into Fennel: {e}")
@@ -107,6 +45,103 @@ def fennel_init(bot_obj: Bot | None = None, loop: asyncio.AbstractEventLoop | No
             continue
     print("Logged into Fennel!")
     return fennel_obj
+
+
+def _login_fennel_account(
+    account: str,
+    index: int,
+    bot_obj: Bot | None,
+    loop: asyncio.AbstractEventLoop | None,
+    name: str,
+) -> Fennel:
+    fb = Fennel(filename=f"fennel{index + 1}.pkl", path="./creds/")
+    try:
+        if bot_obj is None or loop is None:
+            fb.login(email=account, wait_for_code=True)
+        else:
+            fb.login(email=account, wait_for_code=False)
+    except Exception as exc:
+        if "2FA" not in str(exc) or bot_obj is None or loop is None:
+            raise FennelLoginError from exc
+        timeout = 300  # 5 minutes
+        otp_code = asyncio.run_coroutine_threadsafe(
+            get_otp_from_discord(bot_obj, name, timeout=timeout, loop=loop),
+            loop,
+        ).result()
+        if otp_code is None:
+            print_and_discord(f"{name}: OTP code not received, aborting login", loop)
+            raise FennelLoginError from exc
+        fb.login(email=account, wait_for_code=False, code=otp_code)
+    return fb
+
+
+def _populate_fennel_accounts(
+    fennel_obj: Brokerage,
+    fb: Fennel,
+    name: str,
+    loop: asyncio.AbstractEventLoop | None,
+) -> None:
+    try:
+        full_accounts = fb.get_full_accounts()
+    except AttributeError:
+        account_ids = _get_account_ids_with_retry(fb, label=name, loop=loop)
+        _populate_from_account_ids(fennel_obj, fb, name, account_ids, loop)
+    else:
+        _populate_from_full_accounts(fennel_obj, name, full_accounts, loop)
+
+
+def _populate_from_account_ids(
+    fennel_obj: Brokerage,
+    fb: Fennel,
+    name: str,
+    account_ids: list,
+    loop: asyncio.AbstractEventLoop | None,
+) -> None:
+    for account_index, account_id in enumerate(account_ids):
+        account_name = f"Account {account_index + 1}"
+        fennel_obj.set_account_number(name, account_name)
+        summary = _get_portfolio_summary_with_retry(fb, account_id, label=f"{name} {account_name}", loop=loop)
+        if summary is None:
+            print_and_discord(
+                f"{name} {account_name}: Unable to fetch portfolio summary, using 0 total",
+                loop,
+            )
+            total_cash = 0
+        else:
+            total_cash = summary["cash"]["balance"]["canTrade"]
+        fennel_obj.set_account_totals(
+            name,
+            account_name,
+            total_cash,
+        )
+        fennel_obj.set_logged_in_object(name, account_id, account_name)
+        print(f"Found {account_name}")
+
+
+def _populate_from_full_accounts(
+    fennel_obj: Brokerage,
+    name: str,
+    full_accounts: list,
+    loop: asyncio.AbstractEventLoop | None,
+) -> None:
+    for account_info in full_accounts:
+        account_name = account_info["name"]
+        fennel_obj.set_account_number(name, account_name)
+        try:
+            total_cash = account_info["portfolio"]["cash"]["balance"]["canTrade"]
+        except KeyError:
+            print_and_discord(
+                f"{name} {account_info.get('name', 'Account')}: Unable to read portfolio summary, using 0 total",
+                loop,
+            )
+            total_cash = 0
+        fennel_obj.set_account_totals(
+            name,
+            account_name,
+            total_cash,
+        )
+        fennel_obj.set_logged_in_object(name, account_info["id"], account_name)
+        print(f"Found {account_name}")
 
 
 def _wrap_market_open_retry(
@@ -125,7 +160,7 @@ def _wrap_market_open_retry(
             try:
                 result = original()
                 if result is None:
-                    raise Exception("Market open check returned no data")
+                    raise FennelRetryError
                 return bool(result)
             except Exception as exc:
                 last_error = exc
@@ -136,7 +171,11 @@ def _wrap_market_open_retry(
                     )
                     time.sleep(delay)
                     continue
-                raise Exception(f"Market open check failed after {retries} attempts: {last_error}") from last_error
+                print_and_discord(
+                    f"{label}: market open check failed after {retries} attempts: {last_error}",
+                    loop,
+                )
+                raise FennelRetryError from last_error
         return False
 
     obj.is_market_open = wrapped
@@ -177,8 +216,12 @@ def _place_order_with_retry(
             )
             time.sleep(delay)
             continue
-        raise Exception(f"Fennel order failed after {retries} attempts: {last_error}") from last_error
-    raise Exception("Fennel order failed unexpectedly")
+        print_and_discord(
+            f"{label}: order failed after {retries} attempts: {last_error}",
+            loop,
+        )
+        raise FennelRetryError from last_error
+    raise FennelRetryError
 
 
 def _get_account_ids_with_retry(
@@ -202,8 +245,12 @@ def _get_account_ids_with_retry(
                 )
                 time.sleep(delay)
                 continue
-            raise Exception(f"Failed to retrieve Fennel account IDs after {retries} attempts: {last_error}") from last_error
-    raise Exception("Failed to retrieve Fennel account IDs unexpectedly")
+            print_and_discord(
+                f"{label}: failed to retrieve account IDs after {retries} attempts: {last_error}",
+                loop,
+            )
+            raise FennelRetryError from last_error
+    raise FennelRetryError
 
 
 def _get_portfolio_summary_with_retry(
@@ -274,7 +321,7 @@ def fennel_transaction(fbo: Brokerage, order_obj: StockOrder, loop: asyncio.Abst
             )
             for account in fbo.get_account_numbers(key):
                 obj = cast("Fennel", fbo.get_logged_in_objects(key, "fb"))
-                account_id = fbo.get_logged_in_objects(key, account)
+                account_id = cast(str, fbo.get_logged_in_objects(key, account))
                 try:
                     order = _place_order_with_retry(
                         obj,
