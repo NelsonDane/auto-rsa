@@ -321,7 +321,7 @@ def fennel_transaction(fbo: Brokerage, order_obj: StockOrder, loop: asyncio.Abst
             )
             for account in fbo.get_account_numbers(key):
                 obj = cast("Fennel", fbo.get_logged_in_objects(key, "fb"))
-                account_id = cast(str, fbo.get_logged_in_objects(key, account))
+                account_id = cast("str", fbo.get_logged_in_objects(key, account))
                 try:
                     order = _place_order_with_retry(
                         obj,
