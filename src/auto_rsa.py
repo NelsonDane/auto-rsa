@@ -43,7 +43,10 @@ if spec is not None:
 # Print Startup Info
 print(f"Python version: {sys.version}")
 print(f"Platform: {sys.platform}")
+print(f"Current Directory: {Path.cwd()}")
 CURRENT_RSA_VERSION = version("auto_rsa_bot")
+# Check to see if directory contains .env file
+print(f"Directory Contains .env File: {Path('.env').exists()}")
 print(f"RSA Version: {CURRENT_RSA_VERSION}")
 print()
 
@@ -206,8 +209,11 @@ def fun_run(  # noqa: C901, PLR0912, PLR0915
                         webull_holdings(logged_in_broker, loop)
                     case BrokerName.WELLS_FARGO:
                         wellsfargo_holdings(logged_in_broker, loop)
-                # Add to total sum
-                total_value += sum(account["total"] for account in order_obj.get_logged_in(broker).get_account_totals().values())
+                # Track per-broker total so we can show accurate totals and still accumulate overall
+                broker_total = sum(account["total"] for account in order_obj.get_logged_in(broker).get_account_totals().values())
+                print_and_discord(f"Total Value of {broker.title()} Accounts: ${format(broker_total, '0.2f')}", loop)
+                # Add to overall total sum
+                total_value += broker_total
             else:
                 # Run transaction
                 match broker_info.name:
@@ -245,13 +251,10 @@ def fun_run(  # noqa: C901, PLR0912, PLR0915
             print(order_obj)
         print()
 
-        # Print final total value and closing message
-        if order_obj.get_holdings():
-            print_and_discord(
-                f"Total Value of All Accounts: ${format(total_value, '0.2f')}",
-                loop,
-            )
-        print_and_discord("All commands complete in all brokers", loop)
+    # Print final total value and closing message once after all brokers
+    if order_obj.get_holdings():
+        print_and_discord(f"Combined Total Value Across Brokers: ${format(total_value, '0.2f')}", loop)
+    print_and_discord("All commands complete in all brokers", loop)
 
 
 def arg_parser(args: list[str]) -> StockOrder:  # noqa: C901, PLR0912
