@@ -46,7 +46,7 @@ print(f"Platform: {sys.platform}")
 print(f"Current Directory: {Path.cwd()}")
 CURRENT_RSA_VERSION = version("auto_rsa_bot")
 # Check to see if directory contains .env file
-print(f"Directory contains .env file: {Path('.env').exists()}")
+print(f"Directory Contains .env File: {Path('.env').exists()}")
 print(f"RSA Version: {CURRENT_RSA_VERSION}")
 print()
 
