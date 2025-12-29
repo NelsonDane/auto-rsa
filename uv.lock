@@ -244,7 +244,7 @@ requires-dist = [
     { name = "cryptography", specifier = ">=46.0.3" },
     { name = "curl-cffi", specifier = "==0.14.0" },
     { name = "discord-py", specifier = "==2.6.4" },
-    { name = "dspac-invest-api", specifier = "==0.1.3" },
+    { name = "dspac-invest-api", specifier = "==0.1.4" },
     { name = "email-validator", specifier = ">=2.3.0" },
     { name = "fennel-invest-api", specifier = "==2.0.0" },
     { name = "fidelity-api", specifier = "==0.0.16" },
@@ -569,16 +569,16 @@ wheels = [
 
 [[package]]
 name = "dspac-invest-api"
-version = "0.1.3"
+version = "0.1.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pillow" },
     { name = "python-dotenv" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fe/7d/c5c74f9f8122bca18500946627738f540ebc9cb18c1b2e185924459c1b07/dspac_invest_api-0.1.3.tar.gz", hash = "sha256:45247e8e207995b11eaa30065d82768a6a7f39ef3cab436c4eb0f19685bacd1e", size = 4654, upload_time = "2024-09-10T16:57:18.972Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/13/31/c4108f95dbf76f740f4d89bcf7a28894d3aace8ce605952e55082856b659/dspac_invest_api-0.1.4.tar.gz", hash = "sha256:035285e7a10a4b4bf9089dcb231d15467d652a2fdbec6938a377d1e15dbc3c31", size = 4896, upload_time = "2025-11-19T15:12:58.569Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4e/68/7d83b6d6e2b87e2eebf052755165ff9254a23aeeb541a4e6d1e82975dd43/dspac_invest_api-0.1.3-py3-none-any.whl", hash = "sha256:9172989e446d56ae4d94ae144a2d662f2af797c3822f8b05c0cbb256e0e47f5c", size = 5279, upload_time = "2024-09-10T16:57:17.839Z" },
+    { url = "https://files.pythonhosted.org/packages/35/40/6e7d3f2d2f0c8bad2f3998714a28c2d347542497c27c0e0e70d4b3fb7970/dspac_invest_api-0.1.4-py3-none-any.whl", hash = "sha256:49302803927d3575a81b72a60311c67cd3ab691905e5d74c91488fd11ce83a30", size = 5581, upload_time = "2025-11-19T15:12:57.874Z" },
 ]
 
 [[package]]
