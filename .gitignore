@@ -13,3 +13,4 @@ test*
 *.zip
 build/
 *egg-info/
+*.bat

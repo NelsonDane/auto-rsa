@@ -125,6 +125,7 @@ def fun_run(  # noqa: C901, PLR0912, PLR0915
                         order_obj=order_obj,
                         bot_obj=bot_obj,
                         loop=loop,
+                        docker_mode=docker_mode,
                     )
                 case BrokerName.FIRSTRADE:
                     success = firstrade_init(bot_obj=bot_obj, loop=loop)
