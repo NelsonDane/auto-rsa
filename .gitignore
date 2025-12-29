@@ -1,3 +1,4 @@
+*.bat
 *.csv
 did.bin
 .DS_Store
