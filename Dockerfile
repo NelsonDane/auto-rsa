@@ -37,7 +37,8 @@ FROM alpine:3.23@sha256:865b95f46d98cf867a156fe4a135ad3fe50d2056aa3f25ed31662dff
 
 # Make entrypoint executable
 WORKDIR /app
-RUN apk add --no-cache dos2unix=7.5.2-r0
+# hadolint ignore=DL3018
+RUN apk add --no-cache dos2unix
 COPY entrypoint.sh .
 RUN dos2unix entrypoint.sh && chmod +x entrypoint.sh
 
