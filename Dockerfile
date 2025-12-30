@@ -42,7 +42,7 @@ RUN apk add --no-cache dos2unix
 COPY entrypoint.sh .
 RUN dos2unix entrypoint.sh && chmod +x entrypoint.sh
 
-FROM debian:bookworm-slim@sha256:e899040a73d36e2b36fa33216943539d9957cba8172b858097c2cabcdb20a3e2 AS final
+FROM debian:bookworm-slim@sha256:d5d3f9c23164ea16f31852f95bd5959aad1c5e854332fe00f7b3a20fcc9f635c AS final
 
 # Set ENV variables
 ENV TZ=America/New_York \
