@@ -125,38 +125,49 @@ def chase_init(account: str, index: int, *, headless: bool = True, bot_obj: Bot 
     return (chase_obj, all_accounts)
 
 
-def chase_holdings(chase_o: Brokerage, all_accounts: ch_account.AllAccount, loop: asyncio.AbstractEventLoop | None = None) -> None:  # noqa: C901
+def _process_position(position: dict, chase_o: Brokerage, key: str, account: str) -> None:
+    """Process a single position and add it to holdings."""
+    if position["instrumentLongName"] == "Cash and Sweep Funds":
+        sym = position["instrumentLongName"]
+        current_price = position["marketValue"]["baseValueAmount"]
+        qty = "1"
+        chase_o.set_holdings(key, account, sym, qty, current_price)
+    elif position["assetCategoryName"] == "EQUITY":
+        try:
+            sym = position["positionComponents"][0]["securityIdDetail"][0]["symbolSecurityIdentifier"]
+            current_price = position["marketValue"]["baseValueAmount"]
+            qty = position["tradedUnitQuantity"]
+        except KeyError:
+            sym = position["securityIdDetail"]["cusipIdentifier"]
+            current_price = position["marketValue"]["baseValueAmount"]
+            qty = position["tradedUnitQuantity"]
+        chase_o.set_holdings(key, account, sym, qty, current_price)
+
+
+def _process_account_holdings(chase_o: Brokerage, all_accounts: ch_account.AllAccount, key: str, account: str) -> None:
+    """Process holdings for a single account."""
+    ch_session = cast("session.ChaseSession", chase_o.get_logged_in_objects(key))
+    account_id = get_account_id(all_accounts.account_connectors, account)
+    data = symbols.SymbolHoldings(account_id, ch_session)
+    success = data.get_holdings()
+
+    if success:
+        for position in data.positions:
+            _process_position(position, chase_o, key, account)
+
+
+def chase_holdings(chase_o: Brokerage, all_accounts: ch_account.AllAccount, loop: asyncio.AbstractEventLoop | None = None) -> None:
     """Retrieve and display all Chase account holdings."""
     # Get holdings on each account. This loop only ever runs once.
     ch_session: session.ChaseSession | None = None
+    # Get the session object
     account = ""
     for key in chase_o.get_account_numbers():
         try:
+            ch_session = cast("session.ChaseSession", chase_o.get_logged_in_objects(key))
             # Retrieve account masks and iterate through them
             for _, account in enumerate(chase_o.get_account_numbers(key)):
-                # Retrieve the chase session
-                ch_session = cast("session.ChaseSession", chase_o.get_logged_in_objects(key))
-                # Get the account ID accociated with mask
-                account_id = get_account_id(all_accounts.account_connectors, account)
-                data = symbols.SymbolHoldings(account_id, ch_session)
-                success = data.get_holdings()
-                if success:
-                    for i, _ in enumerate(data.positions):
-                        if data.positions[i]["instrumentLongName"] == "Cash and Sweep Funds":
-                            sym = data.positions[i]["instrumentLongName"]
-                            current_price = data.positions[i]["marketValue"]["baseValueAmount"]
-                            qty = "1"
-                            chase_o.set_holdings(key, account, sym, qty, current_price)
-                        elif data.positions[i]["assetCategoryName"] == "EQUITY":
-                            try:
-                                sym = data.positions[i]["positionComponents"][0]["securityIdDetail"][0]["symbolSecurityIdentifier"]
-                                current_price = data.positions[i]["marketValue"]["baseValueAmount"]
-                                qty = data.positions[i]["tradedUnitQuantity"]
-                            except KeyError:
-                                sym = data.positions[i]["securityIdDetail"]["cusipIdentifier"]
-                                current_price = data.positions[i]["marketValue"]["baseValueAmount"]
-                                qty = data.positions[i]["tradedUnitQuantity"]
-                            chase_o.set_holdings(key, account, sym, qty, current_price)
+                _process_account_holdings(chase_o, all_accounts, key, account)
         except Exception as e:
             if ch_session:
                 ch_session.close_browser()
@@ -165,11 +176,126 @@ def chase_holdings(chase_o: Brokerage, all_accounts: ch_account.AllAccount, loop
             continue
         print_all_holdings(chase_o, loop)
     if ch_session:
+        print_and_discord("Closing Chase browser...", loop)
         ch_session.close_browser()
 
 
-def chase_transaction(chase_obj: Brokerage, all_accounts: ch_account.AllAccount, order_obj: StockOrder, loop: asyncio.AbstractEventLoop | None = None) -> None:  # noqa: C901, PLR0912, PLR0915
-    """Handle Fennel API transactions."""
+def _calculate_limit_price(symbol_quote: symbols.SymbolQuote, action: str) -> tuple[order.PriceType, float]:
+    """Calculate limit price for buy orders."""
+    current_price = symbol_quote.ask_price
+
+    if current_price >= 1.00:
+        return order.PriceType.MARKET, 0.0
+    if action.upper() == "BUY":
+        # For buys, always round UP to ensure fill
+        limit_price = round(current_price + 0.01, 2)
+    else:  # SELL
+        # For sells, always round DOWN to ensure fill
+        limit_price = round(current_price - 0.01, 2)
+        limit_price = max(limit_price, 0.01)
+    return order.PriceType.LIMIT, limit_price
+
+
+def _process_order_messages(messages: dict, order_obj: StockOrder, key: str, account: str, loop: asyncio.AbstractEventLoop | None) -> None:
+    """Process and print order messages."""
+    if order_obj.get_dry():
+        pprint.pprint(messages["ORDER VALIDATION"])  # noqa: T203
+        print_and_discord(
+            (f"{key} account {account}: The order verification was " + ("successful" if messages["ORDER VALIDATION"] else "unsuccessful")),
+            loop,
+        )
+        if messages["ORDER INVALID"]:
+            print_and_discord(
+                f"{key} account {account}: The order verification produced the following messages: {messages['ORDER INVALID']}",
+                loop,
+            )
+    else:
+        pprint.pprint(messages["ORDER CONFIRMATION"])  # noqa: T203
+
+        # Check if ORDER CONFIRMATION is a dict or string
+        order_confirmation = messages["ORDER CONFIRMATION"]
+        is_successful = bool(order_confirmation.get("orderIdentifier")) if isinstance(order_confirmation, dict) else isinstance(order_confirmation, str) and len(order_confirmation) > 0
+        print_and_discord(
+            (f"{key} account {account}: The order was " + ("successful" if is_successful else "unsuccessful")),
+            loop,
+        )
+
+        if messages["ORDER INVALID"]:
+            print_and_discord(
+                f"{key} account {account}: The order produced the following messages: {messages['ORDER INVALID']}",
+                loop,
+            )
+
+
+def _execute_single_order(ch_session: session.ChaseSession, all_accounts: ch_account.AllAccount, order_obj: StockOrder, ticker: str, account: str, price_type: order.PriceType, limit_price: float, key: str, loop: asyncio.AbstractEventLoop | None) -> None:  # noqa: PLR0913, PLR0917
+    """Execute a single order for one account."""
+    target_account_id = get_account_id(all_accounts.account_connectors, account)
+
+    if order_obj.get_dry():
+        print_and_discord("Running in DRY mode. No transactions will be made.", loop)
+
+    if order_obj.get_action().capitalize() == "Buy":
+        order_type = order.OrderSide.BUY
+    else:
+        # Reset to market for selling
+        price_type = order.PriceType.MARKET
+        order_type = order.OrderSide.SELL
+
+    chase_order = order.Order(ch_session)
+    messages = chase_order.place_order(
+        account_id=target_account_id,
+        quantity=int(order_obj.get_amount()),
+        price_type=price_type,
+        symbol=ticker,
+        duration=order.Duration.DAY,
+        order_type=order_type,
+        dry_run=order_obj.get_dry(),
+        limit_price=limit_price,
+    )
+
+    print("The order verification produced the following messages: ")
+    _process_order_messages(messages, order_obj, key, account, loop)
+
+
+def _process_ticker_orders(chase_obj: Brokerage, all_accounts: ch_account.AllAccount, order_obj: StockOrder, ticker: str, loop: asyncio.AbstractEventLoop | None) -> session.ChaseSession | None:
+    """Process orders for a single ticker across all accounts."""
+    ch_session = None
+
+    for key in chase_obj.get_account_numbers():
+        price_type = order.PriceType.MARKET
+        limit_price = 0.0
+
+        ch_session = cast("session.ChaseSession", chase_obj.get_logged_in_objects(key))
+
+        # Determine limit or market for buy orders
+        if order_obj.get_action().capitalize() == "Buy":
+            account_ids = list([] if all_accounts.account_connectors is None else all_accounts.account_connectors.keys())
+            symbol_quote = symbols.SymbolQuote(
+                account_id=account_ids[0],
+                session=ch_session,
+                symbol=ticker,
+            )
+            price_type, limit_price = _calculate_limit_price(symbol_quote, order_obj.get_action())
+
+        print_and_discord(
+            f"{key} {order_obj.get_action()}ing {order_obj.get_amount()} {ticker} @ {price_type.value}",
+            loop,
+        )
+
+        try:
+            print(chase_obj.get_account_numbers())
+            for account in chase_obj.get_account_numbers(key):
+                _execute_single_order(ch_session, all_accounts, order_obj, ticker, account, price_type, limit_price, key, loop)
+        except Exception as e:
+            print_and_discord(f"{key} {account}: Error submitting order: {e}", loop)
+            print(traceback.format_exc())
+            continue
+
+    return ch_session
+
+
+def chase_transaction(chase_obj: Brokerage, all_accounts: ch_account.AllAccount, order_obj: StockOrder, loop: asyncio.AbstractEventLoop | None = None) -> None:
+    """Handle Chase API transactions."""
     print()
     print("==============================")
     print("Chase")
@@ -177,108 +303,12 @@ def chase_transaction(chase_obj: Brokerage, all_accounts: ch_account.AllAccount,
     print()
 
     ch_session: session.ChaseSession | None = None
-    account = ""
-    # Buy on each account
+
     for ticker in order_obj.get_stocks():
-        # This loop should only run once, but it provides easy access to the chase session by using key to get it back from
-        # the chase_obj via get_logged_in_objects
-        for key in chase_obj.get_account_numbers():
-            # Declare for later
-            price_type = order.PriceType.MARKET
-            limit_price = 0.0
+        ch_session = _process_ticker_orders(chase_obj, all_accounts, order_obj, ticker, loop)
 
-            # Load the chase session
-            ch_session = cast("session.ChaseSession", chase_obj.get_logged_in_objects(key))
-
-            # Determine limit or market for buy orders
-            if order_obj.get_action().capitalize() == "Buy":
-                account_ids = list([] if all_accounts.account_connectors is None else all_accounts.account_connectors.keys())
-
-                # Get the ask price and determine whether to use MARKET or LIMIT order
-                symbol_quote = symbols.SymbolQuote(
-                    account_id=account_ids[0],
-                    session=ch_session,
-                    symbol=ticker,
-                )
-
-                # If it should be limit
-                if symbol_quote.ask_price < 1:
-                    price_type = order.PriceType.LIMIT
-                    limit_threshold = 0.10
-                    if symbol_quote.ask_price > limit_threshold:
-                        # Set limit price
-                        limit_price = round(symbol_quote.ask_price + 0.01, 2)
-                    else:
-                        # Set limit price always round up
-                        factor = 10**2
-                        value = symbol_quote.ask_price * factor
-                        if value % 1 != 0:
-                            value = int(value) + 1
-                        limit_price = value / factor
-
-            print_and_discord(
-                f"{key} {order_obj.get_action()}ing {order_obj.get_amount()} {ticker} @ {price_type.value}",
-                loop,
-            )
-            try:
-                print(chase_obj.get_account_numbers())
-                # For each account number "mask" attached to "Chase_#" complete the order
-                for account in chase_obj.get_account_numbers(key):
-                    target_account_id = get_account_id(all_accounts.account_connectors, account)
-                    # If DRY is True, don't actually make the transaction
-                    if order_obj.get_dry():
-                        print_and_discord(
-                            "Running in DRY mode. No transactions will be made.",
-                            loop,
-                        )
-
-                    if order_obj.get_action().capitalize() == "Buy":
-                        order_type = order.OrderSide.BUY
-                    else:
-                        # Reset to market for selling
-                        price_type = order.PriceType.MARKET
-                        order_type = order.OrderSide.SELL
-                    chase_order = order.Order(ch_session)
-                    messages = chase_order.place_order(
-                        account_id=target_account_id,
-                        quantity=int(order_obj.get_amount()),
-                        price_type=price_type,
-                        symbol=ticker,
-                        duration=order.Duration.DAY,
-                        order_type=order_type,
-                        dry_run=order_obj.get_dry(),
-                        limit_price=limit_price,
-                    )
-                    print("The order verification produced the following messages: ")
-                    if order_obj.get_dry():
-                        pprint.pprint(messages["ORDER PREVIEW"])  # noqa: T203
-                        print_and_discord(
-                            (f"{key} account {account}: The order verification was " + ("successful" if messages["ORDER PREVIEW"] not in {"", "No order preview page found."} else "unsuccessful")),
-                            loop,
-                        )
-                        if messages["ORDER INVALID"] != "No invalid order message found.":
-                            print_and_discord(
-                                f"{key} account {account}: The order verification produced the following messages: {messages['ORDER INVALID']}",
-                                loop,
-                            )
-                    else:
-                        pprint.pprint(messages["ORDER CONFIRMATION"])  # noqa: T203
-                        print_and_discord(
-                            (f"{key} account {account}: The order verification was " + ("successful" if messages["ORDER CONFIRMATION"] not in {"", "No order confirmation page found. Order Failed."} else "unsuccessful")),
-                            loop,
-                        )
-                        if messages["ORDER INVALID"] != "No invalid order message found.":
-                            print_and_discord(
-                                f"{key} account {account}: The order verification produced the following messages: {messages['ORDER INVALID']}",
-                                loop,
-                            )
-            except Exception as e:
-                print_and_discord(f"{key} {account}: Error submitting order: {e}", loop)
-                print(traceback.format_exc())
-                continue
     if ch_session:
+        print_and_discord("Closing Chase browser...", loop)
         ch_session.close_browser()
-    print_and_discord(
-        "All Chase transactions complete",
-        loop,
-    )
+
+    print_and_discord("All Chase transactions complete", loop)
