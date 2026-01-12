@@ -1,8 +1,8 @@
 services:
     auto-rsa:
         container_name: auto-rsa
-        image: docker.io/nelsondane/auto-rsa:latest # or change to other branch you want to use
-        # build: . # uncomment this line if you want to build the image locally with "docker compose up -d --build"
+        # image: docker.io/nelsondane/auto-rsa:latest # or change to other branch you want to use
+        build: . # build the image locally so pyproject.toml/uv.lock changes apply
         restart: unless-stopped
         env_file:
             - .env
