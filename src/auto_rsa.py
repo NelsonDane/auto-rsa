@@ -43,7 +43,10 @@ if spec is not None:
 # Print Startup Info
 print(f"Python version: {sys.version}")
 print(f"Platform: {sys.platform}")
+print(f"Current Directory: {Path.cwd()}")
 CURRENT_RSA_VERSION = version("auto_rsa_bot")
+# Check to see if directory contains .env file
+print(f"Directory Contains .env File: {Path('.env').exists()}")
 print(f"RSA Version: {CURRENT_RSA_VERSION}")
 print()
 
@@ -53,24 +56,24 @@ try:
     from dotenv import load_dotenv
 
     # Custom API libraries (These are inferred from the namespace in fun_run, so the import is needed)
-    from .brokerages.bbae_api import bbae_holdings, bbae_init, bbae_transaction
-    from .brokerages.chase_api import chase_run
-    from .brokerages.dspac_api import dspac_holdings, dspac_init, dspac_transaction
-    from .brokerages.fennel_api import fennel_holdings, fennel_init, fennel_transaction
-    from .brokerages.fidelity_api import fidelity_run
-    from .brokerages.firstrade_api import firstrade_holdings, firstrade_init, firstrade_transaction
-    from .brokerages.public_api import public_holdings, public_init, public_transaction
-    from .brokerages.robinhood_api import robinhood_holdings, robinhood_init, robinhood_transaction
-    from .brokerages.schwab_api import schwab_holdings, schwab_init, schwab_transaction
-    from .brokerages.sofi_api import sofi_run
-    from .brokerages.tasty_api import tastytrade_holdings, tastytrade_init, tastytrade_transaction
-    from .brokerages.tornado_api import tornado_holdings, tornado_init, tornado_transaction
-    from .brokerages.tradier_api import tradier_holdings, tradier_init, tradier_transaction
-    from .brokerages.vanguard_api import vanguard_run
-    from .brokerages.webull_api import webull_holdings, webull_init, webull_transaction
-    from .brokerages.wellsfargo_api import wellsfargo_holdings, wellsfargo_init, wellsfargo_transaction
-    from .brokers import AllBrokersInfo, BrokerName
-    from .helper_api import StockOrder, ThreadHandler, print_and_discord
+    from src.brokerages.bbae_api import bbae_holdings, bbae_init, bbae_transaction
+    from src.brokerages.chase_api import chase_run
+    from src.brokerages.dspac_api import dspac_holdings, dspac_init, dspac_transaction
+    from src.brokerages.fennel_api import fennel_holdings, fennel_init, fennel_transaction
+    from src.brokerages.fidelity_api import fidelity_run
+    from src.brokerages.firstrade_api import firstrade_holdings, firstrade_init, firstrade_transaction
+    from src.brokerages.public_api import public_holdings, public_init, public_transaction
+    from src.brokerages.robinhood_api import robinhood_holdings, robinhood_init, robinhood_transaction
+    from src.brokerages.schwab_api import schwab_holdings, schwab_init, schwab_transaction
+    from src.brokerages.sofi_api import sofi_run
+    from src.brokerages.tasty_api import tastytrade_holdings, tastytrade_init, tastytrade_transaction
+    from src.brokerages.tornado_api import tornado_holdings, tornado_init, tornado_transaction
+    from src.brokerages.tradier_api import tradier_holdings, tradier_init, tradier_transaction
+    from src.brokerages.vanguard_api import vanguard_run
+    from src.brokerages.webull_api import webull_holdings, webull_init, webull_transaction
+    from src.brokerages.wellsfargo_api import wellsfargo_holdings, wellsfargo_init, wellsfargo_transaction
+    from src.brokers import AllBrokersInfo, BrokerName
+    from src.helper_api import StockOrder, ThreadHandler, print_and_discord
 except Exception as e:
     print(f"Error importing libraries: {e}")
     print(traceback.format_exc())
@@ -206,8 +209,11 @@ def fun_run(  # noqa: C901, PLR0912, PLR0915
                         webull_holdings(logged_in_broker, loop)
                     case BrokerName.WELLS_FARGO:
                         wellsfargo_holdings(logged_in_broker, loop)
-                # Add to total sum
-                total_value += sum(account["total"] for account in order_obj.get_logged_in(broker).get_account_totals().values())
+                # Track per-broker total so we can show accurate totals and still accumulate overall
+                broker_total = sum(account["total"] for account in order_obj.get_logged_in(broker).get_account_totals().values())
+                print_and_discord(f"Total Value of {broker.title()} Accounts: ${format(broker_total, '0.2f')}", loop)
+                # Add to overall total sum
+                total_value += broker_total
             else:
                 # Run transaction
                 match broker_info.name:
@@ -245,13 +251,10 @@ def fun_run(  # noqa: C901, PLR0912, PLR0915
             print(order_obj)
         print()
 
-        # Print final total value and closing message
-        if order_obj.get_holdings():
-            print_and_discord(
-                f"Total Value of All Accounts: ${format(total_value, '0.2f')}",
-                loop,
-            )
-        print_and_discord("All commands complete in all brokers", loop)
+    # Print final total value and closing message once after all brokers
+    if order_obj.get_holdings():
+        print_and_discord(f"Combined Total Value Across Brokers: ${format(total_value, '0.2f')}", loop)
+    print_and_discord("All commands complete in all brokers", loop)
 
 
 def arg_parser(args: list[str]) -> StockOrder:  # noqa: C901, PLR0912
@@ -408,7 +411,8 @@ def main(args: list[str]) -> None:  # noqa: C901, PLR0912, PLR0915
                     "ERROR: Invalid channel ID, please check your DISCORD_CHANNEL in your .env file and try again",
                 )
                 os._exit(1)  # Special exit code to restart docker container
-            await channel.send("Discord bot is started...")
+            else:
+                await channel.send("Discord bot is started...")
 
         @bot.event
         async def on_message(message: discord_module.Message) -> None:

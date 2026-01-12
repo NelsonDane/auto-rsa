@@ -1,8 +1,8 @@
 {
     "recommendations": [
+        "astral-sh.ty",
         "charliermarsh.ruff",
         "ms-python.python",
-        "tamasfe.even-better-toml",
-        "ms-python.mypy-type-checker",
+        "tamasfe.even-better-toml"
     ]
 }
