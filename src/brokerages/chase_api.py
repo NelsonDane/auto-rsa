@@ -85,7 +85,7 @@ def chase_init(account: str, index: int, *, headless: bool = True, bot_obj: Bot 
             debug=debug,
         )
         # Login to chase
-        need_second = ch_session.login(user_pass[0], user_pass[1], user_pass[2])
+        need_second = ch_session.login(user_pass[0], user_pass[1], int(user_pass[2]))
         # If 2FA is present, ask for code
         if need_second:
             if bot_obj is None and loop is None:
@@ -148,12 +148,11 @@ def _process_account_holdings(chase_o: Brokerage, all_accounts: ch_account.AllAc
     """Process holdings for a single account."""
     ch_session = cast("session.ChaseSession", chase_o.get_logged_in_objects(key))
     account_id = get_account_id(all_accounts.account_connectors, account)
-    data = symbols.SymbolHoldings(account_id, ch_session)
-    success = data.get_holdings()
-
-    if success:
-        for position in data.positions:
-            _process_position(position, chase_o, key, account)
+    if account_id:
+        data = symbols.SymbolHoldings(account_id, ch_session)
+        if data.get_holdings():
+            for position in data.positions:
+                _process_position(position, chase_o, key, account)
 
 
 def chase_holdings(chase_o: Brokerage, all_accounts: ch_account.AllAccount, loop: asyncio.AbstractEventLoop | None = None) -> None:
@@ -227,9 +226,12 @@ def _process_order_messages(messages: dict, order_obj: StockOrder, key: str, acc
             )
 
 
-def _execute_single_order(ch_session: session.ChaseSession, all_accounts: ch_account.AllAccount, order_obj: StockOrder, ticker: str, account: str, price_type: order.PriceType, limit_price: float, key: str, loop: asyncio.AbstractEventLoop | None) -> None:  # noqa: PLR0913, PLR0917
+def _execute_single_order(ch_session: session.ChaseSession, all_accounts: ch_account.AllAccount, order_obj: StockOrder, ticker: str, account: str, price_type: order.PriceType, limit_price: float, key: str, loop: asyncio.AbstractEventLoop | None) -> None:  # noqa: PLR0917
     """Execute a single order for one account."""
     target_account_id = get_account_id(all_accounts.account_connectors, account)
+    if not target_account_id:
+        print_and_discord(f"{key} {account}: Unable to find account ID, skipping order.", loop)
+        return
 
     if order_obj.get_dry():
         print_and_discord("Running in DRY mode. No transactions will be made.", loop)
