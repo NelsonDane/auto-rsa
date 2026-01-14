@@ -49,7 +49,6 @@ def robinhood_init(loop: AbstractEventLoop | None = None) -> Brokerage | None:
                 pickle_path="./creds/",
                 pickle_name=name,
             )
-            rh_obj.set_logged_in_object(name, rh)
             # Load all accounts
             all_accounts = cast("list[dict[str, Any]]", rh.account.load_account_profile(dataType="results"))
             for a in all_accounts:
@@ -81,20 +80,19 @@ def robinhood_init(loop: AbstractEventLoop | None = None) -> Brokerage | None:
 def robinhood_holdings(rho: Brokerage, loop: AbstractEventLoop | None = None) -> None:
     """Retrieve and display all Robinhood account holdings."""
     for key in rho.get_account_numbers():
-        obj = cast("rh", rho.get_logged_in_objects(key))
         for account in rho.get_account_numbers(key):
             login_with_cache(pickle_path="./creds/", pickle_name=key)
             try:
                 # Get account holdings
-                positions = cast("list[dict[str, str]]", obj.get_open_stock_positions(account_number=account))
+                positions = cast("list[dict[str, str]]", rh.get_open_stock_positions(account_number=account))
                 if positions:
                     for item in positions:
                         # Get symbol, quantity, price, and total value
-                        sym = item["symbol"] = cast("str", obj.get_symbol_by_url(item["instrument"]))
+                        sym = item["symbol"] = cast("str", rh.get_symbol_by_url(item["instrument"]))
                         qty = float(item["quantity"])
                         current_price: float | str = "N/A"
                         with contextlib.suppress(Exception):
-                            current_price = round(float(obj.stocks.get_latest_price(sym)[0]), 2)
+                            current_price = round(float(rh.stocks.get_latest_price(sym)[0]), 2)
                         rho.set_holdings(key, account, sym, qty, current_price)
             except Exception as e:
                 print_and_discord(f"{key}: Error getting account holdings: {e}", loop)
@@ -117,13 +115,12 @@ def robinhood_transaction(rho: Brokerage, order_obj: StockOrder, loop: AbstractE
                 loop,
             )
             for account in rho.get_account_numbers(key):
-                obj = cast("rh", rho.get_logged_in_objects(key))
                 login_with_cache(pickle_path="./creds/", pickle_name=key)
                 print_account = mask_string(account)
                 if not order_obj.get_dry():
                     try:
                         # Market order
-                        market_order = obj.order(
+                        market_order = rh.order(
                             symbol=s,
                             quantity=order_obj.get_amount(),
                             side=order_obj.get_action(),
@@ -136,8 +133,8 @@ def robinhood_transaction(rho: Brokerage, order_obj: StockOrder, loop: AbstractE
                                 f"{key}: Error {order_obj.get_action()}ing {order_obj.get_amount()} of {s} in {print_account}, trying Limit Order",
                                 loop,
                             )
-                            ask = obj.get_latest_price(s, priceType="ask_price")[0]
-                            bid = obj.get_latest_price(s, priceType="bid_price")[0]
+                            ask = rh.get_latest_price(s, priceType="ask_price")[0]
+                            bid = rh.get_latest_price(s, priceType="bid_price")[0]
                             if ask is not None and bid is not None:
                                 print(f"Ask: {ask}, Bid: {bid}")
                                 # Add or subtract 1 cent to ask or bid
@@ -153,7 +150,7 @@ def robinhood_transaction(rho: Brokerage, order_obj: StockOrder, loop: AbstractE
                                     loop,
                                 )
                                 continue
-                            limit_order = obj.order(
+                            limit_order = rh.order(
                                 symbol=s,
                                 quantity=order_obj.get_amount(),
                                 side=order_obj.get_action(),

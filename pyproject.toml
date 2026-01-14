@@ -6,7 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
     "bbae-invest-api==0.1.5",
     "beautifulsoup4>=4.12.3",
-    "chaseinvest-api==0.3.6",
+    "chaseinvest-api==0.4.7",
     "cryptography>=46.0.3",
     "curl-cffi==0.14.0",
     "discord-py==2.6.4",
@@ -15,7 +15,7 @@ dependencies = [
     "fennel-invest-api==2.0.0",
     "fidelity-api==0.0.16",
     "firstrade==0.0.34",
-    "nodriver==0.48.1",
+    "nodriver==0.47.0",
     "paho-mqtt>=2.1.0",
     "publicdotcom-py==0.1.6",
     "pyotp==2.9.0",
@@ -32,8 +32,8 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "mypy>=1.18.2",
     "ruff>=0.13.3",
+    "ty>=0.0.11",
     "types-requests>=2.32.4.20250913",
 ]
 
@@ -73,10 +73,9 @@ ignore = [
 ]
 "src/brokerages/wellsfargo_api.py" = ["ALL"]
 
+[tool.ty.environment]
+root = ["src"]
+python-version = "3.12"
 
-[tool.mypy]
-files = ["src"]
+[tool.ty.src]
 exclude = ["src/vendors/*", "guides/*"]
-# strict = true
-python_version = "3.12"
-disable_error_code = ["import-untyped"]
