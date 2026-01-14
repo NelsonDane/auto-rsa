@@ -5,7 +5,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "bbae-invest-api==0.1.5",
-    "chaseinvest-api==0.3.6",
+    "chaseinvest-api==0.4.7",
     "cryptography>=46.0.3",
     "curl-cffi==0.14.0",
     "discord-py==2.6.4",
