@@ -267,7 +267,7 @@ requires-dist = [
     { name = "schwab-api2", specifier = ">=0.3.0" },
     { name = "selenium-stealth", specifier = "==1.0.6" },
     { name = "setuptools", specifier = "<81" },
-    { name = "tastytrade", specifier = "==9.11" },
+    { name = "tastytrade", specifier = "==11.1.0" },
     { name = "typer", specifier = ">=0.20.0" },
     { name = "vanguard-api", specifier = "==0.3.3" },
 ]
@@ -1820,7 +1820,7 @@ wheels = [
 
 [[package]]
 name = "tastytrade"
-version = "9.11"
+version = "11.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
@@ -1828,9 +1828,9 @@ dependencies = [
     { name = "pydantic" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/42/7d/e825ade57a6c0d8b2d31c69ecea36059cb349858ad8b0f6b062f703bf747/tastytrade-9.11.tar.gz", hash = "sha256:7e64514e289c79d9c5edc8127673cb6ce66adddf3e4f391cd545c2f811bd5923", size = 150653, upload_time = "2025-03-20T21:12:43.993Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/af/b2/3b6a9b54426b5262ade8d6165ffd85c13fdf6625693b28113f2bd30e754b/tastytrade-11.1.0.tar.gz", hash = "sha256:97ef96740dab3ecc35a8a7e94ee7cd9091174b692a24d29592bbca71701889e4", size = 199068, upload_time = "2025-12-18T20:55:31.95Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/70/d5/9ea5f4969a01e711ea46419fd97430f826e9b87629cb50a5948a24458032/tastytrade-9.11-py3-none-any.whl", hash = "sha256:9e42ab93f0ae8077fda18f58b0456dc2a0184ea6f41df99cbb216fca00b22ce9", size = 52088, upload_time = "2025-03-20T21:12:42.374Z" },
+    { url = "https://files.pythonhosted.org/packages/b1/16/f12781e9ed7a18d1a959be6be7a8de234a5ef2196a17d3d2fa985c8113cc/tastytrade-11.1.0-py3-none-any.whl", hash = "sha256:bea5c0fbdf55d5eed86754de65e60dffb3ead3e1e01761ac76f4a633f971eecd", size = 51376, upload_time = "2025-12-18T20:55:30.395Z" },
 ]
 
 [[package]]

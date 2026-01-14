@@ -14,13 +14,13 @@ from tastytrade.dxfeed import Profile, Quote
 from tastytrade.instruments import Equity
 from tastytrade.order import NewOrder, OrderAction, OrderTimeInForce, OrderType
 from tastytrade.streamer import DXLinkStreamer
-from tastytrade.utils import TastytradeError
+from tastytrade.utils import TastytradeError, now_in_new_york
 
 from src.helper_api import Brokerage, StockOrder, mask_string, print_all_holdings, print_and_discord
 
 
 def _order_setup(tt: Session, order_type: list[str], stock_price: Decimal, stock: str, amount: float) -> NewOrder:
-    symbol = Equity.get_equity(tt, stock)
+    symbol = Equity.get(tt, stock)
     if order_type[2] == "Buy to Open":
         leg = symbol.build_leg(Decimal(amount), OrderAction.BUY_TO_OPEN)
     elif order_type[2] == "Sell to Close":
@@ -54,8 +54,11 @@ def tastytrade_init() -> Brokerage | None:
         name = f"Tastytrade {index}"
         try:
             tasty = Session(account_creds[0], account_creds[1])
+            # Check if token needs refreshing
+            if now_in_new_york() >= tasty.session_expiration:
+                tasty.refresh()
             tasty_obj.set_logged_in_object(name, tasty, "session")
-            an = Account.get_accounts(tasty)
+            an = Account.get(tasty)
             tasty_obj.set_logged_in_object(name, an, "accounts")
             for acct in an:
                 tasty_obj.set_account_number(name, acct.account_number)
