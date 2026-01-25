@@ -4,16 +4,8 @@
     {
       "description": "Don't update docker-compose.yml since it's just an example",
       "enabled": false,
-      "matchFileNames": ["docker-compose.yml"]
-    },
-    {
-      "groupName": "all digest updates",
-      "groupSlug": "all-digest",
-      "matchPackageNames": [
-        "*"
-      ],
-      "matchUpdateTypes": [
-        "digest"
+      "matchFileNames": [
+        "docker-compose.yml"
       ]
     }
   ]
