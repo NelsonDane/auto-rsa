@@ -1,6 +1,6 @@
 # Nelson Dane
 
-FROM ghcr.io/astral-sh/uv:bookworm-slim@sha256:2f41ecaee498d7e7ed464bdfb3daccaec3ef3569778a1b5254ed433597422355 AS builder
+FROM ghcr.io/astral-sh/uv:bookworm-slim@sha256:73e992a069d1f5ff10e96ca601f84bb4935b46cfd654ffe3b1ca6a47ab0b79a4 AS builder
 # Layer taken from: https://www.joshkasuboski.com/posts/distroless-python-uv/
 
 # UV Flags
@@ -33,7 +33,7 @@ COPY . /app
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-editable
 
-FROM alpine:3.23@sha256:865b95f46d98cf867a156fe4a135ad3fe50d2056aa3f25ed31662dff6da4eb62 AS unixifier
+FROM alpine:3.23@sha256:25109184c71bdad752c8312a8623239686a9a2071e8825f20acb8f2198c3f659 AS unixifier
 
 # Make entrypoint executable
 WORKDIR /app
@@ -42,7 +42,7 @@ RUN apk add --no-cache dos2unix
 COPY entrypoint.sh .
 RUN dos2unix entrypoint.sh && chmod +x entrypoint.sh
 
-FROM debian:bookworm-slim@sha256:56ff6d36d4eb3db13a741b342ec466f121480b5edded42e4b7ee850ce7a418ee AS final
+FROM debian:bookworm-slim@sha256:98f4b71de414932439ac6ac690d7060df1f27161073c5036a7553723881bffbe AS final
 
 # Set ENV variables
 ENV TZ=America/New_York \
