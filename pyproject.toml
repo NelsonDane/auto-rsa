@@ -5,6 +5,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "bbae-invest-api==0.1.5",
+    "beautifulsoup4>=4.12.3",
     "chaseinvest-api==0.4.7",
     "cryptography>=46.0.3",
     "curl-cffi==0.14.0",
@@ -26,6 +27,7 @@ dependencies = [
     "tastytrade==11.1.0",
     "typer>=0.20.0",
     "vanguard-api==0.3.3",
+    "zendriver>=0.3.15",
 ]
 
 [dependency-groups]
@@ -69,6 +71,7 @@ ignore = [
     "PLR0913", # Allow too many arguments
     "PLR1702", # Allow many nested blocks
 ]
+"src/brokerages/wellsfargo_api.py" = ["ALL"]
 
 [tool.ty.environment]
 root = ["src"]
