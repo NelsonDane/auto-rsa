@@ -23,6 +23,6 @@ jobs:
       - name: Install requirements
         run: uv sync --all-groups
       - name: Run ruff format
-        run: ruff format --check
+        run: uv run ruff format --check
       - name: Run ruff check
-        run: ruff check
+        run: uv run ruff check
