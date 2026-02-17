@@ -124,16 +124,15 @@ wheels = [
 
 [[package]]
 name = "anyio"
-version = "4.11.0"
+version = "4.12.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "idna" },
-    { name = "sniffio" },
     { name = "typing-extensions", marker = "python_full_version < '3.13'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c6/78/7d432127c41b50bccba979505f272c16cbcadcc33645d5fa3a738110ae75/anyio-4.11.0.tar.gz", hash = "sha256:82a8d0b81e318cc5ce71a5f1f8b5c4e63619620b63141ef8c995fa0db95a57c4", size = 219094, upload-time = "2025-09-23T09:19:12.58Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/96/f0/5eb65b2bb0d09ac6776f2eb54adee6abe8228ea05b20a5ad0e4945de8aac/anyio-4.12.1.tar.gz", hash = "sha256:41cfcc3a4c85d3f05c932da7c26d0201ac36f72abd4435ba90d0464a3ffed703", size = 228685, upload-time = "2026-01-06T11:45:21.246Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/15/b3/9b1a8074496371342ec1e796a96f99c82c945a339cd81a8e73de28b4cf9e/anyio-4.11.0-py3-none-any.whl", hash = "sha256:0287e96f4d26d4149305414d4e3bc32f0dcd0862365a4bddea19d7a1ec38c4fc", size = 109097, upload-time = "2025-09-23T09:19:10.601Z" },
+    { url = "https://files.pythonhosted.org/packages/38/0e/27be9fdef66e72d64c0cdc3cc2823101b80585f8119b5c112c2e8f5f7dab/anyio-4.12.1-py3-none-any.whl", hash = "sha256:d405828884fc140aa80a3c667b8beed277f1dfedec42ba031bd6ac3db606ab6c", size = 113592, upload-time = "2026-01-06T11:45:19.497Z" },
 ]
 
 [[package]]
@@ -267,7 +266,7 @@ requires-dist = [
     { name = "schwab-api2", specifier = ">=0.3.0" },
     { name = "selenium-stealth", specifier = "==1.0.6" },
     { name = "setuptools", specifier = "<81" },
-    { name = "tastytrade", specifier = "==11.1.0" },
+    { name = "tastytrade", specifier = "==12.0.2" },
     { name = "typer", specifier = ">=0.20.0" },
     { name = "vanguard-api", specifier = "==0.3.3" },
 ]
@@ -840,6 +839,21 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/b1/df/48c586a5fe32a0f01324ee087459e112ebb7224f646c0b5023f5e79e9956/httpx-0.28.1.tar.gz", hash = "sha256:75e98c5f16b0f35b567856f597f06ff2270a374470a5c2392242528e3e3e42fc", size = 141406, upload-time = "2024-12-06T15:37:23.222Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/2a/39/e50c7c3a983047577ee07d2a9e53faf5a69493943ec3f6a384bdc792deb2/httpx-0.28.1-py3-none-any.whl", hash = "sha256:d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad", size = 73517, upload-time = "2024-12-06T15:37:21.509Z" },
+]
+
+[[package]]
+name = "httpx-ws"
+version = "0.8.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "httpcore" },
+    { name = "httpx" },
+    { name = "wsproto" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4a/32/6f7198f55d94063ea84487a31cdd3e149d2702dc0804fc5de06ed12ef2c2/httpx_ws-0.8.2.tar.gz", hash = "sha256:ba0d4aa76e1c8a27bd5e88984ecdcdc28f7bf30b40cb0989a4c1438d07fa52c7", size = 105734, upload-time = "2025-11-07T12:57:36.566Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/29/cd/2008972ddc4c2139b9813d8a097e53dcc74b2a16a85b4069294457954232/httpx_ws-0.8.2-py3-none-any.whl", hash = "sha256:f8898ddb84cbf98c562e8e796675bc68c215fa1d453d54a7fcd935aca8198cc8", size = 15404, upload-time = "2025-11-07T12:57:35.176Z" },
 ]
 
 [[package]]
@@ -1820,17 +1834,18 @@ wheels = [
 
 [[package]]
 name = "tastytrade"
-version = "11.1.0"
+version = "12.0.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "anyio" },
     { name = "httpx" },
+    { name = "httpx-ws" },
     { name = "pandas-market-calendars" },
     { name = "pydantic" },
-    { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/af/b2/3b6a9b54426b5262ade8d6165ffd85c13fdf6625693b28113f2bd30e754b/tastytrade-11.1.0.tar.gz", hash = "sha256:97ef96740dab3ecc35a8a7e94ee7cd9091174b692a24d29592bbca71701889e4", size = 199068, upload-time = "2025-12-18T20:55:31.95Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/53/d6/1e003c22e14677ac8afda955dde586677262994fbd329c85b3fd03c1a88d/tastytrade-12.0.2.tar.gz", hash = "sha256:3814c0f8ad6ee27c6d55456c55e8dfdb2565fb5f244fc586172cf4d096d0cce4", size = 163035, upload-time = "2026-02-09T17:47:47.042Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b1/16/f12781e9ed7a18d1a959be6be7a8de234a5ef2196a17d3d2fa985c8113cc/tastytrade-11.1.0-py3-none-any.whl", hash = "sha256:bea5c0fbdf55d5eed86754de65e60dffb3ead3e1e01761ac76f4a633f971eecd", size = 51376, upload-time = "2025-12-18T20:55:30.395Z" },
+    { url = "https://files.pythonhosted.org/packages/1d/1e/2cf5b3fc2ec6d1dedbaf8b54b97cf62e5835d5bed468a9cf32860553d71e/tastytrade-12.0.2-py3-none-any.whl", hash = "sha256:c5502fee64f45d425f39a7ce8e398394f69c6a79e49d891b10ef6b9ea7495c33", size = 49286, upload-time = "2026-02-09T17:47:45.696Z" },
 ]
 
 [[package]]
