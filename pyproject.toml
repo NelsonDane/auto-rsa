@@ -8,7 +8,7 @@ dependencies = [
     "chaseinvest-api==0.4.7",
     "cryptography>=46.0.3",
     "curl-cffi==0.14.0",
-    "discord-py==2.6.4",
+    "discord-py==2.7.1",
     "dspac-invest-api==0.1.4",
     "email-validator>=2.3.0",
     "fennel-invest-api==2.0.1",
