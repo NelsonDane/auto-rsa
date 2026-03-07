@@ -18,7 +18,7 @@ dependencies = [
     "paho-mqtt>=2.1.0",
     "publicdotcom-py==0.1.6",
     "pyotp==2.9.0",
-    "python-dotenv==1.2.1",
+    "python-dotenv==1.2.2",
     "requests==2.32.5",
     "schwab-api2>=0.3.0",
     "selenium-stealth==1.0.6",

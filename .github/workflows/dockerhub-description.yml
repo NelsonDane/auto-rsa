@@ -7,6 +7,12 @@ on:
       - README.md
       - .github/workflows/dockerhub-description.yml
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
 jobs:
   update-dockerhub-description:
     name: Update Docker Hub Description
