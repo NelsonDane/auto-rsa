@@ -33,6 +33,6 @@ jobs:
       - name: Install requirements
         run: uv sync --all-groups
       - name: Run Type Checker
-        run: uv run ty check --python-version ${{ matrix.python }}
+        run: uv run ty check --python-version $PYTHON_VERSION
         env:
           PYTHON_VERSION: ${{ matrix.python }}
