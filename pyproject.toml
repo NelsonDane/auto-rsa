@@ -22,7 +22,7 @@ dependencies = [
     "requests==2.32.5",
     "schwab-api2>=0.3.0",
     "selenium-stealth==1.0.6",
-    "setuptools<81",
+    "setuptools<83",
     "tastytrade==11.1.0",
     "typer>=0.20.0",
     "vanguard-api==0.3.3",
