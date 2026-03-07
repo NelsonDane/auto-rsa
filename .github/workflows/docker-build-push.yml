@@ -11,6 +11,12 @@ on:
       - 'develop*'
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
 jobs:
   dockerhub-build-and-push:
     name: Build and Push Docker Image
