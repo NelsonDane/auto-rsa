@@ -13,7 +13,7 @@ dependencies = [
     "email-validator>=2.3.0",
     "fennel-invest-api==2.0.1",
     "fidelity-api==0.0.16",
-    "firstrade==0.0.34",
+    "firstrade==0.0.38",
     "nodriver==0.47.0",
     "paho-mqtt>=2.1.0",
     "publicdotcom-py==0.1.6",
