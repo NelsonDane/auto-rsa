@@ -260,7 +260,7 @@ requires-dist = [
     { name = "firstrade", specifier = "==0.0.34" },
     { name = "nodriver", specifier = "==0.47.0" },
     { name = "paho-mqtt", specifier = ">=2.1.0" },
-    { name = "publicdotcom-py", specifier = "==0.1.6" },
+    { name = "publicdotcom-py", specifier = "==0.1.10" },
     { name = "pyotp", specifier = "==2.9.0" },
     { name = "python-dotenv", specifier = "==1.2.2" },
     { name = "requests", specifier = "==2.33.1" },
@@ -1437,17 +1437,18 @@ wheels = [
 
 [[package]]
 name = "publicdotcom-py"
-version = "0.1.6"
+version = "0.1.10"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "httpx" },
     { name = "pydantic" },
     { name = "python-dotenv" },
     { name = "requests" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/60/4e/d3220c9fa550908bd5c6eabf390ed3219e19c5144bace7166cf76710db5d/publicdotcom_py-0.1.6.tar.gz", hash = "sha256:a2aaf29b52a8e9172dccf70a9e910fdcb11c3c998f8090ff025684136fd7d40c", size = 57500, upload-time = "2025-11-25T21:29:17.513Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/59/a5/b14fc7410702e7596c8eff950291ffad2c98916d6fca1a1bf8496b779cce/publicdotcom_py-0.1.10.tar.gz", hash = "sha256:41769739c3211f70f020ee765743fb3159aebd4dd847cf47a9cd544b9f6a3727", size = 121607, upload-time = "2026-03-04T18:51:28.455Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5e/b9/3bb9c70d429bb289b02ea5e5a62d0b723e829a79b7d0a3b09690c1ea010a/publicdotcom_py-0.1.6-py3-none-any.whl", hash = "sha256:ecc9a3ee81518a39e946b0f160f18e92f532f9b5053890104a4ddc2b394a9228", size = 47662, upload-time = "2025-11-25T21:29:16.512Z" },
+    { url = "https://files.pythonhosted.org/packages/1e/b1/e9bf3d100a455d89693e4c2facc84fde3e668c8170d02e8d44ac21f0c8fe/publicdotcom_py-0.1.10-py3-none-any.whl", hash = "sha256:21dd78a2200dd83e2bc90093fb39abeda19fd2d8e9d50623d3287c271f1a1b0a", size = 79449, upload-time = "2026-03-04T18:51:27.144Z" },
 ]
 
 [[package]]
