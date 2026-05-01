@@ -4,6 +4,7 @@
 import asyncio
 import os
 import traceback
+from datetime import datetime
 from decimal import Decimal
 from typing import cast
 
@@ -14,13 +15,13 @@ from tastytrade.dxfeed import Profile, Quote
 from tastytrade.instruments import Equity
 from tastytrade.order import NewOrder, OrderAction, OrderTimeInForce, OrderType
 from tastytrade.streamer import DXLinkStreamer
-from tastytrade.utils import TastytradeError
+from tastytrade.utils import TastytradeError, now_in_new_york
 
 from src.helper_api import Brokerage, StockOrder, mask_string, print_all_holdings, print_and_discord
 
 
-def _order_setup(tt: Session, order_type: list[str], stock_price: Decimal, stock: str, amount: float) -> NewOrder:
-    symbol = Equity.get_equity(tt, stock)
+async def _order_setup(tt: Session, order_type: list[str], stock_price: Decimal, stock: str, amount: float) -> NewOrder:
+    symbol = await Equity.get(tt, stock)
     if order_type[2] == "Buy to Open":
         leg = symbol.build_leg(Decimal(amount), OrderAction.BUY_TO_OPEN)
     elif order_type[2] == "Sell to Close":
@@ -36,7 +37,7 @@ def _order_setup(tt: Session, order_type: list[str], stock_price: Decimal, stock
     )
 
 
-def tastytrade_init() -> Brokerage | None:
+async def _tastytrade_async_init() -> Brokerage | None:
     """Initialize the Tastytrade API."""
     # Initialize .env file
     load_dotenv()
@@ -54,12 +55,17 @@ def tastytrade_init() -> Brokerage | None:
         name = f"Tastytrade {index}"
         try:
             tasty = Session(account_creds[0], account_creds[1])
+            # Check if token needs refreshing
+            local_tz = datetime.now().astimezone().tzinfo
+            if now_in_new_york() >= datetime.fromtimestamp(tasty.session_expiration, tz=local_tz):
+                await tasty.refresh()
             tasty_obj.set_logged_in_object(name, tasty, "session")
-            an = Account.get_accounts(tasty)
+            an = await Account.get(tasty)
             tasty_obj.set_logged_in_object(name, an, "accounts")
             for acct in an:
                 tasty_obj.set_account_number(name, acct.account_number)
-                tasty_obj.set_account_totals(name, acct.account_number, float(acct.get_balances(tasty).cash_balance))
+                cash_balance = (await acct.get_balances(tasty)).cash_balance
+                tasty_obj.set_account_totals(name, acct.account_number, float(cash_balance))
             print("Logged in to Tastytrade!")
         except Exception as e:
             traceback.print_exc()
@@ -68,14 +74,14 @@ def tastytrade_init() -> Brokerage | None:
     return tasty_obj
 
 
-def tastytrade_holdings(tt_o: Brokerage, loop: asyncio.AbstractEventLoop | None = None) -> None:
+async def _tastytrade_async_holdings(tt_o: Brokerage, loop: asyncio.AbstractEventLoop | None = None) -> None:
     """Retrieve and display all Tastytrade account holdings."""
     for key in tt_o.get_account_numbers():
         obj = cast("Session", tt_o.get_logged_in_objects(key, "session"))
         for index, account in enumerate(cast("list[Account]", tt_o.get_logged_in_objects(key, "accounts"))):
             try:
                 an = tt_o.get_account_numbers(key)[index]
-                positions = account.get_positions(obj)
+                positions = await account.get_positions(obj)
                 for pos in positions:
                     tt_o.set_holdings(
                         key,
@@ -91,7 +97,7 @@ def tastytrade_holdings(tt_o: Brokerage, loop: asyncio.AbstractEventLoop | None 
     print_all_holdings(tt_o, loop=loop)
 
 
-async def _tastytrade_execute(tt_o: Brokerage, order_obj: StockOrder, loop: asyncio.AbstractEventLoop | None = None) -> None:  # noqa: C901, PLR0912, PLR0915
+async def _tastytrade_async_execute(tt_o: Brokerage, order_obj: StockOrder, loop: asyncio.AbstractEventLoop | None = None) -> None:  # noqa: C901, PLR0912, PLR0915
     print()
     print("==============================")
     print("Tastytrade")
@@ -115,7 +121,7 @@ async def _tastytrade_execute(tt_o: Brokerage, order_obj: StockOrder, loop: asyn
                     stock_price = Decimal(0)
                     # Skip day trade check for now
                     # Place order
-                    new_order = _order_setup(
+                    new_order = await _order_setup(
                         obj,
                         order_type,
                         stock_price,
@@ -123,7 +129,7 @@ async def _tastytrade_execute(tt_o: Brokerage, order_obj: StockOrder, loop: asyn
                         order_obj.get_amount(),
                     )
                     try:
-                        placed_order = acct.place_order(
+                        placed_order = await acct.place_order(
                             obj,
                             new_order,
                             dry_run=order_obj.get_dry(),
@@ -143,11 +149,11 @@ async def _tastytrade_execute(tt_o: Brokerage, order_obj: StockOrder, loop: asyn
                         print_and_discord(message, loop=loop)
                     elif order_status == "Rejected":
                         # Retry with limit order
-                        streamer = await DXLinkStreamer(obj)
-                        stock_limit = await streamer.subscribe(Profile, [s])
-                        stock_quote = await streamer.subscribe(Quote, [s])
-                        stock_limit = await streamer.get_event(Profile)
-                        stock_quote = await streamer.get_event(Quote)
+                        async with DXLinkStreamer(obj) as streamer:
+                            stock_limit = await streamer.subscribe(Profile, [s])
+                            stock_quote = await streamer.subscribe(Quote, [s])
+                            stock_limit = await streamer.get_event(Profile)
+                            stock_quote = await streamer.get_event(Quote)
                         print_and_discord(
                             f"{key} {print_account} Error: {order_status} Trying Limit order...",
                             loop=loop,
@@ -163,14 +169,14 @@ async def _tastytrade_execute(tt_o: Brokerage, order_obj: StockOrder, loop: asyn
                             order_type = ["Market", "Credit", "Sell to Close"]
                         print(f"{s} limit price is: ${round(stock_price, 2)}")
                         # Retry order
-                        new_order = _order_setup(
+                        new_order = await _order_setup(
                             obj,
                             order_type,
                             stock_price,
                             s,
                             order_obj.get_amount(),
                         )
-                        placed_order = acct.place_order(
+                        placed_order = await acct.place_order(
                             obj,
                             new_order,
                             dry_run=order_obj.get_dry(),
@@ -192,6 +198,19 @@ async def _tastytrade_execute(tt_o: Brokerage, order_obj: StockOrder, loop: asyn
                     continue
 
 
+_tasty_loop = asyncio.new_event_loop()
+
+
+def tastytrade_init() -> Brokerage | None:
+    """Initialize the Tastytrade API."""
+    return _tasty_loop.run_until_complete(_tastytrade_async_init())
+
+
+def tastytrade_holdings(tt_o: Brokerage, loop: asyncio.AbstractEventLoop | None = None) -> None:
+    """Retrieve and display all Tastytrade account holdings."""
+    _tasty_loop.run_until_complete(_tastytrade_async_holdings(tt_o=tt_o, loop=loop))
+
+
 def tastytrade_transaction(tt: Brokerage, order_obj: StockOrder, loop: asyncio.AbstractEventLoop | None = None) -> None:
     """Execute a Tastytrade transaction."""
-    asyncio.run(_tastytrade_execute(tt_o=tt, order_obj=order_obj, loop=loop))
+    _tasty_loop.run_until_complete(_tastytrade_async_execute(tt_o=tt, order_obj=order_obj, loop=loop))

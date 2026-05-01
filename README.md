@@ -357,11 +357,13 @@ To get your access token, go to your [Tradier API settings](https://dash.tradier
 Made by [MaxxRK](https://github.com/MaxxRK/) using the [tastytrade-api](https://github.com/tastyware/tastytrade). Go give them a ⭐
 
 Required `.env` variables:
-- `TASTYTRADE_USERNAME`
-- `TASTYTRADE_PASSWORD`
+- `TASTYTRADE_CLIENT_SECRET`
+- `TASTYTRADE_REFRESH_TOKEN`
 
 `.env` file format:
-- `TASTYTRADE=TASTYTRADE_USERNAME:TASTYTRADE_PASSWORD`
+- `TASTYTRADE=TASTYTRADE_CLIENT_SECRET:TASTYTRADE_REFRESH_TOKEN`
+
+Tastytrade now uses OAuth2 for authentication instead of username/password. To get your new values, see this [guide](https://tastyworks-api.readthedocs.io/en/latest/sessions.html).
 
 ### Webull
 Made using the [webull](https://github.com/tedchou12/webull) library. Go give them a ⭐

@@ -4,7 +4,9 @@
     {
       "description": "Don't update docker-compose.yml since it's just an example",
       "enabled": false,
-      "matchFileNames": ["docker-compose.yml"]
+      "matchFileNames": [
+        "docker-compose.yml"
+      ]
     }
   ]
 }
