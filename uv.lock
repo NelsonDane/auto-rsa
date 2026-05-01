@@ -124,16 +124,15 @@ wheels = [
 
 [[package]]
 name = "anyio"
-version = "4.11.0"
+version = "4.13.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "idna" },
-    { name = "sniffio" },
     { name = "typing-extensions", marker = "python_full_version < '3.13'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c6/78/7d432127c41b50bccba979505f272c16cbcadcc33645d5fa3a738110ae75/anyio-4.11.0.tar.gz", hash = "sha256:82a8d0b81e318cc5ce71a5f1f8b5c4e63619620b63141ef8c995fa0db95a57c4", size = 219094, upload-time = "2025-09-23T09:19:12.58Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/19/14/2c5dd9f512b66549ae92767a9c7b330ae88e1932ca57876909410251fe13/anyio-4.13.0.tar.gz", hash = "sha256:334b70e641fd2221c1505b3890c69882fe4a2df910cba14d97019b90b24439dc", size = 231622, upload-time = "2026-03-24T12:59:09.671Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/15/b3/9b1a8074496371342ec1e796a96f99c82c945a339cd81a8e73de28b4cf9e/anyio-4.11.0-py3-none-any.whl", hash = "sha256:0287e96f4d26d4149305414d4e3bc32f0dcd0862365a4bddea19d7a1ec38c4fc", size = 109097, upload-time = "2025-09-23T09:19:10.601Z" },
+    { url = "https://files.pythonhosted.org/packages/da/42/e921fccf5015463e32a3cf6ee7f980a6ed0f395ceeaa45060b61d86486c2/anyio-4.13.0-py3-none-any.whl", hash = "sha256:08b310f9e24a9594186fd75b4f73f4a4152069e3853f1ed8bfbf58369f4ad708", size = 114353, upload-time = "2026-03-24T12:59:08.246Z" },
 ]
 
 [[package]]
@@ -212,7 +211,7 @@ wheels = [
 
 [[package]]
 name = "auto-rsa-bot"
-version = "2.0.1"
+version = "2.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "bbae-invest-api" },
@@ -252,22 +251,22 @@ requires-dist = [
     { name = "chaseinvest-api", specifier = "==0.4.7" },
     { name = "cryptography", specifier = ">=46.0.3" },
     { name = "curl-cffi", specifier = "==0.14.0" },
-    { name = "discord-py", specifier = "==2.6.4" },
+    { name = "discord-py", specifier = "==2.7.1" },
     { name = "dspac-invest-api", specifier = "==0.1.4" },
     { name = "email-validator", specifier = ">=2.3.0" },
-    { name = "fennel-invest-api", specifier = "==2.0.0" },
+    { name = "fennel-invest-api", specifier = "==2.0.1" },
     { name = "fidelity-api", specifier = "==0.0.16" },
     { name = "firstrade", specifier = "==0.0.34" },
     { name = "nodriver", specifier = "==0.47.0" },
     { name = "paho-mqtt", specifier = ">=2.1.0" },
     { name = "publicdotcom-py", specifier = "==0.1.10" },
     { name = "pyotp", specifier = "==2.9.0" },
-    { name = "python-dotenv", specifier = "==1.2.1" },
-    { name = "requests", specifier = "==2.32.5" },
+    { name = "python-dotenv", specifier = "==1.2.2" },
+    { name = "requests", specifier = "==2.33.1" },
     { name = "schwab-api2", specifier = ">=0.3.0" },
     { name = "selenium-stealth", specifier = "==1.0.6" },
-    { name = "setuptools", specifier = "<81" },
-    { name = "tastytrade", specifier = "==9.11" },
+    { name = "setuptools", specifier = "<83" },
+    { name = "tastytrade", specifier = "==12.4.1" },
     { name = "typer", specifier = ">=0.20.0" },
     { name = "vanguard-api", specifier = "==0.3.3" },
 ]
@@ -557,15 +556,15 @@ wheels = [
 
 [[package]]
 name = "discord-py"
-version = "2.6.4"
+version = "2.7.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
     { name = "audioop-lts", marker = "python_full_version >= '3.13'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ce/e7/9b1dbb9b2fc07616132a526c05af23cfd420381793968a189ee08e12e35f/discord_py-2.6.4.tar.gz", hash = "sha256:44384920bae9b7a073df64ae9b14c8cf85f9274b5ad5d1d07bd5a67539de2da9", size = 1092623, upload-time = "2025-10-08T21:45:43.593Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ef/57/9a2d9abdabdc9db8ef28ce0cf4129669e1c8717ba28d607b5ba357c4de3b/discord_py-2.7.1.tar.gz", hash = "sha256:24d5e6a45535152e4b98148a9dd6b550d25dc2c9fb41b6d670319411641249da", size = 1106326, upload-time = "2026-03-03T18:40:46.24Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ca/ae/3d3a89b06f005dc5fa8618528dde519b3ba7775c365750f7932b9831ef05/discord_py-2.6.4-py3-none-any.whl", hash = "sha256:2783b7fb7f8affa26847bfc025144652c294e8fe6e0f8877c67ed895749eb227", size = 1209284, upload-time = "2025-10-08T21:45:41.679Z" },
+    { url = "https://files.pythonhosted.org/packages/f7/a7/17208c3b3f92319e7fad259f1c6d5a5baf8fd0654c54846ced329f83c3eb/discord_py-2.7.1-py3-none-any.whl", hash = "sha256:849dca2c63b171146f3a7f3f8acc04248098e9e6203412ce3cf2745f284f7439", size = 1227550, upload-time = "2026-03-03T18:40:44.492Z" },
 ]
 
 [[package]]
@@ -632,15 +631,15 @@ wheels = [
 
 [[package]]
 name = "fennel-invest-api"
-version = "2.0.0"
+version = "2.0.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "protobuf" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a9/32/8f6bf7a491d15b917b69d44f49034322cdb41d026130216603c95f25de8b/fennel_invest_api-2.0.0.tar.gz", hash = "sha256:16d077c810845d73b16579db273e8e76bf924dbc44bb4e534f23b1fc36bef7a2", size = 13944, upload-time = "2025-10-05T17:39:18.579Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/cf/99/691d4a7e8b454f16d48007334f5a6b334c22c77c3f54750913e3c7c4ebd3/fennel_invest_api-2.0.1.tar.gz", hash = "sha256:f012b4fcbf817b32b6bcf19ffc747d67aa700fd210393a80a0a69b4b007775a5", size = 13935, upload-time = "2026-01-24T21:54:53.178Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/66/ec/70ee697fda5143248890173d2da56299921fd5c957bdce6eb5e73db93a45/fennel_invest_api-2.0.0-py3-none-any.whl", hash = "sha256:1f87bcd93103d3bac7239889a4a1b436c7a071bc783e440f69470017fdc90d09", size = 26341, upload-time = "2025-10-05T17:39:17.527Z" },
+    { url = "https://files.pythonhosted.org/packages/21/c9/efd0b0c94dadbb7b5a73428fc84eaab3076fc05f940cc883ba46cd1f9165/fennel_invest_api-2.0.1-py3-none-any.whl", hash = "sha256:8b73e0e4960df8af1312766652ded0ad1009ce4a01fd51e8cbbcb11b3a14b185", size = 26346, upload-time = "2026-01-24T21:54:52.174Z" },
 ]
 
 [[package]]
@@ -840,6 +839,21 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/b1/df/48c586a5fe32a0f01324ee087459e112ebb7224f646c0b5023f5e79e9956/httpx-0.28.1.tar.gz", hash = "sha256:75e98c5f16b0f35b567856f597f06ff2270a374470a5c2392242528e3e3e42fc", size = 141406, upload-time = "2024-12-06T15:37:23.222Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/2a/39/e50c7c3a983047577ee07d2a9e53faf5a69493943ec3f6a384bdc792deb2/httpx-0.28.1-py3-none-any.whl", hash = "sha256:d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad", size = 73517, upload-time = "2024-12-06T15:37:21.509Z" },
+]
+
+[[package]]
+name = "httpx-ws"
+version = "0.9.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "httpcore" },
+    { name = "httpx" },
+    { name = "wsproto" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/cd/cd/ca91a07ae446451f7476bf3fcc909e98cb942ff032ebfda0e3fe449aca7b/httpx_ws-0.9.0.tar.gz", hash = "sha256:797373326f70eec1ae96f6e43ae9f12002fd7d73aee139a4985eaab964338a08", size = 107105, upload-time = "2026-03-28T14:11:10.781Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/98/f8/a6bc80313a9e93c888fa10534dfce2ad76ff86911b6f485777ce6de6a073/httpx_ws-0.9.0-py3-none-any.whl", hash = "sha256:71640d2fb1bf9a225775015b33cd755cfd4c5f7e21c885192fe3adc4c387b248", size = 15759, upload-time = "2026-03-28T14:11:11.887Z" },
 ]
 
 [[package]]
@@ -1638,11 +1652,11 @@ wheels = [
 
 [[package]]
 name = "python-dotenv"
-version = "1.2.1"
+version = "1.2.2"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/f0/26/19cadc79a718c5edbec86fd4919a6b6d3f681039a2f6d66d14be94e75fb9/python_dotenv-1.2.1.tar.gz", hash = "sha256:42667e897e16ab0d66954af0e60a9caa94f0fd4ecf3aaf6d2d260eec1aa36ad6", size = 44221, upload-time = "2025-10-26T15:12:10.434Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/82/ed/0301aeeac3e5353ef3d94b6ec08bbcabd04a72018415dcb29e588514bba8/python_dotenv-1.2.2.tar.gz", hash = "sha256:2c371a91fbd7ba082c2c1dc1f8bf89ca22564a087c2c287cd9b662adde799cf3", size = 50135, upload-time = "2026-03-01T16:00:26.196Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/14/1b/a298b06749107c305e1fe0f814c6c74aea7b2f1e10989cb30f544a1b3253/python_dotenv-1.2.1-py3-none-any.whl", hash = "sha256:b81ee9561e9ca4004139c6cbba3a238c32b03e4894671e181b671e8cb8425d61", size = 21230, upload-time = "2025-10-26T15:12:09.109Z" },
+    { url = "https://files.pythonhosted.org/packages/0b/d7/1959b9648791274998a9c3526f6d0ec8fd2233e4d4acce81bbae76b44b2a/python_dotenv-1.2.2-py3-none-any.whl", hash = "sha256:1d8214789a24de455a8b8bd8ae6fe3c6b69a5e3d64aa8a8e5d68e694bbcb285a", size = 22101, upload-time = "2026-03-01T16:00:25.09Z" },
 ]
 
 [[package]]
@@ -1670,7 +1684,7 @@ wheels = [
 
 [[package]]
 name = "requests"
-version = "2.32.5"
+version = "2.33.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "certifi" },
@@ -1678,9 +1692,9 @@ dependencies = [
     { name = "idna" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c9/74/b3ff8e6c8446842c3f5c837e9c3dfcfe2018ea6ecef224c710c85ef728f4/requests-2.32.5.tar.gz", hash = "sha256:dbba0bac56e100853db0ea71b82b4dfd5fe2bf6d3754a8893c3af500cec7d7cf", size = 134517, upload-time = "2025-08-18T20:46:02.573Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/5f/a4/98b9c7c6428a668bf7e42ebb7c79d576a1c3c1e3ae2d47e674b468388871/requests-2.33.1.tar.gz", hash = "sha256:18817f8c57c6263968bc123d237e3b8b08ac046f5456bd1e307ee8f4250d3517", size = 134120, upload-time = "2026-03-30T16:09:15.531Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/1e/db/4254e3eabe8020b458f1a747140d32277ec7a271daf1d235b70dc0b4e6e3/requests-2.32.5-py3-none-any.whl", hash = "sha256:2462f94637a34fd532264295e186976db0f5d453d1cdd31473c85a6a161affb6", size = 64738, upload-time = "2025-08-18T20:46:00.542Z" },
+    { url = "https://files.pythonhosted.org/packages/d7/8e/7540e8a2036f79a125c1d2ebadf69ed7901608859186c856fa0388ef4197/requests-2.33.1-py3-none-any.whl", hash = "sha256:4e6d1ef462f3626a1f0a0a9c42dd93c63bad33f9f1c1937509b8c5c8718ab56a", size = 64947, upload-time = "2026-03-30T16:09:13.83Z" },
 ]
 
 [[package]]
@@ -1821,17 +1835,18 @@ wheels = [
 
 [[package]]
 name = "tastytrade"
-version = "9.11"
+version = "12.4.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "anyio" },
     { name = "httpx" },
+    { name = "httpx-ws" },
     { name = "pandas-market-calendars" },
     { name = "pydantic" },
-    { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/42/7d/e825ade57a6c0d8b2d31c69ecea36059cb349858ad8b0f6b062f703bf747/tastytrade-9.11.tar.gz", hash = "sha256:7e64514e289c79d9c5edc8127673cb6ce66adddf3e4f391cd545c2f811bd5923", size = 150653, upload-time = "2025-03-20T21:12:43.993Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/23/62/259995e36f9d1d90edf3a2f344ab4bad9b3ab6d6cc07aecd54934a403bf2/tastytrade-12.4.1.tar.gz", hash = "sha256:c1248eebad128aea5c321c27de32ad928e7ad31f3fccf040e359abb9bb1fe09e", size = 152923, upload-time = "2026-05-01T15:48:28.169Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/70/d5/9ea5f4969a01e711ea46419fd97430f826e9b87629cb50a5948a24458032/tastytrade-9.11-py3-none-any.whl", hash = "sha256:9e42ab93f0ae8077fda18f58b0456dc2a0184ea6f41df99cbb216fca00b22ce9", size = 52088, upload-time = "2025-03-20T21:12:42.374Z" },
+    { url = "https://files.pythonhosted.org/packages/c4/2b/9e312f7c3cfe2ecfd4d6acfa34d0ef32413bc83c2584a64c139d3ccf3572/tastytrade-12.4.1-py3-none-any.whl", hash = "sha256:8fdbe584fd1bb67130bac19684dc82e0db42df176baba7e9f834bc9d88e9e122", size = 51891, upload-time = "2026-05-01T15:48:26.53Z" },
 ]
 
 [[package]]

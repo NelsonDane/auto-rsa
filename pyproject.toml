@@ -1,6 +1,6 @@
 [project]
 name = "auto_rsa_bot"
-version = "2.0.1"
+version = "2.1.0"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -8,22 +8,22 @@ dependencies = [
     "chaseinvest-api==0.4.7",
     "cryptography>=46.0.3",
     "curl-cffi==0.14.0",
-    "discord-py==2.6.4",
+    "discord-py==2.7.1",
     "dspac-invest-api==0.1.4",
     "email-validator>=2.3.0",
-    "fennel-invest-api==2.0.0",
+    "fennel-invest-api==2.0.1",
     "fidelity-api==0.0.16",
     "firstrade==0.0.34",
     "nodriver==0.47.0",
     "paho-mqtt>=2.1.0",
     "publicdotcom-py==0.1.10",
     "pyotp==2.9.0",
-    "python-dotenv==1.2.1",
-    "requests==2.32.5",
+    "python-dotenv==1.2.2",
+    "requests==2.33.1",
     "schwab-api2>=0.3.0",
     "selenium-stealth==1.0.6",
-    "setuptools<81",
-    "tastytrade==9.11",
+    "setuptools<83",
+    "tastytrade==12.4.1",
     "typer>=0.20.0",
     "vanguard-api==0.3.3",
 ]
@@ -42,7 +42,7 @@ auto_rsa_bot = "src.cli:app"
 package = true
 
 [build-system]
-requires = ["uv_build>=0.9.7,<0.10.0"]
+requires = ["uv_build>=0.11.7,<0.12.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
