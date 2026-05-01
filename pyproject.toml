@@ -42,7 +42,7 @@ auto_rsa_bot = "src.cli:app"
 package = true
 
 [build-system]
-requires = ["uv_build>=0.9.7,<0.10.0"]
+requires = ["uv_build>=0.11.7,<0.12.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
