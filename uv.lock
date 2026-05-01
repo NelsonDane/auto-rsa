@@ -259,7 +259,7 @@ requires-dist = [
     { name = "firstrade", specifier = "==0.0.34" },
     { name = "nodriver", specifier = "==0.47.0" },
     { name = "paho-mqtt", specifier = ">=2.1.0" },
-    { name = "publicdotcom-py", specifier = "==0.1.6" },
+    { name = "publicdotcom-py", specifier = "==0.1.10" },
     { name = "pyotp", specifier = "==2.9.0" },
     { name = "python-dotenv", specifier = "==1.2.2" },
     { name = "requests", specifier = "==2.33.1" },
@@ -1451,17 +1451,18 @@ wheels = [
 
 [[package]]
 name = "publicdotcom-py"
-version = "0.1.6"
+version = "0.1.10"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "httpx" },
     { name = "pydantic" },
     { name = "python-dotenv" },
     { name = "requests" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/60/4e/d3220c9fa550908bd5c6eabf390ed3219e19c5144bace7166cf76710db5d/publicdotcom_py-0.1.6.tar.gz", hash = "sha256:a2aaf29b52a8e9172dccf70a9e910fdcb11c3c998f8090ff025684136fd7d40c", size = 57500, upload-time = "2025-11-25T21:29:17.513Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/59/a5/b14fc7410702e7596c8eff950291ffad2c98916d6fca1a1bf8496b779cce/publicdotcom_py-0.1.10.tar.gz", hash = "sha256:41769739c3211f70f020ee765743fb3159aebd4dd847cf47a9cd544b9f6a3727", size = 121607, upload-time = "2026-03-04T18:51:28.455Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5e/b9/3bb9c70d429bb289b02ea5e5a62d0b723e829a79b7d0a3b09690c1ea010a/publicdotcom_py-0.1.6-py3-none-any.whl", hash = "sha256:ecc9a3ee81518a39e946b0f160f18e92f532f9b5053890104a4ddc2b394a9228", size = 47662, upload-time = "2025-11-25T21:29:16.512Z" },
+    { url = "https://files.pythonhosted.org/packages/1e/b1/e9bf3d100a455d89693e4c2facc84fde3e668c8170d02e8d44ac21f0c8fe/publicdotcom_py-0.1.10-py3-none-any.whl", hash = "sha256:21dd78a2200dd83e2bc90093fb39abeda19fd2d8e9d50623d3287c271f1a1b0a", size = 79449, upload-time = "2026-03-04T18:51:27.144Z" },
 ]
 
 [[package]]
@@ -1780,11 +1781,11 @@ wheels = [
 
 [[package]]
 name = "setuptools"
-version = "82.0.0"
+version = "80.9.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/82/f3/748f4d6f65d1756b9ae577f329c951cda23fb900e4de9f70900ced962085/setuptools-82.0.0.tar.gz", hash = "sha256:22e0a2d69474c6ae4feb01951cb69d515ed23728cf96d05513d36e42b62b37cb", size = 1144893, upload-time = "2026-02-08T15:08:40.206Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/18/5d/3bf57dcd21979b887f014ea83c24ae194cfcd12b9e0fda66b957c69d1fca/setuptools-80.9.0.tar.gz", hash = "sha256:f36b47402ecde768dbfafc46e8e4207b4360c654f1f3bb84475f0a28628fb19c", size = 1319958, upload-time = "2025-05-27T00:56:51.443Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e1/c6/76dc613121b793286a3f91621d7b75a2b493e0390ddca50f11993eadf192/setuptools-82.0.0-py3-none-any.whl", hash = "sha256:70b18734b607bd1da571d097d236cfcfacaf01de45717d59e6e04b96877532e0", size = 1003468, upload-time = "2026-02-08T15:08:38.723Z" },
+    { url = "https://files.pythonhosted.org/packages/a3/dc/17031897dae0efacfea57dfd3a82fdd2a2aeb58e0ff71b77b87e44edc772/setuptools-80.9.0-py3-none-any.whl", hash = "sha256:062d34222ad13e0cc312a4c02d73f059e86a4acbfbdea8f8f76b28c99f306922", size = 1201486, upload-time = "2025-05-27T00:56:49.664Z" },
 ]
 
 [[package]]

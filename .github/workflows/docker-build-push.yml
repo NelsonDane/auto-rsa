@@ -20,7 +20,7 @@ permissions: {}
 jobs:
   dockerhub-build-and-push:
     name: Build and Push Docker Image
-    uses: NelsonDane/Custom-GitHub-Actions/.github/workflows/docker-registry-build-push.yml@7e095d077342808e4f52deb091fcba86f688fe6b
+    uses: NelsonDane/Custom-GitHub-Actions/.github/workflows/docker-registry-build-push.yml@abab2885f7f18390fddbeb4c552e3dabdefa89b3
     with:
       image_name: auto-rsa
       image_tag: ${{ github.ref_name == 'main' && 'latest' || startsWith(github.ref_name, 'develop') && github.ref_name }}
