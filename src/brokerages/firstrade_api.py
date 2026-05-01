@@ -36,10 +36,10 @@ def firstrade_init(bot_obj: Bot | None = None, loop: asyncio.AbstractEventLoop |
             firstrade = ft_account.FTSession(
                 username=account_creds[0],
                 password=account_creds[1],
-                pin=(account_creds[2] if len(account_creds[2]) == 4 and account_creds[2].isdigit() else None),  # noqa: PLR2004
-                phone=(account_creds[2][-4:] if len(account_creds[2]) == 10 and account_creds[2].isdigit() else None),  # noqa: PLR2004
-                email=account_creds[2] if "@" in account_creds[2] else None,
-                mfa_secret=(account_creds[2] if len(account_creds[2]) > 14 and "@" not in account_creds[2] else None),  # noqa: PLR2004
+                pin=(account_creds[2] if len(account_creds[2]) == 4 and account_creds[2].isdigit() else ""),  # noqa: PLR2004
+                phone=(account_creds[2][-4:] if len(account_creds[2]) == 10 and account_creds[2].isdigit() else ""),  # noqa: PLR2004
+                email=account_creds[2] if "@" in account_creds[2] else "",
+                mfa_secret=(account_creds[2] if len(account_creds[2]) > 14 and "@" not in account_creds[2] else ""),  # noqa: PLR2004
                 profile_path="./creds/",
             )
             need_code = firstrade.login()
@@ -56,11 +56,11 @@ def firstrade_init(bot_obj: Bot | None = None, loop: asyncio.AbstractEventLoop |
                         raise Exception(msg, loop)
                     firstrade.login_two(sms_code)
             print("Logged in to Firstrade!")
-            account_info = ft_account.FTAccountData(firstrade)
+            account_info = ft_account.FTAccountData(firstrade.session)
             firstrade_obj.set_logged_in_object(name, firstrade)
             for account_number in account_info.account_numbers:
                 firstrade_obj.set_account_number(name, account_number)
-                firstrade_obj.set_account_totals(name, account_number, account_info.account_balances[account_number])
+                firstrade_obj.set_account_totals(name, account_number, str(account_info.account_balances[account_number]))
             print_accounts = [mask_string(a) for a in account_info.account_numbers]
             print(f"The following Firstrade accounts were found: {print_accounts}")
         except Exception as e:
@@ -77,8 +77,8 @@ def firstrade_holdings(firstrade_o: Brokerage, loop: asyncio.AbstractEventLoop |
         for account in firstrade_o.get_account_numbers(key):
             obj = cast("ft_account.FTSession", firstrade_o.get_logged_in_objects(key))
             try:
-                data = ft_account.FTAccountData(obj).get_positions(account=account)
-                for item in data["items"]:
+                data = ft_account.FTAccountData(obj.session).get_positions(account=account)
+                for item in data["items"]:  # ty:ignore[not-iterable]
                     symbol = item["symbol"]
                     try:
                         quote = symbols.SymbolQuote(obj, account, symbol)
@@ -117,13 +117,13 @@ def firstrade_transaction(firstrade_o: Brokerage, order_obj: StockOrder, loop: a
                 try:
                     should_dance = False
                     symbol_data = symbols.SymbolQuote(obj, account, s)
-                    if symbol_data.last < 1.00:
+                    if float(symbol_data.last) < 1.00:
                         under_one_buy_amount = 100
                         if int(order_obj.get_amount()) < under_one_buy_amount:
                             should_dance = True
                         price_type = order.PriceType.LIMIT
                         order_obj.set_price("limit")
-                        price = symbol_data.last + 0.01 if order_obj.get_action().capitalize() == "Buy" else symbol_data.last - 0.01
+                        price = float(symbol_data.last) + 0.01 if order_obj.get_action().capitalize() == "Buy" else float(symbol_data.last) - 0.01
                     else:
                         price_type = order.PriceType.MARKET
                         order_obj.set_price("market")
@@ -172,7 +172,7 @@ def firstrade_transaction(firstrade_o: Brokerage, order_obj: StockOrder, loop: a
                         # Rest before selling
                         sleep(1)
                         symbol_data = symbols.SymbolQuote(obj, account, s)
-                        price = symbol_data.last - 0.01
+                        price = float(symbol_data.last) - 0.01
                         ft_order = order.Order(obj)
                         order_conf = ft_order.place_order(
                             account=account,
