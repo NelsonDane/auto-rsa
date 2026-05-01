@@ -32,12 +32,6 @@ See the [Installation Guide](docs/INSTALLATION.md) for detailed installation ins
 ## Usage
 See the [Usage Guide](docs/USAGE.md) for detailed usage instructions.
 
-## 🗺️ Other Guides 🗺️
-More detailed guides for some of the difficult setups:
-- [Discord Bot Setup](docs/discordBot.md)
-- [Robinhood 2FA Setup](docs/robinhoodSetup.md)
-- [Schwab 2FA Setup](docs/schwabSetup.md)
-
 ## Supported brokerages
 While the project was created by me, lots of work has been put in by the community to support and fix various brokerages. It wouldn't be possible without them, so go give them a ⭐!
 
