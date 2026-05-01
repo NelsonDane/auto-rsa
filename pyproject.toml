@@ -16,14 +16,14 @@ dependencies = [
     "firstrade==0.0.34",
     "nodriver==0.47.0",
     "paho-mqtt>=2.1.0",
-    "publicdotcom-py==0.1.6",
+    "publicdotcom-py==0.1.10",
     "pyotp==2.9.0",
     "python-dotenv==1.2.2",
     "requests==2.33.1",
     "schwab-api2>=0.3.0",
     "selenium-stealth==1.0.6",
     "setuptools<83",
-    "tastytrade==11.1.0",
+    "tastytrade==12.4.1",
     "typer>=0.20.0",
     "vanguard-api==0.3.3",
 ]
@@ -42,7 +42,7 @@ auto_rsa_bot = "src.cli:app"
 package = true
 
 [build-system]
-requires = ["uv_build>=0.9.7,<0.10.0"]
+requires = ["uv_build>=0.11.7,<0.12.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]

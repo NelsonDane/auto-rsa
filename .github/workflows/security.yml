@@ -5,6 +5,12 @@ on:
       - main
     paths:
       - .github/workflows/*
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/*
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -19,4 +25,4 @@ jobs:
       contents: read # Read contents
       actions: read # Read external action
     name: Workflow Security
-    uses: NelsonDane/Custom-GitHub-Actions/.github/workflows/security.yaml@c176dc997ed6dde07299da9ba95276e750055f6c
+    uses: NelsonDane/Custom-GitHub-Actions/.github/workflows/security.yml@27c0bd75ca9fb95e52c38f74ac6a3e60474ec7fd
