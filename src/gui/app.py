@@ -464,7 +464,7 @@ def _highlights(log: str) -> str:
 
 
 @st.fragment(run_every=2)
-def _activity_fragment(runner: TradeRunner) -> None:
+def _activity_fragment(runner: TradeRunner) -> None:  # noqa: C901
     """Auto-refreshing activity panel (only this fragment reruns).
 
     Replaces the old whole-app busy-poll, so the rest of the UI stays
@@ -538,17 +538,23 @@ def _activity_fragment(runner: TradeRunner) -> None:
         shown = log if len(log) <= max_chars else "…(truncated — download for full log)…\n" + log[-max_chars:]
         st.code(shown or "(no output yet)", language="text")
 
-    # Wells Fargo saves a screenshot of the exact page on failure.
-    if snap.status == RunStatus.ERROR:
+    # Browser brokers (Wells Fargo / Fidelity / Chase) save a screenshot
+    # + visible-text dump of the exact page on failure. Surface the
+    # newest so the failure (esp. a 2FA chooser) is diagnosable.
+    if snap.status in {RunStatus.ERROR, RunStatus.CANCELLED}:
         shots = sorted(
-            Path.cwd().glob("wells-fargo-error-*.png"),
+            Path.cwd().glob("*-error-*.png"),
             key=lambda p: p.stat().st_mtime,
             reverse=True,
         )
         if shots:
             latest = shots[0]
-            st.warning("Wells Fargo failed. This is the page it was on:")
+            st.warning(f"Failure page captured: {latest.name}")
             st.image(latest.read_bytes(), caption=latest.name)
+            txt = latest.with_suffix(".txt")
+            if txt.is_file():
+                with st.expander("Captured page text (2FA options / buttons)"):
+                    st.code(txt.read_text(encoding="utf-8", errors="replace"), language="text")
 
 
 # --------------------------------------------------------------------------

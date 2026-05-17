@@ -2,6 +2,8 @@
 # Chase API
 
 import asyncio
+import contextlib
+import datetime
 import os
 import pprint
 import shutil
@@ -156,11 +158,39 @@ def chase_init(account: str, index: int, *, headless: bool = True, bot_obj: Bot 
         print(f"The following Chase accounts were found: {print_accounts}")
     except Exception as e:
         if ch_session:
+            _chase_diagnostic(ch_session, name)  # capture BEFORE closing
             ch_session.close_browser()
         print(f"Error logging in to Chase: {e}")
         print(traceback.format_exc())
         return None
     return (chase_obj, all_accounts)
+
+
+def _chase_diagnostic(ch_session: object, name: str) -> None:
+    """Dump the current Chase page (screenshot + visible text) on failure.
+
+    Lets us see the real post-2FA / push-approval interstitial that the
+    upstream library doesn't navigate, so it can be fixed against the
+    actual DOM. Best-effort; never raises. Must run before
+    close_browser().
+    """
+    try:
+        page = ch_session.page  # type: ignore[attr-defined]
+        loop = ch_session.loop  # type: ignore[attr-defined]
+        stamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%dT%H%M%SZ")
+        base = f"chase-error-{name.replace(' ', '_')}-{stamp}"
+        with contextlib.suppress(Exception):
+            loop.run_until_complete(page.save_screenshot(f"{base}.png"))
+        body = ""
+        with contextlib.suppress(Exception):
+            body = loop.run_until_complete(page.evaluate("document.body.innerText"))
+        Path(f"{base}.txt").write_text(
+            f"URL: {getattr(page, 'url', '?')}\n\n--- visible text ---\n{body}\n",
+            encoding="utf-8",
+        )
+        print(f"Saved Chase 2FA diagnostic: {base}.png / {base}.txt")
+    except Exception as exc:
+        print(f"(Chase diagnostic capture failed: {exc})")
 
 
 def _process_position(position: dict, chase_o: Brokerage, key: str, account: str) -> None:

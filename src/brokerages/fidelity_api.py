@@ -5,8 +5,11 @@
 # Adapted from Nelson Dane's Selenium based code and created with the help of playwright codegen
 
 import asyncio
+import contextlib
+import datetime
 import os
 import traceback
+from pathlib import Path
 from typing import cast
 
 from discord.ext.commands import Bot
@@ -14,6 +17,34 @@ from dotenv import load_dotenv
 from fidelity import fidelity
 
 from src.helper_api import Brokerage, StockOrder, get_otp_from_discord, mask_string, print_all_holdings, print_and_discord
+
+
+def _fidelity_diagnostic(fidelity_browser: object, name: str) -> None:
+    """Dump the current Fidelity page (screenshot + visible text) on failure.
+
+    The 2FA flow can't be fixed blind: this captures exactly what
+    Fidelity shows (method chooser, button labels, headings) so the
+    login/2FA navigation can be corrected against the real DOM. The
+    .txt is scrubbed of long tokens by the runner's log redaction only
+    for the log; the file itself is local under the gitignored cwd.
+    Best-effort; never raises.
+    """
+    try:
+        page = fidelity_browser.page  # type: ignore[attr-defined]
+        stamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%dT%H%M%SZ")
+        base = f"fidelity-error-{name.replace(' ', '_')}-{stamp}"
+        with contextlib.suppress(Exception):
+            page.screenshot(path=f"{base}.png", full_page=True)
+        body = ""
+        with contextlib.suppress(Exception):
+            body = page.inner_text("body")
+        Path(f"{base}.txt").write_text(
+            f"URL: {getattr(page, 'url', '?')}\n\n--- visible text ---\n{body}\n",
+            encoding="utf-8",
+        )
+        print(f"Saved Fidelity 2FA diagnostic: {base}.png / {base}.txt")
+    except Exception as exc:
+        print(f"(Fidelity diagnostic capture failed: {exc})")
 
 
 def fidelity_run(
@@ -56,7 +87,7 @@ def fidelity_run(
     return
 
 
-def fidelity_init(account: str, name: str, *, headless: bool = True, bot_obj: Bot | None = None, loop: asyncio.AbstractEventLoop | None = None) -> Brokerage | None:
+def fidelity_init(account: str, name: str, *, headless: bool = True, bot_obj: Bot | None = None, loop: asyncio.AbstractEventLoop | None = None) -> Brokerage | None:  # noqa: C901
     """Log into fidelity. Creates a fidelity brokerage object and a FidelityAutomation object.
 
     The FidelityAutomation object is stored within the brokerage object and some account information
@@ -67,6 +98,7 @@ def fidelity_init(account: str, name: str, *, headless: bool = True, bot_obj: Bo
 
     # Create brokerage class object and call it Fidelity
     fidelity_obj = Brokerage("Fidelity")
+    fidelity_browser = None
 
     try:
         # Split the login into into separate items
@@ -121,6 +153,8 @@ def fidelity_init(account: str, name: str, *, headless: bool = True, bot_obj: Bo
     except Exception as e:
         print(f"Error logging in to Fidelity: {e}")
         print(traceback.format_exc())
+        if fidelity_browser is not None:
+            _fidelity_diagnostic(fidelity_browser, name)
         return None
     else:
         return fidelity_obj
