@@ -1,9 +1,10 @@
 """Framework-neutral 2FA / interactive prompt bus.
 
-Existing broker scripts call ``input("Enter code: ")`` for OTP / SMS /
-CAPTCHA codes when no Discord bot is present. The runner patches
-``builtins.input`` to route those calls here: the worker thread blocks in
-:meth:`request` until the view layer calls :meth:`respond`.
+The engine runs in a child process. When a broker calls ``input()`` for
+an OTP / SMS / CAPTCHA code, the child emits a sentinel line; the
+runner's reader thread calls :meth:`open` here, the view layer shows the
+prompt and calls :meth:`respond`, and the reader thread (blocked in
+:meth:`wait_answer`) forwards the answer to the child's stdin.
 
 This is intentionally not coupled to any UI. Streamlit polls
 :meth:`snapshot`; a future FastAPI layer could push it over a WebSocket.
@@ -26,7 +27,7 @@ class PromptSnapshot:
 
 
 class PromptBus:
-    """Single-slot request/response channel between worker and UI threads."""
+    """Single-slot request/response channel between reader and UI threads."""
 
     def __init__(self) -> None:
         """Create an idle prompt bus with no pending request."""
@@ -37,14 +38,17 @@ class PromptBus:
         self._text = ""
         self._response: str = ""
 
-    def request(self, text: str) -> str:
-        """Block the worker thread (patched ``input``) until a UI response."""
+    def open(self, text: str) -> None:
+        """Register a pending prompt (called by the runner reader thread)."""
         with self._lock:
             self._waiting = True
             self._prompt_id = uuid.uuid4().hex
             self._text = text or "Input required"
             self._response = ""
             self._event.clear()
+
+    def wait_answer(self) -> str:
+        """Block until the UI responds; return the answer (reader thread)."""
         self._event.wait()
         with self._lock:
             self._waiting = False
@@ -69,7 +73,7 @@ class PromptBus:
             return True
 
     def cancel(self) -> None:
-        """Unblock any waiting worker with an empty answer (run abort)."""
+        """Unblock any waiting reader with an empty answer (run aborted)."""
         with self._lock:
             if self._waiting:
                 self._response = ""

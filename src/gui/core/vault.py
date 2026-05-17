@@ -210,6 +210,15 @@ class Vault:
         env.update(self.get_settings())
         return env
 
+    def build_env(self, broker_keys: list[str]) -> dict[str, str]:
+        """Return the env vars for the given brokers without mutating os.environ.
+
+        Used to pass credentials to the engine subprocess via its
+        environment, so nothing is written to disk and the parent
+        process environment is never touched.
+        """
+        return self._env_for_brokers(broker_keys)
+
     @contextlib.contextmanager
     def materialize_env(self, broker_keys: list[str]) -> Iterator[None]:
         """Temporarily expose credentials/settings as environment variables.

@@ -1,30 +1,41 @@
-"""Runs holdings/trade operations against the existing AutoRSA engine.
+"""Runs holdings/trade operations via the existing AutoRSA engine.
 
-The GUI never reimplements broker logic. It builds the same argument list
-the CLI uses, then calls ``arg_parser`` + ``fun_run`` from
-``src.auto_rsa`` on a background thread with:
+The engine runs in a **child process**, not an in-process thread. This
+is deliberate: browser-automation brokers (Fidelity's Playwright sync
+API, Chase's zendriver event loop, Selenium) fail when run inside a
+daemon thread under Streamlit with swapped stdio. A subprocess gives
+them a clean main thread and real stdout/stderr — the same environment
+the CLI uses, where those brokers work.
 
-* stdout/stderr redirected into a :class:`LogStream`
-* ``builtins.input`` redirected to a :class:`PromptBus` (so 2FA/OTP/CAPTCHA
-  prompts surface in the browser instead of blocking on a dead stdin)
-* credentials materialized into ``os.environ`` only for the run's duration
+The parent only does pipe I/O on a reader thread:
+* stdout/stderr stream into a :class:`LogStream`.
+* sentinel-prefixed lines are 2FA/OTP/CAPTCHA prompts: they go to the
+  :class:`PromptBus`, and the UI's answer is written back to the child's
+  stdin.
+* credentials are passed via the child's environment (never written to
+  disk, never set on the parent's environment).
 """
 
 from __future__ import annotations
 
-import builtins
-import contextlib
+import json
+import os
+import subprocess  # noqa: S404
+import sys
 import threading
-import traceback
 from dataclasses import dataclass
 from enum import StrEnum
+from pathlib import Path
 from typing import TYPE_CHECKING
 
+from src.gui.core.engine_proc import PROMPT_SENTINEL
 from src.gui.core.logbus import LogStream
 from src.gui.core.prompts import PromptBus
 
 if TYPE_CHECKING:
     from src.gui.core.vault import Vault
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 
 class RunStatus(StrEnum):
@@ -46,13 +57,14 @@ class RunnerSnapshot:
 
 
 class TradeRunner:
-    """Owns the worker thread, log stream, and prompt bus for one session."""
+    """Owns the engine subprocess, log stream, and prompt bus."""
 
     def __init__(self, vault: Vault) -> None:
         """Bind the runner to a vault; no work starts until a run is requested."""
         self._vault = vault
         self.log = LogStream()
         self.prompts = PromptBus()
+        self._proc: subprocess.Popen[str] | None = None
         self._thread: threading.Thread | None = None
         self._status = RunStatus.IDLE
         self._description = ""
@@ -61,7 +73,7 @@ class TradeRunner:
     # --- state ---------------------------------------------------------
 
     def is_running(self) -> bool:
-        """Whether a worker thread is currently active."""
+        """Whether the engine subprocess is currently active."""
         with self._lock:
             return self._status == RunStatus.RUNNING
 
@@ -95,10 +107,7 @@ class TradeRunner:
             "true" if dry else "false",
         ]
         mode = "DRY" if dry else "LIVE"
-        desc = (
-            f"{mode} {action} {amount} {','.join(tickers)} "
-            f"-> {', '.join(broker_keys)}"
-        )
+        desc = f"{mode} {action} {amount} {','.join(tickers)} -> {', '.join(broker_keys)}"
         self._start(args, broker_keys, desc)
 
     # --- internals -----------------------------------------------------
@@ -123,42 +132,43 @@ class TradeRunner:
             self._description = description
         self.log.clear()
         env_keys = self._resolve_broker_keys(broker_keys)
-        self._thread = threading.Thread(
-            target=self._worker,
-            args=(args, env_keys),
-            daemon=True,
+        # Credentials go to the child's environment only.
+        child_env = {**os.environ, **self._vault.build_env(env_keys)}
+        self._proc = subprocess.Popen(  # noqa: S603
+            [sys.executable, "-u", "-m", "src.gui.core.engine_proc", json.dumps(args)],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            cwd=str(_PROJECT_ROOT),
+            env=child_env,
         )
+        self._thread = threading.Thread(target=self._pump, daemon=True)
         self._thread.start()
 
-    def _patched_input(self, prompt: object = "") -> str:
-        return self.prompts.request(str(prompt))
-
-    def _worker(self, args: list[str], env_keys: list[str]) -> None:
-        real_input = builtins.input
-        builtins.input = self._patched_input  # type: ignore[assignment]
+    def _pump(self) -> None:
+        proc = self._proc
+        if proc is None or proc.stdout is None:
+            self._set_status(RunStatus.ERROR)
+            return
         try:
-            with (
-                contextlib.redirect_stdout(self.log),
-                contextlib.redirect_stderr(self.log),
-            ):
-                try:
-                    # Imported lazily so the heavy broker/selenium imports
-                    # (and their startup banner) are captured in the log and
-                    # don't slow down credential management.
-                    from src.auto_rsa import arg_parser, fun_run  # noqa: PLC0415
-
-                    order = arg_parser(args)
-                    with self._vault.materialize_env(env_keys):
-                        fun_run(order)
-                    self._set_status(RunStatus.FINISHED)
-                except Exception:
-                    print("\n--- GUI run failed ---")
-                    print(traceback.format_exc())
-                    self._set_status(RunStatus.ERROR)
+            for raw in proc.stdout:
+                if raw.startswith(PROMPT_SENTINEL):
+                    text = raw[len(PROMPT_SENTINEL):].rstrip("\r\n")
+                    self.prompts.open(text)
+                    answer = self.prompts.wait_answer()
+                    if proc.stdin is not None:
+                        proc.stdin.write(answer + "\n")
+                        proc.stdin.flush()
+                else:
+                    self.log.write(raw)
+        except Exception as exc:
+            self.log.write(f"\n--- GUI pump error: {exc} ---\n")
         finally:
-            builtins.input = real_input
-            # Never leave a worker blocked on a prompt nobody will answer.
+            code = proc.wait()
             self.prompts.cancel()
+            self._set_status(RunStatus.FINISHED if code == 0 else RunStatus.ERROR)
 
     def _set_status(self, status: RunStatus) -> None:
         with self._lock:
