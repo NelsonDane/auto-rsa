@@ -380,7 +380,7 @@ def _mask_label(mask: str) -> str:
     return f"••••{mask}"
 
 
-def _account_filter_editor(vault: Vault, broker_keys: list[str]) -> None:
+def _account_filter_editor(vault: Vault, broker_keys: list[str]) -> None:  # noqa: C901
     """Global per-broker sub-account allow-list editor.
 
     Accounts appear once a Holdings or per-account Test run has
@@ -402,27 +402,34 @@ def _account_filter_editor(vault: Vault, broker_keys: list[str]) -> None:
         with st.form("acct_filter_form"):
             pending: dict[str, list[str]] = {}
             for bkey in shown:
-                masks = vault.get_discovered_accounts(bkey)
+                groups = vault.get_discovered_accounts(bkey)
                 name = get_broker(bkey).display_name
-                if not masks:
+                if not groups:
                     st.markdown(
                         f"**{name}** — _no accounts discovered yet "
                         "(run Holdings or a per-account Test)_",
                     )
                     continue
                 any_discovered = True
-                default = (
-                    [m for m in current[bkey] if m in masks]
-                    if bkey in current
-                    else masks
-                )
-                pending[bkey] = st.multiselect(
-                    f"{name} accounts",
-                    options=masks,
-                    default=default,
-                    format_func=_mask_label,
-                    key=f"acctfilt_{bkey}",
-                )
+                allowed = current.get(bkey)  # None => unrestricted
+                st.markdown(f"**{name}**")
+                chosen_all: list[str] = []
+                for parent in sorted(groups):
+                    p_masks = sorted(groups[parent])
+                    label = parent or name
+                    default = (
+                        [m for m in p_masks if m in allowed]
+                        if allowed is not None
+                        else p_masks
+                    )
+                    chosen_all += st.multiselect(
+                        f"{label} ({len(p_masks)} accounts)",
+                        options=p_masks,
+                        default=default,
+                        format_func=_mask_label,
+                        key=f"acctfilt_{bkey}_{parent}",
+                    )
+                pending[bkey] = chosen_all
             saved = st.form_submit_button("Save sub-account filter")
         if not any_discovered:
             return
@@ -430,11 +437,11 @@ def _account_filter_editor(vault: Vault, broker_keys: list[str]) -> None:
             new_filter = dict(vault.get_account_filter())
             warn_empty: list[str] = []
             for bkey, chosen in pending.items():
-                masks = vault.get_discovered_accounts(bkey)
-                if set(chosen) == set(masks):
+                all_masks = vault.get_discovered_masks(bkey)
+                if set(chosen) == set(all_masks):
                     new_filter.pop(bkey, None)  # unrestricted
                 elif chosen:
-                    new_filter[bkey] = sorted(chosen)
+                    new_filter[bkey] = sorted(set(chosen))
                 else:
                     new_filter[bkey] = []  # explicit: trade nothing
                     warn_empty.append(get_broker(bkey).display_name)

@@ -201,25 +201,51 @@ class Vault:  # noqa: PLR0904
         }
         self._write()
 
-    def get_discovered_accounts(self, broker_key: str) -> list[str]:
-        """Last-4 masks seen for a broker (populated by holdings/test runs)."""
-        raw = self._require().get("discovered_accounts", {})
-        return list(raw.get(broker_key, []))
+    def get_discovered_accounts(self, broker_key: str) -> dict[str, list[str]]:
+        """Last-4 masks seen for a broker, grouped by parent login.
 
-    def add_discovered_accounts(self, broker_key: str, accounts: list[str]) -> None:
-        """Merge newly-seen sub-accounts (stored as digit last-4 masks)."""
-        masks = sorted(
-            {
-                re.sub(r"\D", "", str(a))[-4:]
-                for a in accounts
-                if re.sub(r"\D", "", str(a))
-            },
-        )
-        if not masks:
+        Returns ``{parent_login: [mask, ...]}`` (e.g. ``{"Fidelity 1":
+        [...], "Fidelity 2": [...]}``). Legacy flat lists are surfaced
+        under an empty-string parent so nothing is silently lost.
+        """
+        raw = self._require().get("discovered_accounts", {}).get(broker_key, {})
+        if isinstance(raw, list):  # legacy flat shape
+            return {"": list(raw)} if raw else {}
+        return {p: list(m) for p, m in raw.items()}
+
+    def get_discovered_masks(self, broker_key: str) -> list[str]:
+        """All discovered masks for a broker, flattened (sorted, unique)."""
+        groups = self.get_discovered_accounts(broker_key)
+        return sorted({m for masks in groups.values() for m in masks})
+
+    def add_discovered_accounts(
+        self, broker_key: str, pairs: list[tuple[str, str]],
+    ) -> None:
+        """Merge newly-seen ``(parent_login, account)`` pairs.
+
+        Accounts are stored as digit last-4 masks, grouped by the parent
+        login so the Trade-tab picker can show which login each belongs
+        to. Merging is per-parent (a re-run refreshes that login).
+        """
+        by_parent: dict[str, set[str]] = {}
+        for parent, account in pairs:
+            digits = re.sub(r"\D", "", str(account))
+            if digits:
+                by_parent.setdefault(str(parent), set()).add(digits[-4:])
+        if not by_parent:
             return
         disc = self._require().setdefault("discovered_accounts", {})
-        merged = sorted(set(disc.get(broker_key, [])) | set(masks))
-        if merged != disc.get(broker_key):
+        existing = disc.get(broker_key, {})
+        if isinstance(existing, list):  # migrate legacy flat shape
+            existing = {"": list(existing)} if existing else {}
+        merged = {p: sorted(set(m)) for p, m in existing.items()}
+        changed = False
+        for parent, masks in by_parent.items():
+            new_list = sorted(set(merged.get(parent, [])) | masks)
+            if new_list != merged.get(parent):
+                merged[parent] = new_list
+                changed = True
+        if changed:
             disc[broker_key] = merged
             self._write()
 

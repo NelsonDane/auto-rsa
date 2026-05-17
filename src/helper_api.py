@@ -761,24 +761,29 @@ def mask_string(string: str, num_visible: int = 4) -> str:
     return "x" * (len(string) - num_visible) + string[-num_visible:]
 
 
-def _emit_discovered_account(broker_name: str, account: object) -> None:
-    """Emit a sentinel line so the GUI can persist a discovered sub-account.
+def _emit_discovered_account(
+    broker_name: str, parent: str, account: object,
+) -> None:
+    r"""Emit a sentinel line so the GUI can persist a discovered sub-account.
 
     Only active inside the GUI engine subprocess (RSA_GUI_ENGINE=1) so
     CLI/Docker output stays clean. The broker name is normalized to the
-    canonical key the GUI uses (e.g. "WELLSFARGO" -> "wellsfargo"). The
-    parent runner parses these; the engine can't touch the vault.
+    canonical key the GUI uses (e.g. "WELLSFARGO" -> "wellsfargo"); the
+    parent login (e.g. "Fidelity 1") is kept so the picker can group by
+    login. The parent runner parses these; the engine can't touch the
+    vault. Format: ``<SENTINEL><broker>\t<parent>\t<account>``.
     """
     if os.getenv("RSA_GUI_ENGINE") != "1":
         return
     broker_key = re.sub(r"\W", "", str(broker_name)).lower()
+    parent_clean = str(parent).replace("\t", " ").replace("\n", " ").strip()
     acct = str(account)
     if not broker_key or not acct:
         return
     try:
         from src.gui.core.engine_proc import ACCOUNT_SENTINEL  # noqa: PLC0415
 
-        print(f"{ACCOUNT_SENTINEL}{broker_key}\t{acct}")
+        print(f"{ACCOUNT_SENTINEL}{broker_key}\t{parent_clean}\t{acct}")
     except Exception as exc:  # discovery is best-effort
         print(f"(account discovery skipped for {broker_key}: {exc})")
 
@@ -800,7 +805,7 @@ def print_all_holdings(
     )
     for key in broker_obj.get_account_numbers():
         for account in broker_obj.get_account_numbers(key):
-            _emit_discovered_account(broker_obj.get_name(), account)
+            _emit_discovered_account(broker_obj.get_name(), key, account)
             acc_name = f"{key} ({mask_string(account) if mask_account_number else account})"
             field: EmbedFieldType = {
                 "name": acc_name,

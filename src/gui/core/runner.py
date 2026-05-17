@@ -44,6 +44,7 @@ if TYPE_CHECKING:
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 _RUN_LOCK = _PROJECT_ROOT / "creds" / "run.lock"
 _STALE_LOCK_SECONDS = 6 * 60 * 60  # a lock with no live engine, this old, is stale
+_DISCOVERY_FIELDS = 3  # <SENTINEL>broker\tparent\taccount
 
 
 class RunBusyError(RuntimeError):
@@ -302,7 +303,7 @@ class TradeRunner:
             self._release_run_lock()
             self._set_status(RunStatus.ERROR)
             return
-        discovered: dict[str, list[str]] = {}
+        discovered: dict[str, list[tuple[str, str]]] = {}
         try:
             for raw in proc.stdout:
                 if raw.startswith(PROMPT_SENTINEL):
@@ -314,9 +315,12 @@ class TradeRunner:
                         proc.stdin.flush()
                 elif raw.startswith(ACCOUNT_SENTINEL):
                     payload = raw[len(ACCOUNT_SENTINEL):].rstrip("\r\n")
-                    broker, _, account = payload.partition("\t")
-                    if broker and account:
-                        discovered.setdefault(broker, []).append(account)
+                    parts = payload.split("\t", 2)
+                    if len(parts) == _DISCOVERY_FIELDS and parts[0] and parts[2]:
+                        broker, parent, account = parts
+                        discovered.setdefault(broker, []).append(
+                            (parent, account),
+                        )
                 else:
                     self.log.write(self._redact(raw))
         except Exception as exc:
