@@ -11,6 +11,7 @@ Run with:  uv run streamlit run src/gui/app.py
 from __future__ import annotations
 
 import time
+from pathlib import Path
 
 import streamlit as st
 
@@ -322,6 +323,21 @@ def _render_activity_panel(runner: TradeRunner) -> None:
     # The 2FA / OTP / CAPTCHA prompt is the most urgent thing on the page.
     if prompt.waiting:
         st.error(f"🔐 Login action required: {prompt.text}", icon="🔐")
+        # Some brokers (e.g. BBAE/DSPAC) save a CAPTCHA image to disk and
+        # expect the characters typed back. Show it inline so the user
+        # doesn't have to hunt for the file.
+        if "captcha" in prompt.text.lower():
+            captcha_path = Path("captcha.png")
+            if captcha_path.is_file():
+                st.image(
+                    captcha_path.read_bytes(),
+                    caption="Type the characters you see below.",
+                )
+            else:
+                st.info(
+                    "Waiting for the CAPTCHA image to be written "
+                    f"({captcha_path.resolve()})…",
+                )
         with st.form(f"prompt_{prompt.prompt_id}", clear_on_submit=True):
             answer = st.text_input(
                 "Enter the code / response, then Submit",
