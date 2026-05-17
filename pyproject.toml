@@ -14,6 +14,7 @@ dependencies = [
     "fennel-invest-api==2.0.1",
     "fidelity-api",
     "firstrade==0.0.34",
+    "google-auth>=2.34.0",
     "nodriver==0.47.0",
     "paho-mqtt>=2.1.0",
     "patchright>=1.52.0",

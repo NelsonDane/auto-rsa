@@ -138,6 +138,7 @@ class Vault:  # noqa: PLR0904
         self._data.setdefault("brokers", {})
         self._data.setdefault("account_filter", {})
         self._data.setdefault("discovered_accounts", {})
+        self._data.setdefault("sheets", {})
 
     def lock(self) -> None:
         """Drop decrypted data and the derived key from memory."""
@@ -295,7 +296,31 @@ class Vault:  # noqa: PLR0904
                 configured.append(meta.key)
         return configured
 
-    def secret_values(self) -> list[str]:
+    def get_sheets_config(self) -> dict[str, str]:
+        """GUI_QUEUE Google Sheet config (service account + spreadsheet).
+
+        Keys: ``service_account_json`` (the SA key file contents — a
+        secret), ``spreadsheet_id``, ``worksheet`` (defaults GUI_QUEUE).
+        """
+        cfg = dict(self._require().get("sheets", {}))
+        cfg.setdefault("worksheet", "GUI_QUEUE")
+        return cfg
+
+    def set_sheets_config(
+        self,
+        service_account_json: str,
+        spreadsheet_id: str,
+        worksheet: str = "GUI_QUEUE",
+    ) -> None:
+        """Persist the read-only GUI_QUEUE sheet config (encrypted)."""
+        self._require()["sheets"] = {
+            "service_account_json": service_account_json.strip(),
+            "spreadsheet_id": spreadsheet_id.strip(),
+            "worksheet": (worksheet or "GUI_QUEUE").strip(),
+        }
+        self._write()
+
+    def secret_values(self) -> list[str]:  # noqa: C901
         """Secret strings (longest first) to redact from logs.
 
         Field values marked secret in brokers_meta, plus long segments of
@@ -317,6 +342,16 @@ class Vault:  # noqa: PLR0904
                     seg = part.strip()
                     if len(seg) >= min_len:
                         out.add(seg)
+        sa_json = self.get_sheets_config().get("service_account_json", "")
+        if sa_json:
+            try:
+                sa = json.loads(sa_json)
+            except ValueError:
+                sa = {}
+            for field in ("private_key", "private_key_id", "client_email"):
+                val = str(sa.get(field, "")).strip()
+                if len(val) >= min_len:
+                    out.add(val)
         return sorted(out, key=str.__len__, reverse=True)
 
     def import_env_file(self, path: Path) -> dict[str, str]:

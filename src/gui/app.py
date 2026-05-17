@@ -10,14 +10,18 @@ Run with:  uv run streamlit run src/gui/app.py
 
 from __future__ import annotations
 
+import operator
 import time
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import streamlit as st
 
+from src import ledger
 from src.gui.core.brokers_meta import SUPPORTED_BROKERS, BrokerMeta, get_broker
 from src.gui.core.results import group_by_broker
 from src.gui.core.runner import RunBusyError, RunStatus, TradeRunner
+from src.gui.core.sheets import SheetsError, Signal, fetch_signals
 from src.gui.core.tickers import normalize_and_validate
 from src.gui.core.totp import normalize_totp_secret
 from src.gui.core.vault import Vault, VaultError
@@ -755,6 +759,256 @@ def _activity_fragment(runner: TradeRunner) -> None:  # noqa: C901, PLR0912
 
 
 # --------------------------------------------------------------------------
+# Signals dashboard (M2 — read-only GUI_QUEUE ingest)
+# --------------------------------------------------------------------------
+def _parse_date(value: str) -> datetime | None:
+    """Best-effort parse of a sheet date cell; None if unrecognizable."""
+    s = (value or "").strip()
+    if not s:
+        return None
+    iso = s.replace("Z", "+00:00")
+    try:
+        return datetime.fromisoformat(iso)
+    except ValueError:
+        pass
+    for fmt in (
+        "%Y-%m-%d",
+        "%m/%d/%Y",
+        "%m/%d/%Y %H:%M:%S",
+        "%m/%d/%Y %H:%M",
+        "%Y-%m-%d %H:%M:%S",
+        "%b %d, %Y",
+        "%B %d, %Y",
+    ):
+        try:
+            return datetime.strptime(s, fmt)  # noqa: DTZ007
+        except ValueError:
+            continue
+    return None
+
+
+def _ledger_status(key: str) -> tuple[str, dict[str, int]]:
+    """Compact ledger badge + per-status counts for a signal KEY."""
+    counts: dict[str, int] = {}
+    for row in ledger.list_executions(key):
+        st_ = str(row.get("status", ""))
+        counts[st_] = counts.get(st_, 0) + 1
+    if not counts:
+        return "— not yet run", counts
+    parts = []
+    if counts.get(ledger.STATUS_EXECUTED):
+        parts.append(f"✅ {counts[ledger.STATUS_EXECUTED]} done")
+    if counts.get(ledger.STATUS_INTENDED):
+        parts.append(f"⏳ {counts[ledger.STATUS_INTENDED]} in-flight")
+    if counts.get(ledger.STATUS_FAILED):
+        parts.append(f"❌ {counts[ledger.STATUS_FAILED]} failed")
+    return ", ".join(parts) if parts else "—", counts
+
+
+def _signal_rows(signals: list[Signal]) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for sig in signals:
+        badge, _ = _ledger_status(sig.key)
+        rows.append(
+            {
+                "Ticker": sig.ticker,
+                "Ratio": sig.ratio,
+                "Effective": sig.effective_date,
+                "Pre-split deadline": sig.presplit_deadline,
+                "Fractional": sig.fractional_policy,
+                "Conf.": sig.confidence,
+                "Source": sig.source,
+                "Created": sig.created_at,
+                "Ledger": badge,
+                "KEY": sig.key,
+            },
+        )
+    return rows
+
+
+def _tab_signals() -> None:  # noqa: C901, PLR0912, PLR0914, PLR0915
+    vault = _get_vault()
+    st.subheader("Reverse-Split Signals")
+    if not vault.is_unlocked():
+        st.warning("Unlock the vault in the sidebar first.")
+        return
+
+    cfg = vault.get_sheets_config()
+    with st.expander(
+        "Google Sheet connection",
+        expanded=not cfg.get("spreadsheet_id"),
+    ):
+        st.caption(
+            "Read-only. Create a Google Cloud service account, enable the "
+            "Sheets API, download its JSON key, and share the GUI_QUEUE "
+            "spreadsheet with the service account's client_email (Viewer). "
+            "Nothing is ever written back — accounting is local.",
+        )
+        sa_json = st.text_area(
+            "Service-account JSON key",
+            value=cfg.get("service_account_json", ""),
+            height=140,
+            help="Paste the full contents of the downloaded key file.",
+        )
+        sheet_id = st.text_input(
+            "Spreadsheet ID or URL",
+            value=cfg.get("spreadsheet_id", ""),
+            help="The existing alert spreadsheet (GUI_QUEUE is a tab in it).",
+        )
+        worksheet = st.text_input(
+            "Worksheet (tab) name",
+            value=cfg.get("worksheet", "GUI_QUEUE"),
+        )
+        if st.button("Save connection"):
+            vault.set_sheets_config(sa_json, sheet_id, worksheet)
+            st.success("Saved.")
+            st.rerun()
+
+    cfg = vault.get_sheets_config()
+    if not cfg.get("spreadsheet_id") or not cfg.get("service_account_json"):
+        st.info("Configure the Google Sheet connection above to see signals.")
+        return
+
+    col_a, col_b = st.columns([1, 3])
+    if col_a.button("🔄 Refresh signals", type="primary"):
+        try:
+            sigs = fetch_signals(
+                cfg["service_account_json"],
+                cfg["spreadsheet_id"],
+                cfg.get("worksheet", "GUI_QUEUE"),
+            )
+        except SheetsError as exc:
+            st.session_state.pop("signals", None)
+            st.error(str(exc))
+        else:
+            st.session_state["signals"] = sigs
+            st.session_state["signals_at"] = datetime.now(UTC)
+            st.success(f"Fetched {len(sigs)} signal(s).")
+
+    signals: list[Signal] = st.session_state.get("signals", [])
+    fetched_at = st.session_state.get("signals_at")
+    if fetched_at is not None:
+        col_b.caption(f"Last refreshed: {fetched_at:%Y-%m-%d %H:%M UTC}")
+    if not signals:
+        st.info("No signals loaded yet — click Refresh.")
+        return
+
+    now = datetime.now()  # noqa: DTZ005
+    week_ago = now - timedelta(days=7)
+    soon = now + timedelta(days=21)
+
+    upcoming, recent, other = [], [], []
+    for sig in signals:
+        eff = _parse_date(sig.effective_date) or _parse_date(
+            sig.presplit_deadline,
+        )
+        created = _parse_date(sig.created_at)
+        if eff is not None and now.date() <= eff.date() <= soon.date():
+            upcoming.append((eff, sig))
+        if created is not None and created >= week_ago:
+            recent.append((created, sig))
+        if eff is None:
+            other.append(sig)
+
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Signals loaded", len(signals))
+    m2.metric("Upcoming (≤21d)", len(upcoming))
+    m3.metric("New this week", len(recent))
+
+    st.markdown("#### 📅 Upcoming round-ups")
+    if upcoming:
+        upcoming.sort(key=operator.itemgetter(0))
+        st.dataframe(
+            _signal_rows([s for _, s in upcoming]),
+            width="stretch",
+            hide_index=True,
+        )
+    else:
+        st.caption("Nothing with a parseable effective date in the next 21 days.")
+
+    st.markdown("#### 🆕 Alerts fired this week")
+    if recent:
+        recent.sort(key=operator.itemgetter(0), reverse=True)
+        st.dataframe(
+            _signal_rows([s for _, s in recent]),
+            width="stretch",
+            hide_index=True,
+        )
+    else:
+        st.caption("No alerts created in the last 7 days.")
+
+    with st.expander(f"All loaded signals ({len(signals)})"):
+        st.dataframe(
+            _signal_rows(signals),
+            width="stretch",
+            hide_index=True,
+        )
+        if other:
+            st.caption(
+                f"{len(other)} signal(s) have no parseable effective date "
+                "and are excluded from the upcoming view.",
+            )
+
+
+# --------------------------------------------------------------------------
+# Ledger tab (execution history + reset a play)
+# --------------------------------------------------------------------------
+def _tab_ledger() -> None:
+    vault = _get_vault()
+    st.subheader("Execution Ledger")
+    if not vault.is_unlocked():
+        st.warning("Unlock the vault in the sidebar first.")
+        return
+    st.caption(
+        "Every real (non-dry) order is recorded here so a play is never "
+        "bought twice. 'Reset' clears one entry so that exact play can run "
+        "again - use it to re-test, or after you've handled a stuck "
+        "in-flight row by hand.",
+    )
+
+    rows = ledger.list_executions()
+    if not rows:
+        st.info("Ledger is empty — no real orders recorded yet.")
+        return
+
+    top = st.columns([1, 5])
+    if top[0].button("Clear ALL", help="Wipe the entire ledger."):
+        st.session_state["confirm_clear_ledger"] = True
+    if st.session_state.get("confirm_clear_ledger"):
+        st.warning("This permanently clears every ledger row.")
+        c1, c2 = st.columns(2)
+        if c1.button("Yes, clear everything", type="primary"):
+            n = ledger.clear_all()
+            st.session_state.pop("confirm_clear_ledger", None)
+            st.success(f"Cleared {n} row(s).")
+            st.rerun()
+        if c2.button("Cancel"):
+            st.session_state.pop("confirm_clear_ledger", None)
+            st.rerun()
+
+    st.divider()
+    hdr = st.columns([2, 1, 1, 1, 1, 2, 1])
+    for col, label in zip(
+        hdr,
+        ["KEY", "Broker", "Account", "Ticker", "Status", "Updated", ""],
+        strict=True,
+    ):
+        col.markdown(f"**{label}**")
+    for row in rows:
+        c = st.columns([2, 1, 1, 1, 1, 2, 1])
+        c[0].write(row.get("key"))
+        c[1].write(row.get("broker"))
+        c[2].write(f"••••{row.get('sub_account')}")
+        c[3].write(f"{row.get('ticker')} {row.get('action')}")
+        c[4].write(row.get("status"))
+        c[5].write(str(row.get("updated_at", ""))[:19])
+        if c[6].button("Reset", key=f"reset_{row.get('id')}"):
+            ledger.delete_row(int(row["id"]))
+            st.toast(f"Reset {row.get('ticker')} / {row.get('key')}")
+            st.rerun()
+
+
+# --------------------------------------------------------------------------
 # Main
 # --------------------------------------------------------------------------
 def main() -> None:
@@ -766,15 +1020,19 @@ def main() -> None:
     runner = _get_runner()
     _activity_fragment(runner)
 
-    tab_status, tab_creds, tab_trade, tab_hold = st.tabs(
-        ["Status", "Credentials", "Trade", "Balances"],
+    tab_status, tab_creds, tab_signals, tab_trade, tab_ledger, tab_hold = st.tabs(
+        ["Status", "Credentials", "Signals", "Trade", "Ledger", "Balances"],
     )
     with tab_status:
         _tab_status()
     with tab_creds:
         _tab_credentials()
+    with tab_signals:
+        _tab_signals()
     with tab_trade:
         _tab_trade()
+    with tab_ledger:
+        _tab_ledger()
     with tab_hold:
         _tab_holdings()
 

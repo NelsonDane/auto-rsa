@@ -176,3 +176,33 @@ def list_executions(key: str | None = None) -> list[dict[str, object]]:
             params = (key,)
         sql += " ORDER BY updated_at DESC"
         return [dict(r) for r in conn.execute(sql, params).fetchall()]
+
+
+def delete_row(row_id: int) -> bool:
+    """Reset one play by its ledger row id (the GUI "reset this play").
+
+    After this the play is treated as never attempted, so a future run
+    (manual or signal) is free to execute it again. Returns True if a
+    row was removed.
+    """
+    with _LOCK, _connect() as conn:
+        cur = conn.execute("DELETE FROM executions WHERE id=?", (row_id,))
+        return cur.rowcount > 0
+
+
+def delete_play(play: Play) -> bool:
+    """Reset one play by its identity tuple. Returns True if removed."""
+    with _LOCK, _connect() as conn:
+        cur = conn.execute(
+            "DELETE FROM executions "
+            "WHERE key=? AND broker=? AND sub_account=? AND ticker=? AND action=?",
+            _norm(play),
+        )
+        return cur.rowcount > 0
+
+
+def clear_all() -> int:
+    """Wipe the entire ledger. Returns the number of rows removed."""
+    with _LOCK, _connect() as conn:
+        cur = conn.execute("DELETE FROM executions")
+        return cur.rowcount
