@@ -320,6 +320,10 @@ def wellsfargo_transaction(wf_obj: Brokerage, order_obj: StockOrder, loop: async
                 ec.element_to_be_clickable((By.XPATH, "//*[@id='BROKERAGE_LINK7P']")),
             )
             brokerage.click()
+            # WellsTrade opens in a new window; focus it or the next
+            # finds raise "target window already closed".
+            if driver.window_handles:
+                driver.switch_to.window(driver.window_handles[-1])
 
             trade = WebDriverWait(driver, 20).until(
                 ec.element_to_be_clickable((By.XPATH, "//*[@id='trademenu']/span[1]")),
