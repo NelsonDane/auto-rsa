@@ -159,36 +159,58 @@ Headless can't answer a fresh OTP. Strategy, in priority order:
 - [ ] Per-browser-broker liveness-probe selector (one quick attended
       observation each) — only needed as we reach Tiers 2–5.
 
-## 8. Session-health dashboard (new requirement)
+## 8. Session-health dashboard + outcome reason codes
 
-Per (broker, account/parent), track and surface a traffic-light state
-so a degrading session demands attention *before* it silently stops
-capturing plays:
+**Two independent dimensions — do not conflate them** (operator
+experience: tickers are routinely unavailable/restricted on a given
+broker even when the session is perfectly fine; "no recent buys" is
+normal, not breakage):
 
-- **🟢 Green** — last successful auth/liveness probe (or successful
-  order) within TTL. Healthy.
-- **🟡 Yellow** — approaching TTL, **or** no successful confirmation
-  within a "staleness" window (configurable, e.g. no successful run in
-  N days even though nothing failed). "Watch / will need a refresh."
-- **🔴 Red** — liveness probe failed / session expired / unattended
-  re-auth escalated-and-skipped. **Flag for human interaction**; the
-  auto-executor skips this broker and alerts.
+### 8a. Session health — LIVENESS only
+Per (broker, artifact), a traffic light driven **purely by session
+liveness vs TTL**:
+- **🟢 Green** — session artifact present and fresh (< 70% of TTL); or
+  a stateless token broker (no session file needed).
+- **🟡 Yellow** — artifact approaching TTL (refresh soon).
+- **🔴 Red** — no artifact / past TTL → re-auth (login+2FA) needed;
+  the auto-executor skips this broker and alerts.
+- **⚪ Unsupported / ❔ Unknown** — broker keeps no session
+  (Selenium WF/Tornado) / artifact path not yet confirmed.
 
-Mechanics:
-- A small persisted **session-state record** per (broker, account):
-  `last_ok_at`, `last_probe_at`, `last_result`, `artifact_age`,
-  `last_order_at`. Lives in gitignored `creds/` (e.g. a tiny SQLite
-  table or JSON, mirroring the ledger pattern).
-- Written by: the audit harness (`--check-sessions`), every
-  attended/unattended login, and the executor on
-  success/skip/failure.
-- Surfaced in the GUI: a **Sessions** panel (Status or Signals tab) —
-  one row per broker/account with the light, `last confirmed` time,
-  and the reason if not green. Same completion-webhook alert on any
-  →🔴 transition so it reaches you off-box.
-- The yellow→red escalation also covers your "broker hasn't made a
-  purchase in a while" case: prolonged no-confirmed-activity trips
-  yellow, a failed probe trips red.
+Trading activity is **NOT** a health input. (Earlier draft tied yellow
+to "no confirmed buy in N days" — *removed*: it would false-alarm
+exactly when a broker simply had no purchasable plays.) Built:
+`src/session_state.py`, `python -m src.session_audit`, GUI Status
+panel; TTL via `RSA_SESSION_TTL_DAYS` + override map. Real network
+liveness probes are a later phase (need attended per-broker selectors).
+
+### 8b. Outcome reason codes — explains "why no trade"
+The Discord build alerted "stock unavailable for purchase"; this
+restores and generalizes that. Every order result is classified
+(`src/outcomes.py`, persisted on the ledger row's `reason`):
+`OK, FILTERED, LEDGER_SKIP, STOCK_UNAVAILABLE, RESTRICTED, NO_FUNDS,
+MARKET_CLOSED, PRICE_REJECTED, SESSION_ERROR, OTHER`.
+- `is_session_problem` → only `SESSION_ERROR` (alarms; can affect the
+  §8a light / trigger an alert).
+- `is_benign_no_trade` → FILTERED / LEDGER_SKIP / STOCK_UNAVAILABLE /
+  RESTRICTED / MARKET_CLOSED — connection was fine, expected, never an
+  alarm.
+
+The auto-executor uses these to decide skip-and-move-on (benign) vs
+skip-broker-and-alert (session problem), and to NOT degrade a healthy
+session for benign non-fills.
+
+### 8c. Optional: per-play availability tracker (idea, not required)
+Because `reason` is now on every ledger row, a **stock-availability
+matrix** is a cheap read-only view: per (play × broker) show 🟢 if a
+buy succeeded, 🔴 if `STOCK_UNAVAILABLE/RESTRICTED`, ⚪ if filtered/
+already-done, from logs/ledger alone. No new tracking — just a
+grouping over `ledger.list_executions()`. Scoped here; build on
+request.
+
+Mechanics (8a): snapshot persisted to gitignored `creds/sessions.db`;
+written by the audit harness / every login / the executor; surfaced in
+the GUI with a webhook alert on any →🔴 transition.
 
 Nothing here changes current behavior; it is purely additive reuse with
 a strict fall-back to today's interactive login.

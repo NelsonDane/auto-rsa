@@ -70,15 +70,17 @@ def test_yellow_band_and_ttl_override(_tmp, monkeypatch):
     assert _by_broker(ss.audit(persist=False))["robinhood"][0].health == ss.RED
 
 
-def test_inactivity_downgrades_fresh_session_to_yellow(_tmp, monkeypatch):
+def test_inactivity_does_not_affect_health(_tmp, monkeypatch):
+    # Domain rule: tickers are often unavailable/restricted on a broker,
+    # so a long gap with no buys must NOT degrade a healthy session.
     art = _tmp / "BBAE_1.pkl"
     art.write_text("x")
     _age_file(art, 0)
-    stale = (datetime.now(UTC) - timedelta(days=30)).isoformat()
+    stale = (datetime.now(UTC) - timedelta(days=120)).isoformat()
     monkeypatch.setattr(ss, "_last_order_at", lambda _b: stale)
     rec = _by_broker(ss.audit(persist=False))["bbae"][0]
-    assert rec.health == ss.YELLOW
-    assert "no confirmed buy" in rec.reason
+    assert rec.health == ss.GREEN  # liveness-only; activity is informational
+    assert rec.last_order_at == stale
 
 
 def test_persist_and_load_round_trip(_tmp):

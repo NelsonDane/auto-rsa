@@ -12,9 +12,13 @@ probe" is a later phase (needs an attended per-broker observation).
 Health model:
 * GREEN     fresh session artifact (age < 70% of TTL), or a stateless
             token broker that needs no session file.
-* YELLOW    artifact approaching TTL, OR healthy session but no
-            confirmed buy in the inactivity window ("hasn't traded in
-            a while" — your requested signal).
+* YELLOW    artifact approaching TTL (needs a refresh soon).
+
+Health is LIVENESS-only. Trading activity is intentionally NOT a
+health input: the reverse-split tickers are frequently unavailable or
+restricted on a given broker, so "no recent buys" is expected and must
+not degrade a healthy session. Activity + outcome reason codes
+(src/outcomes.py) are shown as separate, non-alarming columns.
 * RED       no artifact / artifact past TTL -> re-auth (login+2FA)
             needed. The auto-executor skips this broker and alerts.
 * UNSUPPORTED  broker keeps no session (Selenium WF/Tornado, etc.) —
@@ -46,7 +50,6 @@ _LOCK = threading.Lock()
 
 _DEFAULT_TTL_DAYS = 6
 _GREEN_FRACTION = 0.70  # < this fraction of TTL old => green
-_INACTIVITY_DAYS = 14  # healthy session but no buys this long => yellow
 
 GREEN = "GREEN"
 YELLOW = "YELLOW"
@@ -141,7 +144,7 @@ def _age_days(path: Path) -> float:
     return max(0.0, (time.time() - path.stat().st_mtime) / 86400.0)
 
 
-def _health_for(broker: _Broker) -> list[SessionRecord]:  # noqa: C901
+def _health_for(broker: _Broker) -> list[SessionRecord]:
     last = _last_order_at(broker.key)
 
     if broker.kind == _STATELESS:
@@ -178,6 +181,14 @@ def _health_for(broker: _Broker) -> list[SessionRecord]:  # noqa: C901
     ttl = ttl_days(broker.key)
     out: list[SessionRecord] = []
     for m in matches:
+        # Health is LIVENESS-only — purely the session artifact's age vs
+        # TTL. Trading activity is deliberately NOT a health input: these
+        # low-float reverse-split tickers are routinely unavailable or
+        # restricted on a given broker, so "no recent buys" is normal and
+        # must never flip a healthy session yellow. last_order_at is
+        # surfaced as an informational column instead, paired with the
+        # outcome reason codes (src/outcomes.py) so the dashboard can show
+        # *why* nothing was bought without alarming.
         age = _age_days(m)
         if age >= ttl:
             health, reason = RED, f"{age:.1f}d old > {ttl}d TTL — re-auth needed"
@@ -185,18 +196,6 @@ def _health_for(broker: _Broker) -> list[SessionRecord]:  # noqa: C901
             health, reason = YELLOW, f"approaching TTL ({age:.1f}/{ttl}d)"
         else:
             health, reason = GREEN, f"fresh ({age:.1f}/{ttl}d)"
-        # Healthy session but stale activity -> yellow ("not trading").
-        if health == GREEN and last:
-            try:
-                lo = datetime.fromisoformat(last)
-                if lo.tzinfo is None:
-                    lo = lo.replace(tzinfo=UTC)
-                inactive = (datetime.now(UTC) - lo).days
-                if inactive >= _INACTIVITY_DAYS:
-                    health = YELLOW
-                    reason = f"no confirmed buy in {inactive}d"
-            except ValueError:
-                pass
         out.append(
             SessionRecord(broker.key, m.name, health, reason, round(age, 2), last),
         )

@@ -96,11 +96,16 @@ def _connect() -> Iterator[sqlite3.Connection]:
             )
             """,
         )
-        # Migrate M1 databases that predate the economic split key.
+        # Migrate older databases additively (M1 had no split_key; the
+        # session-health work added an outcome reason code).
         cols = {r[1] for r in conn.execute("PRAGMA table_info(executions)")}
         if "split_key" not in cols:
             conn.execute(
                 "ALTER TABLE executions ADD COLUMN split_key TEXT DEFAULT ''",
+            )
+        if "reason" not in cols:
+            conn.execute(
+                "ALTER TABLE executions ADD COLUMN reason TEXT DEFAULT ''",
             )
         conn.execute(
             "CREATE INDEX IF NOT EXISTS ix_exec_split "
@@ -213,14 +218,24 @@ def record_intent(play: Play, qty: float) -> bool:
 
 
 def mark_result(play: Play, *, success: bool, detail: str = "") -> None:
-    """Finalize a reserved play as EXECUTED or FAILED."""
+    """Finalize a reserved play as EXECUTED or FAILED.
+
+    The free-text ``detail`` is classified into a stable outcome reason
+    code (src/outcomes) so a non-fill can be told apart: a benign
+    stock-unavailable/restricted/market-closed result is not a
+    session/tool failure, only SESSION_ERROR is.
+    """
+    from src.outcomes import classify_outcome  # noqa: PLC0415
+
+    reason = classify_outcome(detail, success=success)
     with _LOCK, _connect() as conn:
         conn.execute(
-            "UPDATE executions SET status=?, detail=?, updated_at=? "
+            "UPDATE executions SET status=?, detail=?, reason=?, updated_at=? "
             "WHERE key=? AND broker=? AND sub_account=? AND ticker=? AND action=?",
             (
                 STATUS_EXECUTED if success else STATUS_FAILED,
                 detail[:500],
+                reason,
                 _now(),
                 *_norm(play),
             ),
