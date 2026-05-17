@@ -12,6 +12,7 @@ import base64
 import contextlib
 import json
 import os
+import re
 import secrets
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -136,6 +137,7 @@ class Vault:  # noqa: PLR0904
         self._data.setdefault("settings", dict(DEFAULT_SETTINGS))
         self._data.setdefault("brokers", {})
         self._data.setdefault("account_filter", {})
+        self._data.setdefault("discovered_accounts", {})
 
     def lock(self) -> None:
         """Drop decrypted data and the derived key from memory."""
@@ -198,6 +200,28 @@ class Vault:  # noqa: PLR0904
             str(k): [str(m) for m in (v or [])] for k, v in mapping.items()
         }
         self._write()
+
+    def get_discovered_accounts(self, broker_key: str) -> list[str]:
+        """Last-4 masks seen for a broker (populated by holdings/test runs)."""
+        raw = self._require().get("discovered_accounts", {})
+        return list(raw.get(broker_key, []))
+
+    def add_discovered_accounts(self, broker_key: str, accounts: list[str]) -> None:
+        """Merge newly-seen sub-accounts (stored as digit last-4 masks)."""
+        masks = sorted(
+            {
+                re.sub(r"\D", "", str(a))[-4:]
+                for a in accounts
+                if re.sub(r"\D", "", str(a))
+            },
+        )
+        if not masks:
+            return
+        disc = self._require().setdefault("discovered_accounts", {})
+        merged = sorted(set(disc.get(broker_key, [])) | set(masks))
+        if merged != disc.get(broker_key):
+            disc[broker_key] = merged
+            self._write()
 
     def get_broker_accounts(self, broker_key: str) -> list[dict[str, str]]:
         """Return stored account dicts for a broker (may be empty)."""

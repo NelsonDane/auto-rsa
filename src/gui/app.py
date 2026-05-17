@@ -376,6 +376,78 @@ def _broker_picker(key_prefix: str) -> list[str]:
     return [name_by_key[n] for n in chosen]
 
 
+def _mask_label(mask: str) -> str:
+    return f"••••{mask}"
+
+
+def _account_filter_editor(vault: Vault, broker_keys: list[str]) -> None:
+    """Global per-broker sub-account allow-list editor.
+
+    Accounts appear once a Holdings or per-account Test run has
+    discovered them. Every account checked = unrestricted (trades all),
+    which is the default behavior. Buys only run in checked accounts;
+    sells always reach every account.
+    """
+    shown = vault.configured_broker_keys() if "all" in broker_keys else broker_keys
+    if not shown:
+        return
+    with st.expander("Sub-account filter — which accounts trade", expanded=False):
+        st.caption(
+            "Buys only run in the checked sub-accounts (sells always reach "
+            "every account). Accounts appear here after a Holdings or Test "
+            "run discovers them. All checked = trade every account (default).",
+        )
+        current = vault.get_account_filter()
+        any_discovered = False
+        with st.form("acct_filter_form"):
+            pending: dict[str, list[str]] = {}
+            for bkey in shown:
+                masks = vault.get_discovered_accounts(bkey)
+                name = get_broker(bkey).display_name
+                if not masks:
+                    st.markdown(
+                        f"**{name}** — _no accounts discovered yet "
+                        "(run Holdings or a per-account Test)_",
+                    )
+                    continue
+                any_discovered = True
+                default = (
+                    [m for m in current[bkey] if m in masks]
+                    if bkey in current
+                    else masks
+                )
+                pending[bkey] = st.multiselect(
+                    f"{name} accounts",
+                    options=masks,
+                    default=default,
+                    format_func=_mask_label,
+                    key=f"acctfilt_{bkey}",
+                )
+            saved = st.form_submit_button("Save sub-account filter")
+        if not any_discovered:
+            return
+        if saved:
+            new_filter = dict(vault.get_account_filter())
+            warn_empty: list[str] = []
+            for bkey, chosen in pending.items():
+                masks = vault.get_discovered_accounts(bkey)
+                if set(chosen) == set(masks):
+                    new_filter.pop(bkey, None)  # unrestricted
+                elif chosen:
+                    new_filter[bkey] = sorted(chosen)
+                else:
+                    new_filter[bkey] = []  # explicit: trade nothing
+                    warn_empty.append(get_broker(bkey).display_name)
+            vault.set_account_filter(new_filter)
+            st.success("Sub-account filter saved.")
+            if warn_empty:
+                st.warning(
+                    "No accounts selected for: "
+                    + ", ".join(warn_empty)
+                    + " — buys will be skipped entirely for these brokers.",
+                )
+
+
 # --------------------------------------------------------------------------
 # Trade tab
 # --------------------------------------------------------------------------
@@ -429,6 +501,7 @@ def _tab_trade() -> None:  # noqa: C901, PLR0914
         )
 
     broker_keys = _broker_picker("trade")
+    _account_filter_editor(vault, broker_keys)
     dry = st.toggle(
         "Dry run (no real orders)",
         value=True,

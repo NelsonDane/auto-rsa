@@ -22,8 +22,12 @@ import builtins
 import json
 import sys
 
-# Sentinel that cannot occur in normal broker output (NULs around a tag).
+# Sentinels that cannot occur in normal broker output (NULs around a tag).
 PROMPT_SENTINEL = "\x00RSA_PROMPT\x00"
+# Account discovery: one line per sub-account seen after login, parsed and
+# persisted by the parent (the engine subprocess can't touch the vault).
+# Format: ``<ACCOUNT_SENTINEL><broker_key>\t<account>\n``
+ACCOUNT_SENTINEL = "\x00RSA_ACCT\x00"
 
 
 def _bridged_input(prompt: object = "") -> str:

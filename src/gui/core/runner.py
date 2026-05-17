@@ -34,7 +34,7 @@ from typing import TYPE_CHECKING
 import psutil
 import requests
 
-from src.gui.core.engine_proc import PROMPT_SENTINEL
+from src.gui.core.engine_proc import ACCOUNT_SENTINEL, PROMPT_SENTINEL
 from src.gui.core.logbus import LogStream
 from src.gui.core.prompts import PromptBus
 
@@ -296,12 +296,13 @@ class TradeRunner:
                 parent.kill()
         self.log.write("\n--- Run cancelled by user ---\n")
 
-    def _pump(self) -> None:
+    def _pump(self) -> None:  # noqa: C901, PLR0912
         proc = self._proc
         if proc is None or proc.stdout is None:
             self._release_run_lock()
             self._set_status(RunStatus.ERROR)
             return
+        discovered: dict[str, list[str]] = {}
         try:
             for raw in proc.stdout:
                 if raw.startswith(PROMPT_SENTINEL):
@@ -311,11 +312,24 @@ class TradeRunner:
                     if proc.stdin is not None:
                         proc.stdin.write(answer + "\n")
                         proc.stdin.flush()
+                elif raw.startswith(ACCOUNT_SENTINEL):
+                    payload = raw[len(ACCOUNT_SENTINEL):].rstrip("\r\n")
+                    broker, _, account = payload.partition("\t")
+                    if broker and account:
+                        discovered.setdefault(broker, []).append(account)
                 else:
                     self.log.write(self._redact(raw))
         except Exception as exc:
             self.log.write(f"\n--- GUI pump error: {exc} ---\n")
         finally:
+            # Persist discovered sub-accounts for the Trade-tab picker.
+            for broker, accounts in discovered.items():
+                try:
+                    self._vault.add_discovered_accounts(broker, accounts)
+                except Exception as exc:
+                    self.log.write(
+                        f"\n(could not store discovered accounts: {exc})\n",
+                    )
             code = proc.wait()
             self.prompts.cancel()
             self._release_run_lock()
