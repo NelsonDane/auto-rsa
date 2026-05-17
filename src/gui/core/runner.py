@@ -119,13 +119,17 @@ class TradeRunner:
         dry: bool,
         price_type: str = "market",
         time_in_force: str = "day",
+        limit_price: float | None = None,
     ) -> None:
         """Execute a buy/sell.
 
         ``price_type`` ("market"/"limit") and ``time_in_force``
-        ("day"/"gtc") are plumbed onto the StockOrder. Brokers that read
-        them honor them; the rest keep their own automatic
-        market->limit / sub-$1 fallback. ``dry=True`` is a no-op run.
+        ("day"/"gtc") are plumbed onto the StockOrder. ``limit_price``
+        is the explicit price for a limit order; when None on a limit
+        order the broker derives one via its own native limit logic.
+        Brokers that read these honor them; the rest keep their own
+        automatic market->limit / sub-$1 fallback. ``dry=True`` is a
+        no-op run.
         """
         args = [
             action,
@@ -134,11 +138,19 @@ class TradeRunner:
             self._brokers_arg(broker_keys),
             "true" if dry else "false",
         ]
-        payload = {"args": args, "price": price_type, "time": time_in_force}
+        payload = {
+            "args": args,
+            "price": price_type,
+            "time": time_in_force,
+            "limit_price": limit_price,
+        }
         mode = "DRY" if dry else "LIVE"
+        price_desc = price_type
+        if price_type == "limit":
+            price_desc = f"limit@{limit_price}" if limit_price is not None else "limit@auto"
         desc = (
             f"{mode} {action} {amount} {','.join(tickers)} "
-            f"[{price_type}/{time_in_force}] -> {', '.join(broker_keys)}"
+            f"[{price_desc}/{time_in_force}] -> {', '.join(broker_keys)}"
         )
         self._start(payload, broker_keys, desc)
 

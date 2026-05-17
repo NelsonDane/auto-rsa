@@ -204,6 +204,13 @@ def fidelity_transaction(
     fidelity_browser = cast("fidelity.FidelityAutomation", fidelity_o.get_logged_in_objects(name))
     # Get full list of accounts in case some had no holdings
     fidelity_browser.get_list_of_accounts()
+    # An explicit numeric price -> a real Fidelity limit order at that
+    # price (required after hours; market orders are rejected, 030910).
+    # "limit"/"market" strings -> let fidelity-api use its own native
+    # logic (sub-$1 / extended-hours auto-price); we never invent a
+    # real-money price.
+    order_price = order_obj.get_price()
+    limit_price = float(order_price) if isinstance(order_price, (int, float)) else None
     # Go trade
     for stock in order_obj.get_stocks():
         # Say what we are doing
@@ -228,6 +235,7 @@ def fidelity_transaction(
                     order_obj.get_action(),
                     account_number,
                     order_obj.get_dry(),
+                    limit_price,  # type: ignore[invalid-argument-type]
                 ),
             )
             print_account = mask_string(account_number)

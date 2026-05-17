@@ -344,7 +344,7 @@ def _broker_picker(key_prefix: str) -> list[str]:
 # --------------------------------------------------------------------------
 # Trade tab
 # --------------------------------------------------------------------------
-def _tab_trade() -> None:  # noqa: PLR0914
+def _tab_trade() -> None:  # noqa: C901, PLR0914
     vault = _get_vault()
     runner = _get_runner()
     st.subheader("Execute Trade")
@@ -377,6 +377,22 @@ def _tab_trade() -> None:  # noqa: PLR0914
         "limit orders. Only brokers that support it will honor it.",
     )
 
+    limit_price: float | None = None
+    if price_type == "limit":
+        limit_price = st.number_input(
+            "Limit price (leave blank to auto-derive)",
+            min_value=0.0,
+            value=None,
+            step=0.01,
+            format="%.2f",
+            help="Exact limit price sent to the broker. Required after "
+            "hours (market orders are rejected then). Leave blank to let "
+            "the broker derive one from its own quote where it can "
+            "(sub-$1 / extended-hours); blank does NOT work in dead "
+            "overnight/weekend windows. Limit orders require exactly one "
+            "symbol.",
+        )
+
     broker_keys = _broker_picker("trade")
     dry = st.toggle(
         "Dry run (no real orders)",
@@ -399,6 +415,12 @@ def _tab_trade() -> None:  # noqa: PLR0914
             )
         elif not tickers:
             st.error("Enter at least one stock symbol.")
+        elif price_type == "limit" and len(tickers) != 1:
+            st.error(
+                "Limit orders require exactly one symbol — one price "
+                "can't be correct across different stocks. Use Market "
+                "for multiple symbols, or run them one at a time.",
+            )
         elif dry:
             try:
                 runner.start_trade(
@@ -409,6 +431,7 @@ def _tab_trade() -> None:  # noqa: PLR0914
                     dry=True,
                     price_type=price_type,
                     time_in_force=time_in_force,
+                    limit_price=limit_price,
                 )
             except RunBusyError as exc:
                 st.error(str(exc))
@@ -424,8 +447,17 @@ def _tab_trade() -> None:  # noqa: PLR0914
                 "broker_keys": broker_keys,
                 "price_type": price_type,
                 "time_in_force": time_in_force,
+                "limit_price": limit_price,
             }
             st.rerun()
+
+
+def _fmt_limit(pending: dict) -> str:
+    """Human-readable limit price for the LIVE confirm summary."""
+    if pending["price_type"] != "limit":
+        return "n/a (market)"
+    lp = pending.get("limit_price")
+    return f"${lp:.2f}" if lp is not None else "auto-derived by broker"
 
 
 def _render_live_confirm(runner: TradeRunner, vault: Vault, pending: dict) -> None:
@@ -443,6 +475,7 @@ def _render_live_confirm(runner: TradeRunner, vault: Vault, pending: dict) -> No
         f"- **Amount:** {pending['amount']} share(s)\n"
         f"- **Symbol(s):** {', '.join(pending['tickers'])}\n"
         f"- **Order type:** {pending['price_type']} / {pending['time_in_force']}\n"
+        f"- **Limit price:** {_fmt_limit(pending)}\n"
         f"- **Brokers:** {broker_desc}\n\n"
         "This runs across **every account** at each broker above.",
     )
@@ -459,6 +492,7 @@ def _render_live_confirm(runner: TradeRunner, vault: Vault, pending: dict) -> No
                 dry=False,
                 price_type=pending["price_type"],
                 time_in_force=pending["time_in_force"],
+                limit_price=pending.get("limit_price"),
             )
         except RunBusyError as exc:
             st.error(str(exc))

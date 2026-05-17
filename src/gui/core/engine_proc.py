@@ -50,14 +50,21 @@ def main() -> None:
         args: list[str] = payload.get("args", [])
         price = payload.get("price")
         time_in_force = payload.get("time")
+        limit_price = payload.get("limit_price")
     else:
         args = payload
-        price = time_in_force = None
+        price = time_in_force = limit_price = None
     # Imported here so the engine's startup banner streams to the parent.
     from src.auto_rsa import arg_parser, fun_run  # noqa: PLC0415
 
     order = arg_parser(args)
-    if price in {"market", "limit"}:
+    if price == "limit" and isinstance(limit_price, (int, float)):
+        # Explicit price -> StockOrder carries the float; brokers that
+        # honor it place a real limit order at exactly this price.
+        order.set_price(float(limit_price))
+    elif price in {"market", "limit"}:
+        # "limit" with no price -> sentinel; brokers fall back to their
+        # own native limit logic (sub-$1 / extended-hours auto-price).
         order.set_price(price)
     if time_in_force in {"day", "gtc"}:
         order.set_time(time_in_force)
