@@ -135,6 +135,7 @@ class Vault:  # noqa: PLR0904
         self._key = key
         self._data.setdefault("settings", dict(DEFAULT_SETTINGS))
         self._data.setdefault("brokers", {})
+        self._data.setdefault("account_filter", {})
 
     def lock(self) -> None:
         """Drop decrypted data and the derived key from memory."""
@@ -178,6 +179,24 @@ class Vault:  # noqa: PLR0904
     def set_notify(self, cfg: dict[str, str]) -> None:
         """Persist notification config (e.g. completion webhook URL)."""
         self._require()["notify"] = dict(cfg)
+        self._write()
+
+    def get_account_filter(self) -> dict[str, list[str]]:
+        """Global per-broker sub-account allow-list ``{key: [mask, ...]}``.
+
+        Empty/absent broker -> all its accounts trade (unchanged
+        default). A present broker restricts buys to its listed masks;
+        an explicitly empty list means trade nothing for that broker.
+        Consumed by the engine via ``RSA_ACCOUNT_FILTER``.
+        """
+        raw = self._require().get("account_filter", {})
+        return {str(k): [str(m) for m in (v or [])] for k, v in raw.items()}
+
+    def set_account_filter(self, mapping: dict[str, list[str]]) -> None:
+        """Replace the global per-broker sub-account allow-list."""
+        self._require()["account_filter"] = {
+            str(k): [str(m) for m in (v or [])] for k, v in mapping.items()
+        }
         self._write()
 
     def get_broker_accounts(self, broker_key: str) -> list[dict[str, str]]:
@@ -322,6 +341,10 @@ class Vault:  # noqa: PLR0904
                 extra_val = (self.get_broker_extra(key).get(extra_var) or "").strip()
                 if extra_val:
                     env[extra_var] = extra_val
+        stored_filter = self.get_account_filter()
+        active_filter = {k: stored_filter[k] for k in broker_keys if k in stored_filter}
+        if active_filter:
+            env["RSA_ACCOUNT_FILTER"] = json.dumps(active_filter)
         env.update(self.get_settings())
         return env
 

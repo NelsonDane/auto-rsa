@@ -17,7 +17,8 @@ from dotenv import load_dotenv
 from fidelity import fidelity
 
 from src.brokerages import _fidelity_modal_dismiss, _fidelity_patchright
-from src.helper_api import Brokerage, StockOrder, get_otp_from_discord, mask_string, print_all_holdings, print_and_discord
+from src.helper_api import Brokerage, StockOrder, account_allowed, get_otp_from_discord, mask_string, print_all_holdings, print_and_discord
+from src.ledger import Play, mark_result, record_intent
 
 # Swap fidelity-api's detectable browser engine for patchright before
 # any FidelityAutomation is constructed, and stop a single rejected
@@ -226,6 +227,33 @@ def fidelity_transaction(
                 # Doesn't have it, skip account
                 continue
 
+            print_account = mask_string(account_number)
+            # Global per-broker sub-account allow-list (RSA_ACCOUNT_FILTER).
+            if not account_allowed("fidelity", account_number, order_obj.get_action()):
+                print_and_discord(
+                    f"{name} account {print_account}: skipped {stock} (not in account filter)",
+                    loop,
+                )
+                continue
+            # Idempotency: reserve this play before ordering so a retry,
+            # crash-resume, or re-queued signal can't buy the share twice.
+            # Manual runs get a synthetic key; the M2 signal path supplies
+            # RSA_PLAY_KEY. Dry runs are never recorded.
+            play = Play(
+                key=os.getenv("RSA_PLAY_KEY") or f"MANUAL:{stock}:{order_obj.get_action().lower()}",
+                broker="fidelity",
+                account=str(account_number),
+                ticker=stock,
+                action=order_obj.get_action(),
+            )
+            if not order_obj.get_dry() and not record_intent(play, order_obj.get_amount()):
+                print_and_discord(
+                    f"{name} account {print_account}: skipped {stock} "
+                    "(ledger: already executed or in-flight — no double-buy)",
+                    loop,
+                )
+                continue
+
             # Go trade for all accounts for that stock
             success, error_message = cast(
                 "tuple[bool, str | None]",
@@ -238,7 +266,8 @@ def fidelity_transaction(
                     limit_price,  # type: ignore[invalid-argument-type]
                 ),
             )
-            print_account = mask_string(account_number)
+            if not order_obj.get_dry():
+                mark_result(play, success=success, detail=str(error_message or ""))
             # Report error if occurred
             if not success:
                 print_and_discord(
