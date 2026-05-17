@@ -106,3 +106,68 @@ def is_session_problem(code: str) -> bool:
 def is_benign_no_trade(code: str) -> bool:
     """Return True if no trade happened but the connection was fine."""
     return code in _BENIGN
+
+
+# --- per-play availability matrix (read-only ledger analytics) --------
+
+BOUGHT = "BOUGHT"
+UNAVAILABLE = "UNAVAILABLE"
+SESSION = "SESSION"
+REJECTED = "REJECTED"
+PENDING = "PENDING"
+SKIPPED = "SKIPPED"
+NONE = "NONE"
+
+# Most-informative-wins precedence when a (ticker, broker) pair has
+# several ledger rows: a success beats everything; an unavailable/
+# session problem is the next most useful to surface.
+_CELL_ORDER = (
+    BOUGHT,
+    UNAVAILABLE,
+    SESSION,
+    REJECTED,
+    PENDING,
+    SKIPPED,
+    NONE,
+)
+
+
+def _row_cell(status: str, reason: str) -> str:  # noqa: PLR0911
+    if status == "EXECUTED":
+        return BOUGHT
+    if reason in {STOCK_UNAVAILABLE, RESTRICTED}:
+        return UNAVAILABLE
+    if reason == SESSION_ERROR:
+        return SESSION
+    if reason in {MARKET_CLOSED, PRICE_REJECTED, NO_FUNDS}:
+        return REJECTED
+    if status == "INTENDED":
+        return PENDING
+    if reason in {FILTERED, LEDGER_SKIP}:
+        return SKIPPED
+    return NONE
+
+
+def availability_matrix(
+    rows: list[dict[str, object]],
+) -> dict[str, dict[str, str]]:
+    """Collapse ledger rows into ``{ticker: {broker: cell_code}}``.
+
+    Read-only analytics over ``ledger.list_executions()`` — answers
+    "for each play, what happened at each broker" (bought vs. just
+    unavailable/restricted there vs. a real session problem).
+    """
+    rank = {c: i for i, c in enumerate(_CELL_ORDER)}
+    out: dict[str, dict[str, str]] = {}
+    for r in rows:
+        ticker = str(r.get("ticker", "")).upper()
+        broker = str(r.get("broker", "")).lower()
+        if not ticker or not broker:
+            continue
+        cell = _row_cell(
+            str(r.get("status", "")), str(r.get("reason", "")),
+        )
+        cur = out.setdefault(ticker, {}).get(broker)
+        if cur is None or rank[cell] < rank[cur]:
+            out[ticker][broker] = cell
+    return out

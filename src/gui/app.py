@@ -17,7 +17,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from src import ledger, session_state
+from src import ledger, outcomes, session_state
 from src.gui.core.brokers_meta import SUPPORTED_BROKERS, BrokerMeta, get_broker
 from src.gui.core.results import group_by_broker
 from src.gui.core.runner import RunBusyError, RunStatus, TradeRunner
@@ -1141,6 +1141,47 @@ def _tab_signals() -> None:  # noqa: C901, PLR0912, PLR0914, PLR0915
 # --------------------------------------------------------------------------
 # Ledger tab (execution history + reset a play)
 # --------------------------------------------------------------------------
+_AVAIL_DOT = {
+    outcomes.BOUGHT: "🟢",
+    outcomes.UNAVAILABLE: "🔴",
+    outcomes.SESSION: "🟣",
+    outcomes.REJECTED: "🟠",
+    outcomes.PENDING: "🟡",
+    outcomes.SKIPPED: "⚪",
+}
+
+
+def _play_availability_panel(rows: list[dict[str, object]]) -> None:
+    """Per-play by-broker outcome matrix (read-only, from ledger reasons)."""
+    matrix = outcomes.availability_matrix(rows)
+    if not matrix:
+        return
+    brokers = sorted({b for cells in matrix.values() for b in cells})
+    with st.expander(
+        f"Play availability by broker ({len(matrix)} plays)", expanded=False,
+    ):
+        st.caption(
+            "🟢 bought · 🔴 unavailable/restricted here · 🟠 rejected "
+            "(market-closed/price/funds) · 🟣 session problem · 🟡 in-flight "
+            "· ⚪ filtered/already-done · · none. A 🔴 means the stock "
+            "wasn't buyable at that broker — not a tool failure.",
+        )
+        st.dataframe(
+            [
+                {
+                    "Ticker": tkr,
+                    **{
+                        b: _AVAIL_DOT.get(cells.get(b, ""), "·")
+                        for b in brokers
+                    },
+                }
+                for tkr, cells in sorted(matrix.items())
+            ],
+            width="stretch",
+            hide_index=True,
+        )
+
+
 def _tab_ledger() -> None:
     vault = _get_vault()
     st.subheader("Execution Ledger")
@@ -1158,6 +1199,8 @@ def _tab_ledger() -> None:
     if not rows:
         st.info("Ledger is empty — no real orders recorded yet.")
         return
+
+    _play_availability_panel(rows)
 
     top = st.columns([1, 5])
     if top[0].button("Clear ALL", help="Wipe the entire ledger."):

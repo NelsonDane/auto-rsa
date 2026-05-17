@@ -57,3 +57,29 @@ def test_unclassified_and_empty():
     assert o.classify_outcome("") == o.OTHER
     assert o.classify_outcome("some totally novel broker burp") == o.OTHER
     assert not o.is_session_problem(o.OTHER)
+
+
+def test_availability_matrix_precedence():
+    rows = [
+        # ACME: unavailable at fidelity, but later bought there -> BOUGHT wins
+        {"ticker": "acme", "broker": "fidelity", "status": "FAILED",
+         "reason": o.STOCK_UNAVAILABLE},
+        {"ticker": "ACME", "broker": "fidelity", "status": "EXECUTED",
+         "reason": o.OK},
+        # ACME at chase: only restricted -> UNAVAILABLE
+        {"ticker": "ACME", "broker": "chase", "status": "FAILED",
+         "reason": o.RESTRICTED},
+        # BETA at fidelity: session error -> SESSION
+        {"ticker": "BETA", "broker": "fidelity", "status": "FAILED",
+         "reason": o.SESSION_ERROR},
+        # BETA at robinhood: filtered out -> SKIPPED
+        {"ticker": "BETA", "broker": "robinhood", "status": "FAILED",
+         "reason": o.FILTERED},
+        {"ticker": "", "broker": "x", "status": "EXECUTED"},  # ignored
+    ]
+    m = o.availability_matrix(rows)
+    assert m["ACME"]["fidelity"] == o.BOUGHT       # success trumps prior fail
+    assert m["ACME"]["chase"] == o.UNAVAILABLE
+    assert m["BETA"]["fidelity"] == o.SESSION
+    assert m["BETA"]["robinhood"] == o.SKIPPED
+    assert "" not in m
