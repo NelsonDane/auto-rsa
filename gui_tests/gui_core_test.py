@@ -20,8 +20,25 @@ from cryptography.fernet import Fernet
 from src.gui.core import runner as runner_mod
 from src.gui.core.brokers_meta import get_broker
 from src.gui.core.prompts import PromptBus
+from src.gui.core.results import group_by_broker, status_lines
 from src.gui.core.runner import RunBusyError, RunStatus, TradeRunner
 from src.gui.core.tickers import normalize_and_validate
+
+
+# --- results grouping -------------------------------------------------
+def test_results_status_and_grouping():
+    log = (
+        "Logging in to Robinhood...\n"
+        "noise that should be dropped\n"
+        "Robinhood purchase complete\n"  # 'purchase' must NOT flip to Chase
+        "Error: something at Robinhood\n"
+    )
+    assert "noise that should be dropped" not in status_lines(log)
+    groups = group_by_broker(log)
+    # 'purchase' contains 'chase' but \b prevents a false Chase match.
+    assert "Chase" not in groups
+    assert any("purchase complete" in ln for ln in groups["Robinhood"])
+    assert any("Error: something" in ln for ln in groups["Robinhood"])
 from src.gui.core.vault import _LEGACY_KDF, Vault, VaultError, _derive_key
 
 

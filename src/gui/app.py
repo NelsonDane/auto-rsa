@@ -16,6 +16,7 @@ from pathlib import Path
 import streamlit as st
 
 from src.gui.core.brokers_meta import SUPPORTED_BROKERS, BrokerMeta, get_broker
+from src.gui.core.results import group_by_broker
 from src.gui.core.runner import RunBusyError, RunStatus, TradeRunner
 from src.gui.core.tickers import normalize_and_validate
 from src.gui.core.vault import Vault, VaultError
@@ -442,33 +443,6 @@ def _tab_holdings() -> None:
 # Rendered on every page (above the tabs) so a login prompt or status
 # output is always visible no matter which tab triggered the run.
 # --------------------------------------------------------------------------
-_HIGHLIGHT_MARKERS = (
-    "error",
-    "fail",
-    "unsuccessful",
-    "success",
-    "complete",
-    "skipping",
-    "not found",
-    "logged in",
-    "total value",
-    "combined total",
-    "dry:",
-    "would've been",
-)
-
-
-def _highlights(log: str) -> str:
-    """Verbatim lines that match status markers — a filter, not analysis.
-
-    Deliberately does not interpret or assert order outcomes; it only
-    surfaces the broker's own lines so a real-money result is never
-    misrepresented by a parser.
-    """
-    lines = [ln for ln in log.splitlines() if any(m in ln.lower() for m in _HIGHLIGHT_MARKERS)]
-    return "\n".join(lines)
-
-
 @st.fragment(run_every=2)
 def _activity_fragment(runner: TradeRunner) -> None:  # noqa: C901
     """Auto-refreshing activity panel (only this fragment reruns).
@@ -520,10 +494,12 @@ def _activity_fragment(runner: TradeRunner) -> None:  # noqa: C901
                 st.rerun(scope="fragment")
 
     log = snap.log
-    highlights = _highlights(log) if log else ""
-    if highlights:
-        with st.expander("Highlights (matched lines — verbatim, not interpreted)", expanded=True):
-            st.code(highlights, language="text")
+    groups = group_by_broker(log) if log else {}
+    if groups:
+        st.markdown("**Status by broker** (verbatim lines — grouped best-effort, not interpreted)")
+        for broker_name, lines in groups.items():
+            with st.expander(f"{broker_name} ({len(lines)})", expanded=True):
+                st.code("\n".join(lines), language="text")
 
     with st.expander(
         f"Activity — {status_label}",
