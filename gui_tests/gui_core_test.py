@@ -21,7 +21,19 @@ from src.gui.core import runner as runner_mod
 from src.gui.core.brokers_meta import get_broker
 from src.gui.core.prompts import PromptBus
 from src.gui.core.runner import RunBusyError, RunStatus, TradeRunner
+from src.gui.core.tickers import normalize_and_validate
 from src.gui.core.vault import _LEGACY_KDF, Vault, VaultError, _derive_key
+
+
+# --- tickers ----------------------------------------------------------
+def test_ticker_validation():
+    valid, invalid = normalize_and_validate(" aapl, MSFT ,brk.b, rds-a, AAPL")
+    assert valid == ["AAPL", "MSFT", "BRK.B", "RDS-A"]  # upper, dedup, order
+    assert invalid == []
+    valid, invalid = normalize_and_validate("AAPL, no spaces, 123, TOOLONGSYM, ;")
+    assert valid == ["AAPL"]
+    assert invalid == ["no spaces", "123", "TOOLONGSYM", ";"]
+    assert normalize_and_validate("") == ([], [])
 
 
 # --- vault ------------------------------------------------------------

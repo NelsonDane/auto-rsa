@@ -17,6 +17,7 @@ import streamlit as st
 
 from src.gui.core.brokers_meta import SUPPORTED_BROKERS, BrokerMeta, get_broker
 from src.gui.core.runner import RunBusyError, RunStatus, TradeRunner
+from src.gui.core.tickers import normalize_and_validate
 from src.gui.core.vault import Vault, VaultError
 
 st.set_page_config(page_title="AutoRSA GUI", page_icon="📈", layout="wide")
@@ -334,8 +335,13 @@ def _tab_trade() -> None:  # noqa: PLR0914
 
     disabled = runner.is_running() or not broker_keys
     if st.button("Execute", type="primary", disabled=disabled):
-        tickers = [t.strip() for t in tickers_raw.split(",") if t.strip()]
-        if not tickers:
+        tickers, invalid = normalize_and_validate(tickers_raw)
+        if invalid:
+            st.error(
+                "Invalid symbol(s) — fix before running so a broker login "
+                f"isn't wasted: {', '.join(invalid)}",
+            )
+        elif not tickers:
             st.error("Enter at least one stock symbol.")
         elif dry:
             try:
