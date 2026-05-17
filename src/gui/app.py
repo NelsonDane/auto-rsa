@@ -359,6 +359,20 @@ def _render_activity_panel(runner: TradeRunner) -> None:
             st.caption(snap.description)
         st.code(snap.log or "(no output yet)", language="text")
 
+    # Some browser brokers (e.g. Wells Fargo) save a screenshot of the
+    # exact page shown when they failed. Surface the newest one on error
+    # so the failure is diagnosable instead of a blind timeout.
+    if snap.status == RunStatus.ERROR:
+        shots = sorted(
+            Path.cwd().glob("wells-fargo-error-*.png"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        if shots:
+            latest = shots[0]
+            st.warning("Wells Fargo failed. This is the page it was on:")
+            st.image(latest.read_bytes(), caption=latest.name)
+
     # Stream logs by polling — but NEVER while a prompt is waiting, or the
     # rerun would wipe whatever the user is typing into the OTP box.
     if snap.status == RunStatus.RUNNING and not prompt.waiting:
