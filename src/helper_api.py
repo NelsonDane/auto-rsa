@@ -4,8 +4,10 @@
 
 import asyncio
 import datetime
+import json
 import operator
 import os
+import re
 import textwrap
 import traceback
 from collections.abc import Callable
@@ -589,6 +591,44 @@ async def process_discord_messages(
                 print(f"Error Sending Message: {e}")
                 break
         await asyncio.sleep(0.5)
+
+
+def account_allowed(broker_key: str, account: object, action: str = "") -> bool:
+    """Return whether an order may touch this sub-account.
+
+    Driven by the ``RSA_ACCOUNT_FILTER`` env var, a JSON map of
+    ``{"<broker_key>": ["<mask>", ...]}``. Semantics, chosen for safety
+    and to match the existing ``SCHWAB_ACCOUNT_NUMBERS`` convention:
+
+    * unset/blank/unparseable filter -> allowed (today's behavior).
+    * a broker absent from the map -> unrestricted (all its accounts).
+    * a broker present -> only its listed accounts; an explicitly empty
+      list means trade nothing for that broker.
+    * sells are never filtered, so liquidation always reaches every
+      account regardless of the buy allow-list.
+
+    Matching is digit-normalized so a last-4 mask reconciles against a
+    full account number.
+    """
+    if action and action.lower() == "sell":
+        return True
+    raw = os.getenv("RSA_ACCOUNT_FILTER", "").strip()
+    if not raw:
+        return True
+    try:
+        filt = json.loads(raw)
+    except (ValueError, TypeError):
+        return True
+    bkey = str(broker_key).lower()
+    if not isinstance(filt, dict) or bkey not in filt:
+        return True
+    wanted = filt.get(bkey) or []
+    acct = re.sub(r"\D", "", str(account))
+    for want in wanted:
+        wdig = re.sub(r"\D", "", str(want))
+        if wdig and (acct == wdig or acct.endswith(wdig)):
+            return True
+    return False
 
 
 def print_and_discord(
