@@ -17,7 +17,12 @@ from chase import order, session, symbols
 from discord.ext.commands import Bot
 from dotenv import load_dotenv
 
+from src.brokerages import _chase_holdings_retry
 from src.helper_api import Brokerage, StockOrder, get_otp_from_discord, print_all_holdings, print_and_discord
+
+# Retry the upstream holdings fetch, which times out silently after the
+# slow mobile-app-approval login.
+_chase_holdings_retry.apply()
 
 
 def _cleanup_stale_chase_browsers(creds_dir: str = "./creds") -> None:
