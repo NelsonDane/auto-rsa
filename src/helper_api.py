@@ -462,11 +462,18 @@ def get_selenium_driver(*, docker_mode: bool = False) -> webdriver.Chrome | None
         options = webdriver.ChromeOptions()
         options.add_argument("start-maximized")
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        options.add_experimental_option("useAutomationExtension", value=False)
+        # NOTE: do NOT set the "useAutomationExtension" experimental option.
+        # It is removed in modern Chrome/chromedriver and, on Chrome 115+,
+        # destabilizes the session ("invalid session id: browser has closed
+        # the connection / not connected to DevTools").
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_argument("--disable-extensions")
         options.add_argument("--disable-notifications")
         options.add_argument("--log-level=3")
+        # Stability flags for the "DevTools disconnected / renderer crashed"
+        # failure class on recent Chrome with Selenium.
+        options.add_argument("--remote-allow-origins=*")
+        options.add_argument("--disable-dev-shm-usage")
         if docker_mode:
             # Special Docker options
             options.add_argument("--disable-dev-shm-usage")
