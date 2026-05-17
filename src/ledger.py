@@ -263,6 +263,26 @@ def delete_play(play: Play) -> bool:
         return cur.rowcount > 0
 
 
+def economic_done(split_key: str) -> bool:
+    """Return True if this split was executed/in-flight in ANY account.
+
+    Coarse, producer-agnostic check for dashboards/planning ("already
+    captured somewhere"). The authoritative per-sub-account guard still
+    runs at execution time via :func:`record_intent`.
+    """
+    sk = (split_key or "").strip()
+    if not sk:
+        return False
+    placeholders = ",".join("?" * len(_BLOCKING))
+    with _LOCK, _connect() as conn:
+        cur = conn.execute(
+            f"SELECT 1 FROM executions WHERE split_key=? "  # noqa: S608
+            f"AND status IN ({placeholders}) LIMIT 1",
+            (sk, *_BLOCKING),
+        )
+        return cur.fetchone() is not None
+
+
 def clear_all() -> int:
     """Wipe the entire ledger. Returns the number of rows removed."""
     with _LOCK, _connect() as conn:

@@ -240,14 +240,17 @@ def fidelity_transaction(
                 continue
             # Idempotency: reserve this play before ordering so a retry,
             # crash-resume, or re-queued signal can't buy the share twice.
-            # Manual runs get a synthetic key; the M2 signal path supplies
-            # RSA_PLAY_KEY. Dry runs are never recorded.
+            # Manual runs get a synthetic key; the signal path supplies
+            # RSA_PLAY_KEY (per-source) and RSA_PLAY_SPLIT_KEY (economic,
+            # producer-agnostic — blocks the same real split bought via a
+            # different feed). Dry runs are never recorded.
             play = Play(
                 key=os.getenv("RSA_PLAY_KEY") or f"MANUAL:{stock}:{order_obj.get_action().lower()}",
                 broker="fidelity",
                 account=str(account_number),
                 ticker=stock,
                 action=order_obj.get_action(),
+                split_key=os.getenv("RSA_PLAY_SPLIT_KEY", ""),
             )
             if not order_obj.get_dry() and not record_intent(play, order_obj.get_amount()):
                 print_and_discord(

@@ -170,6 +170,46 @@ class TradeRunner:
         )
         self._start(payload, broker_keys, desc)
 
+    def start_signal_run(
+        self,
+        *,
+        ticker: str,
+        play_key: str,
+        split_key: str,
+        broker_keys: list[str],
+        dry: bool,
+    ) -> None:
+        """Execute one reverse-split signal: BUY exactly 1 share.
+
+        Quantity is hard-capped at 1 (one whole share captures the
+        round-up; never buy more). ``play_key`` is the GUI_QUEUE KEY and
+        ``split_key`` the economic identity — both go to the engine env
+        so the ledger attributes the run and blocks the same real split
+        bought via another feed.
+        """
+        args = [
+            "buy",
+            "1",
+            ticker.strip().upper(),
+            self._brokers_arg(broker_keys),
+            "true" if dry else "false",
+        ]
+        payload = {"args": args, "price": "market", "time": "day", "limit_price": None}
+        mode = "DRY" if dry else "LIVE"
+        desc = (
+            f"{mode} SIGNAL buy 1 {ticker.upper()} "
+            f"[{play_key}] -> {', '.join(broker_keys)}"
+        )
+        self._start(
+            payload,
+            broker_keys,
+            desc,
+            extra_env={
+                "RSA_PLAY_KEY": play_key,
+                "RSA_PLAY_SPLIT_KEY": split_key,
+            },
+        )
+
     # --- internals -----------------------------------------------------
 
     @staticmethod
@@ -189,6 +229,7 @@ class TradeRunner:
         broker_keys: list[str],
         description: str,
         env_override: dict[str, str] | None = None,
+        extra_env: dict[str, str] | None = None,
     ) -> None:
         with self._lock:
             if self._status == RunStatus.RUNNING:
@@ -210,7 +251,10 @@ class TradeRunner:
         # test passes a pre-built single-account env instead of the
         # broker's full (all-accounts) value.
         broker_env = env_override if env_override is not None else self._vault.build_env(env_keys)
-        child_env = {**os.environ, **broker_env}
+        # Per-signal idempotency keys (RSA_PLAY_KEY / RSA_PLAY_SPLIT_KEY)
+        # are layered last so a signal run is attributed and economically
+        # de-duplicated in the ledger. Empty for manual runs.
+        child_env = {**os.environ, **broker_env, **(extra_env or {})}
         try:
             self._proc = subprocess.Popen(  # noqa: S603
                 [sys.executable, "-u", "-m", "src.gui.core.engine_proc", json.dumps(payload)],
