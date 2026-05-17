@@ -81,7 +81,13 @@ class TradeRunner:
         self._status = RunStatus.IDLE
         self._description = ""
         self._cancelled = False
+        self._secrets: list[str] = []
         self._lock = threading.Lock()
+
+    def _redact(self, text: str) -> str:
+        for secret in self._secrets:
+            text = text.replace(secret, "***")
+        return text
 
     # --- state ---------------------------------------------------------
 
@@ -167,6 +173,9 @@ class TradeRunner:
             self._cancelled = False
         self.log.clear()
         env_keys = self._resolve_broker_keys(broker_keys)
+        # Capture secrets so they're scrubbed from the on-screen and
+        # persisted logs if a broker library ever echoes them.
+        self._secrets = self._vault.secret_values()
         # Credentials go to the child's environment only.
         child_env = {**os.environ, **self._vault.build_env(env_keys)}
         try:
@@ -271,7 +280,7 @@ class TradeRunner:
                         proc.stdin.write(answer + "\n")
                         proc.stdin.flush()
                 else:
-                    self.log.write(raw)
+                    self.log.write(self._redact(raw))
         except Exception as exc:
             self.log.write(f"\n--- GUI pump error: {exc} ---\n")
         finally:

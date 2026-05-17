@@ -15,7 +15,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from src.gui.core.brokers_meta import SUPPORTED_BROKERS, get_broker
+from src.gui.core.brokers_meta import SUPPORTED_BROKERS, BrokerMeta, get_broker
 from src.gui.core.runner import RunBusyError, RunStatus, TradeRunner
 from src.gui.core.vault import Vault, VaultError
 
@@ -166,6 +166,7 @@ def _tab_status() -> None:
 # --------------------------------------------------------------------------
 def _tab_credentials() -> None:
     vault = _get_vault()
+    runner = _get_runner()
     st.subheader("Credentials")
     if not vault.is_unlocked():
         st.warning("Unlock the vault in the sidebar to manage credentials.")
@@ -177,43 +178,83 @@ def _tab_credentials() -> None:
         "scripts in memory during a run.",
     )
 
+    with st.expander("Import from an existing .env file"):
+        st.caption(
+            "Reads broker variables from a .env in the project root and "
+            "stores them in the encrypted vault verbatim (a password "
+            "containing ':' is preserved, not reverse-parsed).",
+        )
+        if st.button("Import .env now"):
+            try:
+                imported = vault.import_env_file(Path(".env"))
+            except VaultError as exc:
+                st.error(str(exc))
+            else:
+                if imported:
+                    st.success("Imported: " + ", ".join(sorted(imported)))
+                    st.rerun()
+                else:
+                    st.info("No supported broker variables found in .env.")
+
     for meta in SUPPORTED_BROKERS:
-        accounts = vault.get_broker_accounts(meta.key)
-        existing = accounts[0] if accounts else {}
-        configured = bool(accounts and meta.assemble_env_value(accounts))
-        label = f"{'✅ ' if configured else ''}{meta.display_name}"
-        with st.expander(label):
-            if meta.notes:
-                st.caption(meta.notes)
-            with st.form(f"form_{meta.key}"):
-                values: dict[str, str] = {}
-                for spec in meta.fields:
-                    field_label = spec.label + ("" if spec.optional else " *")
-                    values[spec.key] = st.text_input(
-                        field_label,
-                        value=existing.get(spec.key, ""),
-                        type="password" if spec.secret else "default",
-                        help=spec.help or None,
-                        key=f"{meta.key}_{spec.key}",
-                    )
-                extra_existing = vault.get_broker_extra(meta.key)
-                extra_values: dict[str, str] = {}
-                for extra_var, extra_label in meta.extra_env:
-                    extra_values[extra_var] = st.text_input(
-                        extra_label,
-                        value=extra_existing.get(extra_var, ""),
-                        key=f"{meta.key}_extra_{extra_var}",
-                    )
-                save = st.form_submit_button("Save")
-                if save:
-                    has_data = any(v.strip() for v in values.values())
-                    if not has_data:
-                        st.error("Nothing to save.")
-                    else:
-                        vault.set_broker(meta.key, [values], extra_values)
-                        st.success(f"{meta.display_name} credentials saved.")
-                        st.rerun()
-            if configured and st.button(
+        _render_broker_credentials(meta, vault, runner)
+
+
+def _render_broker_credentials(meta: BrokerMeta, vault: Vault, runner: TradeRunner) -> None:  # noqa: C901
+    """Render one broker's credential form + test/delete controls."""
+    accounts = vault.get_broker_accounts(meta.key)
+    existing = accounts[0] if accounts else {}
+    raw_set = bool(vault.get_broker_raw(meta.key))
+    configured = raw_set or bool(accounts and meta.assemble_env_value(accounts))
+    label = f"{'✅ ' if configured else ''}{meta.display_name}"
+    with st.expander(label):
+        if meta.notes:
+            st.caption(meta.notes)
+        if raw_set:
+            st.info(
+                "Configured from an imported .env value (stored raw). "
+                "Saving the form below replaces it with field values.",
+            )
+        with st.form(f"form_{meta.key}"):
+            values: dict[str, str] = {}
+            for spec in meta.fields:
+                field_label = spec.label + ("" if spec.optional else " *")
+                values[spec.key] = st.text_input(
+                    field_label,
+                    value=existing.get(spec.key, ""),
+                    type="password" if spec.secret else "default",
+                    help=spec.help or None,
+                    key=f"{meta.key}_{spec.key}",
+                )
+            extra_existing = vault.get_broker_extra(meta.key)
+            extra_values: dict[str, str] = {}
+            for extra_var, extra_label in meta.extra_env:
+                extra_values[extra_var] = st.text_input(
+                    extra_label,
+                    value=extra_existing.get(extra_var, ""),
+                    key=f"{meta.key}_extra_{extra_var}",
+                )
+            if st.form_submit_button("Save"):
+                if any(v.strip() for v in values.values()):
+                    vault.set_broker(meta.key, [values], extra_values)
+                    st.success(f"{meta.display_name} credentials saved.")
+                    st.rerun()
+                else:
+                    st.error("Nothing to save.")
+        if configured:
+            tcol, dcol = st.columns(2)
+            if tcol.button(
+                "Test login (pull balances)",
+                key=f"test_{meta.key}",
+                disabled=runner.is_running(),
+            ):
+                try:
+                    runner.start_holdings([meta.key])
+                except RunBusyError as exc:
+                    st.error(str(exc))
+                else:
+                    st.rerun()
+            if dcol.button(
                 f"Delete {meta.display_name} credentials", key=f"del_{meta.key}",
             ):
                 vault.delete_broker(meta.key)

@@ -200,14 +200,81 @@ class Vault:
         self._require()["brokers"].pop(broker_key, None)
         self._write()
 
+    def get_broker_raw(self, broker_key: str) -> str:
+        """Raw env value imported from a .env (used verbatim if present)."""
+        entry = self._require()["brokers"].get(broker_key, {})
+        return (entry.get("raw") or "").strip()
+
     def configured_broker_keys(self) -> list[str]:
-        """Keys of brokers that have at least one usable account."""
+        """Keys of brokers that have a usable account or a raw .env value."""
         configured: list[str] = []
         for meta in SUPPORTED_BROKERS:
+            if self.get_broker_raw(meta.key):
+                configured.append(meta.key)
+                continue
             accounts = self.get_broker_accounts(meta.key)
             if accounts and meta.assemble_env_value(accounts):
                 configured.append(meta.key)
         return configured
+
+    def secret_values(self) -> list[str]:
+        """Secret strings (longest first) to redact from logs.
+
+        Field values marked secret in brokers_meta, plus long segments of
+        any raw-imported value. Length-gated to avoid redacting common
+        short substrings.
+        """
+        out: set[str] = set()
+        min_len = 6
+        for meta in SUPPORTED_BROKERS:
+            for acc in self.get_broker_accounts(meta.key):
+                for spec in meta.fields:
+                    if spec.secret:
+                        val = (acc.get(spec.key) or "").strip()
+                        if len(val) >= min_len:
+                            out.add(val)
+            raw = self.get_broker_raw(meta.key)
+            if raw:
+                for part in raw.replace(",", ":").split(":"):
+                    seg = part.strip()
+                    if len(seg) >= min_len:
+                        out.add(seg)
+        return sorted(out, key=str.__len__, reverse=True)
+
+    def import_env_file(self, path: Path) -> dict[str, str]:
+        """Import broker vars from a .env into the vault (stored as raw).
+
+        Stored verbatim so a password containing ':' is never mangled by
+        a reverse-parse. Returns {display_name: env_var} for what was
+        imported.
+        """
+        from dotenv import dotenv_values  # noqa: PLC0415
+
+        self._require()
+        if not path.is_file():
+            msg = f"No .env file found at {path.resolve()}"
+            raise VaultError(msg)
+        values = dotenv_values(path)
+        brokers = self._require()["brokers"]
+        imported: dict[str, str] = {}
+        for meta in SUPPORTED_BROKERS:
+            raw = (values.get(meta.env_var) or "").strip()
+            extra = {
+                ev: (values.get(ev) or "").strip()
+                for ev, _label in meta.extra_env
+                if (values.get(ev) or "").strip()
+            }
+            if not raw and not extra:
+                continue
+            entry = brokers.setdefault(meta.key, {})
+            entry.setdefault("accounts", [])
+            if raw:
+                entry["raw"] = raw
+                imported[meta.display_name] = meta.env_var
+            if extra:
+                entry["extra"] = extra
+        self._write()
+        return imported
 
     # --- persistence ---------------------------------------------------
 
@@ -235,10 +302,13 @@ class Vault:
         env: dict[str, str] = {}
         for key in broker_keys:
             meta = get_broker(key)
-            accounts = self.get_broker_accounts(key)
-            value = meta.assemble_env_value(accounts)
-            if value:
-                env[meta.env_var] = value
+            raw = self.get_broker_raw(key)
+            if raw:
+                env[meta.env_var] = raw
+            else:
+                value = meta.assemble_env_value(self.get_broker_accounts(key))
+                if value:
+                    env[meta.env_var] = value
             for extra_var, _label in meta.extra_env:
                 extra_val = (self.get_broker_extra(key).get(extra_var) or "").strip()
                 if extra_val:
