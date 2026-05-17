@@ -22,6 +22,7 @@ from src.gui.core.brokers_meta import SUPPORTED_BROKERS, BrokerMeta, get_broker
 from src.gui.core.results import group_by_broker
 from src.gui.core.runner import RunBusyError, RunStatus, TradeRunner
 from src.gui.core.sheets import SheetsError, Signal, fetch_signals
+from src.gui.core.signal_plan import DECISION_ACTIONABLE, PlanItem, plan_signals
 from src.gui.core.tickers import normalize_and_validate
 from src.gui.core.totp import normalize_totp_secret
 from src.gui.core.vault import Vault, VaultError
@@ -759,6 +760,132 @@ def _activity_fragment(runner: TradeRunner) -> None:  # noqa: C901, PLR0912
 
 
 # --------------------------------------------------------------------------
+# Signal execution (M4 — close the loop: GUI_QUEUE -> ledger -> broker)
+# --------------------------------------------------------------------------
+def _render_signal_live_confirm(
+    runner: TradeRunner, vault: Vault, pending: dict,
+) -> None:
+    """Real-money gate for a signal buy — exactly 1 share, typed confirm."""
+    keys = pending["broker_keys"]
+    if "all" in keys:
+        names = [get_broker(k).display_name for k in vault.configured_broker_keys()]
+        broker_desc = f"ALL configured: {', '.join(names)}"
+    else:
+        broker_desc = ", ".join(get_broker(k).display_name for k in keys)
+
+    st.error(
+        "⚠️ Confirm LIVE signal buy — REAL money, exactly 1 share.",
+        icon="⚠️",
+    )
+    st.markdown(
+        f"- **Play:** {pending['ticker']} (reverse-split round-up)\n"
+        f"- **Amount:** 1 share (hard-capped)\n"
+        f"- **Brokers:** {broker_desc}\n"
+        f"- **Sub-accounts:** only those in the saved filter; the ledger "
+        f"skips any already executed for this play\n"
+        f"- **KEY:** `{pending['key']}`",
+    )
+    typed = st.text_input(
+        "Type EXECUTE (all caps) to confirm", key="signal_live_confirm_text",
+    )
+    c1, c2 = st.columns(2)
+    disabled = typed.strip() != "EXECUTE" or runner.is_running()
+    if c1.button("Confirm LIVE buy", type="primary", disabled=disabled):
+        try:
+            runner.start_signal_run(
+                ticker=pending["ticker"],
+                play_key=pending["key"],
+                split_key=pending["split_key"],
+                broker_keys=pending["broker_keys"],
+                dry=False,
+            )
+        except RunBusyError as exc:
+            st.error(str(exc))
+        else:
+            st.session_state.pending_signal_live = None
+            st.rerun()
+    if c2.button("Cancel"):
+        st.session_state.pending_signal_live = None
+        st.rerun()
+
+
+def _signal_execute_section(vault: Vault, signals: list[Signal]) -> None:
+    """Plan actionable ROUND_UP signals and run one (DRY default)."""
+    runner = _get_runner()
+    plan = plan_signals(signals, is_done=ledger.economic_done)
+    actionable: list[PlanItem] = [
+        p for p in plan if p.decision == DECISION_ACTIONABLE
+    ]
+    with st.expander(
+        f"▶️ Execute signals — {len(actionable)} actionable "
+        f"of {len(plan)}",
+        expanded=False,
+    ):
+        st.caption(
+            "Only confirmed ROUND_UP plays are runnable, exactly 1 share "
+            "each. The per-account filter and the ledger (incl. "
+            "cross-feed economic dedupe) still apply at execution.",
+        )
+        skipped = [p for p in plan if p.decision != DECISION_ACTIONABLE]
+        if skipped:
+            st.dataframe(
+                [
+                    {
+                        "Ticker": p.ticker,
+                        "Policy": p.fractional_policy,
+                        "Conf.": p.confidence,
+                        "Skipped because": p.reason,
+                    }
+                    for p in skipped
+                ],
+                width="stretch",
+                hide_index=True,
+            )
+        if not actionable:
+            st.info("No actionable ROUND_UP signals.")
+            return
+
+        labels = {
+            f"{p.ticker} — {p.ratio} — {p.effective_date or '?'} "
+            f"(conf {p.confidence:.2f})": p
+            for p in actionable
+        }
+        choice = st.selectbox("Play to run", list(labels))
+        item = labels[choice]
+        broker_keys = _broker_picker("signal")
+        _account_filter_editor(vault, broker_keys)
+        dry = st.toggle(
+            "Dry run (no real orders)", value=True, key="signal_dry",
+            help="Leave ON to simulate. Turn OFF to place a real 1-share buy.",
+        )
+        if not dry:
+            st.error("LIVE mode: a real 1-share order will be placed.", icon="⚠️")
+        disabled = runner.is_running() or not broker_keys
+        if st.button("Execute play", type="primary", disabled=disabled):
+            if dry:
+                try:
+                    runner.start_signal_run(
+                        ticker=item.ticker,
+                        play_key=item.key,
+                        split_key=item.split_key,
+                        broker_keys=broker_keys,
+                        dry=True,
+                    )
+                except RunBusyError as exc:
+                    st.error(str(exc))
+                else:
+                    st.rerun()
+            else:
+                st.session_state.pending_signal_live = {
+                    "ticker": item.ticker,
+                    "key": item.key,
+                    "split_key": item.split_key,
+                    "broker_keys": broker_keys,
+                }
+                st.rerun()
+
+
+# --------------------------------------------------------------------------
 # Signals dashboard (M2 — read-only GUI_QUEUE ingest)
 # --------------------------------------------------------------------------
 def _parse_date(value: str) -> datetime | None:
@@ -833,6 +960,11 @@ def _tab_signals() -> None:  # noqa: C901, PLR0912, PLR0914, PLR0915
         st.warning("Unlock the vault in the sidebar first.")
         return
 
+    pending = st.session_state.get("pending_signal_live")
+    if pending:
+        _render_signal_live_confirm(_get_runner(), vault, pending)
+        return
+
     cfg = vault.get_sheets_config()
     with st.expander(
         "Google Sheet connection",
@@ -892,6 +1024,8 @@ def _tab_signals() -> None:  # noqa: C901, PLR0912, PLR0914, PLR0915
     if not signals:
         st.info("No signals loaded yet — click Refresh.")
         return
+
+    _signal_execute_section(vault, signals)
 
     now = datetime.now()  # noqa: DTZ005
     week_ago = now - timedelta(days=7)
