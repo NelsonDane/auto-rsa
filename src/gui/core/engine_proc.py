@@ -35,13 +35,32 @@ def _bridged_input(prompt: object = "") -> str:
 
 
 def main() -> None:
-    """Parse args from argv and run the engine, like the CLI does."""
+    """Parse args from argv and run the engine, like the CLI does.
+
+    The payload is either a bare args list (holdings / legacy) or a dict
+    ``{"args": [...], "price": "market"|"limit", "time": "day"|"gtc"}``.
+    arg_parser never sets price/time, so we apply the order-type and
+    time-in-force overrides after it builds the order. Brokers that read
+    get_price()/get_time() honor them; the rest keep their own automatic
+    market->limit / sub-$1 fallback unchanged.
+    """
     builtins.input = _bridged_input  # type: ignore[assignment]
-    args: list[str] = json.loads(sys.argv[1]) if len(sys.argv) > 1 else []
+    payload = json.loads(sys.argv[1]) if len(sys.argv) > 1 else []
+    if isinstance(payload, dict):
+        args: list[str] = payload.get("args", [])
+        price = payload.get("price")
+        time_in_force = payload.get("time")
+    else:
+        args = payload
+        price = time_in_force = None
     # Imported here so the engine's startup banner streams to the parent.
     from src.auto_rsa import arg_parser, fun_run  # noqa: PLC0415
 
     order = arg_parser(args)
+    if price in {"market", "limit"}:
+        order.set_price(price)
+    if time_in_force in {"day", "gtc"}:
+        order.set_time(time_in_force)
     fun_run(order)
 
 

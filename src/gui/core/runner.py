@@ -89,7 +89,7 @@ class TradeRunner:
         args = ["holdings", self._brokers_arg(broker_keys)]
         self._start(args, broker_keys, f"Holdings: {', '.join(broker_keys)}")
 
-    def start_trade(
+    def start_trade(  # noqa: PLR0913
         self,
         action: str,
         amount: float,
@@ -97,8 +97,16 @@ class TradeRunner:
         broker_keys: list[str],
         *,
         dry: bool,
+        price_type: str = "market",
+        time_in_force: str = "day",
     ) -> None:
-        """Execute a buy/sell. ``dry=True`` performs a no-op dry run."""
+        """Execute a buy/sell.
+
+        ``price_type`` ("market"/"limit") and ``time_in_force``
+        ("day"/"gtc") are plumbed onto the StockOrder. Brokers that read
+        them honor them; the rest keep their own automatic
+        market->limit / sub-$1 fallback. ``dry=True`` is a no-op run.
+        """
         args = [
             action,
             str(amount),
@@ -106,9 +114,13 @@ class TradeRunner:
             self._brokers_arg(broker_keys),
             "true" if dry else "false",
         ]
+        payload = {"args": args, "price": price_type, "time": time_in_force}
         mode = "DRY" if dry else "LIVE"
-        desc = f"{mode} {action} {amount} {','.join(tickers)} -> {', '.join(broker_keys)}"
-        self._start(args, broker_keys, desc)
+        desc = (
+            f"{mode} {action} {amount} {','.join(tickers)} "
+            f"[{price_type}/{time_in_force}] -> {', '.join(broker_keys)}"
+        )
+        self._start(payload, broker_keys, desc)
 
     # --- internals -----------------------------------------------------
 
@@ -123,7 +135,12 @@ class TradeRunner:
             return self._vault.configured_broker_keys()
         return broker_keys
 
-    def _start(self, args: list[str], broker_keys: list[str], description: str) -> None:
+    def _start(
+        self,
+        payload: list[str] | dict[str, object],
+        broker_keys: list[str],
+        description: str,
+    ) -> None:
         with self._lock:
             if self._status == RunStatus.RUNNING:
                 msg = "A run is already in progress."
@@ -135,7 +152,7 @@ class TradeRunner:
         # Credentials go to the child's environment only.
         child_env = {**os.environ, **self._vault.build_env(env_keys)}
         self._proc = subprocess.Popen(  # noqa: S603
-            [sys.executable, "-u", "-m", "src.gui.core.engine_proc", json.dumps(args)],
+            [sys.executable, "-u", "-m", "src.gui.core.engine_proc", json.dumps(payload)],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,

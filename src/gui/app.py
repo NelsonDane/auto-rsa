@@ -248,7 +248,7 @@ def _broker_picker(key_prefix: str) -> list[str]:
 # --------------------------------------------------------------------------
 # Trade tab
 # --------------------------------------------------------------------------
-def _tab_trade() -> None:
+def _tab_trade() -> None:  # noqa: PLR0914
     vault = _get_vault()
     runner = _get_runner()
     st.subheader("Execute Trade")
@@ -260,6 +260,21 @@ def _tab_trade() -> None:
     action = col1.selectbox("Action", ["buy", "sell"])
     tickers_raw = col2.text_input("Stock symbol(s)", value="", help="Comma-separated")
     amount = col3.number_input("Amount (shares)", min_value=0.0, value=1.0, step=1.0)
+
+    col4, col5 = st.columns(2)
+    price_type = col4.selectbox(
+        "Order type",
+        ["market", "limit"],
+        help="Market is recommended. Brokers automatically fall back to a "
+        "limit order (and use a limit for sub-$1 stocks) where the "
+        "brokerage requires it — you don't need to force 'limit' for that.",
+    )
+    time_in_force = col5.selectbox(
+        "Time in force",
+        ["day", "gtc"],
+        help="GTC (good-till-cancelled) is useful for pre/post-market "
+        "limit orders. Only brokers that support it will honor it.",
+    )
 
     broker_keys = _broker_picker("trade")
     dry = st.toggle(
@@ -280,7 +295,13 @@ def _tab_trade() -> None:
             st.error("Enter at least one stock symbol.")
         else:
             runner.start_trade(
-                action, float(amount), tickers, broker_keys, dry=dry,
+                action,
+                float(amount),
+                tickers,
+                broker_keys,
+                dry=dry,
+                price_type=price_type,
+                time_in_force=time_in_force,
             )
             st.rerun()
 
