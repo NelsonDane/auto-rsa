@@ -137,6 +137,32 @@ sudo launchctl bootout system/com.autorsa.edgar
 sudo rm /Library/LaunchDaemons/com.autorsa.edgar.plist
 ```
 
+## 11. Optional: shadow executor (M5 phase 1 — no orders)
+
+Reports what it *would* buy from GUI_QUEUE. **Places no orders,
+contacts no brokers, writes nothing** — pure selection validation.
+Install exactly like §8 but with the shadow plist:
+
+```sh
+cd ~/auto-rsa
+sed -e "s|__MACOS_USER__|$(whoami)|g" \
+    -e "s|__REPO_DIR__|$HOME/auto-rsa|g" \
+    -e "s|__SA_KEY_PATH__|$HOME/auto-rsa/creds/edgar-sa.json|g" \
+    -e "s|__SPREADSHEET_ID__|<YOUR_SPREADSHEET_ID>|g" \
+    -e "s|__OPTIONAL_WEBHOOK_URL__||g" \
+    deploy/macmini/com.autorsa.autoexec-shadow.plist \
+  | sudo tee /Library/LaunchDaemons/com.autorsa.autoexec-shadow.plist >/dev/null
+sudo chown root:wheel /Library/LaunchDaemons/com.autorsa.autoexec-shadow.plist
+sudo chmod 644 /Library/LaunchDaemons/com.autorsa.autoexec-shadow.plist
+sudo launchctl bootstrap system /Library/LaunchDaemons/com.autorsa.autoexec-shadow.plist
+```
+Kill switch any time: `touch ~/auto-rsa/creds/AUTOEXEC_DISABLED`
+(or `RSA_AUTO_DISABLED=1`) makes every run a no-op. Watch it with
+`tail -f ~/auto-rsa/creds/run_logs/autoexec-shadow.err.log`.
+Compare its "WOULD BUY" lines against your Apps Script feed /
+`hist_alerts_v1` for a week+ before any real unattended trading is
+considered.
+
 Notes: `creds/` is gitignored, so the key and logs are never committed.
 The producer is idempotent by KEY, so running alongside the Apps Script
 feed never double-queues a play.
