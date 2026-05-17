@@ -1,54 +1,75 @@
-"""Salvage a Fidelity market order that Fidelity rejects after hours.
+"""Place a limit order when Fidelity would reject a market order after hours.
 
 Outside regular market hours Fidelity refuses *market* orders and
-requires a *limit* order (error **146034** / *"does not accept market
-orders ... during non market hours"*). The upstream
-``FidelityAutomation.transaction`` only switches to a limit order when
-the quote is sub-$1 **or** it manages to detect the extended-hours DOM
-toggle. That detection is unreliable, so a >$1 stock placed after hours
-is sent as a market order and rejected — exactly the failure seen for
-LCID (~$6) in live testing.
+requires a *limit* order (error **146034**). Upstream
+``FidelityAutomation.transaction`` only switches to a limit order for
+sub-$1 quotes or when it detects the extended-hours DOM toggle; that
+detection is unreliable, so a >$1 stock after hours is sent as a market
+order and rejected.
 
-This wraps ``transaction`` so that, when a market order is rejected for
-that specific after-hours reason and the caller did **not** ask for an
-explicit limit price, it:
+An earlier version of this patch tried to salvage the *rejected* order
+by reading the price off the leftover ticket and retrying — but after a
+rejection the ticket no longer shows the right quote, so it produced a
+wildly wrong limit (e.g. $0.99 for a $6 stock). Real money: never trust
+a post-failure scrape.
 
-* reads the last price already shown on the order ticket,
-* builds a marketable limit one tick away, rounded to Fidelity's tick
-  size (whole cents for >=$1, $0.0001 for <$1 — this also fixes the
-  separate upstream bug where the auto-derived limit kept 3 decimals
-  and was rejected on a decimal error), and
-* retries the **same** order once as that limit order.
+Instead this wraps ``transaction`` to act **before** ordering: when the
+US market is closed and the caller asked for a plain market buy, it
+probes the correct last price from a *fresh* order ticket, builds a
+marketable limit one tick away rounded to Fidelity's tick size (whole
+cents >=$1, $0.0001 <$1), and calls upstream once with that explicit
+``limit_price`` so the order is a valid limit from the start.
 
-The rejected market order never filled (146034 is an outright reject),
-and the retry passes ``limit_price`` so it cannot market-reject again,
-so this can only ever turn a guaranteed failure into a fill — it never
-places an extra order. Best-effort, idempotent and reversible: any
-unexpected shape change makes it quietly no-op and return the original
-result unchanged.
+Safe in every case: during regular hours (or if the clock can't be
+determined, or the probe fails) it does nothing and upstream runs
+exactly as before. A marketable limit also fills fine if the market
+turns out to be open (e.g. a half-day), so a misjudged clock only ever
+swaps an equivalent market fill for a marketable-limit fill — never an
+extra order, never a worse price than a rejected-and-retried mess.
+Best-effort, idempotent, reversible.
 """
 
 from __future__ import annotations
 
+import contextlib
+from datetime import datetime, time
+from zoneinfo import ZoneInfo
+
 _applied = False
 
-# Substrings that identify "market order refused because it's after
-# hours" (vs. any other failure we must not paper over).
-_AFTERHOURS_MARKET_REJECT = (
-    "146034",
-    "does not accept market orders",
-    "change your order to a limit",
-)
+_ORDER_ENTRY = "https://digital.fidelity.com/ftgw/digital/trade-equity/index/orderEntry"
+_MARKET_OPEN = time(9, 30)
+_MARKET_CLOSE = time(16, 0)
 
 
-def _looks_like_afterhours_market_reject(error_message: object) -> bool:
-    text = str(error_message or "").lower()
-    return any(sig in text for sig in _AFTERHOURS_MARKET_REJECT)
+def _us_market_closed() -> bool | None:
+    """Report whether US equities are outside regular hours (None if unknown).
 
-
-def _scrape_last_price(page: object) -> float | None:
-    """Read the order ticket's last price, or None if unavailable."""
+    Holidays/half-days aren't modeled — that's fine: a marketable limit
+    still fills if the market is actually open, so the only effect of a
+    wrong guess is an equivalent fill, never a worse one.
+    """
     try:
+        now = datetime.now(ZoneInfo("America/New_York"))
+    except Exception:
+        return None
+    if now.weekday() >= 5:  # Sat/Sun  # noqa: PLR2004
+        return True
+    return not (_MARKET_OPEN <= now.time() < _MARKET_CLOSE)
+
+
+def _probe_last_price(page: object, stock: str) -> float | None:
+    """Read ``stock``'s last price from a fresh order ticket, or None.
+
+    Mirrors upstream's own quote read (same selectors) but on a clean
+    ticket we navigate ourselves, so the value is trustworthy.
+    """
+    try:
+        page.goto(_ORDER_ENTRY)  # type: ignore[attr-defined]
+        page.get_by_label("Symbol", exact=True).click()  # type: ignore[attr-defined]
+        page.get_by_label("Symbol", exact=True).fill(stock)  # type: ignore[attr-defined]
+        page.get_by_label("Symbol", exact=True).press("Enter")  # type: ignore[attr-defined]
+        page.locator("#quote-panel").wait_for(timeout=5000)  # type: ignore[attr-defined]
         el = page.query_selector(  # type: ignore[attr-defined]
             "#eq-ticket__last-price > span.last-price",
         )
@@ -58,7 +79,12 @@ def _scrape_last_price(page: object) -> float | None:
         price = float(raw)
     except Exception:
         return None
-    return price if price > 0 else None
+    else:
+        return price if price > 0 else None
+    finally:
+        # Reset to a clean ticket so upstream starts from a known state.
+        with contextlib.suppress(Exception):
+            page.goto(_ORDER_ENTRY)  # type: ignore[attr-defined]
 
 
 def _marketable_limit(price: float, action: str) -> float:
@@ -71,7 +97,7 @@ def _marketable_limit(price: float, action: str) -> float:
     return round(wanted, decimals)
 
 
-def _arg(args: tuple, kwargs: dict, index: int, name: str, default: object) -> object:
+def _arg(args: tuple, kwargs: dict, index: int, name: str, *, default: object) -> object:
     if name in kwargs:
         return kwargs[name]
     if len(args) > index:
@@ -80,7 +106,7 @@ def _arg(args: tuple, kwargs: dict, index: int, name: str, default: object) -> o
 
 
 def apply() -> None:
-    """Wrap FidelityAutomation.transaction with after-hours salvage. Idempotent."""
+    """Wrap FidelityAutomation.transaction with after-hours limit logic. Idempotent."""
     global _applied  # noqa: PLW0603
     if _applied:
         return
@@ -89,39 +115,41 @@ def apply() -> None:
 
         original = _f.FidelityAutomation.transaction
 
-        def _transaction_with_afterhours_limit(
+        def _transaction_after_hours_aware(
             self: object,
             *args: object,
             **kwargs: object,
         ) -> tuple[bool, str | None]:
-            success, error_message = original(self, *args, **kwargs)  # type: ignore[misc]
-            if success or not _looks_like_afterhours_market_reject(error_message):
-                return success, error_message
-
-            # Caller already chose an explicit limit price -> nothing to
-            # salvage here; surface the original outcome untouched.
-            explicit_limit = _arg(args, kwargs, 5, "limit_price", None)
-            if explicit_limit is not None:
-                return success, error_message
-
-            stock = _arg(args, kwargs, 0, "stock", None)
-            quantity = _arg(args, kwargs, 1, "quantity", None)
-            action = str(_arg(args, kwargs, 2, "action", "") or "")
-            account = _arg(args, kwargs, 3, "account", None)
+            stock = _arg(args, kwargs, 0, "stock", default=None)
+            quantity = _arg(args, kwargs, 1, "quantity", default=None)
+            action = str(_arg(args, kwargs, 2, "action", default="") or "")
+            account = _arg(args, kwargs, 3, "account", default=None)
             dry = bool(_arg(args, kwargs, 4, "dry", default=True))
-            if not stock or quantity is None or not action or account is None:
-                return success, error_message
+            explicit_limit = _arg(args, kwargs, 5, "limit_price", default=None)
 
-            price = _scrape_last_price(getattr(self, "page", None))
+            # Only intervene for a plain market BUY while the market is
+            # closed; everything else runs upstream untouched.
+            intervene = (
+                explicit_limit is None
+                and action.lower() == "buy"
+                and bool(stock)
+                and quantity is not None
+                and account is not None
+                and _us_market_closed() is True
+            )
+            if not intervene:
+                return original(self, *args, **kwargs)  # type: ignore[misc]
+
+            price = _probe_last_price(getattr(self, "page", None), str(stock))
             if price is None:
-                return success, error_message
-            limit = _marketable_limit(price, action)
-            if limit <= 0:
-                return success, error_message
+                # Couldn't get a trustworthy quote -> don't guess; let
+                # upstream do whatever it would have done.
+                return original(self, *args, **kwargs)  # type: ignore[misc]
 
+            limit = _marketable_limit(price, action)
             print(
-                f"Fidelity: market order rejected after hours; retrying "
-                f"{stock} as a limit order @ {limit}",
+                f"Fidelity: market closed; placing {stock} as a limit "
+                f"order @ {limit} (last {price})",
             )
             return original(  # type: ignore[misc]
                 self,
@@ -133,7 +161,7 @@ def apply() -> None:
                 limit_price=limit,
             )
 
-        _f.FidelityAutomation.transaction = _transaction_with_afterhours_limit  # type: ignore[invalid-assignment]
+        _f.FidelityAutomation.transaction = _transaction_after_hours_aware  # type: ignore[invalid-assignment]
         _applied = True
         print("Fidelity: after-hours market->limit salvage active")
     except Exception as exc:
