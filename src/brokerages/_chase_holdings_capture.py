@@ -1,36 +1,40 @@
-"""Make Chase holdings capture survive the degraded post-login session.
+"""Fix Chase holdings capture: the upstream XHR matcher never matches.
 
-After the slow mobile-app-approval login the zendriver session is
-sluggish and the upstream ``chase.symbols.SymbolHoldings`` holdings
-fetch frequently fails *silently*: ``_get_holdings_async`` does
+The upstream ``chase.symbols.SymbolHoldings._get_holdings_async`` does
 
     async with self.session.page.expect_response(holdings_json()):
         await self.session.page.reload()
         await asyncio.wait_for(response_info.value, timeout=10)
 
-and a single 10s ceiling on the *first* holdings XHR -- right after a
-heavyweight push-approval login -- routinely expires. The bare
-``except Exception`` then prints ``Error getting holdings:`` (an
-``asyncio.TimeoutError`` stringifies to "") and returns False, so
-every account shows "No holdings in Account" even though the balances
-loaded fine via a different path.
+zendriver matches the awaited response with
+``re.fullmatch(url_pattern, request.url)`` -- the pattern must match
+the *entire* request URL. ``holdings_json()`` is the bare endpoint
+string, so it only fullmatches a URL with *no* query string. Chase's
+positions request now carries query params, so the pattern never
+matches, ``asyncio.wait_for`` always expires, and the bare
+``except Exception`` prints ``Error getting holdings:`` (an
+``asyncio.TimeoutError`` stringifies to "") and returns False -- every
+account shows "No holdings in Account" even though the balances loaded
+fine via a different path. The failure is *deterministic*, not a
+transient post-login timeout, which is why a longer timeout or a plain
+retry of the same pattern never helped.
 
-Simply retrying the *same* 10s exact capture fails the same way, so
-this replaces ``_get_holdings_async`` with a version that keeps the
-identical browser-driven request and identical JSON parsing but makes
-the *capture* robust:
+This replaces ``_get_holdings_async`` with a version that keeps the
+identical browser-driven request and identical JSON parsing but:
 
-* a generous per-attempt timeout (default 30s) instead of 10s;
-* a full re-navigation to the holdings page on each attempt (not just
-  a reload) so a missed XHR is genuinely re-triggered;
-* a few attempts with a short back-off;
-* a *non-empty* diagnostic on final failure (exception type + page
-  URL) so a future failure is actionable instead of an empty string.
+* matches the response by a tolerant regex on the stable positions
+  path fragment (survives query strings and a version bump) instead
+  of the exact, query-string-fragile string -- the actual fix;
+* uses a generous per-attempt timeout and a few attempts with a short
+  back-off as belt-and-braces against a genuinely slow session;
+* re-navigates to the holdings page each attempt;
+* prints a *non-empty* diagnostic (exception type + page URL) on
+  final failure so any future regression is actionable.
 
 Best-effort, idempotent and reversible: if the upstream shape ever
 changes the patch isn't applied and behaviour is unchanged. The
 network request and the parsed fields are byte-for-byte what upstream
-produced when it worked -- only the capture's resilience changes.
+produced when it worked -- only the matcher and resilience change.
 """
 
 from __future__ import annotations
@@ -38,11 +42,20 @@ from __future__ import annotations
 import asyncio
 import datetime
 import json
+import re
 
 _applied = False
 _ATTEMPTS = 3
 _TIMEOUT_S = 30.0
 _BACKOFF_S = 2.0
+
+# zendriver matches with re.fullmatch(url_pattern, request.url), so the
+# bare endpoint string upstream passes only matches a URL with *no*
+# query string. Chase's positions request now carries query params, so
+# the exact pattern never fullmatches and the capture times out every
+# time. Match the stable path fragment with .* on both ends instead
+# (version-tolerant, survives query strings).
+_POSITIONS_RE = re.compile(r".*/digital-investment-positions/v\d+/positions.*")
 
 
 def apply() -> None:
@@ -52,7 +65,7 @@ def apply() -> None:
         return
     try:
         from chase import symbols as _sym  # noqa: PLC0415
-        from chase.urls import account_holdings, holdings_json  # noqa: PLC0415
+        from chase.urls import account_holdings  # noqa: PLC0415
 
         async def _robust_get_holdings_async(self: object) -> bool:
             last_error = "no attempts ran"
@@ -62,7 +75,7 @@ def apply() -> None:
                     await self.session.page.sleep(2)  # type: ignore[attr-defined]
 
                     async with self.session.page.expect_response(  # type: ignore[attr-defined]
-                        holdings_json(),
+                        _POSITIONS_RE,
                     ) as response_info:
                         await self.session.page.reload()  # type: ignore[attr-defined]
                         await asyncio.wait_for(
