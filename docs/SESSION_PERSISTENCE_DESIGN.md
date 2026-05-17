@@ -98,52 +98,97 @@ Headless can't answer a fresh OTP. Strategy, in priority order:
 1. **Session reuse within TTL** (this design) — the common path.
 2. **TOTP auto-answer** where the broker supports an authenticator
    secret (we already depend on `pyotp`; Schwab's lib already does this
-   internally) — covers the periodic re-prompt without a human.
+   internally). **Decision (locked): Fidelity uses TOTP** — the account
+   now has an authenticator secret, so Fidelity's unattended re-auth is
+   self-healing (generate the code with `pyotp` and feed it where
+   `login_2FA()` currently reads `input()` /
+   `get_otp_from_discord`, `fidelity_api.py:133-143`). This means
+   Fidelity does **not** depend on the storage_state TTL for
+   unattended operation — storage_state still helps skip the prompt
+   when valid, TOTP covers every re-prompt. Build task must verify
+   `fidelity-api`'s 2FA entry accepts a programmatic code and that the
+   TOTP secret has a vault field.
 3. **Escalate, don't guess.** If reuse fails and no TOTP is possible,
    the unattended executor **skips that broker for this run and
-   alerts** (per the auto-executor failure matrix) — it must never
-   block forever waiting on `input()`.
+   alerts** (per the auto-executor failure matrix) and flips the
+   broker's health indicator (§8) — it must never block on `input()`.
 
 ## 5. How it plugs into M5 (auto-executor)
 
-- M5's `RSA_AUTO_BROKERS` allowlist starts as **Tier-1 only** — these
-  need no new code, so phase-1 shadow + early live can begin without
-  any session work.
-- Add **Fidelity (Tier 2)** next: the storage_state skip-2FA wiring is
-  the single highest-leverage task and unblocks the priority broker.
+- M5's `RSA_AUTO_BROKERS` allowlist starts as **Tier-1 only**
+  (**locked** — Robinhood/Schwab/BBAE/DSPAC + token-only
+  Fennel/Public/Tradier). They need no new code, so phase-1 shadow +
+  early live can begin without any session work.
+- Add **Fidelity (Tier 2)** next via the **TOTP path** (above) — the
+  highest-leverage task to unblock the priority broker unattended.
 - Tiers 3–5 are added one at a time, each gated by an attended dry run
   proving "reuse worked, no 2FA, correct account list."
-- The headless engine path must set a flag (e.g. `RSA_UNATTENDED=1`)
-  so brokers choose *escalate-and-skip* instead of blocking `input()`
-  on a failed probe.
+- The headless engine path sets `RSA_UNATTENDED=1` so brokers choose
+  *escalate-and-skip* instead of blocking `input()` on a failed probe.
 
 ## 6. Build phases (when approved)
 
 1. **Audit harness:** a read-only `--check-sessions` that, per
-   configured broker, reports artifact present? age? liveness probe
-   pass? — no trading. Validates the model cheaply.
-2. **Fidelity skip-2FA reuse** + attended verification (log in once via
-   GUI, then confirm a second run skips 2FA and lists all accounts).
+   configured broker, reports artifact present? age vs TTL? liveness
+   probe pass? — no trading. Feeds the §8 health indicator.
+2. **Fidelity TOTP unattended auth** + storage_state reuse + attended
+   verification (confirm a second run needs no human and lists all
+   accounts).
 3. **SoFi load-cookie wiring** (one call) + Tier-3 profile reuse.
 4. **Selenium user-data-dir** for Wells Fargo/Tornado.
 5. Tastytrade/Webull only if needed.
 
-## 7. Prerequisites / open questions
+## 7. Decisions (locked) + remaining verification
 
-- [ ] M1 live-validated (unrelated but gates real unattended trading).
-- [ ] Confirm Tier-1 brokers' cached tokens actually survive across
-      Mac-Mini reboots (FileVault unlock interplay) — verify with the
-      audit harness in phase 1.
-- Decisions for review:
-  1. Per-broker TTL (start 5–7 days?) and whether to make it
-     configurable.
-  2. First unattended broker set — Tier-1-only for M5 phase-1, agree?
-  3. For Fidelity, accept periodic (every few days) **attended**
-     re-login via the GUI to refresh storage_state, or invest in TOTP
-     auto-answer if Fidelity supports it on the account?
-  4. Liveness-probe definition per browser broker (which authed page /
-     element confirms "still logged in") — needs a quick attended
-     observation per broker.
+**Locked:**
+1. **TTL:** start at **5–7 days**, **configurable** —
+   `RSA_SESSION_TTL_DAYS` global default plus an optional per-broker
+   override map (`RSA_SESSION_TTL_OVERRIDES` JSON). Conservative by
+   default: re-auth occasionally beats a hung headless run.
+2. **First unattended set:** **Tier-1 only** for M5 phase-1.
+3. **Fidelity:** **TOTP auto-answer** (secret added on the account) —
+   not periodic attended re-login.
+4. **Liveness:** surfaced as a **session-health indicator** (§8).
+
+**Still to verify (no decision needed, just validation work):**
+- [ ] M1 live-validated (gates real unattended trading).
+- [ ] Tier-1 cached tokens survive Mac-Mini reboots / FileVault unlock
+      — proven by the phase-1 audit harness.
+- [ ] `fidelity-api` 2FA entry accepts a programmatic TOTP code; vault
+      has a Fidelity TOTP-secret field.
+- [ ] Per-browser-broker liveness-probe selector (one quick attended
+      observation each) — only needed as we reach Tiers 2–5.
+
+## 8. Session-health dashboard (new requirement)
+
+Per (broker, account/parent), track and surface a traffic-light state
+so a degrading session demands attention *before* it silently stops
+capturing plays:
+
+- **🟢 Green** — last successful auth/liveness probe (or successful
+  order) within TTL. Healthy.
+- **🟡 Yellow** — approaching TTL, **or** no successful confirmation
+  within a "staleness" window (configurable, e.g. no successful run in
+  N days even though nothing failed). "Watch / will need a refresh."
+- **🔴 Red** — liveness probe failed / session expired / unattended
+  re-auth escalated-and-skipped. **Flag for human interaction**; the
+  auto-executor skips this broker and alerts.
+
+Mechanics:
+- A small persisted **session-state record** per (broker, account):
+  `last_ok_at`, `last_probe_at`, `last_result`, `artifact_age`,
+  `last_order_at`. Lives in gitignored `creds/` (e.g. a tiny SQLite
+  table or JSON, mirroring the ledger pattern).
+- Written by: the audit harness (`--check-sessions`), every
+  attended/unattended login, and the executor on
+  success/skip/failure.
+- Surfaced in the GUI: a **Sessions** panel (Status or Signals tab) —
+  one row per broker/account with the light, `last confirmed` time,
+  and the reason if not green. Same completion-webhook alert on any
+  →🔴 transition so it reaches you off-box.
+- The yellow→red escalation also covers your "broker hasn't made a
+  purchase in a while" case: prolonged no-confirmed-activity trips
+  yellow, a failed probe trips red.
 
 Nothing here changes current behavior; it is purely additive reuse with
 a strict fall-back to today's interactive login.
