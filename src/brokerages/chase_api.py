@@ -109,6 +109,29 @@ def get_account_id(account_connectors: dict[str, str] | None, value: str) -> str
     return None
 
 
+def _chase_2fa_needs_code(ch_session: object) -> bool:
+    """Report whether Chase is on the texted-code step (an #otpInput exists).
+
+    Distinguishes the SMS path (has a code box) from the "Confirm using
+    our mobile app" push path (no code box). Best-effort: on any probe
+    failure we default to True so the user is still asked for a code
+    (the pre-existing, never-worse behaviour) rather than silently
+    skipping a code that was actually required.
+    """
+
+    async def _probe() -> bool:
+        try:
+            element = await ch_session.page.find("#otpInput", timeout=8)  # type: ignore[attr-defined]
+        except Exception:
+            return False
+        return element is not None
+
+    try:
+        return bool(ch_session.loop.run_until_complete(_probe()))  # type: ignore[attr-defined]
+    except Exception:
+        return True
+
+
 def chase_init(account: str, index: int, *, headless: bool = True, bot_obj: Bot | None = None, loop: asyncio.AbstractEventLoop | None = None) -> tuple[Brokerage, ch_account.AllAccount] | None:
     """Log into chase. Checks for 2FA and gathers details on the chase accounts."""
     # Log in to Chase account
@@ -131,10 +154,28 @@ def chase_init(account: str, index: int, *, headless: bool = True, bot_obj: Bot 
         )
         # Login to chase
         need_second = ch_session.login(user_pass[0], user_pass[1], int(user_pass[2]))
-        # If 2FA is present, ask for code
+        # If 2FA is present, ask for code.
+        # Chase returns need_second for BOTH 2FA paths: a texted code
+        # AND "Confirm using our mobile app" push approval. Only the
+        # texted path has a code field (#otpInput); the push path has
+        # no code at all -- login_two ignores its argument and just
+        # waits for the phone approval. Probe the page so we ask for a
+        # code only when there's actually a code to enter, instead of
+        # leaving users staring at an "Enter code" box after they've
+        # already tapped Approve in the app.
         if need_second:
             if bot_obj is None and loop is None:
-                ch_session.login_two(input("Enter code: "))
+                if _chase_2fa_needs_code(ch_session):
+                    ch_session.login_two(
+                        input("Enter the Chase code from your TEXT message: "),
+                    )
+                else:
+                    input(
+                        "Chase sent a sign-in request to your MOBILE APP. "
+                        "Approve it on your phone, then submit (leave blank) "
+                        "to continue: ",
+                    )
+                    ch_session.login_two("")
             elif bot_obj is not None and loop is not None:
                 sms_code = asyncio.run_coroutine_threadsafe(
                     get_otp_from_discord(bot_obj, name, code_len=8, loop=loop),
