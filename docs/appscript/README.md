@@ -57,3 +57,12 @@ The GUI polls this sheet (Google Sheets API or a published CSV),
 dry‑run‑previews, requires the LIVE‑confirm gate, executes before
 `PRESPLIT_DEADLINE`, and writes column K back. That is the entire
 detect→execute pipeline with Discord removed.
+
+## v2.2.1 — paginated EFTS
+
+`reverse_split_efts_paginated.gs` is a drop-in replacement for
+`fetchAndParseSecEFTS_` that pages through EFTS results (10/page, up to
+100 filings/query, deduped by filing id, stops at the real total).
+Fixes the v2.2 limitation where only the first ~10 reverse-split 8-Ks
+in the window were seen. Same signature/return contract — just swap
+the function body.
