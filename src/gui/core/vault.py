@@ -334,6 +334,34 @@ class Vault:  # noqa: PLR0904
         """
         return self._env_for_brokers(broker_keys)
 
+    def build_env_single_account(
+        self, broker_key: str, account_index: int,
+    ) -> dict[str, str]:
+        """Env vars for ONE saved account of a broker (per-account test login).
+
+        Same shape as build_env, but the broker's credential value is
+        assembled from just the selected account so a test exercises
+        only that account's login. Returns {} for an out-of-range
+        index or a raw-imported broker (a single opaque blob can't be
+        split per account).
+        """
+        if self.get_broker_raw(broker_key):
+            return {}
+        meta = get_broker(broker_key)
+        accounts = self.get_broker_accounts(broker_key)
+        if not 0 <= account_index < len(accounts):
+            return {}
+        env: dict[str, str] = {}
+        value = meta.assemble_env_value([accounts[account_index]])
+        if value:
+            env[meta.env_var] = value
+        for extra_var, _label in meta.extra_env:
+            extra_val = (self.get_broker_extra(broker_key).get(extra_var) or "").strip()
+            if extra_val:
+                env[extra_var] = extra_val
+        env.update(self.get_settings())
+        return env
+
     @contextlib.contextmanager
     def materialize_env(self, broker_keys: list[str]) -> Iterator[None]:
         """Temporarily expose credentials/settings as environment variables.

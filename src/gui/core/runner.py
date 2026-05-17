@@ -109,6 +109,21 @@ class TradeRunner:
         args = ["holdings", self._brokers_arg(broker_keys)]
         self._start(args, broker_keys, f"Holdings: {', '.join(broker_keys)}")
 
+    def start_account_test(self, broker_key: str, account_index: int) -> None:
+        """Login + pull balances for ONE saved account of a broker.
+
+        Used to verify a single (e.g. newly added) account's
+        credentials without logging into the broker's other accounts:
+        the child env carries only that account's value.
+        """
+        env = self._vault.build_env_single_account(broker_key, account_index)
+        if not env:
+            msg = "Save the account first — per-account test uses saved credentials."
+            raise ValueError(msg)
+        args = ["holdings", self._brokers_arg([broker_key])]
+        desc = f"Test {broker_key} account #{account_index + 1}"
+        self._start(args, [broker_key], desc, env_override=env)
+
     def start_trade(  # noqa: PLR0913
         self,
         action: str,
@@ -172,6 +187,7 @@ class TradeRunner:
         payload: list[str] | dict[str, object],
         broker_keys: list[str],
         description: str,
+        env_override: dict[str, str] | None = None,
     ) -> None:
         with self._lock:
             if self._status == RunStatus.RUNNING:
@@ -189,8 +205,11 @@ class TradeRunner:
         # Capture secrets so they're scrubbed from the on-screen and
         # persisted logs if a broker library ever echoes them.
         self._secrets = self._vault.secret_values()
-        # Credentials go to the child's environment only.
-        child_env = {**os.environ, **self._vault.build_env(env_keys)}
+        # Credentials go to the child's environment only. A per-account
+        # test passes a pre-built single-account env instead of the
+        # broker's full (all-accounts) value.
+        broker_env = env_override if env_override is not None else self._vault.build_env(env_keys)
+        child_env = {**os.environ, **broker_env}
         try:
             self._proc = subprocess.Popen(  # noqa: S603
                 [sys.executable, "-u", "-m", "src.gui.core.engine_proc", json.dumps(payload)],

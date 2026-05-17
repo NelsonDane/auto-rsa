@@ -228,6 +228,34 @@ def _normalize_accounts_totp(accounts: list[dict[str, str]]) -> str | None:
     return None
 
 
+def _render_account_tests(
+    meta: BrokerMeta, accounts: list[dict[str, str]], runner: TradeRunner,
+) -> None:
+    """Per-account 'Test login' buttons (one saved account at a time)."""
+    hint_spec = next((s for s in meta.fields if not s.secret), None)
+    st.caption(
+        "Test a single account (uses saved credentials — Save first "
+        "after adding one):",
+    )
+    for i, acc in enumerate(accounts):
+        hint = ""
+        if hint_spec:
+            raw_hint = (acc.get(hint_spec.key) or "").strip()
+            if raw_hint:
+                hint = f" — {raw_hint[:20]}"
+        if st.button(
+            f"Test account {i + 1}{hint}",
+            key=f"testacct_{meta.key}_{i}",
+            disabled=runner.is_running(),
+        ):
+            try:
+                runner.start_account_test(meta.key, i)
+            except (RunBusyError, ValueError) as exc:
+                st.error(str(exc))
+            else:
+                st.rerun()
+
+
 def _render_broker_credentials(meta: BrokerMeta, vault: Vault, runner: TradeRunner) -> None:  # noqa: C901, PLR0912, PLR0914, PLR0915
     """Render one broker's multi-account credential form + controls."""
     accounts = vault.get_broker_accounts(meta.key)
@@ -304,6 +332,7 @@ def _render_broker_credentials(meta: BrokerMeta, vault: Vault, runner: TradeRunn
                 "Test login (pull balances)",
                 key=f"test_{meta.key}",
                 disabled=runner.is_running(),
+                help="Logs into every saved account for this broker.",
             ):
                 try:
                     runner.start_holdings([meta.key])
@@ -316,6 +345,12 @@ def _render_broker_credentials(meta: BrokerMeta, vault: Vault, runner: TradeRunn
             ):
                 vault.delete_broker(meta.key)
                 st.rerun()
+
+            # Per-account test: verify one (e.g. just-added) account's
+            # login without touching the others. Field-based brokers
+            # only; a raw-imported blob can't be split per account.
+            if not raw_set and len(accounts) > 1:
+                _render_account_tests(meta, accounts, runner)
 
 
 # --------------------------------------------------------------------------

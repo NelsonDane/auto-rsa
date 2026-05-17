@@ -82,6 +82,27 @@ def test_vault_roundtrip_and_wrong_password(tmp_path):
     assert v2.get_broker_accounts("robinhood")[0]["username"] == "u"
 
 
+def test_vault_build_env_single_account(tmp_path):
+    v = Vault(tmp_path / "v.json")
+    v.initialize("master")
+    v.set_broker(
+        "robinhood",
+        [
+            {"username": "u1", "password": "p1", "totp_secret": ""},
+            {"username": "u2", "password": "p2", "totp_secret": ""},
+        ],
+    )
+    env_var = get_broker("robinhood").env_var
+    full = v.build_env(["robinhood"])[env_var]
+    one = v.build_env_single_account("robinhood", 1)[env_var]
+    # The single-account env carries only the second account, not both.
+    assert "u2" in one
+    assert "u1" not in one
+    assert full != one
+    # Out-of-range index yields nothing.
+    assert v.build_env_single_account("robinhood", 9) == {}
+
+
 def test_vault_corrupt_file_raises_vaulterror(tmp_path):
     p = tmp_path / "v.json"
     p.write_text("{ not valid json")
