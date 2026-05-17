@@ -156,12 +156,19 @@ def wellsfargo_holdings(wf_obj: Brokerage, loop: asyncio.AbstractEventLoop | Non
                 ec.element_to_be_clickable((By.XPATH, "//*[@id='BROKERAGE_LINK7P']")),
             )
             brokerage.click()
+            # The brokerage link opens WellsTrade in a new window; the
+            # original handle is gone, so focus the current one or
+            # subsequent finds raise "target window already closed".
+            if driver.window_handles:
+                driver.switch_to.window(driver.window_handles[-1])
 
             try:
                 more = WebDriverWait(driver, 20).until(
                     ec.element_to_be_clickable((By.LINK_TEXT, "Holdings Snapshot")),
                 )
                 more.click()
+                if driver.window_handles:
+                    driver.switch_to.window(driver.window_handles[-1])
                 position = WebDriverWait(driver, 10).until(
                     ec.element_to_be_clickable((By.ID, "btnpositions")),
                 )
