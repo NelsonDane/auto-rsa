@@ -26,9 +26,11 @@ if TYPE_CHECKING:
 
 VAULT_PATH = Path("creds") / "vault.json"
 
-_SCRYPT_N = 2**14
-_SCRYPT_R = 8
-_SCRYPT_P = 1
+# scrypt cost. New vaults use the stronger params; existing vault files
+# store the params they were created with so they stay decryptable
+# (legacy vaults predate the "kdf" field and used n=2**14).
+_LEGACY_KDF = {"n": 2**14, "r": 8, "p": 1}
+_STRONG_KDF = {"n": 2**16, "r": 8, "p": 1}
 _KEY_LEN = 32
 
 DEFAULT_SETTINGS: dict[str, str] = {
@@ -41,13 +43,19 @@ class VaultError(Exception):
     """Raised for vault open/unlock failures."""
 
 
-def _derive_key(password: str, salt: bytes) -> bytes:
-    kdf = Scrypt(salt=salt, length=_KEY_LEN, n=_SCRYPT_N, r=_SCRYPT_R, p=_SCRYPT_P)
-    return base64.urlsafe_b64encode(kdf.derive(password.encode("utf-8")))
+def _derive_key(password: str, salt: bytes, kdf: dict[str, int]) -> bytes:
+    scrypt = Scrypt(
+        salt=salt,
+        length=_KEY_LEN,
+        n=kdf["n"],
+        r=kdf["r"],
+        p=kdf["p"],
+    )
+    return base64.urlsafe_b64encode(scrypt.derive(password.encode("utf-8")))
 
 
 def _empty_data() -> dict[str, Any]:
-    return {"version": 1, "settings": dict(DEFAULT_SETTINGS), "brokers": {}}
+    return {"version": 2, "settings": dict(DEFAULT_SETTINGS), "brokers": {}}
 
 
 class Vault:
@@ -63,6 +71,7 @@ class Vault:
         self.path = path
         self._key: bytes | None = None
         self._salt: bytes | None = None
+        self._kdf: dict[str, int] = dict(_STRONG_KDF)
         self._data: dict[str, Any] | None = None
 
     # --- lifecycle -----------------------------------------------------
@@ -84,7 +93,8 @@ class Vault:
             msg = "Master password cannot be empty."
             raise VaultError(msg)
         self._salt = secrets.token_bytes(16)
-        self._key = _derive_key(password, self._salt)
+        self._kdf = dict(_STRONG_KDF)
+        self._key = _derive_key(password, self._salt, self._kdf)
         self._data = _empty_data()
         self._write()
 
@@ -97,6 +107,13 @@ class Vault:
             blob = json.loads(self.path.read_text())
             self._salt = base64.b64decode(blob["salt"])
             token = base64.b64decode(blob["token"])
+            # Legacy vaults predate the "kdf" field and used n=2**14.
+            stored = blob.get("kdf")
+            self._kdf = (
+                {"n": int(stored["n"]), "r": int(stored["r"]), "p": int(stored["p"])}
+                if isinstance(stored, dict)
+                else dict(_LEGACY_KDF)
+            )
         except (OSError, ValueError, KeyError, TypeError) as exc:
             msg = (
                 "Vault file is corrupt or unreadable. Restore a backup, or "
@@ -104,7 +121,7 @@ class Vault:
                 "credentials)."
             )
             raise VaultError(msg) from exc
-        key = _derive_key(password, self._salt)
+        key = _derive_key(password, self._salt, self._kdf)
         try:
             raw = Fernet(key).decrypt(token)
         except InvalidToken as exc:
@@ -130,8 +147,11 @@ class Vault:
         if not new:
             msg = "New master password cannot be empty."
             raise VaultError(msg)
+        # Changing the password is a natural point to upgrade a legacy
+        # vault to the stronger KDF (we have the new password here).
         self._salt = secrets.token_bytes(16)
-        self._key = _derive_key(new, self._salt)
+        self._kdf = dict(_STRONG_KDF)
+        self._key = _derive_key(new, self._salt, self._kdf)
         self._write()
 
     # --- data access ---------------------------------------------------
@@ -200,10 +220,14 @@ class Vault:
         payload = {
             "salt": base64.b64encode(self._salt).decode("ascii"),
             "token": base64.b64encode(token).decode("ascii"),
+            "kdf": self._kdf,
         }
         tmp = self.path.with_suffix(".tmp")
         tmp.write_text(json.dumps(payload))
         tmp.replace(self.path)
+        # Owner-only perms (best-effort; limited effect on Windows).
+        with contextlib.suppress(OSError):
+            self.path.chmod(0o600)
 
     # --- runtime materialization --------------------------------------
 
