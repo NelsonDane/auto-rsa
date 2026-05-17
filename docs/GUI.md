@@ -24,6 +24,13 @@ uv run playwright install firefox
 
 ## Run
 
+Easiest — use the launcher (it syncs deps and starts the app):
+
+- **Windows:** double-click **`start-gui.cmd`** in the repo folder.
+- **macOS / Linux:** run **`./start-gui.sh`** from the repo folder.
+
+Or run it manually:
+
 ```bash
 uv run streamlit run src/gui/app.py
 # or:
