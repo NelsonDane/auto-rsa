@@ -16,7 +16,7 @@ from pathlib import Path
 import streamlit as st
 
 from src.gui.core.brokers_meta import SUPPORTED_BROKERS, get_broker
-from src.gui.core.runner import RunStatus, TradeRunner
+from src.gui.core.runner import RunBusyError, RunStatus, TradeRunner
 from src.gui.core.vault import Vault, VaultError
 
 st.set_page_config(page_title="AutoRSA GUI", page_icon="📈", layout="wide")
@@ -297,16 +297,20 @@ def _tab_trade() -> None:  # noqa: PLR0914
         if not tickers:
             st.error("Enter at least one stock symbol.")
         elif dry:
-            runner.start_trade(
-                action,
-                float(amount),
-                tickers,
-                broker_keys,
-                dry=True,
-                price_type=price_type,
-                time_in_force=time_in_force,
-            )
-            st.rerun()
+            try:
+                runner.start_trade(
+                    action,
+                    float(amount),
+                    tickers,
+                    broker_keys,
+                    dry=True,
+                    price_type=price_type,
+                    time_in_force=time_in_force,
+                )
+            except RunBusyError as exc:
+                st.error(str(exc))
+            else:
+                st.rerun()
         else:
             # LIVE: don't execute yet — require an explicit typed
             # confirmation showing exactly what will be sent.
@@ -343,17 +347,21 @@ def _render_live_confirm(runner: TradeRunner, vault: Vault, pending: dict) -> No
     c1, c2 = st.columns(2)
     confirm_disabled = typed.strip() != "EXECUTE" or runner.is_running()
     if c1.button("Confirm LIVE order", type="primary", disabled=confirm_disabled):
-        runner.start_trade(
-            pending["action"],
-            pending["amount"],
-            pending["tickers"],
-            pending["broker_keys"],
-            dry=False,
-            price_type=pending["price_type"],
-            time_in_force=pending["time_in_force"],
-        )
-        st.session_state.pending_live = None
-        st.rerun()
+        try:
+            runner.start_trade(
+                pending["action"],
+                pending["amount"],
+                pending["tickers"],
+                pending["broker_keys"],
+                dry=False,
+                price_type=pending["price_type"],
+                time_in_force=pending["time_in_force"],
+            )
+        except RunBusyError as exc:
+            st.error(str(exc))
+        else:
+            st.session_state.pending_live = None
+            st.rerun()
     if c2.button("Cancel"):
         st.session_state.pending_live = None
         st.rerun()
@@ -373,8 +381,12 @@ def _tab_holdings() -> None:
     broker_keys = _broker_picker("hold")
     disabled = runner.is_running() or not broker_keys
     if st.button("Pull balances / holdings", type="primary", disabled=disabled):
-        runner.start_holdings(broker_keys)
-        st.rerun()
+        try:
+            runner.start_holdings(broker_keys)
+        except RunBusyError as exc:
+            st.error(str(exc))
+        else:
+            st.rerun()
 
 
 # --------------------------------------------------------------------------

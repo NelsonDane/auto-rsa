@@ -25,6 +25,7 @@ import os
 import subprocess  # noqa: S404
 import sys
 import threading
+import time
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -40,6 +41,12 @@ if TYPE_CHECKING:
     from src.gui.core.vault import Vault
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
+_RUN_LOCK = _PROJECT_ROOT / "creds" / "run.lock"
+_STALE_LOCK_SECONDS = 6 * 60 * 60  # a lock with no live engine, this old, is stale
+
+
+class RunBusyError(RuntimeError):
+    """Raised when another AutoRSA run already holds the single-instance lock."""
 
 
 class RunStatus(StrEnum):
@@ -151,6 +158,10 @@ class TradeRunner:
             if self._status == RunStatus.RUNNING:
                 msg = "A run is already in progress."
                 raise RuntimeError(msg)
+        # Cross-tab / cross-process guard: only one engine run at a time
+        # so two browser tabs can't double-submit (esp. LIVE orders).
+        self._acquire_run_lock()
+        with self._lock:
             self._status = RunStatus.RUNNING
             self._description = description
             self._cancelled = False
@@ -175,10 +186,56 @@ class TradeRunner:
             # Never leave the runner stuck on RUNNING if the process
             # could not even be launched.
             self.log.write(f"Failed to start engine process: {exc}\n")
+            self._release_run_lock()
             self._set_status(RunStatus.ERROR)
             return
+        self._record_engine_pid(self._proc.pid)
         self._thread = threading.Thread(target=self._pump, daemon=True)
         self._thread.start()
+
+    # --- single-instance run lock -------------------------------------
+
+    @staticmethod
+    def _lock_is_stale() -> bool:
+        try:
+            info = json.loads(_RUN_LOCK.read_text())
+        except (OSError, ValueError):
+            return True
+        pid = info.get("engine_pid")
+        if pid is not None:
+            # Live engine for that pid -> not stale.
+            return not psutil.pid_exists(int(pid))
+        # No engine pid yet: only stale if very old (abandoned start).
+        return (time.time() - float(info.get("created", 0))) > _STALE_LOCK_SECONDS
+
+    def _acquire_run_lock(self) -> None:
+        _RUN_LOCK.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            fd = os.open(_RUN_LOCK, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError:
+            if not self._lock_is_stale():
+                msg = (
+                    "Another AutoRSA run is already in progress (possibly in "
+                    "another browser tab). Wait for it to finish or cancel it."
+                )
+                raise RunBusyError(msg) from None
+            with contextlib.suppress(OSError):
+                _RUN_LOCK.unlink()
+            fd = os.open(_RUN_LOCK, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        with os.fdopen(fd, "w") as fh:
+            json.dump({"engine_pid": None, "created": time.time()}, fh)
+
+    @staticmethod
+    def _record_engine_pid(pid: int) -> None:
+        with contextlib.suppress(OSError):
+            _RUN_LOCK.write_text(
+                json.dumps({"engine_pid": pid, "created": time.time()}),
+            )
+
+    @staticmethod
+    def _release_run_lock() -> None:
+        with contextlib.suppress(OSError):
+            _RUN_LOCK.unlink()
 
     def cancel(self) -> None:
         """Abort the current run: kill the engine and its browser tree."""
@@ -201,6 +258,7 @@ class TradeRunner:
     def _pump(self) -> None:
         proc = self._proc
         if proc is None or proc.stdout is None:
+            self._release_run_lock()
             self._set_status(RunStatus.ERROR)
             return
         try:
@@ -219,6 +277,7 @@ class TradeRunner:
         finally:
             code = proc.wait()
             self.prompts.cancel()
+            self._release_run_lock()
             with self._lock:
                 if self._cancelled:
                     self._status = RunStatus.CANCELLED
