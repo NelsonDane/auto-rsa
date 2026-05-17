@@ -129,6 +129,18 @@ def fidelity_init(account: str, name: str, *, headless: bool = True, bot_obj: Bo
         )
         # If 2FA is present, ask for code
         if step_1 and not step_2:
+            # Unattended (headless scheduler) can't answer an SMS prompt
+            # and a bare input() would hang the run forever. Escalate
+            # with an actionable message so the executor skips+alerts
+            # instead of blocking. Configure the Fidelity TOTP secret so
+            # the vendored lib logs in automatically (no SMS at all).
+            if os.getenv("RSA_UNATTENDED") == "1":
+                msg = (
+                    f"{name}: Fidelity requires SMS 2FA but is running "
+                    f"unattended with no TOTP secret. Add the Fidelity "
+                    f"TOTP secret to credentials for automatic login."
+                )
+                raise Exception(msg, loop)
             if bot_obj is None and loop is None:
                 fidelity_browser.login_2FA(input("Enter code: "))
             elif bot_obj is not None and loop is not None:

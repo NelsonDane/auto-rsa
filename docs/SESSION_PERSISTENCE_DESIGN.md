@@ -154,8 +154,17 @@ Headless can't answer a fresh OTP. Strategy, in priority order:
 - [ ] M1 live-validated (gates real unattended trading).
 - [ ] Tier-1 cached tokens survive Mac-Mini reboots / FileVault unlock
       — proven by the phase-1 audit harness.
-- [ ] `fidelity-api` 2FA entry accepts a programmatic TOTP code; vault
-      has a Fidelity TOTP-secret field.
+- [x] **DONE — Fidelity TOTP.** Verified the vendored `fidelity-api`
+      already runs the full TOTP flow internally (`pyotp`) when a
+      `totp_secret` is supplied, and the GUI/vault Fidelity schema
+      already has a `totp_secret` field (`empty_value="NA"`). Creds
+      assemble as `user:pass:totp` and `fidelity_init` already passes
+      the 3rd segment — so no SMS/Discord/`input()` when TOTP is set.
+      Added the only missing piece: an unattended guard
+      (`RSA_UNATTENDED=1`) so a missing-TOTP Fidelity fails fast with
+      an actionable message instead of a hung `input()`; the executor
+      treats it as a failed login → skip+alert. Attended path
+      unchanged. Covered by `edgar_tests/fidelity_totp_test.py`.
 - [ ] Per-browser-broker liveness-probe selector (one quick attended
       observation each) — only needed as we reach Tiers 2–5.
 
