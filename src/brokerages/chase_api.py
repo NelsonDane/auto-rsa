@@ -4,15 +4,50 @@
 import asyncio
 import os
 import pprint
+import shutil
 import traceback
+from pathlib import Path
 from typing import cast
 
+import psutil
 from chase import account as ch_account
 from chase import order, session, symbols
 from discord.ext.commands import Bot
 from dotenv import load_dotenv
 
 from src.helper_api import Brokerage, StockOrder, get_otp_from_discord, print_all_holdings, print_and_discord
+
+
+def _cleanup_stale_chase_browsers(creds_dir: str = "./creds") -> None:
+    """Remove leaked Chase browsers/profiles so a new run can start.
+
+    The upstream chase library's close_browser can fall back to an
+    un-awaited asyncio task, leaving a zombie Chrome that keeps
+    ``creds/chase_*`` locked ("Failed to connect to browser" on the
+    next run). This kills only browser processes whose command line
+    references the auto-rsa Chase profile path and then removes those
+    profile dirs. It never touches vault.json or other brokers' data,
+    and never raises (cleanup must not block login).
+    """
+    try:
+        root = Path(creds_dir).resolve()
+        marker = str(root).lower()
+        for proc in psutil.process_iter(["name", "cmdline"]):
+            try:
+                name = (proc.info["name"] or "").lower()
+                if not ("chrome" in name or "chromedriver" in name):
+                    continue
+                cmdline = " ".join(proc.info["cmdline"] or []).lower()
+                # Only our Chase profile dirs — never the user's own Chrome.
+                if marker in cmdline and "chase" in cmdline:
+                    proc.kill()
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.Error):
+                continue
+        for profile in root.glob("chase_*"):
+            if profile.is_dir():
+                shutil.rmtree(profile, ignore_errors=True)
+    except Exception as exc:
+        print(f"Chase cleanup skipped: {exc}")
 
 
 def chase_run(order_obj: StockOrder, bot_obj: Bot | None = None, loop: asyncio.AbstractEventLoop | None = None) -> None:
@@ -24,6 +59,9 @@ def chase_run(order_obj: StockOrder, bot_obj: Bot | None = None, loop: asyncio.A
         print("Chase not found, skipping...")
         return
     accounts = os.environ["CHASE"].strip().split(",")
+    # Clear any leaked Chrome/profile from a prior run so zendriver can
+    # start (scoped to creds/chase_* only — never vault.json).
+    _cleanup_stale_chase_browsers()
     # Get headless flag
     headless = os.getenv("HEADLESS", "true").lower() == "true"
 
