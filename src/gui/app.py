@@ -21,8 +21,6 @@ from src.gui.core.vault import Vault, VaultError
 
 st.set_page_config(page_title="AutoRSA GUI", page_icon="📈", layout="wide")
 
-POLL_SECONDS = 2.0
-
 
 # --------------------------------------------------------------------------
 # Session state
@@ -330,7 +328,40 @@ def _tab_holdings() -> None:
 # Rendered on every page (above the tabs) so a login prompt or status
 # output is always visible no matter which tab triggered the run.
 # --------------------------------------------------------------------------
-def _render_activity_panel(runner: TradeRunner) -> None:
+_HIGHLIGHT_MARKERS = (
+    "error",
+    "fail",
+    "unsuccessful",
+    "success",
+    "complete",
+    "skipping",
+    "not found",
+    "logged in",
+    "total value",
+    "combined total",
+    "dry:",
+    "would've been",
+)
+
+
+def _highlights(log: str) -> str:
+    """Verbatim lines that match status markers — a filter, not analysis.
+
+    Deliberately does not interpret or assert order outcomes; it only
+    surfaces the broker's own lines so a real-money result is never
+    misrepresented by a parser.
+    """
+    lines = [ln for ln in log.splitlines() if any(m in ln.lower() for m in _HIGHLIGHT_MARKERS)]
+    return "\n".join(lines)
+
+
+@st.fragment(run_every=2)
+def _activity_fragment(runner: TradeRunner) -> None:
+    """Auto-refreshing activity panel (only this fragment reruns).
+
+    Replaces the old whole-app busy-poll, so the rest of the UI stays
+    responsive and the Cancel button works during a run.
+    """
     snap = runner.snapshot()
     prompt = runner.prompts.snapshot()
 
@@ -347,14 +378,11 @@ def _render_activity_panel(runner: TradeRunner) -> None:
     ):
         runner.cancel()
         time.sleep(0.5)
-        st.rerun()
+        st.rerun(scope="fragment")
 
     # The 2FA / OTP / CAPTCHA prompt is the most urgent thing on the page.
     if prompt.waiting:
         st.error(f"🔐 Login action required: {prompt.text}", icon="🔐")
-        # Some brokers (e.g. BBAE/DSPAC) save a CAPTCHA image to disk and
-        # expect the characters typed back. Show it inline so the user
-        # doesn't have to hunt for the file.
         if "captcha" in prompt.text.lower():
             captcha_path = Path("captcha.png")
             if captcha_path.is_file():
@@ -372,13 +400,16 @@ def _render_activity_panel(runner: TradeRunner) -> None:
                 "Enter the code / response, then Submit",
                 key=f"ans_{prompt.prompt_id}",
             )
-            submitted = st.form_submit_button("Submit", type="primary")
-            if submitted:
+            if st.form_submit_button("Submit", type="primary"):
                 runner.prompts.respond(prompt.prompt_id, answer)
-                # Give the worker a moment to consume the answer and move
-                # on before we resume the auto-refresh loop.
                 time.sleep(0.5)
-                st.rerun()
+                st.rerun(scope="fragment")
+
+    log = snap.log
+    highlights = _highlights(log) if log else ""
+    if highlights:
+        with st.expander("Highlights (matched lines — verbatim, not interpreted)", expanded=True):
+            st.code(highlights, language="text")
 
     with st.expander(
         f"Activity — {status_label}",
@@ -386,11 +417,20 @@ def _render_activity_panel(runner: TradeRunner) -> None:
     ):
         if snap.description:
             st.caption(snap.description)
-        st.code(snap.log or "(no output yet)", language="text")
+        st.download_button(
+            "⬇ Download full log",
+            data=log or "",
+            file_name="autorsa-run.log",
+            mime="text/plain",
+            disabled=not log,
+            key="dl_log",
+        )
+        # Tail very long logs so the panel stays responsive.
+        max_chars = 20000
+        shown = log if len(log) <= max_chars else "…(truncated — download for full log)…\n" + log[-max_chars:]
+        st.code(shown or "(no output yet)", language="text")
 
-    # Some browser brokers (e.g. Wells Fargo) save a screenshot of the
-    # exact page shown when they failed. Surface the newest one on error
-    # so the failure is diagnosable instead of a blind timeout.
+    # Wells Fargo saves a screenshot of the exact page on failure.
     if snap.status == RunStatus.ERROR:
         shots = sorted(
             Path.cwd().glob("wells-fargo-error-*.png"),
@@ -401,12 +441,6 @@ def _render_activity_panel(runner: TradeRunner) -> None:
             latest = shots[0]
             st.warning("Wells Fargo failed. This is the page it was on:")
             st.image(latest.read_bytes(), caption=latest.name)
-
-    # Stream logs by polling — but NEVER while a prompt is waiting, or the
-    # rerun would wipe whatever the user is typing into the OTP box.
-    if snap.status == RunStatus.RUNNING and not prompt.waiting:
-        time.sleep(POLL_SECONDS)
-        st.rerun()
 
 
 # --------------------------------------------------------------------------
@@ -419,7 +453,7 @@ def main() -> None:
     _sidebar()
 
     runner = _get_runner()
-    _render_activity_panel(runner)
+    _activity_fragment(runner)
 
     tab_status, tab_creds, tab_trade, tab_hold = st.tabs(
         ["Status", "Credentials", "Trade", "Balances"],

@@ -19,6 +19,7 @@ The parent only does pipe I/O on a reader thread:
 from __future__ import annotations
 
 import contextlib
+import datetime
 import json
 import os
 import subprocess  # noqa: S404
@@ -223,6 +224,25 @@ class TradeRunner:
                     self._status = RunStatus.CANCELLED
                 else:
                     self._status = RunStatus.FINISHED if code == 0 else RunStatus.ERROR
+                final_status = self._status
+            self._write_audit_log(final_status)
+
+    def _write_audit_log(self, status: RunStatus) -> None:
+        """Persist the run's full output for an audit trail (best-effort).
+
+        Written under creds/run_logs (gitignored with the rest of creds)
+        because logs can contain holdings/account data.
+        """
+        try:
+            log_dir = _PROJECT_ROOT / "creds" / "run_logs"
+            log_dir.mkdir(parents=True, exist_ok=True)
+            stamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%dT%H%M%SZ")
+            (log_dir / f"{stamp}_{status.value}.log").write_text(
+                self.log.getvalue(),
+                encoding="utf-8",
+            )
+        except OSError as exc:
+            self.log.write(f"\n(could not write audit log: {exc})\n")
 
     def _set_status(self, status: RunStatus) -> None:
         with self._lock:
