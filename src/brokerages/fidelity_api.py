@@ -16,7 +16,12 @@ from discord.ext.commands import Bot
 from dotenv import load_dotenv
 from fidelity import fidelity
 
+from src.brokerages import _fidelity_patchright
 from src.helper_api import Brokerage, StockOrder, get_otp_from_discord, mask_string, print_all_holdings, print_and_discord
+
+# Swap fidelity-api's detectable browser engine for patchright before
+# any FidelityAutomation is constructed.
+_fidelity_patchright.apply()
 
 
 def _fidelity_diagnostic(fidelity_browser: object, name: str) -> None:

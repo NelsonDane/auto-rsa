@@ -15,11 +15,14 @@ git submodule update --init --recursive
 # 2. Install Python dependencies (includes Streamlit)
 uv sync
 
-# 3. One-time: install the browser Playwright drives.
-#    REQUIRED for Fidelity and Schwab (both use Playwright/Firefox).
+# 3. One-time: install the browsers.
+#    Schwab uses Playwright/Firefox:
 uv run playwright install firefox
-#    Or install all browsers (larger, fully covers every browser broker):
-#    uv run playwright install
+#    Fidelity now uses patchright (undetected) with REAL Chrome.
+#    If you have Google Chrome installed, nothing else is needed.
+#    Otherwise install patchright's bundled Chromium fallback:
+uv run patchright install chromium
+#    (Or install everything: uv run playwright install)
 ```
 
 ## Run
