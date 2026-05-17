@@ -158,11 +158,11 @@ def chase_init(account: str, index: int, *, headless: bool = True, bot_obj: Bot 
         # Chase returns need_second for BOTH 2FA paths: a texted code
         # AND "Confirm using our mobile app" push approval. Only the
         # texted path has a code field (#otpInput); the push path has
-        # no code at all -- login_two ignores its argument and just
-        # waits for the phone approval. Probe the page so we ask for a
-        # code only when there's actually a code to enter, instead of
-        # leaving users staring at an "Enter code" box after they've
-        # already tapped Approve in the app.
+        # no code at all -- login_two ignores its argument and polls
+        # ~60-90s for the post-approval landing page. So for push we
+        # don't prompt at all: just wait while the user taps Approve on
+        # their phone (no tedious "submit blank" step). We only block
+        # for input on the texted path, where a code really is needed.
         if need_second:
             if bot_obj is None and loop is None:
                 if _chase_2fa_needs_code(ch_session):
@@ -170,10 +170,10 @@ def chase_init(account: str, index: int, *, headless: bool = True, bot_obj: Bot 
                         input("Enter the Chase code from your TEXT message: "),
                     )
                 else:
-                    input(
+                    print(
                         "Chase sent a sign-in request to your MOBILE APP. "
-                        "Approve it on your phone, then submit (leave blank) "
-                        "to continue: ",
+                        "Approve it on your phone now -- waiting up to ~90s, "
+                        "no action needed here.",
                     )
                     ch_session.login_two("")
             elif bot_obj is not None and loop is not None:
