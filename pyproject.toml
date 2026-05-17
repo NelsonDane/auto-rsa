@@ -12,7 +12,7 @@ dependencies = [
     "dspac-invest-api==0.1.4",
     "email-validator>=2.3.0",
     "fennel-invest-api==2.0.1",
-    "fidelity-api==0.0.16",
+    "fidelity-api",
     "firstrade==0.0.34",
     "nodriver==0.47.0",
     "paho-mqtt>=2.1.0",
@@ -42,6 +42,13 @@ auto_rsa_gui = "src.gui.launch:main"
 
 [tool.uv]
 package = true
+
+[tool.uv.sources]
+# PyPI's latest fidelity-api (0.0.16) cannot log in to Fidelity's current
+# site (it only handles the old /login/full-page URL; Fidelity now serves
+# /signin/retail). Upstream fixed this on git main but never published a
+# release, so pin to the exact fixed commit for reproducibility.
+fidelity-api = { git = "https://github.com/kennyboy106/fidelity-api.git", rev = "81e8ea256086655899f748c8d8ebad8a6c287486" }
 
 [build-system]
 requires = ["uv_build>=0.11.7,<0.12.0"]
