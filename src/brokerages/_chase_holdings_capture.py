@@ -55,7 +55,7 @@ _BACKOFF_S = 2.0
 # the exact pattern never fullmatches and the capture times out every
 # time. Match the stable path fragment with .* on both ends instead
 # (version-tolerant, survives query strings).
-_POSITIONS_RE = re.compile(r".*/digital-investment-positions/v\d+/positions.*")
+_POSITIONS_RE = re.compile(r".*digital-investment-positions.*")
 
 
 def apply() -> None:
@@ -71,12 +71,22 @@ def apply() -> None:
             last_error = "no attempts ran"
             for attempt in range(_ATTEMPTS):
                 try:
-                    await self.session.page.get(account_holdings(self.account_id))  # type: ignore[attr-defined]
-                    await self.session.page.sleep(2)  # type: ignore[attr-defined]
-
+                    # Arm the response listener BEFORE the navigation that
+                    # triggers the positions XHR. Chase's dashboard is a
+                    # hash-route SPA: the positions fetch fires on the
+                    # initial route load, so arming after navigating (as
+                    # upstream does) misses it, and the later reload only
+                    # re-bootstraps the shell without re-fetching -- a
+                    # deterministic miss no timeout or pattern can fix.
                     async with self.session.page.expect_response(  # type: ignore[attr-defined]
                         _POSITIONS_RE,
                     ) as response_info:
+                        await self.session.page.get(  # type: ignore[attr-defined]
+                            account_holdings(self.account_id),  # type: ignore[attr-defined]
+                        )
+                        await self.session.page.sleep(2)  # type: ignore[attr-defined]
+                        # Second trigger inside the armed window in case
+                        # the SPA served the route from cache.
                         await self.session.page.reload()  # type: ignore[attr-defined]
                         await asyncio.wait_for(
                             response_info.value, timeout=_TIMEOUT_S,
