@@ -39,13 +39,23 @@ _BLOCKING = (STATUS_INTENDED, STATUS_EXECUTED)
 
 
 class Play(NamedTuple):
-    """Identity of one order in one sub-account for one detected play."""
+    """Identity of one order in one sub-account for one detected play.
+
+    ``key`` is the per-source row identity (the GUI_QUEUE KEY).
+    ``split_key`` is the optional producer-agnostic *economic* identity
+    (ticker|ratio|effective|policy). When set, the no-double-buy guard
+    also blocks on it, so the same real split arriving via two
+    producers (EDGAR + StockTitan) with different ``key``s still cannot
+    be bought twice in the same sub-account. Empty -> legacy per-key
+    behavior only (unchanged M1 semantics).
+    """
 
     key: str
     broker: str
     account: str
     ticker: str
     action: str
+    split_key: str = ""
 
 
 def normalize_account(account: object) -> str:
@@ -86,6 +96,16 @@ def _connect() -> Iterator[sqlite3.Connection]:
             )
             """,
         )
+        # Migrate M1 databases that predate the economic split key.
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(executions)")}
+        if "split_key" not in cols:
+            conn.execute(
+                "ALTER TABLE executions ADD COLUMN split_key TEXT DEFAULT ''",
+            )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS ix_exec_split "
+            "ON executions(split_key, broker, sub_account, action)",
+        )
         yield conn
         conn.commit()
     finally:
@@ -112,13 +132,43 @@ def _row_status(conn: sqlite3.Connection, play: Play) -> str | None:
     return row[0] if row else None
 
 
+def _economic_blocked(conn: sqlite3.Connection, play: Play) -> bool:
+    """Return True if the same economic split is already done here.
+
+    Producer-agnostic: matches on split_key + broker + sub_account +
+    action regardless of the per-source ``key``. No-op when the caller
+    didn't supply a split_key (legacy M1 behavior).
+    """
+    sk = (play.split_key or "").strip()
+    if not sk:
+        return False
+    placeholders = ",".join("?" * len(_BLOCKING))
+    cur = conn.execute(
+        f"SELECT 1 FROM executions WHERE split_key=? AND broker=? "  # noqa: S608
+        f"AND sub_account=? AND action=? AND status IN ({placeholders}) "
+        f"LIMIT 1",
+        (
+            sk,
+            play.broker.lower(),
+            normalize_account(play.account),
+            play.action.lower(),
+            *_BLOCKING,
+        ),
+    )
+    return cur.fetchone() is not None
+
+
 def already_done(play: Play) -> bool:
     """Return True if this play was already executed or is mid-flight.
 
+    Considers both the exact per-source key and the economic split key.
     Dry runs are never recorded, so they never block.
     """
     with _LOCK, _connect() as conn:
-        return _row_status(conn, play) in _BLOCKING
+        return (
+            _row_status(conn, play) in _BLOCKING
+            or _economic_blocked(conn, play)
+        )
 
 
 def record_intent(play: Play, qty: float) -> bool:
@@ -130,7 +180,7 @@ def record_intent(play: Play, qty: float) -> bool:
     so a genuine retry is allowed.
     """
     with _LOCK, _connect() as conn:
-        if _row_status(conn, play) in _BLOCKING:
+        if _row_status(conn, play) in _BLOCKING or _economic_blocked(conn, play):
             return False
         now = _now()
         key, broker, acct, ticker, action = _norm(play)
@@ -138,14 +188,26 @@ def record_intent(play: Play, qty: float) -> bool:
             """
             INSERT INTO executions
                 (key, broker, sub_account, ticker, action, qty,
-                 status, created_at, updated_at)
-            VALUES (?,?,?,?,?,?,?,?,?)
+                 status, created_at, updated_at, split_key)
+            VALUES (?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT(key, broker, sub_account, ticker, action)
             DO UPDATE SET status=excluded.status,
                           qty=excluded.qty,
-                          updated_at=excluded.updated_at
+                          updated_at=excluded.updated_at,
+                          split_key=excluded.split_key
             """,
-            (key, broker, acct, ticker, action, qty, STATUS_INTENDED, now, now),
+            (
+                key,
+                broker,
+                acct,
+                ticker,
+                action,
+                qty,
+                STATUS_INTENDED,
+                now,
+                now,
+                (play.split_key or "").strip(),
+            ),
         )
         return True
 
