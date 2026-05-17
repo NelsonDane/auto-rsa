@@ -330,7 +330,7 @@ def _tab_holdings() -> None:
 # Rendered on every page (above the tabs) so a login prompt or status
 # output is always visible no matter which tab triggered the run.
 # --------------------------------------------------------------------------
-def _render_activity_panel(runner: TradeRunner) -> None:  # noqa: C901
+def _render_activity_panel(runner: TradeRunner) -> None:
     snap = runner.snapshot()
     prompt = runner.prompts.snapshot()
 
