@@ -17,7 +17,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from src import ledger
+from src import ledger, session_state
 from src.gui.core.brokers_meta import SUPPORTED_BROKERS, BrokerMeta, get_broker
 from src.gui.core.results import group_by_broker
 from src.gui.core.runner import RunBusyError, RunStatus, TradeRunner
@@ -180,6 +180,60 @@ def _tab_status() -> None:
     st.info(
         "Ally is not supported by this repository and is intentionally absent. "
         "Multi-user login is planned for a later revision.",
+    )
+
+    _broker_sessions_panel()
+
+
+def _broker_sessions_panel() -> None:
+    """Green/yellow/red broker session-health (read-only; no login/trade)."""
+    st.markdown("#### Broker sessions")
+    st.caption(
+        "Health of each broker's saved login session for unattended runs. "
+        "Read-only — never logs in or trades. 🔴 = needs a manual login "
+        "soon; 🟡 = aging or no recent buys; 🟢 = fresh; ⚪ = no session "
+        "persistence (interactive 2FA each run).",
+    )
+    dot = {
+        session_state.GREEN: "🟢",
+        session_state.YELLOW: "🟡",
+        session_state.RED: "🔴",
+        session_state.UNSUPPORTED: "⚪",
+        session_state.UNKNOWN: "❔",
+    }
+    if st.button("Re-scan sessions"):
+        session_state.audit(persist=True)
+        st.rerun()
+    snapshot = session_state.load_last_audit()
+    if not snapshot:
+        snapshot = [
+            {
+                "broker": r.broker,
+                "artifact": r.artifact,
+                "health": r.health,
+                "reason": r.reason,
+                "age_days": r.age_days,
+                "last_order_at": r.last_order_at,
+            }
+            for r in session_state.audit(persist=True)
+        ]
+    reds = sum(r["health"] == session_state.RED for r in snapshot)
+    if reds:
+        st.warning(f"{reds} broker session(s) need a manual re-login.")
+    st.dataframe(
+        [
+            {
+                "": dot.get(str(r["health"]), "❔"),
+                "Broker": r["broker"],
+                "Artifact": r["artifact"],
+                "Age (d)": r["age_days"],
+                "Last buy": str(r["last_order_at"] or "—")[:19],
+                "Status": r["reason"],
+            }
+            for r in snapshot
+        ],
+        width="stretch",
+        hide_index=True,
     )
 
 
