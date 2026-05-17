@@ -254,6 +254,11 @@ def _tab_trade() -> None:  # noqa: PLR0914
         st.warning("Unlock the vault in the sidebar first.")
         return
 
+    pending = st.session_state.get("pending_live")
+    if pending:
+        _render_live_confirm(runner, vault, pending)
+        return
+
     col1, col2, col3 = st.columns(3)
     action = col1.selectbox("Action", ["buy", "sell"])
     tickers_raw = col2.text_input("Stock symbol(s)", value="", help="Comma-separated")
@@ -291,17 +296,67 @@ def _tab_trade() -> None:  # noqa: PLR0914
         tickers = [t.strip() for t in tickers_raw.split(",") if t.strip()]
         if not tickers:
             st.error("Enter at least one stock symbol.")
-        else:
+        elif dry:
             runner.start_trade(
                 action,
                 float(amount),
                 tickers,
                 broker_keys,
-                dry=dry,
+                dry=True,
                 price_type=price_type,
                 time_in_force=time_in_force,
             )
             st.rerun()
+        else:
+            # LIVE: don't execute yet — require an explicit typed
+            # confirmation showing exactly what will be sent.
+            st.session_state.pending_live = {
+                "action": action,
+                "amount": float(amount),
+                "tickers": tickers,
+                "broker_keys": broker_keys,
+                "price_type": price_type,
+                "time_in_force": time_in_force,
+            }
+            st.rerun()
+
+
+def _render_live_confirm(runner: TradeRunner, vault: Vault, pending: dict) -> None:
+    """Real-money gate: show the exact order and require typing EXECUTE."""
+    keys = pending["broker_keys"]
+    if "all" in keys:
+        names = [get_broker(k).display_name for k in vault.configured_broker_keys()]
+        broker_desc = f"ALL configured: {', '.join(names)}"
+    else:
+        broker_desc = ", ".join(get_broker(k).display_name for k in keys)
+
+    st.error("⚠️ Confirm LIVE order — this places REAL orders with REAL money.", icon="⚠️")
+    st.markdown(
+        f"- **Action:** {pending['action'].upper()}\n"
+        f"- **Amount:** {pending['amount']} share(s)\n"
+        f"- **Symbol(s):** {', '.join(pending['tickers'])}\n"
+        f"- **Order type:** {pending['price_type']} / {pending['time_in_force']}\n"
+        f"- **Brokers:** {broker_desc}\n\n"
+        "This runs across **every account** at each broker above.",
+    )
+    typed = st.text_input("Type EXECUTE (all caps) to confirm", key="live_confirm_text")
+    c1, c2 = st.columns(2)
+    confirm_disabled = typed.strip() != "EXECUTE" or runner.is_running()
+    if c1.button("Confirm LIVE order", type="primary", disabled=confirm_disabled):
+        runner.start_trade(
+            pending["action"],
+            pending["amount"],
+            pending["tickers"],
+            pending["broker_keys"],
+            dry=False,
+            price_type=pending["price_type"],
+            time_in_force=pending["time_in_force"],
+        )
+        st.session_state.pending_live = None
+        st.rerun()
+    if c2.button("Cancel"):
+        st.session_state.pending_live = None
+        st.rerun()
 
 
 # --------------------------------------------------------------------------
