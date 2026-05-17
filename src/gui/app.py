@@ -283,8 +283,6 @@ def _tab_trade() -> None:
             )
             st.rerun()
 
-    _render_console(runner)
-
 
 # --------------------------------------------------------------------------
 # Balances and holdings tab
@@ -303,15 +301,16 @@ def _tab_holdings() -> None:
         runner.start_holdings(broker_keys)
         st.rerun()
 
-    _render_console(runner)
-
 
 # --------------------------------------------------------------------------
-# Shared live console + 2FA prompt
+# Persistent activity panel: status + 2FA prompt + live log
+#
+# Rendered on every page (above the tabs) so a login prompt or status
+# output is always visible no matter which tab triggered the run.
 # --------------------------------------------------------------------------
-def _render_console(runner: TradeRunner) -> None:
-    st.divider()
+def _render_activity_panel(runner: TradeRunner) -> None:
     snap = runner.snapshot()
+    prompt = runner.prompts.snapshot()
 
     status_label = {
         RunStatus.IDLE: "Idle",
@@ -319,22 +318,34 @@ def _render_console(runner: TradeRunner) -> None:
         RunStatus.FINISHED: "Finished",
         RunStatus.ERROR: "Error",
     }[snap.status]
-    st.markdown(f"**Status:** {status_label}")
-    if snap.description:
-        st.caption(snap.description)
 
-    prompt = runner.prompts.snapshot()
+    # The 2FA / OTP / CAPTCHA prompt is the most urgent thing on the page.
     if prompt.waiting:
-        st.warning(f"Action required: {prompt.text}")
+        st.error(f"🔐 Login action required: {prompt.text}", icon="🔐")
         with st.form(f"prompt_{prompt.prompt_id}", clear_on_submit=True):
-            answer = st.text_input(prompt.text, key=f"ans_{prompt.prompt_id}")
-            if st.form_submit_button("Submit code / response"):
+            answer = st.text_input(
+                "Enter the code / response, then Submit",
+                key=f"ans_{prompt.prompt_id}",
+            )
+            submitted = st.form_submit_button("Submit", type="primary")
+            if submitted:
                 runner.prompts.respond(prompt.prompt_id, answer)
+                # Give the worker a moment to consume the answer and move
+                # on before we resume the auto-refresh loop.
+                time.sleep(0.5)
                 st.rerun()
 
-    st.code(snap.log or "(no output yet)", language="text")
+    with st.expander(
+        f"Activity — {status_label}",
+        expanded=(snap.status != RunStatus.IDLE or prompt.waiting),
+    ):
+        if snap.description:
+            st.caption(snap.description)
+        st.code(snap.log or "(no output yet)", language="text")
 
-    if snap.status == RunStatus.RUNNING or prompt.waiting:
+    # Stream logs by polling — but NEVER while a prompt is waiting, or the
+    # rerun would wipe whatever the user is typing into the OTP box.
+    if snap.status == RunStatus.RUNNING and not prompt.waiting:
         time.sleep(POLL_SECONDS)
         st.rerun()
 
@@ -347,6 +358,9 @@ def main() -> None:
     _state()
     st.title("📈 AutoRSA — Local Trading GUI")
     _sidebar()
+
+    runner = _get_runner()
+    _render_activity_panel(runner)
 
     tab_status, tab_creds, tab_trade, tab_hold = st.tabs(
         ["Status", "Credentials", "Trade", "Balances"],
