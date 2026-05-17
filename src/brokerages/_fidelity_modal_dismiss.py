@@ -32,8 +32,13 @@ import contextlib
 
 _applied = False
 
-# The blocking overlay Fidelity shows for a rejected order.
+# The blocking overlay Fidelity shows for a rejected order. The host is
+# a custom element whose box is zero-sized, so Playwright's is_visible()
+# reports False even while its overlay subtree intercepts every click --
+# presence/dismissal must key off the element + its pvd-open attribute,
+# never is_visible().
 _MODAL = "pvd-ett-modal.eq-ticket-error-modal-component"
+_MODAL_OPEN = 'pvd-ett-modal.eq-ticket-error-modal-component[pvd-open="true"]'
 # Generic upstream failure strings worth replacing with the modal's
 # real text when we can read it.
 _GENERIC = (
@@ -44,13 +49,31 @@ _GENERIC = (
 )
 
 
-def _modal_text(page: object) -> str:
-    """Return the visible error text of the modal, or "" if absent."""
+def _modal_open(page: object) -> bool:
+    """Report whether the error modal is present and open (not is_visible-based)."""
     try:
-        modal = page.locator(_MODAL)  # type: ignore[attr-defined]
-        if modal.count() == 0 or not modal.first.is_visible():
-            return ""
-        raw = modal.first.inner_text(timeout=2000) or ""
+        return page.locator(_MODAL_OPEN).count() > 0  # type: ignore[attr-defined]
+    except Exception:
+        return False
+
+
+def _wait_gone(page: object) -> bool:
+    """Poll up to ~2s for the open modal to clear; True once it has."""
+    for _ in range(20):
+        if not _modal_open(page):
+            return True
+        with contextlib.suppress(Exception):
+            page.wait_for_timeout(100)  # type: ignore[attr-defined]
+    return not _modal_open(page)
+
+
+def _modal_text(page: object) -> str:
+    """Return the error text of the modal, or "" if absent."""
+    if not _modal_open(page):
+        return ""
+    try:
+        # text_content (not inner_text) -- works on the zero-box host.
+        raw = page.locator(_MODAL).first.text_content(timeout=2000) or ""  # type: ignore[attr-defined]
     except Exception:
         return ""
     # Collapse the whitespace Fidelity pads error bodies with.
@@ -59,31 +82,28 @@ def _modal_text(page: object) -> str:
 
 def _dismiss_modal(page: object) -> None:
     """Best-effort close of the error modal so the next account is clean."""
-    try:
-        modal = page.locator(_MODAL)  # type: ignore[attr-defined]
-        if modal.count() == 0 or not modal.first.is_visible():
-            return
-    except Exception:
+    if not _modal_open(page):
         return
-    # 1) A button inside the modal (Edit order / OK / Close / Got it).
+    # 1) The accessible close control (pvd-close-button-a11y-text="Close dialog").
+    with contextlib.suppress(Exception):
+        page.get_by_role("button", name="Close dialog").first.click(timeout=2000)  # type: ignore[attr-defined]
+        if _wait_gone(page):
+            return
+    # 2) Any button inside the modal (Edit order / OK / Got it).
     with contextlib.suppress(Exception):
         btns = page.locator(f"{_MODAL} button")  # type: ignore[attr-defined]
         if btns.count() > 0:
             btns.first.click(timeout=2000)
-            page.locator(_MODAL).first.wait_for(  # type: ignore[attr-defined]
-                state="hidden", timeout=3000,
-            )
-            return
-    # 2) Escape key.
+            if _wait_gone(page):
+                return
+    # 3) Escape key.
     with contextlib.suppress(Exception):
         page.keyboard.press("Escape")  # type: ignore[attr-defined]
-        page.locator(_MODAL).first.wait_for(  # type: ignore[attr-defined]
-            state="hidden", timeout=2000,
-        )
-        return
-    # 3) Last resort: hard-reload the order-entry page.
+        if _wait_gone(page):
+            return
+    # 4) Last resort: hard-reload the order-entry page.
     with contextlib.suppress(Exception):
-        page.goto("https://digital.fidelity.com/ftgw/digital/trade-equity/index/orderEntry")
+        page.goto("https://digital.fidelity.com/ftgw/digital/trade-equity/index/orderEntry")  # type: ignore[attr-defined]
 
 
 def apply() -> None:
