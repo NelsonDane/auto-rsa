@@ -19,6 +19,7 @@ from src.gui.core.brokers_meta import SUPPORTED_BROKERS, BrokerMeta, get_broker
 from src.gui.core.results import group_by_broker
 from src.gui.core.runner import RunBusyError, RunStatus, TradeRunner
 from src.gui.core.tickers import normalize_and_validate
+from src.gui.core.totp import normalize_totp_secret
 from src.gui.core.vault import Vault, VaultError
 
 st.set_page_config(page_title="AutoRSA GUI", page_icon="📈", layout="wide")
@@ -216,6 +217,17 @@ def _tab_credentials() -> None:
         _render_broker_credentials(meta, vault, runner)
 
 
+def _normalize_accounts_totp(accounts: list[dict[str, str]]) -> str | None:
+    """Validate/normalize any totp_secret in-place; return an error or None."""
+    for i, acc in enumerate(accounts):
+        if "totp_secret" in acc:
+            norm, err = normalize_totp_secret(acc["totp_secret"])
+            if err:
+                return f"Account {i + 1} TOTP secret: {err}"
+            acc["totp_secret"] = norm if norm is not None else ""
+    return None
+
+
 def _render_broker_credentials(meta: BrokerMeta, vault: Vault, runner: TradeRunner) -> None:  # noqa: C901, PLR0912, PLR0914, PLR0915
     """Render one broker's multi-account credential form + controls."""
     accounts = vault.get_broker_accounts(meta.key)
@@ -274,7 +286,10 @@ def _render_broker_credentials(meta: BrokerMeta, vault: Vault, runner: TradeRunn
                 nonempty = [
                     a for a in collected if any(v.strip() for v in a.values())
                 ]
-                if nonempty:
+                totp_err = _normalize_accounts_totp(nonempty)
+                if totp_err:
+                    st.error(totp_err)
+                elif nonempty:
                     vault.set_broker(meta.key, nonempty, extra_values)
                     st.session_state[nkey] = len(nonempty)
                     st.success(

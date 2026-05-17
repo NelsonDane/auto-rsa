@@ -23,6 +23,22 @@ from src.gui.core.prompts import PromptBus
 from src.gui.core.results import group_by_broker, status_lines
 from src.gui.core.runner import RunBusyError, RunStatus, TradeRunner
 from src.gui.core.tickers import normalize_and_validate
+from src.gui.core.totp import normalize_totp_secret
+
+
+def test_totp_secret_validation():
+    # Valid base32 (spaces/case/dashes normalized away).
+    norm, err = normalize_totp_secret("jbsw y3dp ehpk 3pxp")
+    assert err is None and norm == "JBSWY3DPEHPK3PXP"
+    # NA / blank pass through (means "no 2FA").
+    assert normalize_totp_secret("NA") == ("NA", None)
+    assert normalize_totp_secret("") == ("", None)
+    # Symantec VIP Credential ID -> rejected (0/1/8/9 not base32).
+    n, e = normalize_totp_secret("VSMT19180001")
+    assert n is None and "base32" in e
+    # otpauth URI -> rejected with specific hint.
+    n, e = normalize_totp_secret("otpauth://totp/x?secret=ABCD")
+    assert n is None and "otpauth" in e
 
 
 # --- results grouping -------------------------------------------------
