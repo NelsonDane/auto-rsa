@@ -47,7 +47,7 @@ def _get_runner() -> TradeRunner:
 # --------------------------------------------------------------------------
 # Sidebar: vault lock/unlock + settings
 # --------------------------------------------------------------------------
-def _sidebar() -> None:  # noqa: C901
+def _sidebar() -> None:  # noqa: C901, PLR0912, PLR0915
     vault = _get_vault()
     st.sidebar.title("🔐 Vault")
 
@@ -102,6 +102,20 @@ def _sidebar() -> None:  # noqa: C901
     }
     if new_settings != settings:
         vault.set_settings(new_settings)
+
+    st.sidebar.divider()
+    with st.sidebar.expander("Notifications"):
+        notify = vault.get_notify()
+        hook = st.text_input(
+            "Completion webhook URL (Discord-compatible, optional)",
+            value=notify.get("webhook_url", ""),
+            help="Posted when a run finishes — fires even if you close "
+            "the browser tab during a long browser-broker run.",
+            key="notify_hook",
+        )
+        if st.button("Save notifications"):
+            vault.set_notify({"webhook_url": hook.strip()})
+            st.success("Notification settings saved.")
 
     st.sidebar.divider()
     with st.sidebar.expander("Change master password"):
@@ -202,10 +216,9 @@ def _tab_credentials() -> None:
         _render_broker_credentials(meta, vault, runner)
 
 
-def _render_broker_credentials(meta: BrokerMeta, vault: Vault, runner: TradeRunner) -> None:  # noqa: C901
-    """Render one broker's credential form + test/delete controls."""
+def _render_broker_credentials(meta: BrokerMeta, vault: Vault, runner: TradeRunner) -> None:  # noqa: C901, PLR0912, PLR0914, PLR0915
+    """Render one broker's multi-account credential form + controls."""
     accounts = vault.get_broker_accounts(meta.key)
-    existing = accounts[0] if accounts else {}
     raw_set = bool(vault.get_broker_raw(meta.key))
     configured = raw_set or bool(accounts and meta.assemble_env_value(accounts))
     label = f"{'✅ ' if configured else ''}{meta.display_name}"
@@ -217,17 +230,38 @@ def _render_broker_credentials(meta: BrokerMeta, vault: Vault, runner: TradeRunn
                 "Configured from an imported .env value (stored raw). "
                 "Saving the form below replaces it with field values.",
             )
+
+        # How many account rows to show (each broker can hold several
+        # logins; the engine joins them with commas).
+        nkey = f"{meta.key}__naccts"
+        n_accts = st.session_state.get(nkey, max(1, len(accounts)))
+        addc, rmc = st.columns(2)
+        if addc.button("Add another account", key=f"add_{meta.key}"):
+            st.session_state[nkey] = n_accts + 1
+            st.rerun()
+        if n_accts > 1 and rmc.button(
+            "Remove last account", key=f"rm_{meta.key}",
+        ):
+            st.session_state[nkey] = n_accts - 1
+            st.rerun()
+
         with st.form(f"form_{meta.key}"):
-            values: dict[str, str] = {}
-            for spec in meta.fields:
-                field_label = spec.label + ("" if spec.optional else " *")
-                values[spec.key] = st.text_input(
-                    field_label,
-                    value=existing.get(spec.key, ""),
-                    type="password" if spec.secret else "default",
-                    help=spec.help or None,
-                    key=f"{meta.key}_{spec.key}",
-                )
+            collected: list[dict[str, str]] = []
+            for idx in range(n_accts):
+                if n_accts > 1:
+                    st.markdown(f"**Account {idx + 1}**")
+                existing = accounts[idx] if idx < len(accounts) else {}
+                values: dict[str, str] = {}
+                for spec in meta.fields:
+                    field_label = spec.label + ("" if spec.optional else " *")
+                    values[spec.key] = st.text_input(
+                        field_label,
+                        value=existing.get(spec.key, ""),
+                        type="password" if spec.secret else "default",
+                        help=spec.help or None,
+                        key=f"{meta.key}_{idx}_{spec.key}",
+                    )
+                collected.append(values)
             extra_existing = vault.get_broker_extra(meta.key)
             extra_values: dict[str, str] = {}
             for extra_var, extra_label in meta.extra_env:
@@ -237,9 +271,15 @@ def _render_broker_credentials(meta: BrokerMeta, vault: Vault, runner: TradeRunn
                     key=f"{meta.key}_extra_{extra_var}",
                 )
             if st.form_submit_button("Save"):
-                if any(v.strip() for v in values.values()):
-                    vault.set_broker(meta.key, [values], extra_values)
-                    st.success(f"{meta.display_name} credentials saved.")
+                nonempty = [
+                    a for a in collected if any(v.strip() for v in a.values())
+                ]
+                if nonempty:
+                    vault.set_broker(meta.key, nonempty, extra_values)
+                    st.session_state[nkey] = len(nonempty)
+                    st.success(
+                        f"{meta.display_name}: saved {len(nonempty)} account(s).",
+                    )
                     st.rerun()
                 else:
                     st.error("Nothing to save.")
@@ -444,7 +484,7 @@ def _tab_holdings() -> None:
 # output is always visible no matter which tab triggered the run.
 # --------------------------------------------------------------------------
 @st.fragment(run_every=2)
-def _activity_fragment(runner: TradeRunner) -> None:  # noqa: C901
+def _activity_fragment(runner: TradeRunner) -> None:  # noqa: C901, PLR0912
     """Auto-refreshing activity panel (only this fragment reruns).
 
     Replaces the old whole-app busy-poll, so the rest of the UI stays
@@ -452,6 +492,17 @@ def _activity_fragment(runner: TradeRunner) -> None:  # noqa: C901
     """
     snap = runner.snapshot()
     prompt = runner.prompts.snapshot()
+
+    # One-shot in-app toast when a run reaches a terminal state.
+    terminal = {RunStatus.FINISHED, RunStatus.ERROR, RunStatus.CANCELLED}
+    if snap.status in terminal and st.session_state.get("_last_status") != snap.status:
+        icon = {
+            RunStatus.FINISHED: "✅",
+            RunStatus.ERROR: "❌",
+            RunStatus.CANCELLED: "⚠️",
+        }[snap.status]
+        st.toast(f"Run {snap.status.value}: {snap.description}", icon=icon)
+    st.session_state["_last_status"] = snap.status
 
     status_label = {
         RunStatus.IDLE: "Idle",

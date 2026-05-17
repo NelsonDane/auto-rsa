@@ -32,6 +32,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import psutil
+import requests
 
 from src.gui.core.engine_proc import PROMPT_SENTINEL
 from src.gui.core.logbus import LogStream
@@ -294,6 +295,25 @@ class TradeRunner:
                     self._status = RunStatus.FINISHED if code == 0 else RunStatus.ERROR
                 final_status = self._status
             self._write_audit_log(final_status)
+            self._notify(final_status)
+
+    def _notify(self, status: RunStatus) -> None:
+        """POST a one-line completion message to a configured webhook.
+
+        Runs in the daemon reader thread, so it fires even if the user
+        closed the browser tab during a long browser-broker run.
+        Best-effort; never raises. The description has no secrets.
+        """
+        try:
+            cfg = self._vault.get_notify()
+        except Exception:
+            return
+        url = (cfg.get("webhook_url") or "").strip()
+        if not url:
+            return
+        msg = f"AutoRSA run {status.value}: {self._description}"
+        with contextlib.suppress(Exception):
+            requests.post(url, json={"content": msg}, timeout=10)
 
     def _write_audit_log(self, status: RunStatus) -> None:
         """Persist the run's full output for an audit trail (best-effort).

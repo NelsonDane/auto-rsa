@@ -58,7 +58,7 @@ def _empty_data() -> dict[str, Any]:
     return {"version": 2, "settings": dict(DEFAULT_SETTINGS), "brokers": {}}
 
 
-class Vault:
+class Vault:  # noqa: PLR0904
     """Encrypted on-disk store of broker credentials and GUI settings.
 
     The decrypted data lives only in memory after :meth:`unlock`. Call
@@ -169,6 +169,15 @@ class Vault:
     def set_settings(self, settings: dict[str, str]) -> None:
         """Persist GUI/runtime settings."""
         self._require()["settings"] = dict(settings)
+        self._write()
+
+    def get_notify(self) -> dict[str, str]:
+        """Notification config (kept out of `settings`, so never in child env)."""
+        return dict(self._require().get("notify", {}))
+
+    def set_notify(self, cfg: dict[str, str]) -> None:
+        """Persist notification config (e.g. completion webhook URL)."""
+        self._require()["notify"] = dict(cfg)
         self._write()
 
     def get_broker_accounts(self, broker_key: str) -> list[dict[str, str]]:
