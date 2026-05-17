@@ -19,10 +19,10 @@ if ! command -v uv >/dev/null 2>&1; then
 fi
 
 echo "Syncing dependencies (quick if nothing changed)..."
-uv sync
+uv sync || echo "WARNING: dependency sync failed; continuing with the existing environment..."
 
 echo
 echo "Starting AutoRSA GUI - your browser will open automatically."
 echo "Keep this terminal open while using the app. Ctrl+C to stop."
 echo
-exec uv run streamlit run src/gui/app.py
+exec uv run --no-sync streamlit run src/gui/app.py

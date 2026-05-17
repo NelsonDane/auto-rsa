@@ -22,16 +22,19 @@ echo Syncing dependencies (quick if nothing changed)...
 uv sync
 if errorlevel 1 (
   echo.
-  echo Dependency sync failed. See the message above.
-  pause
-  exit /b 1
+  echo WARNING: dependency sync failed. This is usually a locked file
+  echo from OneDrive or a leftover Python process, not a real problem.
+  echo Continuing with the already-installed environment...
+  echo.
 )
 
 echo.
 echo Starting AutoRSA GUI - your browser will open automatically.
 echo KEEP THIS WINDOW OPEN while using the app. Close it to stop.
 echo.
-uv run streamlit run src/gui/app.py
+REM --no-sync: don't rebuild the env at run time, which avoids the same
+REM OneDrive file-lock error on a normal launch.
+uv run --no-sync streamlit run src/gui/app.py
 
 echo.
 echo The GUI has stopped.
