@@ -93,17 +93,29 @@ class Vault:
         if not self.is_initialized():
             msg = "No vault found. Create one first."
             raise VaultError(msg)
-        blob = json.loads(self.path.read_text())
-        self._salt = base64.b64decode(blob["salt"])
-        token = base64.b64decode(blob["token"])
+        try:
+            blob = json.loads(self.path.read_text())
+            self._salt = base64.b64decode(blob["salt"])
+            token = base64.b64decode(blob["token"])
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            msg = (
+                "Vault file is corrupt or unreadable. Restore a backup, or "
+                "delete creds/vault.json to start over (you'll re-enter "
+                "credentials)."
+            )
+            raise VaultError(msg) from exc
         key = _derive_key(password, self._salt)
         try:
             raw = Fernet(key).decrypt(token)
         except InvalidToken as exc:
             msg = "Incorrect master password."
             raise VaultError(msg) from exc
+        try:
+            self._data = json.loads(raw.decode("utf-8"))
+        except (ValueError, UnicodeDecodeError) as exc:
+            msg = "Vault decrypted but its contents are corrupt."
+            raise VaultError(msg) from exc
         self._key = key
-        self._data = json.loads(raw.decode("utf-8"))
         self._data.setdefault("settings", dict(DEFAULT_SETTINGS))
         self._data.setdefault("brokers", {})
 

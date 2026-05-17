@@ -330,7 +330,7 @@ def _tab_holdings() -> None:
 # Rendered on every page (above the tabs) so a login prompt or status
 # output is always visible no matter which tab triggered the run.
 # --------------------------------------------------------------------------
-def _render_activity_panel(runner: TradeRunner) -> None:
+def _render_activity_panel(runner: TradeRunner) -> None:  # noqa: C901
     snap = runner.snapshot()
     prompt = runner.prompts.snapshot()
 
@@ -339,7 +339,15 @@ def _render_activity_panel(runner: TradeRunner) -> None:
         RunStatus.RUNNING: "Running…",
         RunStatus.FINISHED: "Finished",
         RunStatus.ERROR: "Error",
+        RunStatus.CANCELLED: "Cancelled",
     }[snap.status]
+
+    if snap.status == RunStatus.RUNNING and st.button(
+        "⛔ Cancel run", key="cancel_run",
+    ):
+        runner.cancel()
+        time.sleep(0.5)
+        st.rerun()
 
     # The 2FA / OTP / CAPTCHA prompt is the most urgent thing on the page.
     if prompt.waiting:

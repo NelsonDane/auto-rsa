@@ -18,6 +18,7 @@ The parent only does pipe I/O on a reader thread:
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import subprocess  # noqa: S404
@@ -27,6 +28,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+import psutil
 
 from src.gui.core.engine_proc import PROMPT_SENTINEL
 from src.gui.core.logbus import LogStream
@@ -45,6 +48,7 @@ class RunStatus(StrEnum):
     RUNNING = "running"
     FINISHED = "finished"
     ERROR = "error"
+    CANCELLED = "cancelled"
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,6 +72,7 @@ class TradeRunner:
         self._thread: threading.Thread | None = None
         self._status = RunStatus.IDLE
         self._description = ""
+        self._cancelled = False
         self._lock = threading.Lock()
 
     # --- state ---------------------------------------------------------
@@ -147,22 +152,50 @@ class TradeRunner:
                 raise RuntimeError(msg)
             self._status = RunStatus.RUNNING
             self._description = description
+            self._cancelled = False
         self.log.clear()
         env_keys = self._resolve_broker_keys(broker_keys)
         # Credentials go to the child's environment only.
         child_env = {**os.environ, **self._vault.build_env(env_keys)}
-        self._proc = subprocess.Popen(  # noqa: S603
-            [sys.executable, "-u", "-m", "src.gui.core.engine_proc", json.dumps(payload)],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
-            cwd=str(_PROJECT_ROOT),
-            env=child_env,
-        )
+        try:
+            self._proc = subprocess.Popen(  # noqa: S603
+                [sys.executable, "-u", "-m", "src.gui.core.engine_proc", json.dumps(payload)],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                bufsize=1,
+                cwd=str(_PROJECT_ROOT),
+                env=child_env,
+            )
+        except (OSError, ValueError) as exc:
+            # Never leave the runner stuck on RUNNING if the process
+            # could not even be launched.
+            self.log.write(f"Failed to start engine process: {exc}\n")
+            self._set_status(RunStatus.ERROR)
+            return
         self._thread = threading.Thread(target=self._pump, daemon=True)
         self._thread.start()
+
+    def cancel(self) -> None:
+        """Abort the current run: kill the engine and its browser tree."""
+        with self._lock:
+            if self._status != RunStatus.RUNNING:
+                return
+            self._cancelled = True
+        # Unblock the reader if it is waiting on a 2FA answer.
+        self.prompts.cancel()
+        proc = self._proc
+        if proc is not None and proc.poll() is None:
+            with contextlib.suppress(psutil.Error, OSError):
+                parent = psutil.Process(proc.pid)
+                for child in parent.children(recursive=True):
+                    with contextlib.suppress(psutil.Error):
+                        child.kill()
+                parent.kill()
+        self.log.write("\n--- Run cancelled by user ---\n")
 
     def _pump(self) -> None:
         proc = self._proc
@@ -185,7 +218,11 @@ class TradeRunner:
         finally:
             code = proc.wait()
             self.prompts.cancel()
-            self._set_status(RunStatus.FINISHED if code == 0 else RunStatus.ERROR)
+            with self._lock:
+                if self._cancelled:
+                    self._status = RunStatus.CANCELLED
+                else:
+                    self._status = RunStatus.FINISHED if code == 0 else RunStatus.ERROR
 
     def _set_status(self, status: RunStatus) -> None:
         with self._lock:
