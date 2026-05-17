@@ -6,6 +6,7 @@ did.bin
 .vscode/launch.json
 *.pkl
 *.png
+fidelity-error-*
 __pycache__/
 test*
 *venv/
