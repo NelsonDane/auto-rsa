@@ -170,7 +170,10 @@ def chase_holdings(chase_o: Brokerage, all_accounts: ch_account.AllAccount, loop
         except Exception as e:
             if ch_session:
                 ch_session.close_browser()
-            print_and_discord(f"{key} {account}: Error getting holdings: {e}", loop)
+            print_and_discord(
+                f"{key} {account}: Error getting holdings: {type(e).__name__}: {e!r}",
+                loop,
+            )
             print(traceback.format_exc())
             continue
         print_all_holdings(chase_o, loop)
