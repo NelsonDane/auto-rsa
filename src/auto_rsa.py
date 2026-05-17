@@ -11,9 +11,12 @@ import traceback
 import warnings
 from importlib.metadata import version
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from src.helper_api import Brokerage, is_up_to_date
+from src.helper_api import is_up_to_date
+
+if TYPE_CHECKING:
+    from src.helper_api import Brokerage
 
 # Filter out old playwright warning: temporary
 warnings.filterwarnings(
@@ -78,30 +81,6 @@ except Exception as e:
 # Initialize .env file
 load_dotenv()
 DANGER_MODE = os.getenv("DANGER_MODE", "").lower() == "true"
-
-
-def _emit_discovered_accounts(broker: str, broker_obj: Brokerage) -> None:
-    """Emit one sentinel line per sub-account so the GUI can persist it.
-
-    The engine subprocess can't write the encrypted vault; the parent
-    runner parses these and stores the masks for the Trade-tab picker.
-    Best-effort: never let discovery break a run.
-    """
-    from src.gui.core.engine_proc import ACCOUNT_SENTINEL  # noqa: PLC0415
-
-    try:
-        account_map = broker_obj.get_account_numbers()
-        if not isinstance(account_map, dict):
-            return
-        seen: set[str] = set()
-        for accounts in account_map.values():
-            for account in accounts:
-                acct = str(account)
-                if acct and acct not in seen:
-                    seen.add(acct)
-                    print(f"{ACCOUNT_SENTINEL}{broker}\t{acct}")
-    except Exception as exc:  # discovery is best-effort
-        print(f"(account discovery skipped for {broker}: {exc})")
 
 
 def fun_run(  # noqa: C901, PLR0912, PLR0915
@@ -265,7 +244,6 @@ def fun_run(  # noqa: C901, PLR0912, PLR0915
                     f"All {broker.capitalize()} transactions complete",
                     loop,
                 )
-            _emit_discovered_accounts(broker, logged_in_broker)
         except Exception as ex:
             print(traceback.format_exc())
             print(f"Error with {broker}: {ex}")

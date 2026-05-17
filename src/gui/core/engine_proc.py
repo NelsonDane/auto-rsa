@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import builtins
 import json
+import os
 import sys
 
 # Sentinels that cannot occur in normal broker output (NULs around a tag).
@@ -49,6 +50,9 @@ def main() -> None:
     market->limit / sub-$1 fallback unchanged.
     """
     builtins.input = _bridged_input  # type: ignore[assignment]
+    # Marks this as the GUI engine so helper_api emits account-discovery
+    # sentinels (kept out of CLI/Docker output).
+    os.environ["RSA_GUI_ENGINE"] = "1"
     payload = json.loads(sys.argv[1]) if len(sys.argv) > 1 else []
     if isinstance(payload, dict):
         args: list[str] = payload.get("args", [])
