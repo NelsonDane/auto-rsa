@@ -40,7 +40,16 @@ def wellsfargo_init(bot_obj: Bot | None, *, docker_mode: bool = False, loop: asy
     for wells_account in accounts:
         index = accounts.index(wells_account) + 1
         name = f"WELLSFARGO {index}"
-        account = wells_account.split(":")
+        # Format is USERNAME:PASSWORD:PHONE_LAST_FOUR. The username has no
+        # colon and the phone-last-four is the trailing 4 digits, so the
+        # password is everything in between — this correctly preserves a
+        # password that itself contains ':' (a naive split would mangle it).
+        raw_parts = wells_account.split(":")
+        wf_min_parts = 3
+        if len(raw_parts) < wf_min_parts:
+            print(f"Invalid WELLSFARGO format for {name}: expected USERNAME:PASSWORD:PHONE_LAST_FOUR")
+            return None
+        account = [raw_parts[0], ":".join(raw_parts[1:-1]), raw_parts[-1]]
         try:
             print_and_discord("Logging into WELLS FARGO...", loop)
             driver = get_selenium_driver(docker_mode=docker_mode)
