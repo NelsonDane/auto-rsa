@@ -25,7 +25,10 @@ from src.gui.core.brokers_meta import SUPPORTED_BROKERS, get_broker
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-VAULT_PATH = Path("creds") / "vault.json"
+# Anchored at the repo root (not cwd) so the GUI finds the SAME vault
+# regardless of where Streamlit was launched from. A cwd-relative path
+# made the GUI offer "create new vault" when started from another dir.
+VAULT_PATH = Path(__file__).resolve().parents[3] / "creds" / "vault.json"
 
 # scrypt cost. New vaults use the stronger params; existing vault files
 # store the params they were created with so they stay decryptable
