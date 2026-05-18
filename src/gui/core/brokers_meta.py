@@ -184,6 +184,27 @@ SUPPORTED_BROKERS: tuple[BrokerMeta, ...] = (
         extra_env=(("SCHWAB_ACCOUNT_NUMBERS", "Account numbers (colon-separated, optional)"),),
     ),
     BrokerMeta(
+        key="sofi",
+        display_name="SoFi",
+        env_var="SOFI",
+        browser_based=True,
+        fields=(
+            _USERNAME,
+            _PASSWORD,
+            FieldSpec(
+                "totp_secret",
+                "TOTP secret (optional)",
+                secret=True,
+                optional=True,
+                omit_if_empty=True,
+                help="Authenticator secret. With it, login is automatic "
+                "and the browser is remembered (unattended-ready). Leave "
+                "blank to use SMS 2FA each run.",
+            ),
+        ),
+        notes="Browser-based (nodriver — needs system Google Chrome).",
+    ),
+    BrokerMeta(
         key="webull",
         display_name="Webull",
         env_var="WEBULL",

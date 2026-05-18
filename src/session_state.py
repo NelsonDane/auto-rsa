@@ -86,7 +86,7 @@ _BROKERS: tuple[_Broker, ...] = (
     _Broker("chase", _PROFILE_DIR, "chase*", "nodriver browser profile dir"),
     _Broker("vanguard", _PROFILE_DIR, None, "profile path not yet confirmed"),
     _Broker("firstrade", _PROFILE_DIR, None, "profile path not yet confirmed"),
-    _Broker("sofi", _PROFILE_DIR, None, "cookie pkl name not yet confirmed"),
+    _Broker("sofi", _PROFILE_DIR, "SoFi *.pkl", "nodriver cookie pkl"),
     _Broker("wellsfargo", _PROFILE_DIR, "wellsfargo_profile", "Selenium persistent profile"),
     _Broker("tornado", _EPHEMERAL, None, "Selenium — no session persistence"),
     _Broker("webull", _EPHEMERAL, None, "no credential cache"),

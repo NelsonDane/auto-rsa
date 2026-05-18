@@ -217,7 +217,22 @@ def _broker_sessions_panel() -> None:
             }
             for r in session_state.audit(persist=True)
         ]
-    reds = sum(r["health"] == session_state.RED for r in snapshot)
+    # Default to only the brokers you've actually configured, so unused
+    # ones (firstrade/tastytrade/tornado/tradier/vanguard/...) don't
+    # clutter the panel. Toggle to see everything.
+    vault = _get_vault()
+    configured = (
+        set(vault.configured_broker_keys()) if vault.is_unlocked() else set()
+    )
+    show_all = st.checkbox(
+        "Show all brokers (incl. unused)", value=not configured,
+    )
+    rows = (
+        snapshot
+        if show_all or not configured
+        else [r for r in snapshot if r["broker"] in configured]
+    )
+    reds = sum(r["health"] == session_state.RED for r in rows)
     if reds:
         st.warning(f"{reds} broker session(s) need a manual re-login.")
     st.dataframe(
@@ -230,7 +245,7 @@ def _broker_sessions_panel() -> None:
                 "Last buy": str(r["last_order_at"] or "—")[:19],
                 "Status": r["reason"],
             }
-            for r in snapshot
+            for r in rows
         ],
         width="stretch",
         hide_index=True,
