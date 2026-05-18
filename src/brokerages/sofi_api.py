@@ -98,8 +98,14 @@ async def get_current_url(page: tab.Tab, discord_loop: asyncio.AbstractEventLoop
         return str(current_url)
 
 
-def sofi_run(order_obj: StockOrder, command: tuple[str, str], bot_obj: Bot | None = None, loop: asyncio.AbstractEventLoop | None = None) -> None:
-    """Run the SoFi process."""
+def sofi_run(order_obj: StockOrder, command: tuple[str, str] | None = None, bot_obj: Bot | None = None, loop: asyncio.AbstractEventLoop | None = None) -> None:
+    """Run the SoFi process.
+
+    ``command`` is the legacy CLI ``(broker, "_holdings"|"_transaction")``
+    tuple. The GUI engine dispatches via ThreadHandler without it, so
+    when omitted the mode is derived from the order itself (matching how
+    the other ThreadHandler brokers — Chase/Fidelity — work).
+    """
     print("Initializing SoFi process...")
     load_dotenv()
     _create_creds_folder()
@@ -114,8 +120,12 @@ def sofi_run(order_obj: StockOrder, command: tuple[str, str], bot_obj: Bot | Non
     # Get headless flag
     headless = os.getenv("HEADLESS", "true").lower() == "true"
 
-    # Set the functions to be run
-    _, second_command = command
+    # Set the functions to be run. Without an explicit CLI command,
+    # derive holdings-vs-trade from the order (GUI/ThreadHandler path).
+    if command is not None:
+        _, second_command = command
+    else:
+        second_command = "_holdings" if order_obj.get_holdings() else "_transaction"
 
     cookie_filename = None
     try:
