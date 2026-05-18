@@ -292,7 +292,17 @@ async def _sofi_login_and_account(browser: Browser, page: tab.Tab, account: list
             raise Exception(msg)
         await login_button.click()
 
-        await page.select("body")
+        # Clicking "Log In" navigates, so nodriver's cached document
+        # node goes stale ("Could not find node with given id"). Poll
+        # for the new page rather than a single brittle select() that
+        # races the navigation and aborts the whole login.
+        await asyncio.sleep(3)
+        for _ in range(15):
+            try:
+                await page.select("body")
+                break
+            except Exception:  # stale node mid-navigation; retry
+                await asyncio.sleep(1)
 
         current_url = await get_current_url(page, discord_loop)
         if current_url is not None and "overview" not in current_url:
