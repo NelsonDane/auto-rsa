@@ -21,8 +21,18 @@ fi
 echo "Syncing dependencies (quick if nothing changed)..."
 uv sync || echo "WARNING: dependency sync failed; continuing with the existing environment..."
 
+# Skip Streamlit's first-run interactive "Email:" prompt — on a fresh
+# machine it blocks forever waiting on input, so the GUI never starts.
+mkdir -p "$HOME/.streamlit"
+if [ ! -f "$HOME/.streamlit/credentials.toml" ]; then
+  printf '[general]\nemail = ""\n' > "$HOME/.streamlit/credentials.toml"
+fi
+
 echo
 echo "Starting AutoRSA GUI - your browser will open automatically."
+echo "If it does not, open:  http://localhost:8501"
 echo "Keep this terminal open while using the app. Ctrl+C to stop."
 echo
-exec uv run --no-sync streamlit run src/gui/app.py
+exec uv run --no-sync streamlit run src/gui/app.py \
+  --server.port=8501 --server.headless=false \
+  --browser.gatherUsageStats=false
