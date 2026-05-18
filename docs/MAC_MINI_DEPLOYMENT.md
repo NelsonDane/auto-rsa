@@ -109,13 +109,15 @@ gh repo clone ralanleder/auto-rsa ~/auto-rsa
 cd ~/auto-rsa
 git checkout claude/trading-gui-with-login-xxH0i
 uv sync            # installs Python 3.12 + all dependencies
-uv run --no-sync patchright install chromium   # browser for Fidelity/Chase (~150MB, one time)
+uv run --no-sync patchright install chromium   # Fidelity browser (~150MB, one time)
+uv run --no-sync playwright install firefox    # Schwab browser (one time)
 mkdir -p creds/run_logs
 ```
-> `uv sync` installs Python packages but **not** the Chromium the
-> Fidelity/Chase automation drives — the `patchright install` line is
-> required once per machine. The GUI launchers also run it
-> automatically (idempotent).
+> `uv sync` installs Python packages but **not** the browser binaries
+> the automation drives. Fidelity uses patchright Chromium; Schwab
+> uses Playwright Firefox; Chase/Wells Fargo/Vanguard use the system
+> Google Chrome (§2e). Both `install` lines are required once per
+> machine; the GUI launchers also run them automatically (idempotent).
 
 ---
 

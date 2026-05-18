@@ -42,9 +42,13 @@ uv sync || echo "WARNING: dependency sync failed; continuing with the existing e
 # uv installs the Python packages but NOT the Chromium that Fidelity
 # automation drives (patchright bundles its own). Idempotent: fast
 # no-op once present, ~150MB download on a fresh machine.
-echo "Ensuring the automation browser is installed (first run downloads ~150MB)..."
+echo "Ensuring the automation browsers are installed (first run downloads a few hundred MB)..."
 uv run --no-sync patchright install chromium \
-  || echo "WARNING: browser install failed; Fidelity logins won't work until 'uv run --no-sync patchright install chromium' succeeds."
+  || echo "WARNING: chromium install failed; Fidelity logins won't work until 'uv run --no-sync patchright install chromium' succeeds."
+# Schwab's schwab_api drives Playwright Firefox (separate from the
+# patchright Chromium above). Idempotent.
+uv run --no-sync playwright install firefox \
+  || echo "WARNING: firefox install failed; Schwab logins won't work until 'uv run --no-sync playwright install firefox' succeeds."
 
 # Chase (zendriver) and Wells Fargo / Vanguard (Selenium) drive the
 # SYSTEM Google Chrome, not the bundled one. Warn (don't auto-install

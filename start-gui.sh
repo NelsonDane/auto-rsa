@@ -27,9 +27,12 @@ uv sync || echo "WARNING: dependency sync failed; continuing with the existing e
 
 # Browser binary for Fidelity automation (patchright bundles its own;
 # not installed by uv sync). Idempotent; ~150MB only on a fresh box.
-echo "Ensuring the automation browser is installed..."
+echo "Ensuring the automation browsers are installed..."
 uv run --no-sync patchright install chromium \
-  || echo "WARNING: browser install failed; run 'uv run --no-sync patchright install chromium' manually."
+  || echo "WARNING: chromium install failed; run 'uv run --no-sync patchright install chromium' manually."
+# Schwab (schwab_api) uses Playwright Firefox, separate from the above.
+uv run --no-sync playwright install firefox \
+  || echo "WARNING: firefox install failed; run 'uv run --no-sync playwright install firefox' manually."
 
 # Chase (zendriver) and Wells Fargo / Vanguard (Selenium) drive the
 # SYSTEM Chrome. Warn if it's missing (don't auto-install an app).
