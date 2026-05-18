@@ -94,6 +94,13 @@ source "$HOME/.local/bin/env"
 uv --version
 ```
 
+**2e. Google Chrome** (required — Chase, Wells Fargo, and Vanguard
+automation drive the system Chrome; Fidelity uses its own bundled
+browser from §3):
+```sh
+brew install --cask google-chrome
+```
+
 ---
 
 ## 3. Get the app + dependencies

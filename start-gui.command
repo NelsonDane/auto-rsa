@@ -39,12 +39,21 @@ fi
 echo "Syncing dependencies (quick if nothing changed)..."
 uv sync || echo "WARNING: dependency sync failed; continuing with the existing environment..."
 
-# uv installs the Python packages but NOT the Chromium that Fidelity/
-# Chase automation drives. Idempotent: fast no-op once present, ~150MB
-# download on a fresh machine.
+# uv installs the Python packages but NOT the Chromium that Fidelity
+# automation drives (patchright bundles its own). Idempotent: fast
+# no-op once present, ~150MB download on a fresh machine.
 echo "Ensuring the automation browser is installed (first run downloads ~150MB)..."
 uv run --no-sync patchright install chromium \
-  || echo "WARNING: browser install failed; Fidelity/Chase logins won't work until 'uv run --no-sync patchright install chromium' succeeds."
+  || echo "WARNING: browser install failed; Fidelity logins won't work until 'uv run --no-sync patchright install chromium' succeeds."
+
+# Chase (zendriver) and Wells Fargo / Vanguard (Selenium) drive the
+# SYSTEM Google Chrome, not the bundled one. Warn (don't auto-install
+# an app) if it's missing.
+if [ ! -d "/Applications/Google Chrome.app" ] && [ ! -d "/Applications/Chromium.app" ]; then
+  echo "WARNING: Google Chrome not found. Chase / Wells Fargo / Vanguard"
+  echo "         logins need it. Install once with:"
+  echo "         brew install --cask google-chrome"
+fi
 
 # Skip Streamlit's first-run interactive "Email:" prompt — on a fresh
 # machine it blocks forever waiting on input, so the GUI never starts.

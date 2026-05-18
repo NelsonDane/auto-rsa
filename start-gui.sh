@@ -25,11 +25,21 @@ fi
 echo "Syncing dependencies (quick if nothing changed)..."
 uv sync || echo "WARNING: dependency sync failed; continuing with the existing environment..."
 
-# Browser binary for Fidelity/Chase automation (not installed by uv
-# sync). Idempotent; ~150MB only on a fresh machine.
+# Browser binary for Fidelity automation (patchright bundles its own;
+# not installed by uv sync). Idempotent; ~150MB only on a fresh box.
 echo "Ensuring the automation browser is installed..."
 uv run --no-sync patchright install chromium \
   || echo "WARNING: browser install failed; run 'uv run --no-sync patchright install chromium' manually."
+
+# Chase (zendriver) and Wells Fargo / Vanguard (Selenium) drive the
+# SYSTEM Chrome. Warn if it's missing (don't auto-install an app).
+if ! { [ -d "/Applications/Google Chrome.app" ] || [ -d "/Applications/Chromium.app" ] \
+       || command -v google-chrome >/dev/null 2>&1 \
+       || command -v chromium >/dev/null 2>&1 \
+       || command -v chromium-browser >/dev/null 2>&1; }; then
+  echo "WARNING: system Google Chrome not found — Chase / Wells Fargo /"
+  echo "         Vanguard need it. macOS: brew install --cask google-chrome"
+fi
 
 # Skip Streamlit's first-run interactive "Email:" prompt — on a fresh
 # machine it blocks forever waiting on input, so the GUI never starts.
