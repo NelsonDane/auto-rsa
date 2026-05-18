@@ -3,6 +3,7 @@
 # to share between scripts
 
 import asyncio
+import contextlib
 import datetime
 import json
 import operator
@@ -13,6 +14,7 @@ import traceback
 from collections.abc import Callable
 from importlib.metadata import version
 from io import BytesIO
+from pathlib import Path
 from queue import Queue
 from threading import Thread
 from time import sleep
@@ -457,11 +459,30 @@ def check_if_page_loaded(driver: webdriver.Chrome) -> bool:
     return readystate == "complete"
 
 
-def get_selenium_driver(*, docker_mode: bool = False) -> webdriver.Chrome | None:
-    """Initialize a Selenium WebDriver."""
+def get_selenium_driver(
+    *,
+    docker_mode: bool = False,
+    user_data_dir: str | None = None,
+) -> webdriver.Chrome | None:
+    """Initialize a Selenium WebDriver.
+
+    ``user_data_dir`` (opt-in) points Chrome at a persistent profile so
+    a broker's "remember this device" cookie survives between runs and
+    later logins skip 2FA. Omitted (None) -> a fresh ephemeral profile,
+    exactly the previous behavior (Tornado etc. unchanged).
+    """
     # Init webdriver options
     try:
         options = webdriver.ChromeOptions()
+        if user_data_dir:
+            # Best-effort: clear a stale singleton lock from a crashed
+            # prior run so Chrome will reopen (not wipe) the profile.
+            udd = Path(user_data_dir)
+            udd.mkdir(parents=True, exist_ok=True)
+            for lock in ("SingletonLock", "SingletonCookie", "SingletonSocket"):
+                with contextlib.suppress(OSError):
+                    (udd / lock).unlink(missing_ok=True)
+            options.add_argument(f"--user-data-dir={udd.resolve()}")
         options.add_argument("start-maximized")
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         # NOTE: do NOT set the "useAutomationExtension" experimental option.

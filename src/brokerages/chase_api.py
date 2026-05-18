@@ -6,7 +6,6 @@ import contextlib
 import datetime
 import os
 import pprint
-import shutil
 import traceback
 from pathlib import Path
 from typing import cast
@@ -26,15 +25,18 @@ _chase_holdings_capture.apply()
 
 
 def _cleanup_stale_chase_browsers(creds_dir: str = "./creds") -> None:
-    """Remove leaked Chase browsers/profiles so a new run can start.
+    """Free a leaked Chase browser WITHOUT wiping its saved session.
 
     The upstream chase library's close_browser can fall back to an
     un-awaited asyncio task, leaving a zombie Chrome that keeps
     ``creds/chase_*`` locked ("Failed to connect to browser" on the
     next run). This kills only browser processes whose command line
-    references the auto-rsa Chase profile path and then removes those
-    profile dirs. It never touches vault.json or other brokers' data,
-    and never raises (cleanup must not block login).
+    references the auto-rsa Chase profile path, then clears just the
+    Chrome *singleton lock* files so the profile can be reopened.
+
+    It deliberately KEEPS the profile directory (cookies / remembered
+    device) so a subsequent run skips the mobile-app 2FA approval.
+    Never touches vault.json or other brokers' data; never raises.
     """
     try:
         root = Path(creds_dir).resolve()
@@ -50,9 +52,14 @@ def _cleanup_stale_chase_browsers(creds_dir: str = "./creds") -> None:
                     proc.kill()
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.Error):
                 continue
+        # Clear only the stale lock files left by the killed zombie so
+        # Chrome will reopen the SAME profile (preserving the session).
         for profile in root.glob("chase_*"):
-            if profile.is_dir():
-                shutil.rmtree(profile, ignore_errors=True)
+            if not profile.is_dir():
+                continue
+            for lock in ("SingletonLock", "SingletonCookie", "SingletonSocket"):
+                with contextlib.suppress(OSError):
+                    (profile / lock).unlink(missing_ok=True)
     except Exception as exc:
         print(f"Chase cleanup skipped: {exc}")
 

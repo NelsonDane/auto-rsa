@@ -37,8 +37,9 @@ def test_stateless_ephemeral_unknown(_tmp):
     recs = _by_broker(ss.audit(persist=False))
     assert recs["fennel"][0].health == ss.GREEN          # token, no file
     assert recs["public"][0].health == ss.GREEN
-    assert recs["wellsfargo"][0].health == ss.UNSUPPORTED  # no persistence
-    assert recs["tornado"][0].health == ss.UNSUPPORTED
+    assert recs["tornado"][0].health == ss.UNSUPPORTED   # no persistence
+    # WF now keeps a persistent profile -> tracked; RED until first login.
+    assert recs["wellsfargo"][0].health == ss.RED
     assert recs["vanguard"][0].health == ss.UNKNOWN        # path unconfirmed
 
 

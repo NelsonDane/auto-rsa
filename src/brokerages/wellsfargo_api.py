@@ -76,7 +76,13 @@ def wellsfargo_init(bot_obj: Bot | None, *, docker_mode: bool = False, loop: asy
         account = [raw_parts[0], ":".join(raw_parts[1:-1]), raw_parts[-1]]
         try:
             print_and_discord("Logging into WELLS FARGO...", loop)
-            driver = get_selenium_driver(docker_mode=docker_mode)
+            # Persistent Chrome profile so WF's "remember this device"
+            # cookie survives -> later runs skip the 2FA code. First run
+            # still does 2FA (to establish the trusted device).
+            driver = get_selenium_driver(
+                docker_mode=docker_mode,
+                user_data_dir="./creds/wellsfargo_profile",
+            )
             if driver is None:
                 msg = "Driver not found."
                 raise Exception(msg)
