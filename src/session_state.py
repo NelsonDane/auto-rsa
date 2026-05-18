@@ -240,16 +240,18 @@ def audit(*, persist: bool = True) -> list[SessionRecord]:
     if persist:
         now = datetime.now(UTC).isoformat(timespec="seconds")
         with _LOCK, _connect() as conn:
+            # audit() always scans the full broker set, so each run is a
+            # complete snapshot — wipe prior rows first. Without this,
+            # an obsolete artifact key (e.g. the "(none)" placeholder
+            # written before a broker was logged in) lingers forever
+            # alongside the real row, so the panel showed a stale RED
+            # next to the live GREEN for the same broker.
+            conn.execute("DELETE FROM session_health")
             for r in records:
                 conn.execute(
                     "INSERT INTO session_health (broker, artifact, health, "
                     "reason, age_days, last_order_at, updated_at) "
-                    "VALUES (?,?,?,?,?,?,?) "
-                    "ON CONFLICT(broker, artifact) DO UPDATE SET "
-                    "health=excluded.health, reason=excluded.reason, "
-                    "age_days=excluded.age_days, "
-                    "last_order_at=excluded.last_order_at, "
-                    "updated_at=excluded.updated_at",
+                    "VALUES (?,?,?,?,?,?,?)",
                     (
                         r.broker, r.artifact, r.health, r.reason,
                         r.age_days, r.last_order_at, now,

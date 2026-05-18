@@ -92,3 +92,24 @@ def test_persist_and_load_round_trip(_tmp):
     assert {r["broker"] for r in loaded} == {r.broker for r in recs}
     fid = [r for r in loaded if r["broker"] == "fidelity"]
     assert fid and fid[0]["health"] == ss.GREEN
+
+
+def test_reaudit_replaces_snapshot_no_stale_rows(_tmp):
+    # First scan: BBAE has no artifact -> RED "(none)".
+    ss.audit(persist=True)
+    bbae = [r for r in ss.load_last_audit() if r["broker"] == "bbae"]
+    assert bbae == [] or all(r["health"] == ss.RED for r in bbae)
+
+    # Log in -> artifact appears; a re-scan must REPLACE, not append.
+    (_tmp / "BBAE_1.pkl").write_text("x")
+    ss.audit(persist=True)
+    bbae = [r for r in ss.load_last_audit() if r["broker"] == "bbae"]
+    assert len(bbae) == 1
+    assert bbae[0]["artifact"] == "BBAE_1.pkl"
+    assert bbae[0]["health"] == ss.GREEN
+    # No leftover "(none)" RED row for any broker.
+    assert not [
+        r for r in ss.load_last_audit()
+        if r["artifact"] == "(none)" and r["health"] == ss.RED
+        and r["broker"] == "bbae"
+    ]
