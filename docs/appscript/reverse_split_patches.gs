@@ -241,29 +241,47 @@ function parseTickerGeneric_(text) {
  *        feedsOk, feedsFailed, itemsSeen, newRows: newRows.length,
  *        backtest: !!opts.backtest
  *      });
+ *
+ *    v2.2.2 — QUIETER: a couple of feeds failing while others work and
+ *    items are still seen is NORMAL (StockTitan/SEC rate-limits), so it
+ *    no longer Discord-spams every run. It Logger.log()s every run for
+ *    debugging, but only POSTS to Discord on a genuine outage
+ *    (feedsOk===0 OR itemsSeen===0), and then at most once per 12h
+ *    (ScriptProperties throttle). To silence Discord entirely, set
+ *    CONFIG.HEALTH_ALERTS = false.
  * ════════════════════════════════════════════════════════════════════ */
 function postFeedHealthAlert_(stats) {
-  const servers = getActiveDiscordServers_();
-  const noTargets = servers.filter(s => s.signalUrl).length === 0;
-  const bad =
-    stats.feedsFailed > 0 ||
-    stats.itemsSeen === 0 ||
-    noTargets;
-  if (!bad) return;
-
-  const msg = [
-    "⚠️ RSA Scraper health",
+  // Always log — cheap, inspectable in Apps Script execution logs.
+  const line = [
+    "RSA Scraper health",
     `feedsOk=${stats.feedsOk} feedsFailed=${stats.feedsFailed}`,
     `itemsSeen=${stats.itemsSeen} newRows=${stats.newRows}`,
-    noTargets ? "NO active Discord signal targets (alerts would be silent)" : "",
-    `backtest=${stats.backtest}`,
-    `at ${new Date().toLocaleString()}`,
-  ].filter(Boolean).join("\n");
+    `backtest=${stats.backtest} at ${new Date().toLocaleString()}`,
+  ].join(" | ");
+  Logger.log(line);
 
-  Logger.log(msg);
-  if (CONFIG.TEST_MODE || noTargets) return;  // can't post if no targets
-  servers.forEach(s => {
-    if (!s.signalUrl) return;
+  if (stats.backtest) return;                       // backtests never alert
+  if (CONFIG.HEALTH_ALERTS === false) return;       // hard off switch
+
+  // Only a real outage is worth pinging: every feed failed, or nothing
+  // at all was fetched. Some feeds failing while others succeed and
+  // items were seen is expected and must NOT alert.
+  const outage = (stats.feedsOk === 0) || (stats.itemsSeen === 0);
+  if (!outage) return;
+
+  // Throttle: at most one outage ping per 12h, even across many runs.
+  const props = PropertiesService.getScriptProperties();
+  const now = Date.now();
+  const last = Number(props.getProperty("HEALTH_ALERT_LAST") || 0);
+  if (now - last < 12 * 60 * 60 * 1000) return;
+
+  const servers = getActiveDiscordServers_();
+  const targets = servers.filter(s => s.signalUrl);
+  if (CONFIG.TEST_MODE || targets.length === 0) return;
+
+  props.setProperty("HEALTH_ALERT_LAST", String(now));
+  const msg = "🔴 RSA Scraper OUTAGE\n" + line;
+  targets.forEach(s => {
     try {
       UrlFetchApp.fetch(s.signalUrl, {
         method: "post",

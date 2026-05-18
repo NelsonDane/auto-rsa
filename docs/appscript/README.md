@@ -26,8 +26,10 @@ Apply the blocks in `reverse_split_patches.gs` top‑to‑bottom:
    fallback and adds a stop‑list, so `(USA)`/`(CEO)` can't become a
    `!rsa buy` target.
 6. **ADD** `postFeedHealthAlert_` + one call in `runImportCore_` —
-   turns silent feed/Discord failures into a visible heartbeat
-   (a prime cause of "missing some alerts").
+   logs a health line every run; Discord-pings **only on a real
+   outage** (all feeds down / nothing fetched), throttled to ≤1 per
+   12h. `CONFIG.HEALTH_ALERTS = false` silences Discord entirely.
+   (v2.2.2: no longer spams when a couple of feeds transiently fail.)
 7. **ADD** `isImminent_` and a one‑line tweak in
    `formatDiscordRSASignal_` — flags 🔴 URGENT when the pre‑split
    buy deadline is today/tomorrow.
