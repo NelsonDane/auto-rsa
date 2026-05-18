@@ -2,6 +2,8 @@ import asyncio
 import datetime
 import os
 import pathlib
+import shutil
+import sys
 import traceback
 from time import sleep
 
@@ -98,6 +100,27 @@ async def get_current_url(page: tab.Tab, discord_loop: asyncio.AbstractEventLoop
         return str(current_url)
 
 
+def _find_system_chrome() -> str | None:
+    """Resolve the system Google Chrome path for nodriver, or None.
+
+    nodriver's auto-detect can miss the right binary (or pick
+    patchright's "Chrome for Testing"); passing an explicit path is the
+    reliable fix. None -> let nodriver auto-detect (Linux/CI).
+    """
+    if sys.platform == "darwin":
+        for app in (
+            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+            "/Applications/Chromium.app/Contents/MacOS/Chromium",
+        ):
+            if pathlib.Path(app).exists():
+                return app
+    for exe in ("google-chrome", "chrome", "chromium", "chromium-browser"):
+        found = shutil.which(exe)
+        if found:
+            return found
+    return None
+
+
 def sofi_run(order_obj: StockOrder, command: tuple[str, str] | None = None, bot_obj: Bot | None = None, loop: asyncio.AbstractEventLoop | None = None) -> None:
     """Run the SoFi process.
 
@@ -136,9 +159,17 @@ def sofi_run(order_obj: StockOrder, command: tuple[str, str] | None = None, bot_
             browser_args = [
                 "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
             ]
-            if headless:
-                browser_args.append("--headless=new")
-            browser = sofi_loop.run_until_complete(uc.start(browser_args=browser_args))
+            # Use nodriver's native headless handling (a manual
+            # --headless=new arg breaks its debug-socket connect) and an
+            # explicit Chrome path so it doesn't fail to find/attach.
+            start_kwargs: dict[str, object] = {
+                "browser_args": browser_args,
+                "headless": headless,
+            }
+            chrome_path = _find_system_chrome()
+            if chrome_path:
+                start_kwargs["browser_executable_path"] = chrome_path
+            browser = sofi_loop.run_until_complete(uc.start(**start_kwargs))
             print(f"Logging into {name}...")
             sofi_init(account, name, cookie_filename, bot_obj, browser, loop, sofi_obj)
             sofi_loop.run_until_complete(browser.sleep(5))
