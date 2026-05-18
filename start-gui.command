@@ -16,6 +16,12 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 # a double-clicked Terminal may not have these on PATH yet.
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:$PATH"
 
+# The app uses absolute `from src import ...`; the `streamlit` console
+# script only puts src/gui/ on sys.path, so import src fails. Put the
+# repo root on PYTHONPATH (and we also launch via `python -m streamlit`
+# below, which adds cwd too).
+export PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}"
+
 pause_and_exit() {
   echo
   read -r -p "Press Return to close this window..." _
@@ -54,7 +60,9 @@ echo
 ( sleep 6; command -v open >/dev/null 2>&1 && open "${URL}" ) &
 
 # --no-sync: don't rebuild the env at launch (sync already ran above).
-uv run --no-sync streamlit run src/gui/app.py \
+# `python -m streamlit` (not the bare `streamlit` script) so the repo
+# root is on sys.path and `from src import ...` resolves.
+uv run --no-sync python -m streamlit run src/gui/app.py \
   --server.port="${PORT}" \
   --server.headless=false \
   --browser.gatherUsageStats=false || true

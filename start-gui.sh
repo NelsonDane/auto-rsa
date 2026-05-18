@@ -10,6 +10,10 @@ cd "$(dirname "$0")"
 # Make sure uv is reachable even from a minimal environment.
 export PATH="$PATH:$HOME/.local/bin"
 
+# Repo root on PYTHONPATH so the app's `from src import ...` resolves
+# (the bare `streamlit` script only adds src/gui/ to sys.path).
+export PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}"
+
 if ! command -v uv >/dev/null 2>&1; then
   echo
   echo "uv is not installed or not on your PATH."
@@ -33,6 +37,6 @@ echo "Starting AutoRSA GUI - your browser will open automatically."
 echo "If it does not, open:  http://localhost:8501"
 echo "Keep this terminal open while using the app. Ctrl+C to stop."
 echo
-exec uv run --no-sync streamlit run src/gui/app.py \
+exec uv run --no-sync python -m streamlit run src/gui/app.py \
   --server.port=8501 --server.headless=false \
   --browser.gatherUsageStats=false
