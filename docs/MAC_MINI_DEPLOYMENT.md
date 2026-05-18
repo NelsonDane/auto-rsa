@@ -102,8 +102,13 @@ gh repo clone ralanleder/auto-rsa ~/auto-rsa
 cd ~/auto-rsa
 git checkout claude/trading-gui-with-login-xxH0i
 uv sync            # installs Python 3.12 + all dependencies
+uv run --no-sync patchright install chromium   # browser for Fidelity/Chase (~150MB, one time)
 mkdir -p creds/run_logs
 ```
+> `uv sync` installs Python packages but **not** the Chromium the
+> Fidelity/Chase automation drives — the `patchright install` line is
+> required once per machine. The GUI launchers also run it
+> automatically (idempotent).
 
 ---
 

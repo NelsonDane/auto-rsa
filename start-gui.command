@@ -39,6 +39,13 @@ fi
 echo "Syncing dependencies (quick if nothing changed)..."
 uv sync || echo "WARNING: dependency sync failed; continuing with the existing environment..."
 
+# uv installs the Python packages but NOT the Chromium that Fidelity/
+# Chase automation drives. Idempotent: fast no-op once present, ~150MB
+# download on a fresh machine.
+echo "Ensuring the automation browser is installed (first run downloads ~150MB)..."
+uv run --no-sync patchright install chromium \
+  || echo "WARNING: browser install failed; Fidelity/Chase logins won't work until 'uv run --no-sync patchright install chromium' succeeds."
+
 # Skip Streamlit's first-run interactive "Email:" prompt — on a fresh
 # machine it blocks forever waiting on input, so the GUI never starts.
 mkdir -p "$HOME/.streamlit"

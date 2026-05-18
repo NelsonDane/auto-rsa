@@ -25,6 +25,12 @@ fi
 echo "Syncing dependencies (quick if nothing changed)..."
 uv sync || echo "WARNING: dependency sync failed; continuing with the existing environment..."
 
+# Browser binary for Fidelity/Chase automation (not installed by uv
+# sync). Idempotent; ~150MB only on a fresh machine.
+echo "Ensuring the automation browser is installed..."
+uv run --no-sync patchright install chromium \
+  || echo "WARNING: browser install failed; run 'uv run --no-sync patchright install chromium' manually."
+
 # Skip Streamlit's first-run interactive "Email:" prompt — on a fresh
 # machine it blocks forever waiting on input, so the GUI never starts.
 mkdir -p "$HOME/.streamlit"
