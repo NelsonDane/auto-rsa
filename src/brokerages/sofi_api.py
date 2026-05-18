@@ -19,6 +19,10 @@ from src.helper_api import Brokerage, StockOrder, get_local_timezone, get_otp_fr
 load_dotenv()
 
 COOKIES_PATH = "creds"
+# Hard cap on every SoFi backend HTTP call (curl_cffi has no default
+# timeout, so a slow/unresponsive endpoint would hang the run forever
+# with no output — observed right after login on holdings fetch).
+_HTTP_TIMEOUT = 30
 # Get or create the event loop
 try:
     sofi_loop = asyncio.get_event_loop()
@@ -311,7 +315,7 @@ async def _sofi_account_info(browser: Browser, discord_loop: asyncio.AbstractEve
         cookies_dict = {cookie.name: cookie.value for cookie in cookies}
         response = requests.get(
             "https://www.sofi.com/wealth/backend/v1/json/accounts",
-            impersonate="chrome",
+            impersonate="chrome", timeout=_HTTP_TIMEOUT,
             headers=_build_headers(),
             cookies=cookies_dict,
         )
@@ -394,7 +398,7 @@ def _get_holdings_formatted(account_id: str, cookies: dict[str, str]) -> list[di
     holdings_url = f"https://www.sofi.com/wealth/backend/api/v3/account/{account_id}/holdings?accountDataType=INTERNAL"
     response = requests.get(
         holdings_url,
-        impersonate="chrome",
+        impersonate="chrome", timeout=_HTTP_TIMEOUT,
         headers=_build_headers(),
         cookies=cookies,
     )
@@ -635,7 +639,7 @@ async def _sofi_sell(browser: Browser, symbol: str, quantity: float, discord_loo
         holdings_url = f"https://www.sofi.com/wealth/backend/api/v3/customer/holdings/symbol/{symbol}"
         response = requests.get(
             holdings_url,
-            impersonate="chrome",
+            impersonate="chrome", timeout=_HTTP_TIMEOUT,
             headers=_build_headers(),
             cookies=cookies,
         )
@@ -724,7 +728,7 @@ async def _fetch_funded_accounts(cookies: dict[str, str]) -> dict | None:
         url = "https://www.sofi.com/wealth/backend/api/v1/user/funded-brokerage-accounts"
         response = requests.get(
             url,
-            impersonate="chrome",
+            impersonate="chrome", timeout=_HTTP_TIMEOUT,
             headers=_build_headers(),
             cookies=cookies,
         )
@@ -739,7 +743,7 @@ async def _fetch_funded_accounts(cookies: dict[str, str]) -> dict | None:
 async def _fetch_stock_price(symbol: str) -> float | None:
     try:
         url = f"https://www.sofi.com/wealth/backend/api/v1/tearsheet/quote?symbol={symbol}&productSubtype=BROKERAGE"
-        response = requests.get(url, impersonate="chrome", headers=_build_headers())
+        response = requests.get(url, impersonate="chrome", timeout=_HTTP_TIMEOUT, headers=_build_headers())
         if response.ok:
             data = response.json()
             price = data.get("price")
@@ -779,7 +783,7 @@ async def _place_order(  # noqa: PLR0917
         url = "https://www.sofi.com/wealth/backend/api/v1/trade/order"
         response = requests.post(
             url,
-            impersonate="chrome",
+            impersonate="chrome", timeout=_HTTP_TIMEOUT,
             json=payload,
             headers=_build_headers(csrf_token),
             cookies=cookies,
@@ -839,7 +843,7 @@ async def _place_fractional_order(  # noqa: PLR0917
         url = "https://www.sofi.com/wealth/backend/api/v1/trade/order-fractional"
         response = requests.post(
             url,
-            impersonate="chrome",
+            impersonate="chrome", timeout=_HTTP_TIMEOUT,
             json=payload,
             headers=_build_headers(csrf_token),
             cookies=cookies,
