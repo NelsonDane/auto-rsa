@@ -20,10 +20,12 @@ nothing in site-packages; reversible; no-ops if upstream changes.
 
 from __future__ import annotations
 
+import asyncio
 import os
 
 _applied = False
 _DEFAULT_TIMEOUT = 45
+_DEFAULT_ORDER_TIMEOUT = 120
 
 
 def _timeout() -> int:
@@ -31,6 +33,23 @@ def _timeout() -> int:
         return max(10, int(os.getenv("RSA_CHASE_HTTP_TIMEOUT", str(_DEFAULT_TIMEOUT))))
     except ValueError:
         return _DEFAULT_TIMEOUT
+
+
+def _order_timeout() -> int:
+    """End-to-end cap (seconds) for one Chase order.
+
+    Covers browser nav + validate + execute. Bounds the pre-POST
+    nodriver step the request timeout can't reach, so a stuck order
+    fails fast per-account instead of eating the 600s broker watchdog
+    with no output.
+    """
+    try:
+        return max(
+            30,
+            int(os.getenv("RSA_CHASE_ORDER_TIMEOUT", str(_DEFAULT_ORDER_TIMEOUT))),
+        )
+    except ValueError:
+        return _DEFAULT_ORDER_TIMEOUT
 
 
 class _TimeoutRequests:
@@ -51,17 +70,37 @@ class _TimeoutRequests:
         return self._real.get(*args, **kwargs)  # type: ignore[attr-defined]
 
 
+_ORDER_BOUNDED = "_rsa_order_bounded"
+
+
 def apply() -> None:
-    """Wrap chase.order's requests module with a default timeout. Idempotent."""
+    """Bound Chase order HTTP + the whole order coroutine. Idempotent."""
     global _applied  # noqa: PLW0603
     if _applied:
         return
     try:
         from chase import order as _co  # noqa: PLC0415
 
+        # 1. Default a timeout on the validate/execute POSTs.
         if not isinstance(_co.requests, _TimeoutRequests):
             _co.requests = _TimeoutRequests(_co.requests)  # type: ignore[assignment]
+
+        # 2. Bound the entire _place_order_async (browser nav + POSTs)
+        #    so a hang in the pre-POST nodriver step fails fast and
+        #    per-account, instead of the silent 600s broker watchdog.
+        orig_async = _co.Order._place_order_async  # noqa: SLF001
+        if not getattr(orig_async, _ORDER_BOUNDED, False):
+
+            async def _bounded(self: object, *args: object, **kwargs: object) -> object:
+                return await asyncio.wait_for(
+                    orig_async(self, *args, **kwargs),  # type: ignore[misc]
+                    timeout=_order_timeout(),
+                )
+
+            _bounded._rsa_order_bounded = True  # type: ignore[attr-defined]  # noqa: SLF001
+            _co.Order._place_order_async = _bounded  # type: ignore[assignment]  # noqa: SLF001
+
         _applied = True
-        print("Chase: order request-timeout guard active")
+        print("Chase: order timeout guards active (HTTP + coroutine)")
     except Exception as exc:
         print(f"Chase: request-timeout patch not applied ({exc})")
