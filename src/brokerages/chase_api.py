@@ -16,7 +16,11 @@ from chase import order, session, symbols
 from discord.ext.commands import Bot
 from dotenv import load_dotenv
 
-from src.brokerages import _chase_holdings_capture, _chase_request_timeout
+from src.brokerages import (
+    _chase_account_scoped_order,
+    _chase_holdings_capture,
+    _chase_request_timeout,
+)
 from src.helper_api import Brokerage, StockOrder, get_otp_from_discord, print_all_holdings, print_and_discord
 
 # Harden the upstream holdings capture, which times out silently (10s,
@@ -25,6 +29,9 @@ _chase_holdings_capture.apply()
 # Bound the vendored order validate/execute POSTs (curl_cffi, no
 # timeout) so a stuck Chase order can't freeze the run.
 _chase_request_timeout.apply()
+# Navigate the order page account-scoped (…/entry;ai={id}) so a
+# multi-account login doesn't stall on Chase's "Choose an account".
+_chase_account_scoped_order.apply()
 
 
 def _cleanup_stale_chase_browsers(creds_dir: str = "./creds") -> None:
