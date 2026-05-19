@@ -16,12 +16,15 @@ from chase import order, session, symbols
 from discord.ext.commands import Bot
 from dotenv import load_dotenv
 
-from src.brokerages import _chase_holdings_capture
+from src.brokerages import _chase_holdings_capture, _chase_request_timeout
 from src.helper_api import Brokerage, StockOrder, get_otp_from_discord, print_all_holdings, print_and_discord
 
 # Harden the upstream holdings capture, which times out silently (10s,
 # exact-match XHR) on the degraded post-mobile-approval session.
 _chase_holdings_capture.apply()
+# Bound the vendored order validate/execute POSTs (curl_cffi, no
+# timeout) so a stuck Chase order can't freeze the run.
+_chase_request_timeout.apply()
 
 
 def _cleanup_stale_chase_browsers(creds_dir: str = "./creds") -> None:
