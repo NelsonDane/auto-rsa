@@ -407,7 +407,9 @@ class ThreadHandler:
         self.args = args
         self.kwargs = kwargs
         self.queue: Queue[tuple[Any | None, str | None]] = Queue()
-        self.thread = Thread(target=self._run)
+        # Daemon so a wedged broker (e.g. a browser order stuck after
+        # hours) can never block interpreter/scheduler exit.
+        self.thread = Thread(target=self._run, daemon=True)
 
     def _run(self) -> None:
         try:
@@ -421,9 +423,13 @@ class ThreadHandler:
         """Start the thread."""
         self.thread.start()
 
-    def join(self) -> None:
-        """Wait for the thread to finish."""
-        self.thread.join()
+    def join(self, timeout: float | None = None) -> None:
+        """Wait for the thread to finish (optionally bounded)."""
+        self.thread.join(timeout)
+
+    def is_alive(self) -> bool:
+        """Return True if the worker is still running (timed-out join)."""
+        return self.thread.is_alive()
 
     def get_result(self) -> tuple[Any | None, str | None]:
         """Get the result from the thread."""

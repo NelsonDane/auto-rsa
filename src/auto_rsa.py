@@ -82,6 +82,20 @@ except Exception as e:
 load_dotenv()
 DANGER_MODE = os.getenv("DANGER_MODE", "").lower() == "true"
 
+# Per-broker watchdog: max seconds a single ThreadHandler broker
+# (Chase/Fidelity/Vanguard/SoFi browser flows) may run before it's
+# abandoned so the run/scheduler can't hang forever. Generous by
+# default (multi-account holdings + 2FA approve take minutes);
+# override with RSA_BROKER_TIMEOUT.
+_DEFAULT_BROKER_TIMEOUT = 600
+
+
+def _broker_timeout() -> int:
+    try:
+        return max(60, int(os.getenv("RSA_BROKER_TIMEOUT", str(_DEFAULT_BROKER_TIMEOUT))))
+    except ValueError:
+        return _DEFAULT_BROKER_TIMEOUT
+
 
 def fun_run(  # noqa: C901, PLR0912, PLR0915
     order_obj: StockOrder,
@@ -162,9 +176,20 @@ def fun_run(  # noqa: C901, PLR0912, PLR0915
                         loop=loop,
                     )
             if th is not None:
-                # Start single run thread
+                # Start single run thread, bounded by a watchdog so a
+                # wedged broker (e.g. a browser market order stuck after
+                # hours, or a flaky nodriver session) can never freeze
+                # the whole run / unattended scheduler. On timeout the
+                # daemon thread is abandoned and the next broker runs.
                 th.start()
-                th.join()
+                th.join(timeout=_broker_timeout())
+                if th.is_alive():
+                    msg = (
+                        f"Error in {broker}: timed out after "
+                        f"{_broker_timeout()}s (broker stuck — abandoned; "
+                        f"other brokers continue)"
+                    )
+                    raise Exception(msg)
                 _, err = th.get_result()
                 if err is not None:
                     msg = f"Error in {broker}: Function did not complete successfully: {err}"
