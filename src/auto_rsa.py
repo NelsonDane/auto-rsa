@@ -97,6 +97,22 @@ def _broker_timeout() -> int:
         return _DEFAULT_BROKER_TIMEOUT
 
 
+def _emit_progress(kind: str, value: str) -> None:
+    """Emit a run-progress sentinel for the GUI status bar.
+
+    Only inside the GUI engine subprocess (RSA_GUI_ENGINE=1); a no-op
+    for the CLI so its output stays clean. Best-effort.
+    """
+    if os.getenv("RSA_GUI_ENGINE") != "1":
+        return
+    try:
+        from src.gui.core.engine_proc import PROGRESS_SENTINEL  # noqa: PLC0415
+
+        print(f"{PROGRESS_SENTINEL}{kind}\t{value}")
+    except Exception as exc:  # progress is best-effort
+        print(f"(progress emit skipped: {exc})")
+
+
 def fun_run(  # noqa: C901, PLR0912, PLR0915
     order_obj: StockOrder,
     bot_obj: commands.Bot | None = None,
@@ -110,10 +126,20 @@ def fun_run(  # noqa: C901, PLR0912, PLR0915
     So for example, fennel init -> fennel_init()
     """
     total_value = 0
+    _emit_progress(
+        "PLAN",
+        ",".join(
+            bi.name.lower()
+            for bi in order_obj.get_brokers()
+            if bi not in order_obj.get_notbrokers()
+        ),
+    )
     for broker_info in order_obj.get_brokers():
         if broker_info in order_obj.get_notbrokers():
             continue
         broker = broker_info.name.lower()
+        broker_failed = False
+        _emit_progress("START", broker)
         try:
             success: Brokerage | None = None
             th: ThreadHandler | None = None
@@ -273,7 +299,12 @@ def fun_run(  # noqa: C901, PLR0912, PLR0915
             print(traceback.format_exc())
             print(f"Error with {broker}: {ex}")
             print(order_obj)
-        print()
+            broker_failed = True
+        finally:
+            # Runs on every path (success, the ThreadHandler `continue`,
+            # or an exception) so the GUI status bar is always accurate.
+            _emit_progress("FAIL" if broker_failed else "DONE", broker)
+            print()
 
     # Print final total value and closing message once after all brokers
     if order_obj.get_holdings():

@@ -29,6 +29,11 @@ PROMPT_SENTINEL = "\x00RSA_PROMPT\x00"
 # persisted by the parent (the engine subprocess can't touch the vault).
 # Format: ``<ACCOUNT_SENTINEL><broker_key>\t<account>\n``
 ACCOUNT_SENTINEL = "\x00RSA_ACCT\x00"
+# Per-broker run progress for the GUI status bar. One line each:
+#   <PROGRESS_SENTINEL>PLAN\t<b1,b2,...>   (once, the planned order)
+#   <PROGRESS_SENTINEL>START\t<broker>
+#   <PROGRESS_SENTINEL>DONE\t<broker>   or   FAIL\t<broker>
+PROGRESS_SENTINEL = "\x00RSA_PROG\x00"
 
 
 def _bridged_input(prompt: object = "") -> str:

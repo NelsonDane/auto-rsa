@@ -722,7 +722,7 @@ def _tab_holdings() -> None:
 # output is always visible no matter which tab triggered the run.
 # --------------------------------------------------------------------------
 @st.fragment(run_every=2)
-def _activity_fragment(runner: TradeRunner) -> None:  # noqa: C901, PLR0912
+def _activity_fragment(runner: TradeRunner) -> None:  # noqa: C901, PLR0912, PLR0914, PLR0915
     """Auto-refreshing activity panel (only this fragment reruns).
 
     Replaces the old whole-app busy-poll, so the rest of the UI stays
@@ -781,6 +781,26 @@ def _activity_fragment(runner: TradeRunner) -> None:  # noqa: C901, PLR0912
                 runner.prompts.respond(prompt.prompt_id, answer)
                 time.sleep(0.5)
                 st.rerun(scope="fragment")
+
+    if snap.progress:
+        states = dict(snap.progress)
+        total = len(states)
+        finished = sum(1 for s in states.values() if s in {"done", "failed"})
+        running = [b for b, s in states.items() if s == "running"]
+        pdot = {
+            "pending": "•",
+            "running": "🔄",
+            "done": "✅",
+            "failed": "❌",
+        }
+        cur = f" · in progress: {', '.join(running)}" if running else ""
+        st.progress(
+            finished / total if total else 0.0,
+            text=f"Brokers: {finished}/{total} complete{cur}",
+        )
+        st.markdown(
+            " ".join(f"{pdot.get(s, '•')} {b}" for b, s in states.items()),
+        )
 
     log = snap.log
     groups = group_by_broker(log) if log else {}

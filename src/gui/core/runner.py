@@ -34,7 +34,11 @@ from typing import TYPE_CHECKING
 import psutil
 import requests
 
-from src.gui.core.engine_proc import ACCOUNT_SENTINEL, PROMPT_SENTINEL
+from src.gui.core.engine_proc import (
+    ACCOUNT_SENTINEL,
+    PROGRESS_SENTINEL,
+    PROMPT_SENTINEL,
+)
 from src.gui.core.logbus import LogStream
 from src.gui.core.prompts import PromptBus
 
@@ -68,6 +72,9 @@ class RunnerSnapshot:
     status: RunStatus
     description: str
     log: str
+    # Ordered per-broker run progress: (broker, "pending"|"running"|
+    # "done"|"failed"). Empty for runs that emit no progress.
+    progress: tuple[tuple[str, str], ...] = ()
 
 
 class TradeRunner:
@@ -84,6 +91,7 @@ class TradeRunner:
         self._description = ""
         self._cancelled = False
         self._secrets: list[str] = []
+        self._progress: dict[str, str] = {}
         self._lock = threading.Lock()
 
     def _redact(self, text: str) -> str:
@@ -101,7 +109,26 @@ class TradeRunner:
     def snapshot(self) -> RunnerSnapshot:
         """Non-blocking view of status + captured log."""
         with self._lock:
-            return RunnerSnapshot(self._status, self._description, self.log.getvalue())
+            return RunnerSnapshot(
+                self._status,
+                self._description,
+                self.log.getvalue(),
+                tuple(self._progress.items()),
+            )
+
+    def _apply_progress(self, kind: str, value: str) -> None:
+        """Update per-broker progress from an engine PROGRESS sentinel."""
+        with self._lock:
+            if kind == "PLAN":
+                self._progress = {
+                    b: "pending" for b in value.split(",") if b
+                }
+            elif kind in {"START", "DONE", "FAIL"}:
+                self._progress[value] = {
+                    "START": "running",
+                    "DONE": "done",
+                    "FAIL": "failed",
+                }[kind]
 
     # --- public operations --------------------------------------------
 
@@ -243,6 +270,8 @@ class TradeRunner:
             self._description = description
             self._cancelled = False
         self.log.clear()
+        with self._lock:
+            self._progress = {}
         env_keys = self._resolve_broker_keys(broker_keys)
         # Capture secrets so they're scrubbed from the on-screen and
         # persisted logs if a broker library ever echoes them.
@@ -365,6 +394,11 @@ class TradeRunner:
                         discovered.setdefault(broker, []).append(
                             (parent, account),
                         )
+                elif raw.startswith(PROGRESS_SENTINEL):
+                    kind, _, value = raw[len(PROGRESS_SENTINEL):].rstrip(
+                        "\r\n",
+                    ).partition("\t")
+                    self._apply_progress(kind, value)
                 else:
                     self.log.write(self._redact(raw))
         except Exception as exc:
