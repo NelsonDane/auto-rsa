@@ -12,10 +12,13 @@ dependencies = [
     "dspac-invest-api==0.1.4",
     "email-validator>=2.3.0",
     "fennel-invest-api==2.0.1",
-    "fidelity-api==0.0.16",
+    "fidelity-api",
     "firstrade==0.0.34",
+    "google-auth>=2.34.0",
     "nodriver==0.47.0",
     "paho-mqtt>=2.1.0",
+    "patchright>=1.52.0",
+    "psutil>=6.0.0",
     "publicdotcom-py==0.1.10",
     "pyotp==2.9.0",
     "python-dotenv==1.2.2",
@@ -23,6 +26,7 @@ dependencies = [
     "schwab-api2>=0.3.0",
     "selenium-stealth==1.0.6",
     "setuptools<83",
+    "streamlit>=1.40.0",
     "tastytrade==12.4.1",
     "typer>=0.20.0",
     "vanguard-api==0.3.3",
@@ -30,6 +34,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "pytest>=8.3.0",
     "ruff>=0.13.3",
     "ty>=0.0.11",
     "types-requests>=2.32.4.20250913",
@@ -37,9 +42,17 @@ dev = [
 
 [project.scripts]
 auto_rsa_bot = "src.cli:app"
+auto_rsa_gui = "src.gui.launch:main"
 
 [tool.uv]
 package = true
+
+[tool.uv.sources]
+# PyPI's latest fidelity-api (0.0.16) cannot log in to Fidelity's current
+# site (it only handles the old /login/full-page URL; Fidelity now serves
+# /signin/retail). Upstream fixed this on git main but never published a
+# release, so pin to the exact fixed commit for reproducibility.
+fidelity-api = { git = "https://github.com/kennyboy106/fidelity-api.git", rev = "81e8ea256086655899f748c8d8ebad8a6c287486" }
 
 [build-system]
 requires = ["uv_build>=0.11.7,<0.12.0"]

@@ -2,6 +2,8 @@ import asyncio
 import datetime
 import os
 import pathlib
+import shutil
+import sys
 import traceback
 from time import sleep
 
@@ -17,6 +19,10 @@ from src.helper_api import Brokerage, StockOrder, get_local_timezone, get_otp_fr
 load_dotenv()
 
 COOKIES_PATH = "creds"
+# Hard cap on every SoFi backend HTTP call (curl_cffi has no default
+# timeout, so a slow/unresponsive endpoint would hang the run forever
+# with no output — observed right after login on holdings fetch).
+_HTTP_TIMEOUT = 30
 # Get or create the event loop
 try:
     sofi_loop = asyncio.get_event_loop()
@@ -98,8 +104,35 @@ async def get_current_url(page: tab.Tab, discord_loop: asyncio.AbstractEventLoop
         return str(current_url)
 
 
-def sofi_run(order_obj: StockOrder, command: tuple[str, str], bot_obj: Bot | None = None, loop: asyncio.AbstractEventLoop | None = None) -> None:
-    """Run the SoFi process."""
+def _find_system_chrome() -> str | None:
+    """Resolve the system Google Chrome path for nodriver, or None.
+
+    nodriver's auto-detect can miss the right binary (or pick
+    patchright's "Chrome for Testing"); passing an explicit path is the
+    reliable fix. None -> let nodriver auto-detect (Linux/CI).
+    """
+    if sys.platform == "darwin":
+        for app in (
+            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+            "/Applications/Chromium.app/Contents/MacOS/Chromium",
+        ):
+            if pathlib.Path(app).exists():
+                return app
+    for exe in ("google-chrome", "chrome", "chromium", "chromium-browser"):
+        found = shutil.which(exe)
+        if found:
+            return found
+    return None
+
+
+def sofi_run(order_obj: StockOrder, command: tuple[str, str] | None = None, bot_obj: Bot | None = None, loop: asyncio.AbstractEventLoop | None = None) -> None:
+    """Run the SoFi process.
+
+    ``command`` is the legacy CLI ``(broker, "_holdings"|"_transaction")``
+    tuple. The GUI engine dispatches via ThreadHandler without it, so
+    when omitted the mode is derived from the order itself (matching how
+    the other ThreadHandler brokers — Chase/Fidelity — work).
+    """
     print("Initializing SoFi process...")
     load_dotenv()
     _create_creds_folder()
@@ -114,8 +147,12 @@ def sofi_run(order_obj: StockOrder, command: tuple[str, str], bot_obj: Bot | Non
     # Get headless flag
     headless = os.getenv("HEADLESS", "true").lower() == "true"
 
-    # Set the functions to be run
-    _, second_command = command
+    # Set the functions to be run. Without an explicit CLI command,
+    # derive holdings-vs-trade from the order (GUI/ThreadHandler path).
+    if command is not None:
+        _, second_command = command
+    else:
+        second_command = "_holdings" if order_obj.get_holdings() else "_transaction"
 
     cookie_filename = None
     try:
@@ -126,9 +163,17 @@ def sofi_run(order_obj: StockOrder, command: tuple[str, str], bot_obj: Bot | Non
             browser_args = [
                 "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
             ]
-            if headless:
-                browser_args.append("--headless=new")
-            browser = sofi_loop.run_until_complete(uc.start(browser_args=browser_args))
+            # Use nodriver's native headless handling (a manual
+            # --headless=new arg breaks its debug-socket connect) and an
+            # explicit Chrome path so it doesn't fail to find/attach.
+            start_kwargs: dict[str, object] = {
+                "browser_args": browser_args,
+                "headless": headless,
+            }
+            chrome_path = _find_system_chrome()
+            if chrome_path:
+                start_kwargs["browser_executable_path"] = chrome_path
+            browser = sofi_loop.run_until_complete(uc.start(**start_kwargs))
             print(f"Logging into {name}...")
             sofi_init(account, name, cookie_filename, bot_obj, browser, loop, sofi_obj)
             sofi_loop.run_until_complete(browser.sleep(5))
@@ -247,7 +292,17 @@ async def _sofi_login_and_account(browser: Browser, page: tab.Tab, account: list
             raise Exception(msg)
         await login_button.click()
 
-        await page.select("body")
+        # Clicking "Log In" navigates, so nodriver's cached document
+        # node goes stale ("Could not find node with given id"). Poll
+        # for the new page rather than a single brittle select() that
+        # races the navigation and aborts the whole login.
+        await asyncio.sleep(3)
+        for _ in range(15):
+            try:
+                await page.select("body")
+                break
+            except Exception:  # stale node mid-navigation; retry
+                await asyncio.sleep(1)
 
         current_url = await get_current_url(page, discord_loop)
         if current_url is not None and "overview" not in current_url:
@@ -270,7 +325,7 @@ async def _sofi_account_info(browser: Browser, discord_loop: asyncio.AbstractEve
         cookies_dict = {cookie.name: cookie.value for cookie in cookies}
         response = requests.get(
             "https://www.sofi.com/wealth/backend/v1/json/accounts",
-            impersonate="chrome",
+            impersonate="chrome", timeout=_HTTP_TIMEOUT,
             headers=_build_headers(),
             cookies=cookies_dict,
         )
@@ -353,7 +408,7 @@ def _get_holdings_formatted(account_id: str, cookies: dict[str, str]) -> list[di
     holdings_url = f"https://www.sofi.com/wealth/backend/api/v3/account/{account_id}/holdings?accountDataType=INTERNAL"
     response = requests.get(
         holdings_url,
-        impersonate="chrome",
+        impersonate="chrome", timeout=_HTTP_TIMEOUT,
         headers=_build_headers(),
         cookies=cookies,
     )
@@ -594,7 +649,7 @@ async def _sofi_sell(browser: Browser, symbol: str, quantity: float, discord_loo
         holdings_url = f"https://www.sofi.com/wealth/backend/api/v3/customer/holdings/symbol/{symbol}"
         response = requests.get(
             holdings_url,
-            impersonate="chrome",
+            impersonate="chrome", timeout=_HTTP_TIMEOUT,
             headers=_build_headers(),
             cookies=cookies,
         )
@@ -683,7 +738,7 @@ async def _fetch_funded_accounts(cookies: dict[str, str]) -> dict | None:
         url = "https://www.sofi.com/wealth/backend/api/v1/user/funded-brokerage-accounts"
         response = requests.get(
             url,
-            impersonate="chrome",
+            impersonate="chrome", timeout=_HTTP_TIMEOUT,
             headers=_build_headers(),
             cookies=cookies,
         )
@@ -698,7 +753,7 @@ async def _fetch_funded_accounts(cookies: dict[str, str]) -> dict | None:
 async def _fetch_stock_price(symbol: str) -> float | None:
     try:
         url = f"https://www.sofi.com/wealth/backend/api/v1/tearsheet/quote?symbol={symbol}&productSubtype=BROKERAGE"
-        response = requests.get(url, impersonate="chrome", headers=_build_headers())
+        response = requests.get(url, impersonate="chrome", timeout=_HTTP_TIMEOUT, headers=_build_headers())
         if response.ok:
             data = response.json()
             price = data.get("price")
@@ -738,7 +793,7 @@ async def _place_order(  # noqa: PLR0917
         url = "https://www.sofi.com/wealth/backend/api/v1/trade/order"
         response = requests.post(
             url,
-            impersonate="chrome",
+            impersonate="chrome", timeout=_HTTP_TIMEOUT,
             json=payload,
             headers=_build_headers(csrf_token),
             cookies=cookies,
@@ -798,7 +853,7 @@ async def _place_fractional_order(  # noqa: PLR0917
         url = "https://www.sofi.com/wealth/backend/api/v1/trade/order-fractional"
         response = requests.post(
             url,
-            impersonate="chrome",
+            impersonate="chrome", timeout=_HTTP_TIMEOUT,
             json=payload,
             headers=_build_headers(csrf_token),
             cookies=cookies,

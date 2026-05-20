@@ -3,14 +3,18 @@
 # to share between scripts
 
 import asyncio
+import contextlib
 import datetime
+import json
 import operator
 import os
+import re
 import textwrap
 import traceback
 from collections.abc import Callable
 from importlib.metadata import version
 from io import BytesIO
+from pathlib import Path
 from queue import Queue
 from threading import Thread
 from time import sleep
@@ -403,7 +407,9 @@ class ThreadHandler:
         self.args = args
         self.kwargs = kwargs
         self.queue: Queue[tuple[Any | None, str | None]] = Queue()
-        self.thread = Thread(target=self._run)
+        # Daemon so a wedged broker (e.g. a browser order stuck after
+        # hours) can never block interpreter/scheduler exit.
+        self.thread = Thread(target=self._run, daemon=True)
 
     def _run(self) -> None:
         try:
@@ -417,9 +423,13 @@ class ThreadHandler:
         """Start the thread."""
         self.thread.start()
 
-    def join(self) -> None:
-        """Wait for the thread to finish."""
-        self.thread.join()
+    def join(self, timeout: float | None = None) -> None:
+        """Wait for the thread to finish (optionally bounded)."""
+        self.thread.join(timeout)
+
+    def is_alive(self) -> bool:
+        """Return True if the worker is still running (timed-out join)."""
+        return self.thread.is_alive()
 
     def get_result(self) -> tuple[Any | None, str | None]:
         """Get the result from the thread."""
@@ -455,18 +465,44 @@ def check_if_page_loaded(driver: webdriver.Chrome) -> bool:
     return readystate == "complete"
 
 
-def get_selenium_driver(*, docker_mode: bool = False) -> webdriver.Chrome | None:
-    """Initialize a Selenium WebDriver."""
+def get_selenium_driver(
+    *,
+    docker_mode: bool = False,
+    user_data_dir: str | None = None,
+) -> webdriver.Chrome | None:
+    """Initialize a Selenium WebDriver.
+
+    ``user_data_dir`` (opt-in) points Chrome at a persistent profile so
+    a broker's "remember this device" cookie survives between runs and
+    later logins skip 2FA. Omitted (None) -> a fresh ephemeral profile,
+    exactly the previous behavior (Tornado etc. unchanged).
+    """
     # Init webdriver options
     try:
         options = webdriver.ChromeOptions()
+        if user_data_dir:
+            # Best-effort: clear a stale singleton lock from a crashed
+            # prior run so Chrome will reopen (not wipe) the profile.
+            udd = Path(user_data_dir)
+            udd.mkdir(parents=True, exist_ok=True)
+            for lock in ("SingletonLock", "SingletonCookie", "SingletonSocket"):
+                with contextlib.suppress(OSError):
+                    (udd / lock).unlink(missing_ok=True)
+            options.add_argument(f"--user-data-dir={udd.resolve()}")
         options.add_argument("start-maximized")
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        options.add_experimental_option("useAutomationExtension", value=False)
+        # NOTE: do NOT set the "useAutomationExtension" experimental option.
+        # It is removed in modern Chrome/chromedriver and, on Chrome 115+,
+        # destabilizes the session ("invalid session id: browser has closed
+        # the connection / not connected to DevTools").
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_argument("--disable-extensions")
         options.add_argument("--disable-notifications")
         options.add_argument("--log-level=3")
+        # Stability flags for the "DevTools disconnected / renderer crashed"
+        # failure class on recent Chrome with Selenium.
+        options.add_argument("--remote-allow-origins=*")
+        options.add_argument("--disable-dev-shm-usage")
         if docker_mode:
             # Special Docker options
             options.add_argument("--disable-dev-shm-usage")
@@ -582,6 +618,44 @@ async def process_discord_messages(
                 print(f"Error Sending Message: {e}")
                 break
         await asyncio.sleep(0.5)
+
+
+def account_allowed(broker_key: str, account: object, action: str = "") -> bool:
+    """Return whether an order may touch this sub-account.
+
+    Driven by the ``RSA_ACCOUNT_FILTER`` env var, a JSON map of
+    ``{"<broker_key>": ["<mask>", ...]}``. Semantics, chosen for safety
+    and to match the existing ``SCHWAB_ACCOUNT_NUMBERS`` convention:
+
+    * unset/blank/unparseable filter -> allowed (today's behavior).
+    * a broker absent from the map -> unrestricted (all its accounts).
+    * a broker present -> only its listed accounts; an explicitly empty
+      list means trade nothing for that broker.
+    * sells are never filtered, so liquidation always reaches every
+      account regardless of the buy allow-list.
+
+    Matching is digit-normalized so a last-4 mask reconciles against a
+    full account number.
+    """
+    if action and action.lower() == "sell":
+        return True
+    raw = os.getenv("RSA_ACCOUNT_FILTER", "").strip()
+    if not raw:
+        return True
+    try:
+        filt = json.loads(raw)
+    except (ValueError, TypeError):
+        return True
+    bkey = str(broker_key).lower()
+    if not isinstance(filt, dict) or bkey not in filt:
+        return True
+    wanted = filt.get(bkey) or []
+    acct = re.sub(r"\D", "", str(account))
+    for want in wanted:
+        wdig = re.sub(r"\D", "", str(want))
+        if wdig and (acct == wdig or acct.endswith(wdig)):
+            return True
+    return False
 
 
 def print_and_discord(
@@ -714,6 +788,33 @@ def mask_string(string: str, num_visible: int = 4) -> str:
     return "x" * (len(string) - num_visible) + string[-num_visible:]
 
 
+def _emit_discovered_account(
+    broker_name: str, parent: str, account: object,
+) -> None:
+    r"""Emit a sentinel line so the GUI can persist a discovered sub-account.
+
+    Only active inside the GUI engine subprocess (RSA_GUI_ENGINE=1) so
+    CLI/Docker output stays clean. The broker name is normalized to the
+    canonical key the GUI uses (e.g. "WELLSFARGO" -> "wellsfargo"); the
+    parent login (e.g. "Fidelity 1") is kept so the picker can group by
+    login. The parent runner parses these; the engine can't touch the
+    vault. Format: ``<SENTINEL><broker>\t<parent>\t<account>``.
+    """
+    if os.getenv("RSA_GUI_ENGINE") != "1":
+        return
+    broker_key = re.sub(r"\W", "", str(broker_name)).lower()
+    parent_clean = str(parent).replace("\t", " ").replace("\n", " ").strip()
+    acct = str(account)
+    if not broker_key or not acct:
+        return
+    try:
+        from src.gui.core.engine_proc import ACCOUNT_SENTINEL  # noqa: PLC0415
+
+        print(f"{ACCOUNT_SENTINEL}{broker_key}\t{parent_clean}\t{acct}")
+    except Exception as exc:  # discovery is best-effort
+        print(f"(account discovery skipped for {broker_key}: {exc})")
+
+
 def print_all_holdings(
     broker_obj: Brokerage,
     loop: asyncio.AbstractEventLoop | None = None,
@@ -731,6 +832,7 @@ def print_all_holdings(
     )
     for key in broker_obj.get_account_numbers():
         for account in broker_obj.get_account_numbers(key):
+            _emit_discovered_account(broker_obj.get_name(), key, account)
             acc_name = f"{key} ({mask_string(account) if mask_account_number else account})"
             field: EmbedFieldType = {
                 "name": acc_name,

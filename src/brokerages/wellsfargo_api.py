@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from selenium.common.exceptions import (
     ElementNotInteractableException,
     NoSuchElementException,
+    StaleElementReferenceException,
     TimeoutException,
 )
 from selenium.webdriver import Chrome, Keys
@@ -28,6 +29,29 @@ def _wellsfargo_error(driver: Chrome, error: str) -> None:
     print(traceback.format_exc())
 
 
+def _click_when_ready(driver: Chrome, by: str, value: str, timeout: int = 20, retries: int = 4) -> None:
+    """Locate and click an element, retrying if it goes stale mid-click.
+
+    Wells Fargo re-renders pages after window switches, so an element
+    returned by an explicit wait can go stale before ``.click()`` runs
+    (StaleElementReferenceException). Re-locate and retry.
+    """
+    last_exc: Exception | None = None
+    for _ in range(retries):
+        try:
+            element = WebDriverWait(driver, timeout).until(
+                ec.element_to_be_clickable((by, value)),
+            )
+            element.click()
+        except StaleElementReferenceException as exc:
+            last_exc = exc
+            sleep(1)
+        else:
+            return
+    if last_exc is not None:
+        raise last_exc
+
+
 def wellsfargo_init(bot_obj: Bot | None, *, docker_mode: bool = False, loop: asyncio.AbstractEventLoop | None = None) -> Brokerage | None:  # noqa: C901, PLR0912, PLR0914, PLR0915
     """Initialize the Wells Fargo API."""
     load_dotenv()
@@ -40,10 +64,25 @@ def wellsfargo_init(bot_obj: Bot | None, *, docker_mode: bool = False, loop: asy
     for wells_account in accounts:
         index = accounts.index(wells_account) + 1
         name = f"WELLSFARGO {index}"
-        account = wells_account.split(":")
+        # Format is USERNAME:PASSWORD:PHONE_LAST_FOUR. The username has no
+        # colon and the phone-last-four is the trailing 4 digits, so the
+        # password is everything in between — this correctly preserves a
+        # password that itself contains ':' (a naive split would mangle it).
+        raw_parts = wells_account.split(":")
+        wf_min_parts = 3
+        if len(raw_parts) < wf_min_parts:
+            print(f"Invalid WELLSFARGO format for {name}: expected USERNAME:PASSWORD:PHONE_LAST_FOUR")
+            return None
+        account = [raw_parts[0], ":".join(raw_parts[1:-1]), raw_parts[-1]]
         try:
             print_and_discord("Logging into WELLS FARGO...", loop)
-            driver = get_selenium_driver(docker_mode=docker_mode)
+            # Persistent Chrome profile so WF's "remember this device"
+            # cookie survives -> later runs skip the 2FA code. First run
+            # still does 2FA (to establish the trusted device).
+            driver = get_selenium_driver(
+                docker_mode=docker_mode,
+                user_data_dir="./creds/wellsfargo_profile",
+            )
             if driver is None:
                 msg = "Driver not found."
                 raise Exception(msg)
@@ -143,20 +182,18 @@ def wellsfargo_holdings(wf_obj: Brokerage, loop: asyncio.AbstractEventLoop | Non
     for key in wf_obj.get_account_numbers():
         driver = cast("Chrome", wf_obj.get_logged_in_objects(key))
         try:
-            brokerage = WebDriverWait(driver, 20).until(
-                ec.element_to_be_clickable((By.XPATH, "//*[@id='BROKERAGE_LINK7P']")),
-            )
-            brokerage.click()
+            # The brokerage link opens WellsTrade in a new window; focus
+            # it after the click, then use stale-safe clicks because the
+            # new window keeps re-rendering as it loads.
+            _click_when_ready(driver, By.XPATH, "//*[@id='BROKERAGE_LINK7P']")
+            if driver.window_handles:
+                driver.switch_to.window(driver.window_handles[-1])
 
             try:
-                more = WebDriverWait(driver, 20).until(
-                    ec.element_to_be_clickable((By.LINK_TEXT, "Holdings Snapshot")),
-                )
-                more.click()
-                position = WebDriverWait(driver, 10).until(
-                    ec.element_to_be_clickable((By.ID, "btnpositions")),
-                )
-                position.click()
+                _click_when_ready(driver, By.LINK_TEXT, "Holdings Snapshot")
+                if driver.window_handles:
+                    driver.switch_to.window(driver.window_handles[-1])
+                _click_when_ready(driver, By.ID, "btnpositions", timeout=10)
             except Exception as e:
                 _wellsfargo_error(driver, str(e))
                 kill_all_selenium_drivers(wf_obj)
@@ -300,20 +337,14 @@ def wellsfargo_transaction(wf_obj: Brokerage, order_obj: StockOrder, loop: async
 
         # Navigate to Trade
         try:
-            brokerage = WebDriverWait(driver, 20).until(
-                ec.element_to_be_clickable((By.XPATH, "//*[@id='BROKERAGE_LINK7P']")),
-            )
-            brokerage.click()
+            # WellsTrade opens in a new window; focus it after the click,
+            # then use stale-safe clicks (the new window re-renders).
+            _click_when_ready(driver, By.XPATH, "//*[@id='BROKERAGE_LINK7P']")
+            if driver.window_handles:
+                driver.switch_to.window(driver.window_handles[-1])
 
-            trade = WebDriverWait(driver, 20).until(
-                ec.element_to_be_clickable((By.XPATH, "//*[@id='trademenu']/span[1]")),
-            )
-            trade.click()
-
-            trade_stock = WebDriverWait(driver, 20).until(
-                ec.element_to_be_clickable((By.XPATH, "//*[@id='linktradestocks']")),
-            )
-            trade_stock.click()
+            _click_when_ready(driver, By.XPATH, "//*[@id='trademenu']/span[1]")
+            _click_when_ready(driver, By.XPATH, "//*[@id='linktradestocks']")
 
             # Find accounts
             open_dropdown = WebDriverWait(driver, 20).until(

@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  AutoRSA unattended executor — M5 PHASE 1 (SHADOW ONLY).
+
+  Reports what it WOULD buy from GUI_QUEUE. Places no orders, contacts
+  no brokers, writes nothing. Safe to schedule. Run a few minutes after
+  the producer (com.autorsa.edgar) so it sees fresh signals. Replace
+  every __PLACEHOLDER__ (see RUNBOOK.md). SA key via @path, never inline.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.autorsa.autoexec-shadow</string>
+
+    <key>UserName</key>
+    <string>__MACOS_USER__</string>
+    <key>GroupName</key>
+    <string>staff</string>
+
+    <key>WorkingDirectory</key>
+    <string>__REPO_DIR__</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>__REPO_DIR__/.venv/bin/python</string>
+        <string>-m</string>
+        <string>src.autoexec</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>RSA_SHEETS_SA_JSON</key>
+        <string>@__SA_KEY_PATH__</string>
+        <key>RSA_SHEETS_ID</key>
+        <string>__SPREADSHEET_ID__</string>
+        <key>RSA_SHEETS_WORKSHEET</key>
+        <string>GUI_QUEUE</string>
+        <!-- Phase-1 allow-list: Tier-1 brokers only (informational in
+             shadow; no broker is contacted). -->
+        <key>RSA_AUTO_BROKERS</key>
+        <string>robinhood,schwab,bbae,dspac,fennel,public,tradier</string>
+        <key>RSA_AUTO_NOTIFY_URL</key>
+        <string>__OPTIONAL_WEBHOOK_URL__</string>
+    </dict>
+
+    <!-- Every 30 min, offset from the producer. -->
+    <key>StartInterval</key>
+    <integer>1800</integer>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <false/>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>LowPriorityIO</key>
+    <true/>
+    <key>Nice</key>
+    <integer>5</integer>
+
+    <key>StandardOutPath</key>
+    <string>__REPO_DIR__/creds/run_logs/autoexec-shadow.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>__REPO_DIR__/creds/run_logs/autoexec-shadow.err.log</string>
+</dict>
+</plist>

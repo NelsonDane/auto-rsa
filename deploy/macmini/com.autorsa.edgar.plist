@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  AutoRSA EDGAR -> GUI_QUEUE producer (LaunchDaemon).
+
+  Runs unattended without a logged-in user, restarts on reboot, and
+  fires every 30 minutes. This is a TEMPLATE: replace every __PLACEHOLDER__
+  before installing (see deploy/macmini/RUNBOOK.md). Do NOT put the
+  service-account key inline — RSA_SHEETS_SA_JSON points at a 600-perm
+  file via the leading '@'.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.autorsa.edgar</string>
+
+    <key>UserName</key>
+    <string>__MACOS_USER__</string>
+    <key>GroupName</key>
+    <string>staff</string>
+
+    <key>WorkingDirectory</key>
+    <string>__REPO_DIR__</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>__REPO_DIR__/.venv/bin/python</string>
+        <string>-m</string>
+        <string>src.edgar</string>
+        <string>--window</string>
+        <string>14</string>
+        <string>--write</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>RSA_SHEETS_SA_JSON</key>
+        <string>@__SA_KEY_PATH__</string>
+        <key>RSA_SHEETS_ID</key>
+        <string>__SPREADSHEET_ID__</string>
+        <key>RSA_SHEETS_WORKSHEET</key>
+        <string>GUI_QUEUE</string>
+        <key>RSA_SEC_USER_AGENT</key>
+        <string>__SEC_CONTACT_NAME_AND_EMAIL__</string>
+    </dict>
+
+    <!-- Fire every 30 min; also run once at load (boot/reload). -->
+    <key>StartInterval</key>
+    <integer>1800</integer>
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Interval-driven, not a resident daemon: do not auto-respawn. -->
+    <key>KeepAlive</key>
+    <false/>
+
+    <!-- Be a polite background citizen. -->
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>LowPriorityIO</key>
+    <true/>
+    <key>Nice</key>
+    <integer>5</integer>
+
+    <key>StandardOutPath</key>
+    <string>__REPO_DIR__/creds/run_logs/edgar.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>__REPO_DIR__/creds/run_logs/edgar.err.log</string>
+</dict>
+</plist>

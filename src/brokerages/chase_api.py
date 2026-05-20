@@ -2,17 +2,76 @@
 # Chase API
 
 import asyncio
+import contextlib
+import datetime
 import os
 import pprint
 import traceback
+from pathlib import Path
 from typing import cast
 
+import psutil
 from chase import account as ch_account
 from chase import order, session, symbols
 from discord.ext.commands import Bot
 from dotenv import load_dotenv
 
+from src.brokerages import (
+    _chase_account_scoped_order,
+    _chase_holdings_capture,
+    _chase_request_timeout,
+)
 from src.helper_api import Brokerage, StockOrder, get_otp_from_discord, print_all_holdings, print_and_discord
+
+# Harden the upstream holdings capture, which times out silently (10s,
+# exact-match XHR) on the degraded post-mobile-approval session.
+_chase_holdings_capture.apply()
+# Bound the vendored order validate/execute POSTs (curl_cffi, no
+# timeout) so a stuck Chase order can't freeze the run.
+_chase_request_timeout.apply()
+# Navigate the order page account-scoped (…/entry;ai={id}) so a
+# multi-account login doesn't stall on Chase's "Choose an account".
+_chase_account_scoped_order.apply()
+
+
+def _cleanup_stale_chase_browsers(creds_dir: str = "./creds") -> None:
+    """Free a leaked Chase browser WITHOUT wiping its saved session.
+
+    The upstream chase library's close_browser can fall back to an
+    un-awaited asyncio task, leaving a zombie Chrome that keeps
+    ``creds/chase_*`` locked ("Failed to connect to browser" on the
+    next run). This kills only browser processes whose command line
+    references the auto-rsa Chase profile path, then clears just the
+    Chrome *singleton lock* files so the profile can be reopened.
+
+    It deliberately KEEPS the profile directory (cookies / remembered
+    device) so a subsequent run skips the mobile-app 2FA approval.
+    Never touches vault.json or other brokers' data; never raises.
+    """
+    try:
+        root = Path(creds_dir).resolve()
+        marker = str(root).lower()
+        for proc in psutil.process_iter(["name", "cmdline"]):
+            try:
+                name = (proc.info["name"] or "").lower()
+                if not ("chrome" in name or "chromedriver" in name):
+                    continue
+                cmdline = " ".join(proc.info["cmdline"] or []).lower()
+                # Only our Chase profile dirs — never the user's own Chrome.
+                if marker in cmdline and "chase" in cmdline:
+                    proc.kill()
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.Error):
+                continue
+        # Clear only the stale lock files left by the killed zombie so
+        # Chrome will reopen the SAME profile (preserving the session).
+        for profile in root.glob("chase_*"):
+            if not profile.is_dir():
+                continue
+            for lock in ("SingletonLock", "SingletonCookie", "SingletonSocket"):
+                with contextlib.suppress(OSError):
+                    (profile / lock).unlink(missing_ok=True)
+    except Exception as exc:
+        print(f"Chase cleanup skipped: {exc}")
 
 
 def chase_run(order_obj: StockOrder, bot_obj: Bot | None = None, loop: asyncio.AbstractEventLoop | None = None) -> None:
@@ -24,6 +83,9 @@ def chase_run(order_obj: StockOrder, bot_obj: Bot | None = None, loop: asyncio.A
         print("Chase not found, skipping...")
         return
     accounts = os.environ["CHASE"].strip().split(",")
+    # Clear any leaked Chrome/profile from a prior run so zendriver can
+    # start (scoped to creds/chase_* only — never vault.json).
+    _cleanup_stale_chase_browsers()
     # Get headless flag
     headless = os.getenv("HEADLESS", "true").lower() == "true"
 
@@ -64,6 +126,29 @@ def get_account_id(account_connectors: dict[str, str] | None, value: str) -> str
     return None
 
 
+def _chase_2fa_needs_code(ch_session: object) -> bool:
+    """Report whether Chase is on the texted-code step (an #otpInput exists).
+
+    Distinguishes the SMS path (has a code box) from the "Confirm using
+    our mobile app" push path (no code box). Best-effort: on any probe
+    failure we default to True so the user is still asked for a code
+    (the pre-existing, never-worse behaviour) rather than silently
+    skipping a code that was actually required.
+    """
+
+    async def _probe() -> bool:
+        try:
+            element = await ch_session.page.find("#otpInput", timeout=8)  # type: ignore[attr-defined]
+        except Exception:
+            return False
+        return element is not None
+
+    try:
+        return bool(ch_session.loop.run_until_complete(_probe()))  # type: ignore[attr-defined]
+    except Exception:
+        return True
+
+
 def chase_init(account: str, index: int, *, headless: bool = True, bot_obj: Bot | None = None, loop: asyncio.AbstractEventLoop | None = None) -> tuple[Brokerage, ch_account.AllAccount] | None:
     """Log into chase. Checks for 2FA and gathers details on the chase accounts."""
     # Log in to Chase account
@@ -86,10 +171,28 @@ def chase_init(account: str, index: int, *, headless: bool = True, bot_obj: Bot 
         )
         # Login to chase
         need_second = ch_session.login(user_pass[0], user_pass[1], int(user_pass[2]))
-        # If 2FA is present, ask for code
+        # If 2FA is present, ask for code.
+        # Chase returns need_second for BOTH 2FA paths: a texted code
+        # AND "Confirm using our mobile app" push approval. Only the
+        # texted path has a code field (#otpInput); the push path has
+        # no code at all -- login_two ignores its argument and polls
+        # ~60-90s for the post-approval landing page. So for push we
+        # don't prompt at all: just wait while the user taps Approve on
+        # their phone (no tedious "submit blank" step). We only block
+        # for input on the texted path, where a code really is needed.
         if need_second:
             if bot_obj is None and loop is None:
-                ch_session.login_two(input("Enter code: "))
+                if _chase_2fa_needs_code(ch_session):
+                    ch_session.login_two(
+                        input("Enter the Chase code from your TEXT message: "),
+                    )
+                else:
+                    print(
+                        "Chase sent a sign-in request to your MOBILE APP. "
+                        "Approve it on your phone now -- waiting up to ~90s, "
+                        "no action needed here.",
+                    )
+                    ch_session.login_two("")
             elif bot_obj is not None and loop is not None:
                 sms_code = asyncio.run_coroutine_threadsafe(
                     get_otp_from_discord(bot_obj, name, code_len=8, loop=loop),
@@ -118,11 +221,39 @@ def chase_init(account: str, index: int, *, headless: bool = True, bot_obj: Bot 
         print(f"The following Chase accounts were found: {print_accounts}")
     except Exception as e:
         if ch_session:
+            _chase_diagnostic(ch_session, name)  # capture BEFORE closing
             ch_session.close_browser()
         print(f"Error logging in to Chase: {e}")
         print(traceback.format_exc())
         return None
     return (chase_obj, all_accounts)
+
+
+def _chase_diagnostic(ch_session: object, name: str) -> None:
+    """Dump the current Chase page (screenshot + visible text) on failure.
+
+    Lets us see the real post-2FA / push-approval interstitial that the
+    upstream library doesn't navigate, so it can be fixed against the
+    actual DOM. Best-effort; never raises. Must run before
+    close_browser().
+    """
+    try:
+        page = ch_session.page  # type: ignore[attr-defined]
+        loop = ch_session.loop  # type: ignore[attr-defined]
+        stamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%dT%H%M%SZ")
+        base = f"chase-error-{name.replace(' ', '_')}-{stamp}"
+        with contextlib.suppress(Exception):
+            loop.run_until_complete(page.save_screenshot(f"{base}.png"))
+        body = ""
+        with contextlib.suppress(Exception):
+            body = loop.run_until_complete(page.evaluate("document.body.innerText"))
+        Path(f"{base}.txt").write_text(
+            f"URL: {getattr(page, 'url', '?')}\n\n--- visible text ---\n{body}\n",
+            encoding="utf-8",
+        )
+        print(f"Saved Chase 2FA diagnostic: {base}.png / {base}.txt")
+    except Exception as exc:
+        print(f"(Chase diagnostic capture failed: {exc})")
 
 
 def _process_position(position: dict, chase_o: Brokerage, key: str, account: str) -> None:
@@ -170,7 +301,10 @@ def chase_holdings(chase_o: Brokerage, all_accounts: ch_account.AllAccount, loop
         except Exception as e:
             if ch_session:
                 ch_session.close_browser()
-            print_and_discord(f"{key} {account}: Error getting holdings: {e}", loop)
+            print_and_discord(
+                f"{key} {account}: Error getting holdings: {type(e).__name__}: {e!r}",
+                loop,
+            )
             print(traceback.format_exc())
             continue
         print_all_holdings(chase_o, loop)

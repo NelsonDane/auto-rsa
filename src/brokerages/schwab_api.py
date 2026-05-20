@@ -43,8 +43,10 @@ def schwab_init() -> Brokerage | None:
                 totp_secret=None if account[2] == "NA" else account[2],
             )
 
-            # Use the older get_account_info() function which correctly fetches all accounts
-            account_info = schwab.get_account_info()
+            # Schwab deprecated the v1 positions endpoint (it now returns
+            # non-JSON). get_account_info_v2() uses the current positions_v2
+            # endpoint and returns the same Account/Position structure.
+            account_info = schwab.get_account_info_v2()
 
             if not account_info:
                 msg = f"{name}: Failed to retrieve account information from Schwab."

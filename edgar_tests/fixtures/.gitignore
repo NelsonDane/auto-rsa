@@ -1,0 +1,4 @@
+# The corpus is your research data — kept local, never committed.
+*.csv
+*.tsv
+!README.md
