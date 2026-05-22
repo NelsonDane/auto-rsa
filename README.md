@@ -24,7 +24,7 @@ I am not responding to issues on this repository. If you have an issue, please S
 However, if you fix the issue yourself and would like to share, please submit a pull request and I will review it. If accepted, you can access the Discord server for free.
 
 ## Contributing
-Want to contribute? That's awesome! Check out the [Contributing Guide](CONTRIBUTING.md) for more information.
+Want to contribute? That's awesome! Check out the [Contributing Guide](docs/CONTRIBUTING.md) for more information.
 
 ## Installation
 See the [Installation Guide](docs/INSTALLATION.md) for detailed installation instructions.
