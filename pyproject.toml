@@ -53,7 +53,7 @@ module-root = "."
 target-version = "py312"
 extend = "./styles/ruff.toml"
 include = ["src/*"]
-exclude = ["src/vendors/*", "guides/*"]
+exclude = ["src/vendors/*", "docs/*"]
 
 [tool.ruff.lint]
 ignore = [
@@ -75,4 +75,4 @@ root = ["src"]
 python-version = "3.12"
 
 [tool.ty.src]
-exclude = ["src/vendors/*", "guides/*"]
+exclude = ["src/vendors/*", "docs/*"]
