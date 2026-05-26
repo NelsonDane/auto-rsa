@@ -18,6 +18,7 @@ from pathlib import Path
 import streamlit as st
 
 from src import ledger, outcomes, session_state
+from src.edgar.market_calendar import parse_effective_date
 from src.gui.core.brokers_meta import SUPPORTED_BROKERS, BrokerMeta, get_broker
 from src.gui.core.results import group_by_broker
 from src.gui.core.runner import RunBusyError, RunStatus, TradeRunner
@@ -785,12 +786,16 @@ def _activity_fragment(runner: TradeRunner) -> None:  # noqa: C901, PLR0912, PLR
     if snap.progress:
         states = dict(snap.progress)
         total = len(states)
-        finished = sum(1 for s in states.values() if s in {"done", "failed"})
+        finished = sum(
+            1 for s in states.values()
+            if s in {"done", "done_no_fill", "failed"}
+        )
         running = [b for b, s in states.items() if s == "running"]
         pdot = {
             "pending": "•",
             "running": "🔄",
             "done": "✅",
+            "done_no_fill": "🟡",
             "failed": "❌",
         }
         cur = f" · in progress: {', '.join(running)}" if running else ""
@@ -800,6 +805,11 @@ def _activity_fragment(runner: TradeRunner) -> None:  # noqa: C901, PLR0912, PLR
         )
         st.markdown(
             " ".join(f"{pdot.get(s, '•')} {b}" for b, s in states.items()),
+        )
+        st.caption(
+            "✅ at least one order placed · 🟡 broker ran clean but no "
+            "orders went through (stock unavailable here?) · ❌ broker "
+            "errored or timed out",
         )
 
     log = snap.log
@@ -1106,13 +1116,23 @@ def _tab_signals() -> None:  # noqa: C901, PLR0912, PLR0914, PLR0915
             st.session_state["signals_at"] = datetime.now(UTC)
             st.success(f"Fetched {len(sigs)} signal(s).")
 
-    signals: list[Signal] = st.session_state.get("signals", [])
+    all_signals: list[Signal] = st.session_state.get("signals", [])
     fetched_at = st.session_state.get("signals_at")
     if fetched_at is not None:
         col_b.caption(f"Last refreshed: {fetched_at:%Y-%m-%d %H:%M UTC}")
-    if not signals:
+    if not all_signals:
         st.info("No signals loaded yet — click Refresh.")
         return
+
+    today = datetime.now().date()  # noqa: DTZ005
+    past_signals: list[Signal] = []
+    signals: list[Signal] = []
+    for sig in all_signals:
+        eff_d = parse_effective_date(sig.effective_date)
+        if eff_d is not None and eff_d < today:
+            past_signals.append(sig)
+        else:
+            signals.append(sig)
 
     _signal_execute_section(vault, signals)
 
@@ -1160,7 +1180,7 @@ def _tab_signals() -> None:  # noqa: C901, PLR0912, PLR0914, PLR0915
     else:
         st.caption("No alerts created in the last 7 days.")
 
-    with st.expander(f"All loaded signals ({len(signals)})"):
+    with st.expander(f"All active signals ({len(signals)})"):
         st.dataframe(
             _signal_rows(signals),
             width="stretch",
@@ -1170,6 +1190,21 @@ def _tab_signals() -> None:  # noqa: C901, PLR0912, PLR0914, PLR0915
             st.caption(
                 f"{len(other)} signal(s) have no parseable effective date "
                 "and are excluded from the upcoming view.",
+            )
+
+    if past_signals:
+        with st.expander(
+            f"Past effective date — hidden ({len(past_signals)})",
+            expanded=False,
+        ):
+            st.caption(
+                "Round date has passed; hidden from upcoming/actionable views. "
+                "Ledger history for each is preserved on the Ledger tab.",
+            )
+            st.dataframe(
+                _signal_rows(past_signals),
+                width="stretch",
+                hide_index=True,
             )
 
 

@@ -41,6 +41,7 @@ from src.gui.core.engine_proc import (
 )
 from src.gui.core.logbus import LogStream
 from src.gui.core.prompts import PromptBus
+from src.outcomes import is_fill_line
 
 if TYPE_CHECKING:
     from src.gui.core.vault import Vault
@@ -73,7 +74,10 @@ class RunnerSnapshot:
     description: str
     log: str
     # Ordered per-broker run progress: (broker, "pending"|"running"|
-    # "done"|"failed"). Empty for runs that emit no progress.
+    # "done"|"done_no_fill"|"failed"). "done" = >=1 confirmed fill;
+    # "done_no_fill" = broker ran clean but placed no orders (e.g.
+    # stock unavailable on every account). Empty for runs that emit
+    # no progress.
     progress: tuple[tuple[str, str], ...] = ()
 
 
@@ -92,6 +96,8 @@ class TradeRunner:
         self._cancelled = False
         self._secrets: list[str] = []
         self._progress: dict[str, str] = {}
+        self._current_broker: str | None = None
+        self._fill_counts: dict[str, int] = {}
         self._lock = threading.Lock()
 
     def _redact(self, text: str) -> str:
@@ -116,6 +122,17 @@ class TradeRunner:
                 tuple(self._progress.items()),
             )
 
+    def _count_if_fill(self, line: str) -> None:
+        """Bump the active broker's fill count if this line confirms a trade."""
+        if not is_fill_line(line):
+            return
+        with self._lock:
+            broker = self._current_broker
+            if broker is not None:
+                self._fill_counts[broker] = (
+                    self._fill_counts.get(broker, 0) + 1
+                )
+
     def _apply_progress(self, kind: str, value: str) -> None:
         """Update per-broker progress from an engine PROGRESS sentinel."""
         with self._lock:
@@ -123,12 +140,25 @@ class TradeRunner:
                 self._progress = {
                     b: "pending" for b in value.split(",") if b
                 }
-            elif kind in {"START", "DONE", "FAIL"}:
-                self._progress[value] = {
-                    "START": "running",
-                    "DONE": "done",
-                    "FAIL": "failed",
-                }[kind]
+                self._fill_counts = {}
+                self._current_broker = None
+            elif kind == "START":
+                self._progress[value] = "running"
+                self._fill_counts[value] = 0
+                self._current_broker = value
+            elif kind == "DONE":
+                # Green only if the broker actually placed an order;
+                # otherwise yellow (session was fine but no fills).
+                self._progress[value] = (
+                    "done" if self._fill_counts.get(value, 0) > 0
+                    else "done_no_fill"
+                )
+                if self._current_broker == value:
+                    self._current_broker = None
+            elif kind == "FAIL":
+                self._progress[value] = "failed"
+                if self._current_broker == value:
+                    self._current_broker = None
 
     # --- public operations --------------------------------------------
 
@@ -272,6 +302,8 @@ class TradeRunner:
         self.log.clear()
         with self._lock:
             self._progress = {}
+            self._fill_counts = {}
+            self._current_broker = None
         env_keys = self._resolve_broker_keys(broker_keys)
         # Capture secrets so they're scrubbed from the on-screen and
         # persisted logs if a broker library ever echoes them.
@@ -401,6 +433,7 @@ class TradeRunner:
                     self._apply_progress(kind, value)
                 else:
                     self.log.write(self._redact(raw))
+                    self._count_if_fill(raw)
         except Exception as exc:
             self.log.write(f"\n--- GUI pump error: {exc} ---\n")
         finally:

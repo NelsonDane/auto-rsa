@@ -81,6 +81,36 @@ _RULES: tuple[tuple[str, re.Pattern[str]], ...] = (
 )
 
 
+# Positive/negative regexes for live-progress fill detection. A line
+# is counted as a fill only when the positive pattern matches AND no
+# failure marker is present on the same line. Wells Fargo emits both
+# "Buy 1 shares of FOO" and "FAILED!" in the same print on rejection,
+# so the negative gate is load-bearing.
+_FILL_POS_RX = re.compile(
+    r"(?:Bought|Sold)\s+\d|"
+    r"(?:buy|sell)\s+\d+(?:\.\d+)?\s+(?:shares?\s+)?of\s+\S+|"
+    r":\s*(?:Dry\s+Run\s+)?Success(?!\w)",
+    re.IGNORECASE,
+)
+_FILL_NEG_RX = re.compile(
+    r"\bfailed\b|\berror\b|\bskipped\b|\bcancel(?:l?ed)?\b|"
+    r"\bunable\b|\bvalidation failed\b|\bnot in account filter\b|"
+    r"\bno double-?buy\b|\balready (?:executed|in-?flight)\b",
+    re.IGNORECASE,
+)
+
+
+def is_fill_line(text: str) -> bool:
+    """Heuristic: True if this stdout line is a confirmed buy/sell.
+
+    Conservative — designed to undercount rather than over-count so a
+    green icon really means "the broker placed at least one order".
+    Dry-run success lines also count, matching the UX intent.
+    """
+    s = text or ""
+    return bool(_FILL_POS_RX.search(s)) and not _FILL_NEG_RX.search(s)
+
+
 def classify_outcome(text: str, *, success: bool = False) -> str:
     """Return the reason code for a broker result.
 

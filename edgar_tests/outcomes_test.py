@@ -59,6 +59,41 @@ def test_unclassified_and_empty():
     assert not o.is_session_problem(o.OTHER)
 
 
+def test_is_fill_line_recognises_real_broker_success_lines():
+    # Patterns observed across BBAE/Public/Robinhood/Fidelity/Chase/WF.
+    yes = [
+        "Bought 1.0 ADTX @ MARKET",
+        "Chase 1 1234: Bought 1 of ADTX in account 1234: Success",
+        "Robinhood 1: buy 1 of LCID in xxxxx7743: Success",
+        "BBAE 1: Buy 1 of LCID in xxxxx7743: Success",
+        "Fidelity 1 account xxxxx7743: buy 1 shares of LCID",
+        "DRY: Fidelity 1 account xxxxx7743: buy 1 shares of LCID",
+        "Public 1: buy 1 of LCID in xxxxx7743: Success",
+        "WF 1 ...7743: Buy 1 shares of LCID",
+        "BBAE 1: Buy 1 of LCID in xxxxx7743: Dry Run Success",
+    ]
+    for line in yes:
+        assert o.is_fill_line(line), line
+
+
+def test_is_fill_line_rejects_failures_and_noise():
+    no = [
+        # Wells Fargo emits the buy line AND "FAILED!" in one print.
+        "WF 1 ...7743: Buy 1 shares of LCID. FAILED! \nLimit too far",
+        "Chase 1 1234: Error submitting order: Timeout",
+        "Fidelity 1 account xxxxx7743: Error: 146034 market closed",
+        "BBAE 1 7743: Validation failed for buying 1 of LCID: Not available",
+        "Robinhood 1 Error submitting order: ServerError",
+        "Fidelity 1 account xxxxx7743: skipped LCID (not in account filter)",
+        "skipped LCID (ledger: already executed — no double-buy)",
+        "Logging into WELLS FARGO...",
+        "Got Cookie file does not exist.",
+        "",
+    ]
+    for line in no:
+        assert not o.is_fill_line(line), line
+
+
 def test_availability_matrix_precedence():
     rows = [
         # ACME: unavailable at fidelity, but later bought there -> BOUGHT wins

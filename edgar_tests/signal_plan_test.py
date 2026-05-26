@@ -1,5 +1,7 @@
 """Signal -> execution plan gating (pure)."""
 
+from datetime import date
+
 from src.gui.core.sheets import Signal
 from src.gui.core.signal_plan import (
     DECISION_ACTIONABLE,
@@ -64,3 +66,34 @@ def test_bad_confidence_string_is_safe():
     (item,) = plan_signals(sigs, is_done=lambda _sk: False)
     assert item.decision == DECISION_SKIP
     assert item.confidence == 0.0
+
+
+def test_skips_when_effective_date_in_past():
+    sigs = [
+        _sig("OLDCO", "ROUND_UP", 0.95, eff="2025-01-15"),
+        _sig("FUTCO", "ROUND_UP", 0.95, eff="2099-01-15"),
+    ]
+    plan = plan_signals(
+        sigs, is_done=lambda _sk: False, today=date(2026, 5, 26),
+    )
+    by_ticker = {p.ticker: p for p in plan}
+    assert by_ticker["OLDCO"].decision == DECISION_SKIP
+    assert "past effective date" in by_ticker["OLDCO"].reason
+    assert by_ticker["FUTCO"].decision == DECISION_ACTIONABLE
+
+
+def test_past_date_wins_even_when_already_done():
+    sigs = [_sig("BOTH", "ROUND_UP", 0.95, eff="2025-01-15")]
+    (item,) = plan_signals(
+        sigs, is_done=lambda _sk: True, today=date(2026, 5, 26),
+    )
+    assert item.decision == DECISION_SKIP
+    assert "past effective date" in item.reason
+
+
+def test_unparseable_effective_date_is_not_treated_as_past():
+    sigs = [_sig("WEIRD", "ROUND_UP", 0.95, eff="when convenient")]
+    (item,) = plan_signals(
+        sigs, is_done=lambda _sk: False, today=date(2026, 5, 26),
+    )
+    assert item.decision == DECISION_ACTIONABLE

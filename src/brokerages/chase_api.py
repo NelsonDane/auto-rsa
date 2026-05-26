@@ -18,6 +18,7 @@ from dotenv import load_dotenv
 
 from src.brokerages import (
     _chase_account_scoped_order,
+    _chase_direct_order,
     _chase_holdings_capture,
     _chase_request_timeout,
 )
@@ -26,6 +27,10 @@ from src.helper_api import Brokerage, StockOrder, get_otp_from_discord, print_al
 # Harden the upstream holdings capture, which times out silently (10s,
 # exact-match XHR) on the degraded post-mobile-approval session.
 _chase_holdings_capture.apply()
+# Opt-in (RSA_CHASE_DIRECT_ORDER=1): replace _place_order_async with
+# a direct-POST version that skips the hang-prone browser page nav.
+# Must run before the timeout patch so the watchdog still wraps it.
+_chase_direct_order.apply()
 # Bound the vendored order validate/execute POSTs (curl_cffi, no
 # timeout) so a stuck Chase order can't freeze the run.
 _chase_request_timeout.apply()
