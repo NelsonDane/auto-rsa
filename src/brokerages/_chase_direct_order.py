@@ -1,6 +1,7 @@
 """Skip the order-page browser navigation that hangs on multi-account.
 
-Root cause: ``chase.order._place_order_async`` starts with
+Root cause: both ``chase.order._place_order_async`` AND
+``chase.symbols.SymbolQuote.get_symbol_quote`` start with
 ``await self.session.page.get(order_page())``. That nodriver call is
 where the multi-account run wedges — even with our
 :mod:`_chase_account_scoped_order` patch the screenshot shows the
@@ -8,30 +9,39 @@ ticket page rendering but the CDP event never resolves and the
 coroutine hangs (then bounded out by
 :mod:`_chase_request_timeout`).
 
-But the navigation is **cosmetic**. Look at
+For BUYs, ``_process_ticker_orders`` constructs a ``SymbolQuote``
+**before** calling ``place_order`` so it can pick a limit price; that
+quote constructor hits the same hang at the same line. Patching only
+``_place_order_async`` (as we originally did) leaves the BUY path
+broken — the run wedges at "account view" before any per-account
+order is attempted.
+
+But both navigations are **cosmetic**. Look at
 ``chase.urls.get_headers()``:
 
 * ``x-jpmc-csrf-token: NONE`` — no token dance
 * ``referer: https://secure.chase.com/web/auth/dashboard`` — static,
   not the order page
 
-…and the cookies the validate/execute POSTs use come from
+…and the cookies the validate/execute/quote requests use come from
 ``self.session.browser.cookies.get_all()`` (the browser-level jar set
-at login), not from the page. So we can replace ``_place_order_async``
-with a body that skips ``page.get()`` and runs the same validate +
-execute curl_cffi POSTs directly. Same payload, same endpoints, same
-session cookies — just no fragile pre-POST DOM step.
+at login), not from the page. So we can replace both methods with
+bodies that skip ``page.get()`` and run the same curl_cffi requests
+directly. Same payload, same endpoints, same session cookies — just
+no fragile pre-call DOM step.
 
 Opt-in via ``RSA_CHASE_DIRECT_ORDER=1`` because this is real-money
 code. Default off keeps today's behavior (validated holdings path
-unchanged in either mode — direct mode only replaces order placement).
-Layers under :mod:`_chase_request_timeout` so the per-order watchdog
-still applies; coexists with :mod:`_chase_account_scoped_order` (a
-no-op when no page navigation happens).
+unchanged in either mode — direct mode only replaces order placement
+and quote lookup). Layers under :mod:`_chase_request_timeout` so the
+per-order watchdog still applies; coexists with
+:mod:`_chase_account_scoped_order` (a no-op when no page navigation
+happens).
 """
 
 from __future__ import annotations
 
+import datetime
 import os
 
 _applied = False
@@ -57,9 +67,11 @@ def apply() -> None:  # noqa: C901, PLR0915
         return
     try:
         from chase import order as _co  # noqa: PLC0415
+        from chase import symbols as _cs  # noqa: PLC0415
         from chase.urls import (  # noqa: PLC0415
             execute_order,
             get_headers,
+            quote_url,
             validate_order,
         )
         from curl_cffi import requests as _cc_requests  # noqa: PLC0415
@@ -191,8 +203,81 @@ def apply() -> None:  # noqa: C901, PLR0915
 
     _direct_place_order_async._rsa_chase_direct = True  # type: ignore[attr-defined]  # noqa: SLF001
     _co.Order._place_order_async = _direct_place_order_async  # type: ignore[assignment]  # noqa: SLF001
+
+    # --- SymbolQuote.get_symbol_quote: same page-nav hang, same fix ---
+    orig_quote = _cs.SymbolQuote.get_symbol_quote
+    if not getattr(orig_quote, _DIRECT_MARKER, False):
+
+        async def _direct_get_symbol_quote(self: object) -> None:
+            try:
+                cookies = await self.session.browser.cookies.get_all()  # type: ignore[attr-defined]
+            except Exception as exc:
+                print(f"Quote error: cookie fetch failed: {exc}")
+                return
+            cookies_dict = {c.name: c.value for c in cookies}
+            url = (
+                f"{quote_url()}?security-symbol-code={self.symbol}"  # type: ignore[attr-defined]
+                "&security-validate-indicator=true"
+                "&dollar-based-trading-include-indicator=true"
+            )
+            try:
+                resp = _cc_requests.get(
+                    url,
+                    headers=get_headers(),
+                    cookies=cookies_dict,
+                    impersonate="chrome",
+                )
+                q = resp.json()
+            except Exception as exc:
+                print(f"Quote error: {exc}")
+                return
+
+            # Mirror the upstream field copy, defensively (a missing
+            # field shouldn't kill the run — limit_price math falls
+            # back to last_trade_price which we set first).
+            def _f(k: str, default: float = 0.0) -> float:
+                try:
+                    return float(q.get(k, default))
+                except (TypeError, ValueError):
+                    return default
+
+            def _i(k: str, default: int = 0) -> int:
+                try:
+                    return int(q.get(k, default))
+                except (TypeError, ValueError):
+                    return default
+
+            self.ask_price = _f("askPriceAmount")  # type: ignore[attr-defined]
+            self.ask_exchange_code = str(q.get("askExchangeCode", ""))  # type: ignore[attr-defined]
+            self.ask_quantity = _i("askQuantity")  # type: ignore[attr-defined]
+            self.bid_price = _f("bidPriceAmount")  # type: ignore[attr-defined]
+            self.bid_exchange_code = str(q.get("bidExchangeCode", ""))  # type: ignore[attr-defined]
+            self.bid_quantity = _i("bidQuantity")  # type: ignore[attr-defined]
+            self.change_amount = _f("changeAmount")  # type: ignore[attr-defined]
+            self.last_trade_price_amount = _f("lastTradePriceAmount")  # type: ignore[attr-defined]
+            self.last_trade_quantity = _f("lastTradeQuantity")  # type: ignore[attr-defined]
+            self.last_trade_exchange_code = str(q.get("lastTradeExchangeCode", ""))  # type: ignore[attr-defined]
+            self.change_percent = _f("changePercent")  # type: ignore[attr-defined]
+            ts = q.get("asOfTimestamp")
+            if ts:
+                try:
+                    self.as_of_timestamp = datetime.datetime.strptime(  # type: ignore[attr-defined]
+                        ts, "%Y-%m-%dT%H:%M:%S.%fZ",
+                    ).replace(tzinfo=self.local_tz)  # type: ignore[attr-defined]
+                except ValueError:
+                    self.as_of_timestamp = None  # type: ignore[attr-defined]
+            self.security_description_text = str(q.get("securityDescriptionText", ""))  # type: ignore[attr-defined]
+            self.security_symbol_code = str(q.get("securitySymbolCode", self.symbol))  # type: ignore[attr-defined]
+            self.dollar_based_trading_eligible_indicator = bool(  # type: ignore[attr-defined]
+                q.get("dollarBasedTradingEligibleIndicator", False),
+            )
+            self.security_status_code = str(q.get("securityStatusCode", ""))  # type: ignore[attr-defined]
+
+        _direct_get_symbol_quote._rsa_chase_direct = True  # type: ignore[attr-defined]  # noqa: SLF001
+        _cs.SymbolQuote.get_symbol_quote = _direct_get_symbol_quote  # type: ignore[assignment]
+
     _applied = True
     print(
         "Chase: direct-order path active "
-        "(RSA_CHASE_DIRECT_ORDER=1; browser page nav skipped)",
+        "(RSA_CHASE_DIRECT_ORDER=1; order + quote page nav skipped)",
     )

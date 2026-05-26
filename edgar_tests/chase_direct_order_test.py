@@ -3,6 +3,7 @@
 import asyncio
 
 import chase.order as co
+import chase.symbols as cs
 import pytest
 
 from src.brokerages import _chase_direct_order as direct
@@ -11,9 +12,11 @@ from src.brokerages import _chase_direct_order as direct
 @pytest.fixture(autouse=True)
 def _restore(monkeypatch):
     saved_async = co.Order._place_order_async  # noqa: SLF001
+    saved_quote = cs.SymbolQuote.get_symbol_quote
     saved_applied = direct._applied
     yield
     co.Order._place_order_async = saved_async  # noqa: SLF001
+    cs.SymbolQuote.get_symbol_quote = saved_quote
     direct._applied = saved_applied
     monkeypatch.delenv("RSA_CHASE_DIRECT_ORDER", raising=False)
 
@@ -21,11 +24,13 @@ def _restore(monkeypatch):
 def test_opt_in_off_by_default(monkeypatch):
     monkeypatch.delenv("RSA_CHASE_DIRECT_ORDER", raising=False)
     direct._applied = False
-    sentinel = co.Order._place_order_async  # noqa: SLF001
+    sentinel_order = co.Order._place_order_async  # noqa: SLF001
+    sentinel_quote = cs.SymbolQuote.get_symbol_quote
     direct.apply()
     # Untouched when flag is unset — guarantees behavior parity with
     # today's path unless the operator explicitly turns it on.
-    assert co.Order._place_order_async is sentinel  # noqa: SLF001
+    assert co.Order._place_order_async is sentinel_order  # noqa: SLF001
+    assert cs.SymbolQuote.get_symbol_quote is sentinel_quote
     assert not direct._applied
 
 
@@ -33,12 +38,15 @@ def test_opt_in_on_replaces_with_marker(monkeypatch):
     monkeypatch.setenv("RSA_CHASE_DIRECT_ORDER", "1")
     direct._applied = False
     direct.apply()
-    new = co.Order._place_order_async  # noqa: SLF001
-    assert getattr(new, "_rsa_chase_direct", False)
+    new_order = co.Order._place_order_async  # noqa: SLF001
+    new_quote = cs.SymbolQuote.get_symbol_quote
+    assert getattr(new_order, "_rsa_chase_direct", False)
+    assert getattr(new_quote, "_rsa_chase_direct", False)
     # Re-apply is a no-op (idempotent — single wrap).
     direct._applied = False
     direct.apply()
-    assert co.Order._place_order_async is new  # noqa: SLF001
+    assert co.Order._place_order_async is new_order  # noqa: SLF001
+    assert cs.SymbolQuote.get_symbol_quote is new_quote
 
 
 def test_enable_accepts_gui_true_string(monkeypatch):
@@ -133,6 +141,108 @@ def test_direct_path_posts_validate_then_execute_without_page_nav(
     # Confirmation surfaced from the execute response.
     assert out["ORDER CONFIRMATION"] == {"orderIdentifier": "OID-99"}
     assert out["ORDER INVALID"] == ""
+
+
+def test_symbol_quote_direct_path_hits_quote_endpoint_no_page_nav(monkeypatch):
+    monkeypatch.setenv("RSA_CHASE_DIRECT_ORDER", "1")
+    direct._applied = False
+    direct.apply()
+
+    gets: list[tuple[str, dict]] = []
+
+    class _Resp:
+        def json(self):
+            return {
+                "askPriceAmount": "5.42",
+                "askExchangeCode": "Q",
+                "askQuantity": "100",
+                "bidPriceAmount": "5.40",
+                "bidExchangeCode": "Q",
+                "bidQuantity": "200",
+                "changeAmount": "0.10",
+                "lastTradePriceAmount": "5.41",
+                "lastTradeQuantity": "1",
+                "lastTradeExchangeCode": "Q",
+                "changePercent": "1.85",
+                "asOfTimestamp": "2026-05-26T15:30:00.000Z",
+                "securityDescriptionText": "ADTX INC",
+                "securitySymbolCode": "ADTX",
+                "dollarBasedTradingEligibleIndicator": True,
+                "securityStatusCode": "ACTIVE",
+            }
+
+    def _fake_get(url, **kwargs):
+        gets.append((url, kwargs))
+        return _Resp()
+
+    import curl_cffi.requests as cc
+
+    monkeypatch.setattr(cc, "get", _fake_get)
+
+    class _C:
+        def __init__(self, n, v):
+            self.name = n
+            self.value = v
+
+    class _Jar:
+        async def get_all(self):
+            return [_C("JSESSIONID", "xyz")]
+
+    class _B:
+        cookies = _Jar()
+
+    class _S:
+        browser = _B()
+        # Intentionally NO `page` attribute — direct path must not touch it.
+
+    class _Q:
+        session = _S()
+        symbol = "ADTX"
+        import datetime as _d
+        local_tz = _d.datetime.now().astimezone().tzinfo
+
+    asyncio.run(cs.SymbolQuote.get_symbol_quote(_Q()))
+    assert len(gets) == 1
+    assert "security-symbol-code=ADTX" in gets[0][0]
+    assert gets[0][1]["cookies"]["JSESSIONID"] == "xyz"
+
+
+def test_symbol_quote_swallows_bad_json(monkeypatch):
+    monkeypatch.setenv("RSA_CHASE_DIRECT_ORDER", "1")
+    direct._applied = False
+    direct.apply()
+
+    class _Bad:
+        def json(self):
+            raise ValueError("not json")
+
+    import curl_cffi.requests as cc
+
+    monkeypatch.setattr(cc, "get", lambda *a, **k: _Bad())
+
+    class _C:
+        name = "x"
+        value = "y"
+
+    class _Jar:
+        async def get_all(self):
+            return [_C()]
+
+    class _B:
+        cookies = _Jar()
+
+    class _S:
+        browser = _B()
+
+    class _Q:
+        session = _S()
+        symbol = "BAD"
+        import datetime as _d
+        local_tz = _d.datetime.now().astimezone().tzinfo
+
+    # Must not raise — the patch logs and returns so the caller's
+    # limit-price math falls back to its defaults.
+    asyncio.run(cs.SymbolQuote.get_symbol_quote(_Q()))
 
 
 def test_dry_run_stops_after_validation(monkeypatch):
