@@ -40,6 +40,7 @@ _KEY_LEN = 32
 DEFAULT_SETTINGS: dict[str, str] = {
     "HEADLESS": "true",
     "SORT_BROKERS": "true",
+    "RSA_CHASE_DIRECT_ORDER": "false",
 }
 
 

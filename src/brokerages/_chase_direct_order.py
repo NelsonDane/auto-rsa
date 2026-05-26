@@ -39,7 +39,10 @@ _DIRECT_MARKER = "_rsa_chase_direct"
 
 
 def _enabled() -> bool:
-    return os.getenv("RSA_CHASE_DIRECT_ORDER") == "1"
+    # Accept the HEADLESS-style "true"/"false" the GUI vault writes,
+    # plus 1/yes/on so a shell-set env var still works.
+    val = (os.getenv("RSA_CHASE_DIRECT_ORDER") or "").strip().lower()
+    return val in {"1", "true", "yes", "on"}
 
 
 def apply() -> None:  # noqa: C901, PLR0915

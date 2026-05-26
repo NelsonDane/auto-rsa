@@ -41,6 +41,18 @@ def test_opt_in_on_replaces_with_marker(monkeypatch):
     assert co.Order._place_order_async is new  # noqa: SLF001
 
 
+def test_enable_accepts_gui_true_string(monkeypatch):
+    # The GUI vault writes HEADLESS-style "true"/"false"; the patch
+    # must recognise that as well as 1/yes/on so a sidebar toggle works
+    # without forcing the user to edit .env.
+    for v in ("true", "True", "TRUE", "yes", "on", "1"):
+        monkeypatch.setenv("RSA_CHASE_DIRECT_ORDER", v)
+        assert direct._enabled(), v
+    for v in ("false", "0", "no", "off", "", "  "):
+        monkeypatch.setenv("RSA_CHASE_DIRECT_ORDER", v)
+        assert not direct._enabled(), v
+
+
 def test_direct_path_posts_validate_then_execute_without_page_nav(
     monkeypatch,
 ):

@@ -103,9 +103,18 @@ def _sidebar() -> None:  # noqa: C901, PLR0912, PLR0915
         "Alphabetize brokers",
         value=settings.get("SORT_BROKERS", "true") == "true",
     )
+    chase_direct = st.sidebar.checkbox(
+        "Chase: direct order mode (experimental)",
+        value=settings.get("RSA_CHASE_DIRECT_ORDER", "false") == "true",
+        help="Skip the browser page navigation that hangs Chase orders "
+        "on multi-account logins; POST directly to JPM's validate/execute "
+        "endpoints using the session cookies. Holdings/login are not "
+        "affected. Leave OFF until you've tested it on a single account.",
+    )
     new_settings = {
         "HEADLESS": "true" if headless else "false",
         "SORT_BROKERS": "true" if sort_brokers else "false",
+        "RSA_CHASE_DIRECT_ORDER": "true" if chase_direct else "false",
     }
     if new_settings != settings:
         vault.set_settings(new_settings)
