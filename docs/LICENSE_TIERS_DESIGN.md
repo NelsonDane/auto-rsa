@@ -44,16 +44,25 @@ A **parent brokerage login** is one row in the GUI Credentials tab.
 "Chase" with 8 sub-accounts under one login = **1**. A friend with
 Chase + Fidelity + Robinhood = **3**.
 
-| Tier      | Parent brokerage logins | Intended audience           |
-|-----------|------------------------|------------------------------|
-| Basic     | 1                      | Trying it out               |
-| Advanced  | 2–5                    | Active user                 |
-| Mod       | unlimited              | Operator / power user       |
-| Unlicensed| 1 (Basic-equivalent)   | Pre-activation grace state  |
+| Tier         | Parent brokerage logins | Intended audience           |
+|--------------|------------------------|------------------------------|
+| Unlicensed   | 1 (swappable — see below) | Pre-activation grace state  |
+| Basic        | 1                      | Trying it out               |
+| Advanced     | 2–5                    | Active user                 |
+| Operator     | unlimited              | Operator / power user       |
 
 Sub-accounts within a parent login are **not** counted — those are
 defined by the brokerage, not the user, and counting them would
 penalize Chase / Fidelity users for things they can't control.
+
+**Unlicensed = swappable single broker, not locked to a specific one.**
+A friend with no license can configure exactly one broker — say
+Fennel. If they want to try BBAE instead, they delete the Fennel
+credentials in the Credentials tab and add BBAE. They never have
+two simultaneously, but they're never locked into the first one
+they happened to set up. Same `current_count >= cap` check covers
+this naturally: deleting takes the count back to 0, the next add
+takes it to 1, the add after that is refused. No special-case code.
 
 ## 3. License model
 
@@ -62,7 +71,7 @@ license_id        : UUID, generated when the operator issues the license
 license_key       : opaque random string, what the friend types in
                     (e.g. "rsa-9HQX-7P3N-MEZA"), the only thing
                     transmitted from friend to operator
-tier              : "basic" | "advanced" | "mod"
+tier              : "basic" | "advanced" | "operator"
 hardware_id       : bound on first activation; rejected if mismatched after
 issued_at         : timestamp
 expires_at        : timestamp (default 1 year out; renewable)
@@ -119,8 +128,8 @@ A single source of truth:
 
 ```python
 # src/license/manager.py
-def current_tier() -> Tier        # "basic" | "advanced" | "mod" | "unlicensed"
-def account_cap() -> int | None    # None = unlimited (Mod)
+def current_tier() -> Tier        # "basic" | "advanced" | "operator" | "unlicensed"
+def account_cap() -> int | None    # None = unlimited (Operator)
 def can_add_broker(current_count: int) -> tuple[bool, str | None]
 def status_summary() -> dict       # for the GUI banner
 ```
@@ -260,7 +269,7 @@ $ rsa-license list
 LICENSE_ID  TIER      HW_BOUND  LAST_SEEN     EXPIRES     NOTES
 1f0a…       advanced  yes       2 days ago    2027-05-27  Alice
 2b8c…       basic     no        never         2026-08-30  trial — Bob
-9f44…       mod       yes       1 hour ago    2030-12-31  operator (self)
+9f44…       operator  yes       1 hour ago    2030-12-31  operator (self)
 ```
 
 ## 10. GUI surfaces
@@ -291,7 +300,7 @@ more brokers" footer note (no upsell theater).
 - **License revoked (server returns 410)**: tool keeps running
   for 7 days at the cached tier, shows a red banner immediately.
   After 7 days, falls back to Basic.
-- **Tier downgraded** (Mod → Advanced, etc.) with current brokers
+- **Tier downgraded** (Operator → Advanced, etc.) with current brokers
   exceeding new cap: brokers above the cap are **not deleted**;
   they're flagged "over cap — orders will skip" and the
   per-broker run progress shows them as ⚪ skipped. Friend can
@@ -310,7 +319,7 @@ src/license/
   client.py           # POST /activate, POST /refresh
   fingerprint.py      # hardware_id() per platform
   verify.py           # Ed25519 verify + canonical JSON
-  tiers.py            # TIER_CAPS = {"basic": 1, "advanced": 5, "mod": None}
+  tiers.py            # TIER_CAPS = {"basic": 1, "advanced": 5, "operator": None}
   token_store.py      # creds/license.token I/O (chmod 600)
 server/license-worker/
   src/index.ts        # Cloudflare Worker handlers
@@ -340,30 +349,37 @@ the license, it's added there.
 
 ## 14. Open questions for review
 
-1. **Naming**: "Basic / Advanced / Mod" — "Mod" reads
-   moderator-of-something. Suggest **"Operator"** for the
-   unlimited tier (matches our existing operator-vs-friend
-   language).
-2. **License key format**: human-friendly hyphenated like
+**Resolved (locked in 2026-05-27):**
+
+- ✅ **Tier naming**: Basic / Advanced / **Operator** (replaces
+  "Mod"; matches existing operator-vs-friend language in our docs).
+- ✅ **Unlicensed mode allows order placement**, capped at exactly
+  1 parent brokerage login. The friend can swap which broker is
+  configured (e.g. start with Fennel, delete it, add BBAE) but
+  never has two simultaneously. Lets a friend confirm the tool
+  works on a single broker of their choice before asking for an
+  upgrade. The cap rule (`current_count >= 1`) handles the swap
+  flow naturally — no special-case code.
+
+**Still open:**
+
+1. **License key format**: human-friendly hyphenated like
    `rsa-9HQX-7P3N-MEZA` (16 chars of base32 = ~80 bits of entropy)
    reads fine over Signal. Long enough that brute-forcing the
    activation endpoint is hopeless even without rate limits.
-3. **Worker domain**: `license.<your-domain>` keeps it under your
+2. **Worker domain**: `license.<your-domain>` keeps it under your
    existing DNS. Alternative: a `*.workers.dev` subdomain (free,
    ugly URL, fine for a few friends).
-4. **Self-license bootstrap**: the operator needs their own Mod
-   license to actually use the tool. `rsa-license issue --tier mod
-   --for "operator (self)"` is fine; just make sure step 1 of the
-   build process is "issue your own license."
-5. **Do we count `unlicensed` runs at all in cost?** They're free
-   on Cloudflare. But it's worth deciding whether unlicensed mode
-   even allows ORDER placement (current proposal: yes, capped at 1
-   broker — Basic-equivalent — so the friend can confirm the tool
-   works before paying / asking for an upgrade).
-6. **Migration**: existing friends today have no license. First
+3. **Self-license bootstrap**: the operator needs their own
+   Operator license to actually use the tool.
+   `rsa-license issue --tier operator --for "operator (self)"` is
+   fine; just make sure step 1 of the build process is "issue your
+   own license."
+4. **Migration**: existing friends today have no license. First
    release with enforcement: their existing vaults keep working
-   (no broker deletion), but adding the 2nd broker requires
-   activation. Spec'd above; calling it out so it's not a surprise.
+   (no broker deletion), but adding a broker beyond the
+   Unlicensed cap of 1 will be refused until they activate.
+   Spec'd above; calling it out so it's not a surprise.
 
 ## 15. What we don't ship
 
@@ -389,7 +405,7 @@ the license, it's added there.
 4. Activation flow end-to-end + golden signature tests.
 5. Nuitka rebuild with public key embedded (folds into the
    existing Windows installer plan).
-6. Issue operator a Mod license, migrate two trusted friends to
+6. Issue operator an Operator license, migrate two trusted friends to
    Advanced, observe for a week.
 
 Total: ~3 working days of focused effort, plus a week of
