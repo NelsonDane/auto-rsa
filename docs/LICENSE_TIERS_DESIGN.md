@@ -361,25 +361,31 @@ the license, it's added there.
   upgrade. The cap rule (`current_count >= 1`) handles the swap
   flow naturally — no special-case code.
 
-**Still open:**
+**All previously open questions are now resolved.**
 
-1. **License key format**: human-friendly hyphenated like
-   `rsa-9HQX-7P3N-MEZA` (16 chars of base32 = ~80 bits of entropy)
-   reads fine over Signal. Long enough that brute-forcing the
-   activation endpoint is hopeless even without rate limits.
-2. **Worker domain**: `license.<your-domain>` keeps it under your
-   existing DNS. Alternative: a `*.workers.dev` subdomain (free,
-   ugly URL, fine for a few friends).
-3. **Self-license bootstrap**: the operator needs their own
-   Operator license to actually use the tool.
-   `rsa-license issue --tier operator --for "operator (self)"` is
-   fine; just make sure step 1 of the build process is "issue your
-   own license."
-4. **Migration**: existing friends today have no license. First
-   release with enforcement: their existing vaults keep working
-   (no broker deletion), but adding a broker beyond the
-   Unlicensed cap of 1 will be refused until they activate.
-   Spec'd above; calling it out so it's not a surprise.
+- ✅ **License key format**: `rsa-XXXX-XXXX-XXXX` (16 chars of
+  base32 ≈ 80 bits of entropy), e.g. `rsa-9HQX-7P3N-MEZA`. Reads
+  fine over Signal; brute-forcing the activation endpoint is
+  hopeless even without rate limits.
+- ✅ **Worker domain**: ship on the free Cloudflare `*.workers.dev`
+  subdomain — concretely `rsa-license.<account-subdomain>.workers.dev`.
+  Zero cost, zero DNS setup. The URL is baked into the compiled
+  binary and the friend never types it. If a prettier custom
+  domain is wanted later, Cloudflare lets you add it as a
+  zero-downtime CNAME to the same Worker without re-shipping the
+  binary (point a custom hostname at the existing Worker; both
+  URLs route the same).
+- ✅ **Self-license bootstrap + alpha**: operator issues 2–3
+  Operator-tier licenses up front — one for themselves and 1–2 for
+  trusted alpha testers who'll be running with all brokers
+  configured. Concretely:
+  `rsa-license issue --tier operator --for "operator (self)"` and
+  the same with `--for "alpha tester N"` for each. Build step 1
+  remains "issue your own license."
+- ✅ **No migration policy needed**: this build hasn't been
+  deployed to friends yet, so the first release with enforcement
+  is also the first release they install. No grandfathered vaults
+  to handle.
 
 ## 15. What we don't ship
 
