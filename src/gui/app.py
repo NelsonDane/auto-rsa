@@ -51,6 +51,32 @@ def _get_runner() -> TradeRunner:
     return st.session_state.runner
 
 
+def _sidebar_license_banner(vault: Vault) -> None:
+    """Compact tier badge: shown only when vault is unlocked."""
+    from src.license import status_summary  # noqa: PLC0415
+
+    info = status_summary()
+    tier = info["tier"]
+    badge = {
+        "operator": "🟣",
+        "advanced": "🟢",
+        "basic": "🔵",
+        "unlicensed": "⚪",
+    }.get(tier, "⚪")
+    configured = len(vault.configured_broker_keys()) if vault.is_unlocked() else 0
+    cap_text = info["cap_text"]
+    line = f"{badge} **{info['tier_label']}** · {configured}/{cap_text} brokers"
+    st.sidebar.markdown(line)
+    if info["in_grace"]:
+        st.sidebar.warning("License in grace window — refresh soon.")
+    if tier == "unlicensed":
+        st.sidebar.caption(
+            "Activate a license to add more brokers. Without one you "
+            "can configure exactly one broker; swap it any time by "
+            "deleting and adding a different one.",
+        )
+
+
 # --------------------------------------------------------------------------
 # Sidebar: vault lock/unlock + settings
 # --------------------------------------------------------------------------
@@ -89,6 +115,8 @@ def _sidebar() -> None:  # noqa: C901, PLR0912, PLR0915
     if st.sidebar.button("Lock vault", width="stretch"):
         vault.lock()
         st.rerun()
+
+    _sidebar_license_banner(vault)
 
     st.sidebar.divider()
     st.sidebar.subheader("Run settings")
@@ -291,10 +319,17 @@ def _tab_credentials() -> None:
             except VaultError as exc:
                 st.error(str(exc))
             else:
+                skipped = imported.pop("_skipped", "")
                 if imported:
                     st.success("Imported: " + ", ".join(sorted(imported)))
+                if skipped:
+                    st.warning(
+                        f"Skipped (license cap reached): {skipped}. "
+                        "Upgrade your license to add more brokers.",
+                    )
+                if imported:
                     st.rerun()
-                else:
+                elif not skipped:
                     st.info("No supported broker variables found in .env.")
 
     for meta in SUPPORTED_BROKERS:

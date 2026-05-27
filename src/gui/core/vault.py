@@ -270,8 +270,20 @@ class Vault:  # noqa: PLR0904
         accounts: list[dict[str, str]],
         extra: dict[str, str] | None = None,
     ) -> None:
-        """Replace stored accounts/extra for a broker and persist."""
+        """Replace stored accounts/extra for a broker and persist.
+
+        Refuses to add a *new* parent broker login when the active
+        license tier's cap is already met (see ``src.license``).
+        Updating an already-configured broker is always allowed.
+        """
+        from src.license import can_add_broker  # noqa: PLC0415
+
         get_broker(broker_key)  # validates the key
+        existing = self.configured_broker_keys()
+        if broker_key not in existing:
+            ok, reason = can_add_broker(len(existing))
+            if not ok:
+                raise VaultError(reason or "License cap reached.")
         self._require()["brokers"][broker_key] = {
             "accounts": [dict(a) for a in accounts],
             "extra": dict(extra or {}),
@@ -363,9 +375,14 @@ class Vault:  # noqa: PLR0904
 
         Stored verbatim so a password containing ':' is never mangled by
         a reverse-parse. Returns {display_name: env_var} for what was
-        imported.
+        imported. Brokers that would push the configured count past
+        the active license tier's cap are skipped with a clear log
+        line; existing brokers are always updated (they were already
+        counted).
         """
         from dotenv import dotenv_values  # noqa: PLC0415
+
+        from src.license import account_cap  # noqa: PLC0415
 
         self._require()
         if not path.is_file():
@@ -373,7 +390,12 @@ class Vault:  # noqa: PLR0904
             raise VaultError(msg)
         values = dotenv_values(path)
         brokers = self._require()["brokers"]
+        cap = account_cap()
+        # Count what's already configured plus what we'll be adding.
+        already_configured = set(self.configured_broker_keys())
+        new_count = len(already_configured)
         imported: dict[str, str] = {}
+        skipped: list[str] = []
         for meta in SUPPORTED_BROKERS:
             raw = (values.get(meta.env_var) or "").strip()
             extra = {
@@ -383,6 +405,11 @@ class Vault:  # noqa: PLR0904
             }
             if not raw and not extra:
                 continue
+            if meta.key not in already_configured:
+                if cap is not None and new_count >= cap:
+                    skipped.append(meta.display_name)
+                    continue
+                new_count += 1
             entry = brokers.setdefault(meta.key, {})
             entry.setdefault("accounts", [])
             if raw:
@@ -391,6 +418,10 @@ class Vault:  # noqa: PLR0904
             if extra:
                 entry["extra"] = extra
         self._write()
+        if skipped:
+            # Surfaced so the caller can show a single combined message
+            # instead of partial-success silence.
+            imported["_skipped"] = ",".join(skipped)
         return imported
 
     # --- persistence ---------------------------------------------------
