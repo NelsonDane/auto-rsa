@@ -80,10 +80,17 @@ def apply() -> None:
         return
     try:
         from chase import order as _co  # noqa: PLC0415
+        from chase import symbols as _cs  # noqa: PLC0415
 
         # 1. Default a timeout on the validate/execute POSTs.
         if not isinstance(_co.requests, _TimeoutRequests):
             _co.requests = _TimeoutRequests(_co.requests)  # type: ignore[assignment]
+        # 1b. Same for the quote / holdings GETs in chase.symbols —
+        # they're hit on every BUY (SymbolQuote) and every holdings
+        # refresh, and went unbounded under the original module-only
+        # wrap. Defense in depth for the non-direct path.
+        if not isinstance(_cs.requests, _TimeoutRequests):
+            _cs.requests = _TimeoutRequests(_cs.requests)  # type: ignore[assignment]
 
         # 2. Bound the entire _place_order_async (browser nav + POSTs)
         #    so a hang in the pre-POST nodriver step fails fast and

@@ -41,11 +41,60 @@ happens).
 
 from __future__ import annotations
 
+import asyncio
 import datetime
 import os
+import time
 
 _applied = False
 _DIRECT_MARKER = "_rsa_chase_direct"
+
+# Per-call HTTP timeouts. The vendored lib's curl_cffi calls have
+# none, which is the *root cause* of the intermittent multi-account
+# hang: when an endpoint stalls there's nothing to break the wait,
+# and the 120s outer coroutine bound only fires per-account so 8
+# accounts x 120s easily blows past the 600s broker watchdog.
+#
+# Tunable via env (operators don't have to edit code to soften them).
+_VALIDATE_TIMEOUT = 45
+_EXECUTE_TIMEOUT = 45
+_QUOTE_TIMEOUT = 20
+# Quote GETs are idempotent and read-only — retrying is safe and
+# pulls intermittent transient stalls out of the hot path. Order
+# POSTs stay single-shot (retrying execute could double-fill).
+_QUOTE_RETRIES = 3
+_QUOTE_BACKOFF_S = (0.5, 1.5, 3.0)
+
+
+def _envint(name: str, default: int) -> int:
+    try:
+        return max(1, int(os.getenv(name, str(default))))
+    except ValueError:
+        return default
+
+
+def _validate_timeout() -> int:
+    return _envint("RSA_CHASE_DIRECT_VALIDATE_TIMEOUT", _VALIDATE_TIMEOUT)
+
+
+def _execute_timeout() -> int:
+    return _envint("RSA_CHASE_DIRECT_EXECUTE_TIMEOUT", _EXECUTE_TIMEOUT)
+
+
+def _quote_timeout() -> int:
+    return _envint("RSA_CHASE_DIRECT_QUOTE_TIMEOUT", _QUOTE_TIMEOUT)
+
+
+def _log(label: str, t0: float, extra: str = "") -> None:
+    """Stamp a chase-direct step with elapsed seconds since this call started.
+
+    Cheap diagnostic for the *next* hang report: 'we got to validate
+    POST at T+12.4s and never reached execute' is actionable; 'it
+    hung' is not.
+    """
+    elapsed = time.monotonic() - t0
+    suffix = f" {extra}" if extra else ""
+    print(f"[chase-direct] T+{elapsed:5.2f}s {label}{suffix}")
 
 
 def _enabled() -> bool:
@@ -84,7 +133,7 @@ def apply() -> None:  # noqa: C901, PLR0915
         _applied = True
         return
 
-    async def _direct_place_order_async(  # noqa: C901, PLR0911, PLR0912, PLR0917
+    async def _direct_place_order_async(  # noqa: C901, PLR0911, PLR0912, PLR0915, PLR0917
         self: object,
         account_id: str,
         quantity: int,
@@ -97,6 +146,8 @@ def apply() -> None:  # noqa: C901, PLR0915
         after_hours: bool = True,  # noqa: ARG001, FBT001, FBT002
         dry_run: bool = True,  # noqa: FBT001, FBT002
     ) -> dict:
+        t0 = time.monotonic()
+        _log("order start", t0, f"acct={account_id} {order_type} {symbol}")
         order_messages: dict[str, object] = {
             "ORDER INVALID": "",
             "ORDER VALIDATION": "",
@@ -113,6 +164,7 @@ def apply() -> None:  # noqa: C901, PLR0915
             return order_messages
         cookies_dict = {c.name: c.value for c in cookies}
         headers = get_headers()
+        _log("cookies fetched", t0, f"n={len(cookies_dict)}")
 
         payload: dict[str, object] = {
             "accountIdentifier": int(account_id),
@@ -145,13 +197,16 @@ def apply() -> None:  # noqa: C901, PLR0915
 
         exchange_id = None
         try:
+            _log("validate POST →", t0, f"timeout={_validate_timeout()}s")
             resp_val = _cc_requests.post(
                 validate_order(order_type=order_type),
                 headers=headers,
                 cookies=cookies_dict,
                 json=payload,
                 impersonate="chrome",
+                timeout=_validate_timeout(),
             )
+            _log("validate POST ←", t0, f"http={resp_val.status_code}")
             if resp_val.status_code != 200:  # noqa: PLR2004
                 order_messages["ORDER INVALID"] = (
                     f"Validation Failed ({resp_val.status_code}): "
@@ -168,6 +223,7 @@ def apply() -> None:  # noqa: C901, PLR0915
                 "financialInformationExchangeSystemOrderIdentifier",
             )
             if dry_run:
+                _log("dry-run done", t0)
                 return order_messages
             if not exchange_id:
                 order_messages["ORDER INVALID"] = (
@@ -176,6 +232,7 @@ def apply() -> None:  # noqa: C901, PLR0915
                 return order_messages
         except Exception as exc:
             order_messages["ORDER INVALID"] = f"Validation Exception: {exc}"
+            _log("validate FAIL", t0, repr(exc))
             return order_messages
 
         try:
@@ -183,13 +240,16 @@ def apply() -> None:  # noqa: C901, PLR0915
             exec_payload[
                 "financialInformationExchangeSystemOrderIdentifier"
             ] = exchange_id
+            _log("execute POST →", t0, f"timeout={_execute_timeout()}s")
             resp_exec = _cc_requests.post(
                 execute_order(order_type=order_type),
                 headers=headers,
                 cookies=cookies_dict,
                 json=exec_payload,
                 impersonate="chrome",
+                timeout=_execute_timeout(),
             )
+            _log("execute POST ←", t0, f"http={resp_exec.status_code}")
             if resp_exec.status_code != 200:  # noqa: PLR2004
                 order_messages["ORDER INVALID"] = (
                     f"Execution Failed ({resp_exec.status_code}): "
@@ -199,6 +259,7 @@ def apply() -> None:  # noqa: C901, PLR0915
             order_messages["ORDER CONFIRMATION"] = resp_exec.json()
         except Exception as exc:
             order_messages["ORDER INVALID"] = f"Execution Exception: {exc}"
+            _log("execute FAIL", t0, repr(exc))
         return order_messages
 
     _direct_place_order_async._rsa_chase_direct = True  # type: ignore[attr-defined]  # noqa: SLF001
@@ -208,11 +269,16 @@ def apply() -> None:  # noqa: C901, PLR0915
     orig_quote = _cs.SymbolQuote.get_symbol_quote
     if not getattr(orig_quote, _DIRECT_MARKER, False):
 
-        async def _direct_get_symbol_quote(self: object) -> None:
+        async def _direct_get_symbol_quote(self: object) -> None:  # noqa: C901, PLR0915
+            t0 = time.monotonic()
+            _log(
+                "quote start", t0,
+                f"symbol={self.symbol}",  # type: ignore[attr-defined]
+            )
             try:
                 cookies = await self.session.browser.cookies.get_all()  # type: ignore[attr-defined]
             except Exception as exc:
-                print(f"Quote error: cookie fetch failed: {exc}")
+                _log("quote cookies FAIL", t0, repr(exc))
                 return
             cookies_dict = {c.name: c.value for c in cookies}
             url = (
@@ -220,16 +286,46 @@ def apply() -> None:  # noqa: C901, PLR0915
                 "&security-validate-indicator=true"
                 "&dollar-based-trading-include-indicator=true"
             )
-            try:
-                resp = _cc_requests.get(
-                    url,
-                    headers=get_headers(),
-                    cookies=cookies_dict,
-                    impersonate="chrome",
+            # Retry the GET because it's idempotent and read-only —
+            # turning an intermittent transient stall into a deferred
+            # success is the load-bearing part of this whole fix.
+            q: dict | None = None
+            last_exc: Exception | None = None
+            for attempt in range(1, _QUOTE_RETRIES + 1):
+                _log(
+                    "quote GET →", t0,
+                    f"attempt={attempt}/{_QUOTE_RETRIES} "
+                    f"timeout={_quote_timeout()}s",
                 )
-                q = resp.json()
-            except Exception as exc:
-                print(f"Quote error: {exc}")
+                try:
+                    resp = _cc_requests.get(
+                        url,
+                        headers=get_headers(),
+                        cookies=cookies_dict,
+                        impersonate="chrome",
+                        timeout=_quote_timeout(),
+                    )
+                    _log("quote GET ←", t0, f"http={resp.status_code}")
+                    if resp.status_code == 200:  # noqa: PLR2004
+                        q = resp.json()
+                        break
+                    last_exc = RuntimeError(
+                        f"http {resp.status_code}: {resp.text[:200]}",
+                    )
+                except Exception as exc:
+                    last_exc = exc
+                    _log("quote GET FAIL", t0, repr(exc))
+                # Backoff before the next attempt (no sleep after last).
+                if attempt < _QUOTE_RETRIES:
+                    delay = _QUOTE_BACKOFF_S[
+                        min(attempt - 1, len(_QUOTE_BACKOFF_S) - 1)
+                    ]
+                    await asyncio.sleep(delay)
+            if q is None:
+                _log(
+                    "quote gave up", t0,
+                    f"after {_QUOTE_RETRIES} attempts: {last_exc!r}",
+                )
                 return
 
             # Mirror the upstream field copy, defensively (a missing
@@ -272,6 +368,10 @@ def apply() -> None:  # noqa: C901, PLR0915
                 q.get("dollarBasedTradingEligibleIndicator", False),
             )
             self.security_status_code = str(q.get("securityStatusCode", ""))  # type: ignore[attr-defined]
+            _log(
+                "quote done", t0,
+                f"last={self.last_trade_price_amount}",  # type: ignore[attr-defined]
+            )
 
         _direct_get_symbol_quote._rsa_chase_direct = True  # type: ignore[attr-defined]  # noqa: SLF001
         _cs.SymbolQuote.get_symbol_quote = _direct_get_symbol_quote  # type: ignore[assignment]

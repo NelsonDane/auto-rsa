@@ -3,6 +3,7 @@
 import asyncio
 
 import chase.order as co
+import chase.symbols as cs
 import pytest
 
 from src.brokerages import _chase_request_timeout as crt
@@ -11,10 +12,12 @@ from src.brokerages import _chase_request_timeout as crt
 @pytest.fixture(autouse=True)
 def _restore():
     saved_requests = co.requests
+    saved_quote_requests = cs.requests
     saved_async = co.Order._place_order_async  # noqa: SLF001
     saved_applied = crt._applied
     yield
     co.requests = saved_requests
+    cs.requests = saved_quote_requests
     co.Order._place_order_async = saved_async  # noqa: SLF001
     crt._applied = saved_applied
 
@@ -37,6 +40,8 @@ def test_injects_default_timeout_and_passes_through():
     crt._applied = False
     crt.apply()
     assert isinstance(co.requests, crt._TimeoutRequests)
+    # Also wraps chase.symbols.requests (used by quote + holdings GETs).
+    assert isinstance(cs.requests, crt._TimeoutRequests)
     spy = _Spy()
     co.requests._real = spy
     co.requests.post("https://x", json={"a": 1})

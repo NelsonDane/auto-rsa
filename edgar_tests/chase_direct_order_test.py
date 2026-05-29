@@ -141,6 +141,10 @@ def test_direct_path_posts_validate_then_execute_without_page_nav(
     # Confirmation surfaced from the execute response.
     assert out["ORDER CONFIRMATION"] == {"orderIdentifier": "OID-99"}
     assert out["ORDER INVALID"] == ""
+    # Both POSTs must have set an explicit timeout (the no-timeout
+    # default is the root cause of the multi-account hang).
+    assert calls[0][1].get("timeout"), "validate POST missing timeout"
+    assert calls[1][1].get("timeout"), "execute POST missing timeout"
 
 
 def test_symbol_quote_direct_path_hits_quote_endpoint_no_page_nav(monkeypatch):
@@ -151,6 +155,8 @@ def test_symbol_quote_direct_path_hits_quote_endpoint_no_page_nav(monkeypatch):
     gets: list[tuple[str, dict]] = []
 
     class _Resp:
+        status_code = 200
+
         def json(self):
             return {
                 "askPriceAmount": "5.42",
@@ -207,15 +213,158 @@ def test_symbol_quote_direct_path_hits_quote_endpoint_no_page_nav(monkeypatch):
     assert gets[0][1]["cookies"]["JSESSIONID"] == "xyz"
 
 
+def test_quote_get_sets_timeout(monkeypatch):
+    monkeypatch.setenv("RSA_CHASE_DIRECT_ORDER", "1")
+    direct._applied = False
+    direct.apply()
+
+    calls = []
+
+    class _Resp:
+        status_code = 200
+
+        def json(self):
+            return {"lastTradePriceAmount": "1.0"}
+
+    def _fake_get(url, **kwargs):
+        calls.append(kwargs)
+        return _Resp()
+
+    import curl_cffi.requests as cc
+
+    monkeypatch.setattr(cc, "get", _fake_get)
+
+    class _C:
+        def __init__(self, n, v):
+            self.name = n
+            self.value = v
+
+    class _Jar:
+        async def get_all(self):
+            return [_C("x", "y")]
+
+    class _B:
+        cookies = _Jar()
+
+    class _S:
+        browser = _B()
+
+    class _Q:
+        session = _S()
+        symbol = "ADTX"
+        import datetime as _d
+        local_tz = _d.datetime.now().astimezone().tzinfo
+
+    asyncio.run(cs.SymbolQuote.get_symbol_quote(_Q()))
+    assert calls and calls[0].get("timeout"), "quote GET missing timeout"
+
+
+def test_quote_get_retries_on_transient_failure(monkeypatch):
+    """Two failing attempts, third one succeeds — single SymbolQuote call."""
+    monkeypatch.setenv("RSA_CHASE_DIRECT_ORDER", "1")
+    monkeypatch.setattr(direct, "_QUOTE_BACKOFF_S", (0, 0, 0))  # zero sleep
+    direct._applied = False
+    direct.apply()
+
+    n_calls = {"n": 0}
+
+    class _Ok:
+        status_code = 200
+
+        def json(self):
+            return {"lastTradePriceAmount": "5.0"}
+
+    def _flaky(url, **kwargs):
+        n_calls["n"] += 1
+        if n_calls["n"] < 3:
+            raise RuntimeError("simulated stall")
+        return _Ok()
+
+    import curl_cffi.requests as cc
+
+    monkeypatch.setattr(cc, "get", _flaky)
+
+    class _C:
+        name = "x"
+        value = "y"
+
+    class _Jar:
+        async def get_all(self):
+            return [_C()]
+
+    class _B:
+        cookies = _Jar()
+
+    class _S:
+        browser = _B()
+
+    class _Q:
+        session = _S()
+        symbol = "ADTX"
+        import datetime as _d
+        local_tz = _d.datetime.now().astimezone().tzinfo
+
+    obj = _Q()
+    asyncio.run(cs.SymbolQuote.get_symbol_quote(obj))
+    assert n_calls["n"] == 3, "should retry until success"
+    assert obj.last_trade_price_amount == 5.0
+
+
+def test_quote_get_gives_up_after_max_retries(monkeypatch):
+    """All attempts fail; the patch logs and returns without raising."""
+    monkeypatch.setenv("RSA_CHASE_DIRECT_ORDER", "1")
+    monkeypatch.setattr(direct, "_QUOTE_BACKOFF_S", (0, 0, 0))
+    direct._applied = False
+    direct.apply()
+
+    n_calls = {"n": 0}
+
+    def _always_fail(url, **kwargs):
+        n_calls["n"] += 1
+        raise RuntimeError("endpoint stalled")
+
+    import curl_cffi.requests as cc
+
+    monkeypatch.setattr(cc, "get", _always_fail)
+
+    class _C:
+        name = "x"
+        value = "y"
+
+    class _Jar:
+        async def get_all(self):
+            return [_C()]
+
+    class _B:
+        cookies = _Jar()
+
+    class _S:
+        browser = _B()
+
+    class _Q:
+        session = _S()
+        symbol = "FAIL"
+        import datetime as _d
+        local_tz = _d.datetime.now().astimezone().tzinfo
+
+    # Must return cleanly so the caller can proceed (or surface a
+    # higher-level error) — never propagate the GET exception up.
+    asyncio.run(cs.SymbolQuote.get_symbol_quote(_Q()))
+    assert n_calls["n"] == direct._QUOTE_RETRIES
+
+
 def test_symbol_quote_swallows_bad_json(monkeypatch):
     monkeypatch.setenv("RSA_CHASE_DIRECT_ORDER", "1")
     direct._applied = False
     direct.apply()
 
     class _Bad:
+        status_code = 200
+
         def json(self):
             raise ValueError("not json")
 
+    monkeypatch.setattr(direct, "_QUOTE_BACKOFF_S", (0, 0, 0))
     import curl_cffi.requests as cc
 
     monkeypatch.setattr(cc, "get", lambda *a, **k: _Bad())
