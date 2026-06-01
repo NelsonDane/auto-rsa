@@ -201,6 +201,8 @@ def test_real_repo_audit_known_safe_brokers_pass():
         "robinhood",
         "fennel",
         "schwab",
+        "firstrade",
+        "webull",
         # Operator-confirmed unused — exempted, so they pass the audit
         # without needing the helper wiring.
         "tasty",

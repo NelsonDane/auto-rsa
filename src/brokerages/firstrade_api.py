@@ -14,7 +14,7 @@ from firstrade import account as ft_account
 from firstrade import order, symbols
 from firstrade.exceptions import QuoteRequestError
 
-from src.helper_api import Brokerage, StockOrder, get_otp_from_discord, mask_string, print_all_holdings, print_and_discord
+from src.helper_api import Brokerage, StockOrder, complete_or_fail, get_otp_from_discord, mask_string, print_all_holdings, print_and_discord, reserve_or_skip
 
 
 def firstrade_init(bot_obj: Bot | None = None, loop: asyncio.AbstractEventLoop | None = None) -> Brokerage | None:
@@ -106,6 +106,14 @@ def firstrade_transaction(firstrade_o: Brokerage, order_obj: StockOrder, loop: a
             for account in firstrade_o.get_account_numbers(key):
                 obj = cast("ft_account.FTSession", firstrade_o.get_logged_in_objects(key))
                 print_account = mask_string(account)
+                # C2 + C1-pre: account filter + ledger intent reservation.
+                play = reserve_or_skip(
+                    broker_key="firstrade", account=account, ticker=s,
+                    order_obj=order_obj,
+                    display_label=f"{key} {print_account}", loop=loop,
+                )
+                if play is None:
+                    continue
                 # If DRY is True, don't actually make the transaction
                 if order_obj.get_dry():
                     print_and_discord(
@@ -114,6 +122,7 @@ def firstrade_transaction(firstrade_o: Brokerage, order_obj: StockOrder, loop: a
                     )
                 old_amount = order_obj.get_amount()
                 original_action = order_obj.get_action()
+                order_success_overall = True
                 try:
                     should_dance = False
                     symbol_data = symbols.SymbolQuote(obj, account, s)
@@ -227,14 +236,30 @@ def firstrade_transaction(firstrade_o: Brokerage, order_obj: StockOrder, loop: a
                                 f"{key} account {print_account}: The order verification produced the following messages: {order_conf}",
                                 loop,
                             )
+                            order_success_overall = False
                 except Exception as e:
                     print_and_discord(
                         f"{key} {print_account}: Error submitting order: {e}",
                         loop,
                     )
                     print(traceback.format_exc())
+                    complete_or_fail(
+                        play, order_obj=order_obj, success=False, detail=str(e),
+                    )
+                    # Restore orderObj before continuing so the outer
+                    # loop sees a clean state on the next account.
+                    order_obj.set_amount(old_amount)
+                    order_obj.set_action(
+                        "buy" if original_action.lower() == "buy" else "sell",
+                    )
                     continue
 
+                else:
+                    complete_or_fail(
+                        play, order_obj=order_obj,
+                        success=order_success_overall,
+                        detail="" if order_success_overall else "order verification failed",
+                    )
                 finally:
                     # Restore orderObj
                     order_obj.set_amount(old_amount)

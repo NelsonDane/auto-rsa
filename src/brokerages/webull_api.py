@@ -9,7 +9,7 @@ from typing import cast
 
 from dotenv import load_dotenv
 
-from src.helper_api import Brokerage, StockOrder, mask_string, print_all_holdings, print_and_discord
+from src.helper_api import Brokerage, StockOrder, complete_or_fail, mask_string, print_all_holdings, print_and_discord, reserve_or_skip
 from src.vendors.webull.webull import webull
 
 MAX_WB_RETRIES = 3  # Number of times to retry logging in if not successful
@@ -143,6 +143,14 @@ def webull_transaction(wbo: Brokerage, order_obj: StockOrder, loop: AbstractEven
                 print_account = mask_string(account)
                 obj = cast("webull", wbo.get_logged_in_objects(key, "wb"))
                 internal_account = cast("str", wbo.get_logged_in_objects(key, account))
+                # C2 + C1-pre: account filter + ledger intent reservation.
+                play = reserve_or_skip(
+                    broker_key="webull", account=account, ticker=s,
+                    order_obj=order_obj,
+                    display_label=f"{key} {print_account}", loop=loop,
+                )
+                if play is None:
+                    continue
                 if not order_obj.get_dry():
                     old_amount = order_obj.get_amount()
                     original_action = order_obj.get_action()
@@ -193,12 +201,25 @@ def webull_transaction(wbo: Brokerage, order_obj: StockOrder, loop: AbstractEven
                                 f"{key}: {order_obj.get_action()} {order_obj.get_amount()} of {s} in {print_account}: Success",
                                 loop,
                             )
+                        complete_or_fail(
+                            play, order_obj=order_obj,
+                            success=bool(order),
+                            detail="" if order else "place_order returned falsy",
+                        )
                     except Exception as e:
                         print_and_discord(
                             f"{key} {print_account}: Error placing order: {e}",
                             loop,
                         )
                         print(traceback.format_exc())
+                        complete_or_fail(
+                            play, order_obj=order_obj, success=False, detail=str(e),
+                        )
+                        # Restore orderObj before continuing.
+                        order_obj.set_amount(old_amount)
+                        order_obj.set_action(
+                            "buy" if original_action.lower() == "buy" else "sell",
+                        )
                         continue
                     finally:
                         # Restore orderObj
@@ -208,4 +229,8 @@ def webull_transaction(wbo: Brokerage, order_obj: StockOrder, loop: AbstractEven
                     print_and_discord(
                         f"{key} {print_account}: Running in DRY mode. Transaction would've been: {order_obj.get_action()} {order_obj.get_amount()} of {s}",
                         loop,
+                    )
+                    # Dry run: complete_or_fail is a no-op (see helper docs).
+                    complete_or_fail(
+                        play, order_obj=order_obj, success=True, detail="dry run",
                     )
