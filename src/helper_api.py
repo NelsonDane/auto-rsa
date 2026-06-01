@@ -658,6 +658,90 @@ def account_allowed(broker_key: str, account: object, action: str = "") -> bool:
     return False
 
 
+def reserve_or_skip(  # noqa: PLR0913
+    *,
+    broker_key: str,
+    account: object,
+    ticker: str,
+    order_obj: "StockOrder",
+    display_label: str = "",
+    loop: asyncio.AbstractEventLoop | None = None,
+) -> "Play | None":  # noqa: F821  -- Play imported lazily to avoid circular
+    """Apply the C1 + C2 real-money guards before an order is placed.
+
+    Returns the :class:`Play` to pass to :func:`complete_or_fail` once
+    the order attempt resolves, or ``None`` if the order must be
+    skipped (filter excluded, or ledger says already executed). The
+    caller MUST honor a ``None`` return with ``continue``.
+
+    Behavior:
+
+    * **C2 — account filter**: if ``account_allowed(broker_key,
+      account, order_obj.get_action())`` is False, prints a skip
+      message and returns None.
+    * **C1 — ledger intent reservation**: builds a :class:`Play` with
+      the per-source ``RSA_PLAY_KEY`` and economic ``RSA_PLAY_SPLIT_KEY``
+      (so cross-feed dedupe works across producers). On a real run,
+      ``record_intent`` is called; if it returns False (already
+      EXECUTED, INTENDED, or economic split already filled), prints a
+      skip message and returns None. Dry runs bypass the ledger
+      reservation but still honor the filter.
+
+    Display label defaults to the broker's title-cased key + masked
+    account so log lines remain consistent across brokers.
+    """
+    from src.ledger import Play, record_intent  # noqa: PLC0415
+
+    action = order_obj.get_action()
+    label = display_label or f"{broker_key.title()} account {mask_string(str(account))}"
+    if not account_allowed(broker_key, account, action):
+        print_and_discord(
+            f"{label}: skipped {ticker} (not in account filter)",
+            loop,
+        )
+        return None
+    play = Play(
+        key=os.getenv("RSA_PLAY_KEY")
+        or f"MANUAL:{ticker}:{action.lower()}",
+        broker=broker_key,
+        account=str(account),
+        ticker=ticker,
+        action=action,
+        split_key=os.getenv("RSA_PLAY_SPLIT_KEY", ""),
+    )
+    if not order_obj.get_dry() and not record_intent(
+        play, order_obj.get_amount(),
+    ):
+        print_and_discord(
+            f"{label}: skipped {ticker} "
+            "(ledger: already executed or in-flight — no double-buy)",
+            loop,
+        )
+        return None
+    return play
+
+
+def complete_or_fail(
+    play: "Play",  # noqa: F821  -- Play imported lazily to avoid circular
+    *,
+    order_obj: "StockOrder",
+    success: bool,
+    detail: str = "",
+) -> None:
+    """Apply the C1-post guard: record the outcome in the ledger.
+
+    No-op for dry runs (matching :func:`reserve_or_skip` semantics
+    where dry runs never wrote an INTENDED row). Idempotent — calling
+    it twice for the same play is harmless because :func:`mark_result`
+    is itself idempotent on the INTENDED → EXECUTED|FAILED transition.
+    """
+    from src.ledger import mark_result  # noqa: PLC0415
+
+    if order_obj.get_dry():
+        return
+    mark_result(play, success=success, detail=str(detail or ""))
+
+
 def print_and_discord(
     message: str | EmbedType,
     loop: asyncio.AbstractEventLoop | None = None,

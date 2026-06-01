@@ -47,6 +47,13 @@ EXEMPT_ACCOUNT_FILTER: dict[str, str] = {
 LEDGER_GUARD_CALLS = frozenset({"record_intent", "mark_result"})
 ACCOUNT_FILTER_CALL = "account_allowed"
 
+# The recommended helpers in src/helper_api.py wrap both guards into
+# one call each. If a broker uses both helpers, treat C1 + C2 as
+# satisfied without requiring the underlying primitives to be called
+# directly.
+HELPER_PRE_CALL = "reserve_or_skip"  # combines account_allowed + record_intent
+HELPER_POST_CALL = "complete_or_fail"  # wraps mark_result
+
 
 def _is_broker_module(path: Path) -> bool:
     """Return True for ``<broker>_api.py``; skip the ``_*`` patch helpers."""
@@ -113,23 +120,40 @@ def audit_file(path: Path) -> tuple[str, list[str]]:
         return broker, []
     calls = _function_calls(fn)
 
-    if broker not in EXEMPT_LEDGER:
+    # The helpers in src/helper_api.py wrap both guards. If both are
+    # present, treat C1 + C2 as satisfied — but if only one helper is
+    # present, that's a coding mistake worth flagging.
+    helper_pre = HELPER_PRE_CALL in calls
+    helper_post = HELPER_POST_CALL in calls
+    uses_helpers = helper_pre and helper_post
+    if (helper_pre and not helper_post) or (helper_post and not helper_pre):
+        findings.append(
+            f"helper mismatch: {fn.name} uses one of "
+            f"{HELPER_PRE_CALL}/{HELPER_POST_CALL} but not both — these "
+            "must be paired; an unmatched reserve leaks an INTENDED "
+            "ledger row, an unmatched complete is a coding error.",
+        )
+
+    if broker not in EXEMPT_LEDGER and not uses_helpers:
         missing = LEDGER_GUARD_CALLS - calls
         if missing:
             findings.append(
-                f"C1 ledger: {broker}_transaction does not call "
-                f"{sorted(missing)} — double-buy risk on retry. "
-                "See src/brokerages/fidelity_api.py:267,288 for the pattern.",
+                f"C1 ledger: {fn.name} does not call "
+                f"{sorted(missing)} (or the helper pair "
+                f"{HELPER_PRE_CALL}+{HELPER_POST_CALL}) — double-buy "
+                "risk on retry. See src/brokerages/fidelity_api.py:267,288.",
             )
 
     if (
         broker not in EXEMPT_ACCOUNT_FILTER
+        and not uses_helpers
         and ACCOUNT_FILTER_CALL not in calls
     ):
         findings.append(
-            f"C2 filter: {broker}_transaction does not call "
-            "account_allowed() — RSA_ACCOUNT_FILTER silently bypassed. "
-            "See src/brokerages/fidelity_api.py:247 for the pattern.",
+            f"C2 filter: {fn.name} does not call "
+            f"account_allowed() (or the helper {HELPER_PRE_CALL}) — "
+            "RSA_ACCOUNT_FILTER silently bypassed. See "
+            "src/brokerages/fidelity_api.py:247.",
         )
 
     return broker, findings

@@ -198,3 +198,55 @@ def test_real_repo_audit_currently_fails_on_known_gap():
 def test_main_returns_nonzero_when_findings_exist():
     """Exit code wiring so CI can gate on this script."""
     assert audit.main() == 1
+
+
+def test_helper_pair_satisfies_both_guards(tmp_path):
+    """A broker using `reserve_or_skip` + `complete_or_fail` is safe
+    without calling account_allowed / record_intent / mark_result
+    directly — the helpers wrap those primitives."""
+    _write_module(tmp_path, "neat_api.py", """
+        from src.helper_api import reserve_or_skip, complete_or_fail
+
+        def neat_transaction(obj, order_obj, loop=None):
+            for account in obj.get_accounts():
+                play = reserve_or_skip(
+                    broker_key="neat", account=account,
+                    ticker="X", order_obj=order_obj, loop=loop,
+                )
+                if play is None:
+                    continue
+                try:
+                    obj.place_order("X", 1)
+                    complete_or_fail(play, order_obj=order_obj,
+                                     success=True, detail="")
+                except Exception as e:
+                    complete_or_fail(play, order_obj=order_obj,
+                                     success=False, detail=str(e))
+                    raise
+    """)
+    _, findings = audit.audit_file(
+        tmp_path / "src" / "brokerages" / "neat_api.py",
+    )
+    assert findings == []
+
+
+def test_only_pre_helper_without_post_helper_is_flagged(tmp_path):
+    """Reserving the intent without completing it leaks an INTENDED
+    row that blocks the next legitimate run for that play."""
+    _write_module(tmp_path, "leaky_api.py", """
+        from src.helper_api import reserve_or_skip
+
+        def leaky_transaction(obj, order_obj, loop=None):
+            for account in obj.get_accounts():
+                play = reserve_or_skip(
+                    broker_key="leaky", account=account,
+                    ticker="X", order_obj=order_obj, loop=loop,
+                )
+                if play is None:
+                    continue
+                obj.place_order("X", 1)  # no complete_or_fail
+    """)
+    _, findings = audit.audit_file(
+        tmp_path / "src" / "brokerages" / "leaky_api.py",
+    )
+    assert any("helper mismatch" in f for f in findings)
