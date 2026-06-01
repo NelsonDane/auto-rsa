@@ -48,6 +48,17 @@ class Play(NamedTuple):
     producers (EDGAR + StockTitan) with different ``key``s still cannot
     be bought twice in the same sub-account. Empty -> legacy per-key
     behavior only (unchanged M1 semantics).
+
+    Phase 7 additions:
+
+    * ``signal_type`` carries the originating event class so the
+      per-signal-type dashboard can group ledger history by alert
+      kind. Defaults to ``ROUND_UP_REVERSE`` for back-compat with
+      pre-Phase-5 callers.
+    * ``hold_until`` is the ISO date (YYYY-MM-DD) on/after which an
+      auto-sell job (Phase 8) may sell this position. Empty string
+      means "manual sell only" — the round-up flow keeps that
+      semantic. Spin-offs and special divs supply a real date.
     """
 
     key: str
@@ -56,6 +67,8 @@ class Play(NamedTuple):
     ticker: str
     action: str
     split_key: str = ""
+    signal_type: str = "ROUND_UP_REVERSE"
+    hold_until: str = ""
 
 
 def normalize_account(account: object) -> str:
@@ -97,7 +110,9 @@ def _connect() -> Iterator[sqlite3.Connection]:
             """,
         )
         # Migrate older databases additively (M1 had no split_key; the
-        # session-health work added an outcome reason code).
+        # session-health work added an outcome reason code; Phase 7
+        # adds signal_type + hold_until for the per-type dashboard and
+        # the future auto-sell job).
         cols = {r[1] for r in conn.execute("PRAGMA table_info(executions)")}
         if "split_key" not in cols:
             conn.execute(
@@ -107,9 +122,22 @@ def _connect() -> Iterator[sqlite3.Connection]:
             conn.execute(
                 "ALTER TABLE executions ADD COLUMN reason TEXT DEFAULT ''",
             )
+        if "signal_type" not in cols:
+            conn.execute(
+                "ALTER TABLE executions ADD COLUMN signal_type TEXT "
+                "DEFAULT 'ROUND_UP_REVERSE'",
+            )
+        if "hold_until" not in cols:
+            conn.execute(
+                "ALTER TABLE executions ADD COLUMN hold_until TEXT DEFAULT ''",
+            )
         conn.execute(
             "CREATE INDEX IF NOT EXISTS ix_exec_split "
             "ON executions(split_key, broker, sub_account, action)",
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS ix_exec_hold "
+            "ON executions(hold_until, status)",
         )
         yield conn
         conn.commit()
@@ -193,13 +221,16 @@ def record_intent(play: Play, qty: float) -> bool:
             """
             INSERT INTO executions
                 (key, broker, sub_account, ticker, action, qty,
-                 status, created_at, updated_at, split_key)
-            VALUES (?,?,?,?,?,?,?,?,?,?)
+                 status, created_at, updated_at, split_key,
+                 signal_type, hold_until)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT(key, broker, sub_account, ticker, action)
             DO UPDATE SET status=excluded.status,
                           qty=excluded.qty,
                           updated_at=excluded.updated_at,
-                          split_key=excluded.split_key
+                          split_key=excluded.split_key,
+                          signal_type=excluded.signal_type,
+                          hold_until=excluded.hold_until
             """,
             (
                 key,
@@ -212,6 +243,8 @@ def record_intent(play: Play, qty: float) -> bool:
                 now,
                 now,
                 (play.split_key or "").strip(),
+                (play.signal_type or "ROUND_UP_REVERSE").upper(),
+                (play.hold_until or "").strip(),
             ),
         )
         return True
@@ -253,6 +286,44 @@ def list_executions(key: str | None = None) -> list[dict[str, object]]:
             params = (key,)
         sql += " ORDER BY updated_at DESC"
         return [dict(r) for r in conn.execute(sql, params).fetchall()]
+
+
+def due_for_sell(today_iso: str) -> list[dict[str, object]]:
+    """Return EXECUTED buy rows whose hold_until is on/before ``today_iso``.
+
+    The Phase 8 auto-sell job reads this to decide which positions
+    can be sold today. Excludes rows that have no hold_until set
+    (the round-up flow defaults to manual sell). Excludes rows for
+    tickers where an EXECUTED or INTENDED SELL already exists in
+    the same (broker, account) — that's a sell-already-placed guard.
+    """
+    with _LOCK, _connect() as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            """
+            SELECT * FROM executions
+            WHERE action='buy'
+              AND status=?
+              AND hold_until != ''
+              AND hold_until <= ?
+            """,
+            (STATUS_EXECUTED, today_iso),
+        ).fetchall()
+        if not rows:
+            return []
+        out: list[dict[str, object]] = []
+        for r in rows:
+            # Guard: any concurrent SELL for the same broker/account/ticker
+            # blocks a duplicate auto-sell.
+            sell_row = conn.execute(
+                "SELECT 1 FROM executions WHERE broker=? AND sub_account=? "
+                "AND ticker=? AND action='sell' AND status IN (?,?) LIMIT 1",
+                (r["broker"], r["sub_account"], r["ticker"],
+                 STATUS_INTENDED, STATUS_EXECUTED),
+            ).fetchone()
+            if sell_row is None:
+                out.append(dict(r))
+        return out
 
 
 def delete_row(row_id: int) -> bool:

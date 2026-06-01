@@ -100,7 +100,7 @@ def _sidebar_license_banner(vault: Vault) -> None:
 # --------------------------------------------------------------------------
 # Sidebar: vault lock/unlock + settings
 # --------------------------------------------------------------------------
-def _sidebar() -> None:  # noqa: C901, PLR0912, PLR0915
+def _sidebar() -> None:  # noqa: C901, PLR0912, PLR0914, PLR0915
     vault = _get_vault()
     st.sidebar.title("🔐 Vault")
 
@@ -159,10 +159,44 @@ def _sidebar() -> None:  # noqa: C901, PLR0912, PLR0915
         "endpoints using the session cookies. Holdings/login are not "
         "affected. Leave OFF until you've tested it on a single account.",
     )
+    # Phase 7: per-signal-type allow-list. Operator opts into each
+    # new event class individually. The Python pipeline already
+    # detects them (Phase 5); these checkboxes control whether
+    # plan_signals will mark them ACTIONABLE for execution.
+    enabled_types_raw = settings.get(
+        "RSA_SIGNAL_TYPES_ENABLED", "ROUND_UP_REVERSE",
+    )
+    enabled_types = {t.strip().upper() for t in enabled_types_raw.split(",") if t.strip()}
+    st.sidebar.caption("**Trade signal types**")
+    enable_round_up = st.sidebar.checkbox(
+        "Round-up reverse splits",
+        value="ROUND_UP_REVERSE" in enabled_types,
+        help="The original strategy; safe default ON. Confidence floor 0.60.",
+    )
+    enable_spin_off = st.sidebar.checkbox(
+        "Spin-offs (experimental)",
+        value="SPIN_OFF" in enabled_types,
+        help="Multi-broker spin-off plays. Buy parent before record date, "
+        "auto-sell ~5 days after record. Confidence floor 0.75.",
+    )
+    enable_special_div = st.sidebar.checkbox(
+        "Special dividends (experimental)",
+        value="SPECIAL_DIV" in enabled_types,
+        help="One-time cash distributions. Buy before record date, "
+        "auto-sell ~1 day after ex-date. Confidence floor 0.75.",
+    )
+    new_enabled: list[str] = []
+    if enable_round_up:
+        new_enabled.append("ROUND_UP_REVERSE")
+    if enable_spin_off:
+        new_enabled.append("SPIN_OFF")
+    if enable_special_div:
+        new_enabled.append("SPECIAL_DIV")
     new_settings = {
         "HEADLESS": "true" if headless else "false",
         "SORT_BROKERS": "true" if sort_brokers else "false",
         "RSA_CHASE_DIRECT_ORDER": "true" if chase_direct else "false",
+        "RSA_SIGNAL_TYPES_ENABLED": ",".join(new_enabled) or "ROUND_UP_REVERSE",
     }
     if new_settings != settings:
         vault.set_settings(new_settings)
@@ -1136,9 +1170,19 @@ def _render_signal_live_confirm(
 
 
 def _signal_execute_section(vault: Vault, signals: list[Signal]) -> None:
-    """Plan actionable ROUND_UP signals and run one (DRY default)."""
+    """Plan actionable signals (per-type allow-list) and run one (DRY default)."""
     runner = _get_runner()
-    plan = plan_signals(signals, is_done=ledger.economic_done)
+    enabled_raw = vault.get_settings().get(
+        "RSA_SIGNAL_TYPES_ENABLED", "ROUND_UP_REVERSE",
+    )
+    enabled = frozenset(
+        t.strip().upper() for t in enabled_raw.split(",") if t.strip()
+    )
+    plan = plan_signals(
+        signals,
+        is_done=ledger.economic_done,
+        enabled_signal_types=enabled,
+    )
     actionable: list[PlanItem] = [
         p for p in plan if p.decision == DECISION_ACTIONABLE
     ]

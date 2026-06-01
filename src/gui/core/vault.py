@@ -41,6 +41,11 @@ DEFAULT_SETTINGS: dict[str, str] = {
     "HEADLESS": "true",
     "SORT_BROKERS": "true",
     "RSA_CHASE_DIRECT_ORDER": "false",
+    # Phase 7: per-signal-type allow-list. Comma-separated subset of
+    # ROUND_UP_REVERSE / SPIN_OFF / SPECIAL_DIV. Default is the
+    # original reverse-split flow only — no behavior change until
+    # the operator explicitly enables the new types in the GUI.
+    "RSA_SIGNAL_TYPES_ENABLED": "ROUND_UP_REVERSE",
 }
 
 
