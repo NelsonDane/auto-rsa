@@ -433,15 +433,42 @@ def _process_ticker_orders(chase_obj: Brokerage, all_accounts: ch_account.AllAcc
 
         ch_session = cast("session.ChaseSession", chase_obj.get_logged_in_objects(key))
 
-        # Determine limit or market for buy orders
+        # Determine limit or market for buy orders.
+        # H2 fix: try each account in turn until one returns a usable
+        # quote. The original code always used account_ids[0]; if that
+        # specific account is restricted from the ticker (very common
+        # with the OTC tickers this tool targets), the quote came back
+        # zero and every downstream account's limit price was wrong.
         if order_obj.get_action().capitalize() == "Buy":
             account_ids = list([] if all_accounts.account_connectors is None else all_accounts.account_connectors.keys())
-            symbol_quote = symbols.SymbolQuote(
-                account_id=account_ids[0],
-                session=ch_session,
-                symbol=ticker,
-            )
-            price_type, limit_price = _calculate_limit_price(symbol_quote, order_obj.get_action())
+            symbol_quote = None
+            for acct_id in account_ids:
+                try:
+                    candidate = symbols.SymbolQuote(
+                        account_id=acct_id,
+                        session=ch_session,
+                        symbol=ticker,
+                    )
+                except Exception as quote_exc:
+                    print(f"Chase quote attempt failed on acct {acct_id}: {quote_exc}")
+                    continue
+                # A usable quote has a non-zero last trade price. Zero
+                # means the account couldn't fetch one (restricted /
+                # ticker unavailable here); keep trying.
+                if getattr(candidate, "last_trade_price_amount", 0) > 0:
+                    symbol_quote = candidate
+                    break
+            if symbol_quote is None:
+                # All accounts failed -> degrade to MARKET so we don't
+                # send a bogus $0 limit downstream.
+                print_and_discord(
+                    f"{key} {ticker}: no account produced a usable quote; "
+                    "falling back to MARKET",
+                    loop,
+                )
+                price_type, limit_price = order.PriceType.MARKET, 0.0
+            else:
+                price_type, limit_price = _calculate_limit_price(symbol_quote, order_obj.get_action())
 
         print_and_discord(
             f"{key} {order_obj.get_action()}ing {order_obj.get_amount()} {ticker} @ {price_type.value}",

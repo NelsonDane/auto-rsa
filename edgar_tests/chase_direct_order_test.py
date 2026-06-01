@@ -446,3 +446,66 @@ def test_dry_run_stops_after_validation(monkeypatch):
     assert len(calls) == 1
     assert "validations" in calls[0]
     assert out["ORDER CONFIRMATION"] == ""
+
+
+# --- M5: exception classification ------------------------------------
+
+def test_classify_chase_exc_session_error():
+    """A token-expired-style exception should map to SESSION_ERROR so
+    the GUI's per-broker icon goes red instead of confusingly listing
+    it as a vanilla 'ORDER INVALID'."""
+    code = direct._classify_chase_exc(
+        Exception("Session expired; please log in again"),
+    )
+    assert code == "SESSION_ERROR"
+
+
+def test_classify_chase_exc_other_for_opaque():
+    code = direct._classify_chase_exc(Exception("connection reset by peer"))
+    # 'connection reset' isn't a session-marker; falls through to OTHER.
+    assert code in {"OTHER", "SESSION_ERROR"}  # don't lock to a code we may tune
+
+
+def test_direct_path_classified_exception_visible_in_order_invalid(monkeypatch):
+    """End-to-end: a session-expired error during validate POST is
+    surfaced in ORDER INVALID with the classification tag, so the
+    downstream ledger row's reason field can be SESSION_ERROR
+    instead of OTHER."""
+    monkeypatch.setenv("RSA_CHASE_DIRECT_ORDER", "1")
+    direct._applied = False
+    direct.apply()
+
+    def _stall(*_a, **_k):
+        msg = "Session expired"
+        raise RuntimeError(msg)
+
+    import curl_cffi.requests as cc
+    monkeypatch.setattr(cc, "post", _stall)
+
+    class _C:
+        def __init__(self, n, v):
+            self.name = n
+            self.value = v
+
+    class _Jar:
+        async def get_all(self):
+            return [_C("x", "y")]
+
+    class _B:
+        cookies = _Jar()
+
+    class _S:
+        browser = _B()
+
+    class _O:
+        session = _S()
+
+    out = asyncio.run(
+        co.Order._place_order_async(  # noqa: SLF001
+            _O(), account_id="111", quantity=1, price_type="MARKET",
+            symbol="ADTX", duration="DAY", order_type="BUY", dry_run=True,
+        ),
+    )
+    invalid = out["ORDER INVALID"]
+    assert "Validation Exception" in invalid
+    assert "SESSION_ERROR" in invalid

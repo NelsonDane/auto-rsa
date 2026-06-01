@@ -85,6 +85,27 @@ def _quote_timeout() -> int:
     return _envint("RSA_CHASE_DIRECT_QUOTE_TIMEOUT", _QUOTE_TIMEOUT)
 
 
+def _classify_chase_exc(exc: BaseException) -> str:
+    """Map a Chase POST exception to one of the project's reason codes.
+
+    The direct path catches `Exception` around every curl_cffi call;
+    without classification the GUI just sees opaque "Validation
+    Exception: ..." text and can't distinguish a session-expired
+    failure from a timeout from a 4xx rejection. Surface the code
+    in the ORDER INVALID text so the per-broker icon (SESSION_ERROR
+    -> red) and the ledger reason field both reflect reality.
+
+    Lazy import of src.outcomes so this patch module stays
+    self-contained and doesn't fail-fast on import-time circulars.
+    """
+    try:
+        from src.outcomes import classify_outcome  # noqa: PLC0415
+
+        return classify_outcome(repr(exc))
+    except Exception:
+        return "OTHER"
+
+
 def _log(label: str, t0: float, extra: str = "") -> None:
     """Stamp a chase-direct step with elapsed seconds since this call started.
 
@@ -231,7 +252,9 @@ def apply() -> None:  # noqa: C901, PLR0915
                 )
                 return order_messages
         except Exception as exc:
-            order_messages["ORDER INVALID"] = f"Validation Exception: {exc}"
+            order_messages["ORDER INVALID"] = (
+                f"Validation Exception [{_classify_chase_exc(exc)}]: {exc}"
+            )
             _log("validate FAIL", t0, repr(exc))
             return order_messages
 
@@ -258,7 +281,9 @@ def apply() -> None:  # noqa: C901, PLR0915
                 return order_messages
             order_messages["ORDER CONFIRMATION"] = resp_exec.json()
         except Exception as exc:
-            order_messages["ORDER INVALID"] = f"Execution Exception: {exc}"
+            order_messages["ORDER INVALID"] = (
+                f"Execution Exception [{_classify_chase_exc(exc)}]: {exc}"
+            )
             _log("execute FAIL", t0, repr(exc))
         return order_messages
 
