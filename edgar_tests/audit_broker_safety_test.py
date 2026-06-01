@@ -133,16 +133,18 @@ def test_underscore_prefixed_files_are_skipped(tmp_path):
 
 
 def test_file_function_prefix_mismatch_is_caught(tmp_path):
-    """`tasty_api.py` defines `tastytrade_transaction` — the fallback
-    must catch it instead of silently passing."""
-    _write_module(tmp_path, "tasty_api.py", """
-        def tastytrade_transaction(obj, order_obj, loop=None):
+    """A file whose function prefix doesn't match its module name
+    (e.g. real-world `tasty_api.py` defines `tastytrade_transaction`)
+    must still be audited — the fallback finds any top-level
+    `*_transaction` function."""
+    _write_module(tmp_path, "wonky_api.py", """
+        def myfullname_transaction(obj, order_obj, loop=None):
             obj.place_order()
     """)
     broker, findings = audit.audit_file(
-        tmp_path / "src" / "brokerages" / "tasty_api.py",
+        tmp_path / "src" / "brokerages" / "wonky_api.py",
     )
-    assert broker == "tasty"
+    assert broker == "wonky"
     assert len(findings) == 2  # both guards missing
 
 
@@ -199,6 +201,12 @@ def test_real_repo_audit_known_safe_brokers_pass():
         "robinhood",
         "fennel",
         "schwab",
+        # Operator-confirmed unused — exempted, so they pass the audit
+        # without needing the helper wiring.
+        "tasty",
+        "tornado",
+        "tradier",
+        "vanguard",
     }
     regressed = must_pass & failing_brokers
     assert not regressed, (

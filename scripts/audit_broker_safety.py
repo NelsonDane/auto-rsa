@@ -36,12 +36,20 @@ from pathlib import Path
 # needs a tracked reason — don't add without explaining why a real
 # safety guard isn't required.
 EXEMPT_LEDGER: dict[str, str] = {
-    # No exemptions today; all brokers should be ledger-aware so a
-    # retry / re-fire can't double-buy.
+    # Operator-confirmed unused brokers. Module still ships so a
+    # future operator could enable them, but they're not on the
+    # C1/C2 critical path until someone actually runs them.
+    "vanguard": "operator does not use Vanguard",
+    "tradier": "operator does not use Tradier",
+    "tornado": "operator does not use Tornado",
+    "tasty": "operator does not use Tastytrade",
 }
 EXEMPT_ACCOUNT_FILTER: dict[str, str] = {
-    # No exemptions today; every broker that iterates accounts must
-    # honor RSA_ACCOUNT_FILTER.
+    # Same list, same rationale.
+    "vanguard": "operator does not use Vanguard",
+    "tradier": "operator does not use Tradier",
+    "tornado": "operator does not use Tornado",
+    "tasty": "operator does not use Tastytrade",
 }
 
 LEDGER_GUARD_CALLS = frozenset({"record_intent", "mark_result"})
