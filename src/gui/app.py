@@ -1258,6 +1258,64 @@ def _signal_execute_section(vault: Vault, signals: list[Signal]) -> None:
 # --------------------------------------------------------------------------
 # Signals dashboard (M2 — read-only GUI_QUEUE ingest)
 # --------------------------------------------------------------------------
+def _autosell_review_section(vault: Vault) -> None:  # noqa: ARG001
+    """Show positions whose hold_until has passed (Phase 7/8).
+
+    Operator-in-the-loop: each row gets a 'Sell now' button that
+    routes through the existing trade runner with action=sell and the
+    same dry-run gate as a manual sell. Hidden when nothing is due.
+
+    ``vault`` is unused today but kept in the signature for symmetry
+    with the other section helpers; Phase 9 will use it to look up
+    the operator's per-broker filter for the sell selection.
+    """
+    from src.autosell import find_due_sells  # noqa: PLC0415
+
+    runner = _get_runner()
+    try:
+        due = find_due_sells()
+    except Exception as exc:
+        st.warning(f"Auto-sell finder unavailable: {exc}")
+        return
+    if not due:
+        return
+    with st.expander(
+        f"⏳ Auto-sell review — {len(due)} position(s) due",
+        expanded=False,
+    ):
+        st.caption(
+            "Positions whose hold_until is on or before today (NYSE). "
+            "Click 'Sell 1' to dispatch a 1-share sell through the same "
+            "trade runner you use for manual orders — dry-run gate still "
+            "applies, typed-EXECUTE confirm still required for live.",
+        )
+        for i, d in enumerate(due):
+            cols = st.columns([2, 2, 1, 2, 2, 1])
+            cols[0].markdown(f"**{d.ticker}**")
+            cols[1].caption(f"{d.broker}  ·  acct {d.account[-4:] if d.account else 'n/a'}")
+            cols[2].caption(f"qty {d.qty:.0f}")
+            cols[3].caption(d.signal_type)
+            cols[4].caption(f"hold ≤ {d.hold_until}")
+            disabled = runner.is_running()
+            if cols[5].button(
+                "Sell 1", key=f"autosell_btn_{i}",
+                disabled=disabled,
+            ):
+                try:
+                    runner.start_trade(
+                        action="sell", amount=1.0, tickers=[d.ticker],
+                        broker_keys=[d.broker], dry=True,
+                    )
+                except RunBusyError as exc:
+                    st.error(str(exc))
+                else:
+                    st.info(
+                        f"Started DRY sell of {d.ticker} on {d.broker}. "
+                        "Toggle OFF Dry-run + retype EXECUTE in the Trade "
+                        "tab when you're ready for live.",
+                    )
+
+
 def _parse_date(value: str) -> datetime | None:
     """Best-effort parse of a sheet date cell; None if unrecognizable."""
     s = (value or "").strip()
@@ -1512,6 +1570,7 @@ def _tab_signals() -> None:  # noqa: C901, PLR0912, PLR0914, PLR0915
             signals.append(sig)
 
     _signal_execute_section(vault, signals)
+    _autosell_review_section(vault)
 
     now = datetime.now()  # noqa: DTZ005
     week_ago = now - timedelta(days=7)

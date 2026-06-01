@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  AutoRSA auto-sell notifier (LaunchDaemon).
+
+  Reads the local ledger every weekday at 06:30 ET, lists positions
+  whose hold_until has passed, and pings the operator's Discord
+  webhook (if set) so they can open the GUI and review the auto-sell
+  pane. **Never** places orders — the GUI is the only place where
+  a sell actually fires, behind the same typed-EXECUTE gate as a
+  manual sell.
+
+  TEMPLATE: replace every __PLACEHOLDER__ before installing.
+  See deploy/macmini/RUNBOOK.md (§10b).
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.autorsa.autosell</string>
+
+    <key>UserName</key>
+    <string>__MACOS_USER__</string>
+    <key>GroupName</key>
+    <string>staff</string>
+
+    <key>WorkingDirectory</key>
+    <string>__REPO_DIR__</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>__REPO_DIR__/.venv/bin/python</string>
+        <string>-m</string>
+        <string>src.autosell</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <!-- Discord-compatible webhook URL; empty disables the ping. -->
+        <key>RSA_NOTIFY_WEBHOOK</key>
+        <string>__DISCORD_WEBHOOK_URL_OR_EMPTY__</string>
+    </dict>
+
+    <!-- Mon-Fri at 06:30 local (pre-market window). -->
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict>
+            <key>Weekday</key><integer>1</integer>
+            <key>Hour</key><integer>6</integer>
+            <key>Minute</key><integer>30</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key><integer>2</integer>
+            <key>Hour</key><integer>6</integer>
+            <key>Minute</key><integer>30</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key><integer>3</integer>
+            <key>Hour</key><integer>6</integer>
+            <key>Minute</key><integer>30</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key><integer>4</integer>
+            <key>Hour</key><integer>6</integer>
+            <key>Minute</key><integer>30</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key><integer>5</integer>
+            <key>Hour</key><integer>6</integer>
+            <key>Minute</key><integer>30</integer>
+        </dict>
+    </array>
+
+    <key>RunAtLoad</key>
+    <false/>
+    <key>KeepAlive</key>
+    <false/>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>LowPriorityIO</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>__REPO_DIR__/creds/run_logs/autosell.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>__REPO_DIR__/creds/run_logs/autosell.err.log</string>
+</dict>
+</plist>
