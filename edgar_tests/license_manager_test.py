@@ -46,6 +46,26 @@ def test_unlicensed_when_token_unparseable(tmp_path):
     assert manager.current_tier() == "unlicensed"
 
 
+def test_token_unreadable_surfaces_distinct_error(tmp_path):
+    """A corrupt token file must NOT silently look like a fresh
+    install — the GUI banner needs to distinguish 'no token yet'
+    from 'token broken, fix it'."""
+    (tmp_path / "creds" / "license.token").write_text(
+        "not even json", encoding="utf-8",
+    )
+    summary = manager.status_summary()
+    assert summary["tier"] == "unlicensed"
+    assert summary["token_error"]  # truthy, with a human-safe message
+    assert "valid JSON" in summary["token_error"]
+
+
+def test_no_token_file_has_no_token_error(tmp_path):
+    """Fresh install: tier is unlicensed but token_error is None."""
+    summary = manager.status_summary()
+    assert summary["tier"] == "unlicensed"
+    assert summary["token_error"] is None
+
+
 def test_unlicensed_when_token_signed_by_wrong_key(monkeypatch):
     _install_token(
         fresh_payload(tier="operator", hardware_id=fingerprint.hardware_id()),

@@ -64,18 +64,39 @@ def extract_spreadsheet_id(url_or_id: str) -> str:
     return m.group(1) if m else s
 
 
+_REQUIRED_HEADERS: frozenset[str] = frozenset(
+    {"TICKER", "KEY", "ACTION", "EFFECTIVE_DATE",
+     "FRACTIONAL_POLICY", "CONFIDENCE"},
+)
+
+
 def parse_values(values: list[list[object]]) -> list[Signal]:
     """Turn raw ``values`` (incl. header row) into Signals.
 
     Column order is resolved by header name when the header is present
     so a reordered sheet still maps correctly; otherwise positional
     order is assumed. Rows missing a TICKER or KEY are skipped.
+
+    Raises :class:`SheetsError` if a header row exists but any
+    load-bearing column is missing — a friend's typo (e.g.
+    ``EFFECTIVE_DT`` instead of ``EFFECTIVE_DATE``) would otherwise
+    silently default every row's value to ``""`` and bypass the
+    past-effective-date gate in :func:`plan_signals`, surfacing
+    historical splits as actionable.
     """
     if not values:
         return []
     header = [str(c).strip().upper() for c in values[0]]
     is_header = "KEY" in header and "TICKER" in header
     if is_header:
+        missing = _REQUIRED_HEADERS - set(header)
+        if missing:
+            msg = (
+                f"Sheet header is missing required column(s): "
+                f"{sorted(missing)}. Check the upstream Apps Script's "
+                "writeGuiQueue_ for typos."
+            )
+            raise SheetsError(msg)
         idx = {name: header.index(name) for name in header}
         rows = values[1:]
     else:

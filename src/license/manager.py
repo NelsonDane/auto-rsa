@@ -52,8 +52,17 @@ def _evaluate() -> dict[str, Any]:  # noqa: PLR0911
         "license_id": None,
         "in_grace": False,
         "reason": "no token configured",
+        "token_error": None,
     }
-    token = token_store.load()
+    token, load_error = token_store.load_with_status()
+    if load_error is not None:
+        # File present but unreadable/corrupt — distinct from "no
+        # token." The GUI banner uses this to draw a red flag rather
+        # than silently presenting the user as unlicensed (the same
+        # state as fresh-install).
+        out["reason"] = load_error
+        out["token_error"] = load_error
+        return out
     if token is None:
         return out
     if not verify.verify_token(token, _keys.PUBLIC_KEY_B64):
@@ -133,5 +142,10 @@ def status_summary() -> dict[str, Any]:
         "license_id": info["license_id"],
         "in_grace": info["in_grace"],
         "reason": info["reason"],
+        # Non-None ONLY when the token file exists but couldn't be
+        # parsed — distinct from "no token configured". GUI banner
+        # promotes this to a red flag instead of silently showing
+        # unlicensed (which a fresh install also shows).
+        "token_error": info.get("token_error"),
         "hardware_id": fingerprint.hardware_id(),
     }

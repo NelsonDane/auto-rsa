@@ -16,7 +16,6 @@ isn't readable (cap the rule, don't crash the app).
 
 from __future__ import annotations
 
-import contextlib
 import hashlib
 import os
 import platform
@@ -35,6 +34,11 @@ def _ensure_salt() -> bytes:
     Stored alongside the encrypted vault. If it's ever lost the
     fingerprint changes, which is treated the same as moving to a
     new machine (operator re-bind required).
+
+    Race-safe across processes: uses ``O_CREAT|O_EXCL`` so two
+    simultaneous first-starts (GUI + autoexec daemon) can't generate
+    two different salts and silently invalidate each other's tokens.
+    The loser of the race re-reads the winner's salt.
     """
     _SALT_FILE.parent.mkdir(parents=True, exist_ok=True)
     if _SALT_FILE.is_file():
@@ -42,9 +46,21 @@ def _ensure_salt() -> bytes:
         if len(salt) == _SALT_LEN:
             return salt
     salt = os.urandom(_SALT_LEN)
-    _SALT_FILE.write_bytes(salt)
-    with contextlib.suppress(OSError):
-        _SALT_FILE.chmod(0o600)
+    try:
+        # O_EXCL: fail if file already exists. The losing process
+        # falls through to the re-read below — both processes end up
+        # using the salt that won the race.
+        fd = os.open(str(_SALT_FILE), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    except FileExistsError:
+        # Another process beat us; re-read the salt it wrote.
+        return _SALT_FILE.read_bytes()
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(salt)
+    except OSError:
+        # Best-effort: if the write fails, fall back to the value we
+        # generated in memory. Next start will retry the disk write.
+        pass
     return salt
 
 

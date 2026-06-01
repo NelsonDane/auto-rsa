@@ -8,12 +8,20 @@ gate. Quantity is always exactly 1 (decided at execution).
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import TYPE_CHECKING, NamedTuple
+from zoneinfo import ZoneInfo
 
 from src.edgar.classify import is_round_up_fractional
 from src.edgar.keys import split_key as make_split_key
 from src.edgar.market_calendar import parse_effective_date
+
+# Effective dates in GUI_QUEUE are NYSE-relative (the split is a
+# NYSE event). Comparing them against the system-local date means a
+# Mac Mini in PT can still consider an ET-effective-today split as
+# "today" at 9pm PT (midnight ET), and at midnight PT it correctly
+# reads as past. Use ET so the gate matches the event's reality.
+_NYSE_TZ = ZoneInfo("America/New_York")
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -55,10 +63,11 @@ def plan_signals(
 
     ``is_done(split_key)`` reports whether the economic split was
     already executed/in-flight anywhere (ledger.economic_done).
-    ``today`` defaults to the local date; signals whose effective date
-    is strictly before today are skipped (the round has already happened).
+    ``today`` defaults to the current NYSE-zone date (effective dates
+    are NYSE events); signals whose effective date is strictly before
+    today are skipped (the round has already happened).
     """
-    today = today or date.today()  # noqa: DTZ011
+    today = today or datetime.now(_NYSE_TZ).date()
     out: list[PlanItem] = []
     for s in signals:
         conf = _conf(s.confidence)

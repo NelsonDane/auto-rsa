@@ -23,19 +23,39 @@ def path() -> Path:
 
 
 def load() -> dict[str, Any] | None:
-    """Read the cached token, or None if absent/unparseable."""
+    """Read the cached token, or None if absent/unparseable.
+
+    Prefer :func:`load_with_status` when the caller needs to
+    distinguish "no token" from "token unreadable/corrupt" — the
+    latter is a silent-downgrade footgun for the GUI banner.
+    """
+    token, _ = load_with_status()
+    return token
+
+
+def load_with_status() -> tuple[dict[str, Any] | None, str | None]:
+    """Read the token AND return a human-safe error string if any.
+
+    Returns ``(token, None)`` on success or absence (no file = no
+    error; that's the no-license-yet state). Returns
+    ``(None, "<reason>")`` when the file exists but cannot be read
+    or parsed — so the GUI can surface a yellow/red banner instead
+    of silently presenting the user as unlicensed.
+    """
     p = path()
+    if not p.exists():
+        return None, None
     try:
         text = p.read_text(encoding="utf-8")
-    except OSError:
-        return None
+    except OSError as exc:
+        return None, f"token file unreadable: {exc}"
     try:
         data = json.loads(text)
-    except ValueError:
-        return None
+    except ValueError as exc:
+        return None, f"token file is not valid JSON: {exc}"
     if not isinstance(data, dict):
-        return None
-    return data
+        return None, "token file does not contain a JSON object"
+    return data, None
 
 
 def save(token: dict[str, Any]) -> None:

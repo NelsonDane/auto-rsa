@@ -52,10 +52,23 @@ def _get_runner() -> TradeRunner:
 
 
 def _sidebar_license_banner(vault: Vault) -> None:
-    """Compact tier badge: shown only when vault is unlocked."""
-    from src.license import status_summary  # noqa: PLC0415
+    """Compact tier badge: shown only when vault is unlocked.
 
-    info = status_summary()
+    Wrapped in try/except so an import failure inside src.license
+    (e.g. cryptography missing) does not crash the whole sidebar
+    and lock the operator out of unlocking the vault.
+    """
+    try:
+        from src.license import status_summary  # noqa: PLC0415
+
+        info = status_summary()
+    except Exception as exc:
+        st.sidebar.error(
+            f"License module unavailable: {exc}. "
+            "GUI will run as if unlicensed.",
+        )
+        return
+
     tier = info["tier"]
     badge = {
         "operator": "🟣",
@@ -67,9 +80,16 @@ def _sidebar_license_banner(vault: Vault) -> None:
     cap_text = info["cap_text"]
     line = f"{badge} **{info['tier_label']}** · {configured}/{cap_text} brokers"
     st.sidebar.markdown(line)
-    if info["in_grace"]:
+    # Distinguish "token file unreadable" (red, action required) from
+    # "no token yet" (white, just informational).
+    if info.get("token_error"):
+        st.sidebar.error(
+            f"License token can't be read: {info['token_error']}. "
+            "Re-activate or restore from backup.",
+        )
+    elif info["in_grace"]:
         st.sidebar.warning("License in grace window — refresh soon.")
-    if tier == "unlicensed":
+    if tier == "unlicensed" and not info.get("token_error"):
         st.sidebar.caption(
             "Activate a license to add more brokers. Without one you "
             "can configure exactly one broker; swap it any time by "
@@ -772,6 +792,11 @@ def _activity_fragment(runner: TradeRunner) -> None:  # noqa: C901, PLR0912, PLR
 
     Replaces the old whole-app busy-poll, so the rest of the UI stays
     responsive and the Cancel button works during a run.
+
+    Polling continues for the session lifetime (Streamlit's run_every
+    is a decorator-level constant), but once a run reaches a terminal
+    state we render once and then short-circuit subsequent rerenders
+    so the UI doesn't redraw the same final state every 2 seconds.
     """
     snap = runner.snapshot()
     prompt = runner.prompts.snapshot()
@@ -786,6 +811,17 @@ def _activity_fragment(runner: TradeRunner) -> None:  # noqa: C901, PLR0912, PLR
         }[snap.status]
         st.toast(f"Run {snap.status.value}: {snap.description}", icon=icon)
     st.session_state["_last_status"] = snap.status
+
+    # Already-terminal AND nothing changed since last render: skip the
+    # body so the fragment stops redrawing (still polls cheaply).
+    last_log_len = st.session_state.get("_last_log_len", -1)
+    if (
+        snap.status in terminal
+        and prompt is None
+        and len(snap.log) == last_log_len
+    ):
+        return
+    st.session_state["_last_log_len"] = len(snap.log)
 
     status_label = {
         RunStatus.IDLE: "Idle",

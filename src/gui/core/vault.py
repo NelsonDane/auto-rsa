@@ -344,19 +344,26 @@ class Vault:  # noqa: PLR0904
         short substrings.
         """
         out: set[str] = set()
-        min_len = 6
+        # Explicit secrets (FieldSpec.secret=True): redact down to 4
+        # chars — a 4-char PIN or short TOTP digit run is still a
+        # secret and a leak is bad. Raw .env segments use a higher
+        # floor (6) because they get split on ':' / ',' and short
+        # segments often match broker names, action words, etc.,
+        # leading to widespread over-redaction in logs.
+        min_len_secret = 4
+        min_len_raw = 6
         for meta in SUPPORTED_BROKERS:
             for acc in self.get_broker_accounts(meta.key):
                 for spec in meta.fields:
                     if spec.secret:
                         val = (acc.get(spec.key) or "").strip()
-                        if len(val) >= min_len:
+                        if len(val) >= min_len_secret:
                             out.add(val)
             raw = self.get_broker_raw(meta.key)
             if raw:
                 for part in raw.replace(",", ":").split(":"):
                     seg = part.strip()
-                    if len(seg) >= min_len:
+                    if len(seg) >= min_len_raw:
                         out.add(seg)
         sa_json = self.get_sheets_config().get("service_account_json", "")
         if sa_json:
@@ -366,7 +373,7 @@ class Vault:  # noqa: PLR0904
                 sa = {}
             for field in ("private_key", "private_key_id", "client_email"):
                 val = str(sa.get(field, "")).strip()
-                if len(val) >= min_len:
+                if len(val) >= min_len_raw:
                     out.add(val)
         return sorted(out, key=str.__len__, reverse=True)
 
