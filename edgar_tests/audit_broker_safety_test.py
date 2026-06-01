@@ -205,6 +205,7 @@ def test_real_repo_audit_known_safe_brokers_pass():
         "webull",
         "wellsfargo",
         "sofi",
+        "chase",
         # Operator-confirmed unused — exempted, so they pass the audit
         # without needing the helper wiring.
         "tasty",
@@ -219,9 +220,13 @@ def test_real_repo_audit_known_safe_brokers_pass():
     )
 
 
-def test_main_returns_nonzero_when_findings_exist():
-    """Exit code wiring so CI can gate on this script."""
-    assert audit.main() == 1
+def test_main_returns_zero_when_all_brokers_safe():
+    """The full repo audit must return exit-code 0 now that every
+    actively-used broker carries the C1/C2 guards and the
+    operator-confirmed unused brokers are explicitly exempt. CI
+    relies on this — a regression that strips a guard will flip the
+    exit code back to 1 and fail the build."""
+    assert audit.main() == 0
 
 
 def test_helper_pair_satisfies_both_guards(tmp_path):
@@ -279,6 +284,37 @@ def test_helpers_in_a_called_private_function_satisfy_audit(tmp_path):
     """)
     _, findings = audit.audit_file(
         tmp_path / "src" / "brokerages" / "delegating_api.py",
+    )
+    assert findings == []
+
+
+def test_audit_follows_helpers_multiple_hops_deep(tmp_path):
+    """Chase puts the helper pair THREE hops in: chase_transaction
+    -> _process_ticker_orders -> _execute_single_order. The
+    follow-up must be transitive, not single-hop."""
+    _write_module(tmp_path, "deepnest_api.py", """
+        from src.helper_api import reserve_or_skip, complete_or_fail
+
+        def deepnest_transaction(obj, order_obj, loop=None):
+            _stage_one(obj, order_obj, loop)
+
+        def _stage_one(obj, order_obj, loop):
+            _stage_two(obj, order_obj, loop)
+
+        def _stage_two(obj, order_obj, loop):
+            for a in obj.get_accounts():
+                play = reserve_or_skip(
+                    broker_key="deepnest", account=a,
+                    ticker="X", order_obj=order_obj, loop=loop,
+                )
+                if play is None:
+                    continue
+                obj.place_order()
+                complete_or_fail(play, order_obj=order_obj,
+                                 success=True, detail="")
+    """)
+    _, findings = audit.audit_file(
+        tmp_path / "src" / "brokerages" / "deepnest_api.py",
     )
     assert findings == []
 

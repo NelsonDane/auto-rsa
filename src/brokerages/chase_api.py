@@ -22,7 +22,7 @@ from src.brokerages import (
     _chase_holdings_capture,
     _chase_request_timeout,
 )
-from src.helper_api import Brokerage, StockOrder, get_otp_from_discord, print_all_holdings, print_and_discord
+from src.helper_api import Brokerage, StockOrder, complete_or_fail, get_otp_from_discord, print_all_holdings, print_and_discord, reserve_or_skip
 
 # Harden the upstream holdings capture, which times out silently (10s,
 # exact-match XHR) on the degraded post-mobile-approval session.
@@ -372,6 +372,15 @@ def _execute_single_order(ch_session: session.ChaseSession, all_accounts: ch_acc
         print_and_discord(f"{key} {account}: Unable to find account ID, skipping order.", loop)
         return
 
+    # C2 + C1-pre: account filter + ledger intent reservation.
+    play = reserve_or_skip(
+        broker_key="chase", account=account, ticker=ticker,
+        order_obj=order_obj,
+        display_label=f"{key} {account}", loop=loop,
+    )
+    if play is None:
+        return
+
     if order_obj.get_dry():
         print_and_discord("Running in DRY mode. No transactions will be made.", loop)
 
@@ -383,19 +392,35 @@ def _execute_single_order(ch_session: session.ChaseSession, all_accounts: ch_acc
         order_type = order.OrderSide.SELL
 
     chase_order = order.Order(ch_session)
-    messages = chase_order.place_order(
-        account_id=target_account_id,
-        quantity=int(order_obj.get_amount()),
-        price_type=price_type,
-        symbol=ticker,
-        duration=order.Duration.DAY,
-        order_type=order_type,
-        dry_run=order_obj.get_dry(),
-        limit_price=limit_price,
-    )
+    try:
+        messages = chase_order.place_order(
+            account_id=target_account_id,
+            quantity=int(order_obj.get_amount()),
+            price_type=price_type,
+            symbol=ticker,
+            duration=order.Duration.DAY,
+            order_type=order_type,
+            dry_run=order_obj.get_dry(),
+            limit_price=limit_price,
+        )
+    except Exception as exc:
+        complete_or_fail(
+            play, order_obj=order_obj, success=False, detail=str(exc),
+        )
+        raise
 
     print("The order verification produced the following messages: ")
     _process_order_messages(messages, order_obj, key, account, loop)
+    # Chase's order_messages dict carries ORDER INVALID (any non-empty
+    # value = failure) and either ORDER VALIDATION (dry run) or
+    # ORDER CONFIRMATION (live) on success. Use those for the outcome
+    # rather than re-parsing the printed text.
+    invalid = messages.get("ORDER INVALID", "")
+    success = not bool(invalid) and bool(
+        messages.get("ORDER CONFIRMATION") or messages.get("ORDER VALIDATION"),
+    )
+    detail = str(invalid) if invalid else ""
+    complete_or_fail(play, order_obj=order_obj, success=success, detail=detail)
 
 
 def _process_ticker_orders(chase_obj: Brokerage, all_accounts: ch_account.AllAccount, order_obj: StockOrder, ticker: str, loop: asyncio.AbstractEventLoop | None) -> session.ChaseSession | None:

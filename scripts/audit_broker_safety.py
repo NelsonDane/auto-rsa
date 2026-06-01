@@ -96,25 +96,43 @@ def _calls_with_followed_helpers(
     tree: ast.Module,
     fn: ast.FunctionDef | ast.AsyncFunctionDef,
 ) -> set[str]:
-    """Calls in ``fn`` PLUS calls inside any same-module functions it calls.
+    """Calls in ``fn`` PLUS calls inside any same-module functions it
+    transitively calls (fixed-point traversal).
 
-    SoFi-style brokers split ``broker_transaction`` into private async
-    helpers (``_sofi_buy`` / ``_sofi_sell``); the C1/C2 guards must
-    live somewhere in that call chain. One level of follow-through is
-    enough — anything deeper is a code smell worth flagging anyway.
+    Brokers split ``broker_transaction`` into private helpers at
+    varying depths:
+
+    * SoFi: ``sofi_transaction`` → ``_sofi_buy`` / ``_sofi_sell``
+      (1 hop; helpers live in the inner async fns).
+    * Chase: ``chase_transaction`` → ``_process_ticker_orders`` →
+      ``_execute_single_order`` (2 hops; helpers live two levels
+      in to keep the per-account loop colocated with the
+      place_order call).
+
+    Follow same-module calls until no new functions are discovered,
+    then union all reachable call names. Anything deeper than 3 hops
+    is rare enough that ``visited`` keeps us bounded in practice.
     """
-    direct = _function_calls(fn)
-    # Index this module's other top-level functions by name.
     by_name: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] = {}
     for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             by_name[node.name] = node
-    followed: set[str] = set(direct)
-    for name in direct:
-        target = by_name.get(name)
-        if target is not None and target is not fn:
-            followed |= _function_calls(target)
-    return followed
+
+    reachable: set[str] = set()
+    visited: set[str] = set()
+    queue: list[ast.FunctionDef | ast.AsyncFunctionDef] = [fn]
+    while queue:
+        node = queue.pop()
+        if node.name in visited:
+            continue
+        visited.add(node.name)
+        calls_here = _function_calls(node)
+        reachable |= calls_here
+        for name in calls_here:
+            target = by_name.get(name)
+            if target is not None and target.name not in visited:
+                queue.append(target)
+    return reachable
 
 
 def _transaction_function(
