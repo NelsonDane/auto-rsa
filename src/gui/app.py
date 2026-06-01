@@ -1177,40 +1177,44 @@ def _signal_calendar_view(signals: list[Signal]) -> None:  # noqa: C901, PLR0912
         # Pad the last partial week to 7 cells.
         current.extend([None] * (7 - len(current)))
         weeks.append(current)
-    st.markdown("#### 📆 Calendar — next 30 days (last 7 too)")
-    st.caption(
-        "One tile per day. The number is the count of signals with that "
-        "effective date; tickers shown below. Today is highlighted; "
-        "past days are dimmed.",
-    )
-    # Header row: Mon-Sun
-    header_cols = st.columns(7)
-    for i, label in enumerate(_DAYS_OF_WEEK):
-        header_cols[i].markdown(f"**{label}**")
-    for week in weeks:
-        cols = st.columns(7)
-        for i, day in enumerate(week):
-            if day is None:
-                cols[i].markdown(" ")
-                continue
-            iso = day.date().isoformat()
-            day_sigs = by_day.get(iso, [])
-            is_today = iso == today_iso
-            is_past = day.date() < datetime.now().date()  # noqa: DTZ005
-            day_label = f"{day.month}/{day.day}"
-            if is_today:
-                head = f"**🔵 {day_label}**"
-            elif is_past:
-                head = f"_{day_label}_"
-            else:
-                head = day_label
-            count = len(day_sigs)
-            if count:
-                badge = f"**{count} signal{'s' if count != 1 else ''}**"
-                tickers = ", ".join(sorted({s.ticker for s in day_sigs}))
-                cols[i].markdown(f"{head}\n\n{badge}\n\n_{tickers}_")
-            else:
-                cols[i].markdown(head)
+    total_in_window = sum(len(v) for v in by_day.values())
+    with st.expander(
+        f"📆 Open calendar — {total_in_window} signal(s) in next 30 days",
+        expanded=False,
+    ):
+        st.caption(
+            "One tile per day. The number is the count of signals with that "
+            "effective date; tickers shown below. Today is highlighted; "
+            "past days are dimmed. 7 days back, 30 days forward.",
+        )
+        # Header row: Mon-Sun
+        header_cols = st.columns(7)
+        for i, label in enumerate(_DAYS_OF_WEEK):
+            header_cols[i].markdown(f"**{label}**")
+        for week in weeks:
+            cols = st.columns(7)
+            for i, day in enumerate(week):
+                if day is None:
+                    cols[i].markdown(" ")
+                    continue
+                iso = day.date().isoformat()
+                day_sigs = by_day.get(iso, [])
+                is_today = iso == today_iso
+                is_past = day.date() < datetime.now().date()  # noqa: DTZ005
+                day_label = f"{day.month}/{day.day}"
+                if is_today:
+                    head = f"**🔵 {day_label}**"
+                elif is_past:
+                    head = f"_{day_label}_"
+                else:
+                    head = day_label
+                count = len(day_sigs)
+                if count:
+                    badge = f"**{count} signal{'s' if count != 1 else ''}**"
+                    tickers = ", ".join(sorted({s.ticker for s in day_sigs}))
+                    cols[i].markdown(f"{head}\n\n{badge}\n\n_{tickers}_")
+                else:
+                    cols[i].markdown(head)
 
 
 def _signal_rows(signals: list[Signal]) -> list[dict[str, object]]:
