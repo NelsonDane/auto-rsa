@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  AutoRSA encrypted backup uploader (LaunchDaemon).
+
+  Runs weekly: bundles creds/vault.json + creds/ledger.db +
+  creds/license.token, encrypts with the operator-set backup
+  passphrase from creds/backup_config.json, uploads to the
+  configured Google Drive folder, and runs retention.
+
+  TEMPLATE: replace every __PLACEHOLDER__ before installing
+  (see deploy/macmini/RUNBOOK.md). Reuses the same SA JSON file
+  the EDGAR producer already points at — no duplicate secrets.
+
+  Schedule: Sundays at 03:00 local time (low-traffic window;
+  avoids overlap with the EDGAR producer's 30-min cycle).
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.autorsa.backup</string>
+
+    <key>UserName</key>
+    <string>__MACOS_USER__</string>
+    <key>GroupName</key>
+    <string>staff</string>
+
+    <key>WorkingDirectory</key>
+    <string>__REPO_DIR__</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>__REPO_DIR__/.venv/bin/python</string>
+        <string>-m</string>
+        <string>src.backup</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <!-- Same SA file the EDGAR producer uses; '@' prefix tells
+             our _load_sa_json helper to read the file's contents. -->
+        <key>RSA_SHEETS_SA_JSON</key>
+        <string>@__SA_KEY_PATH__</string>
+    </dict>
+
+    <!-- Sunday at 03:00 local. -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key>
+        <integer>0</integer>
+        <key>Hour</key>
+        <integer>3</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+    <key>KeepAlive</key>
+    <false/>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>LowPriorityIO</key>
+    <true/>
+    <key>Nice</key>
+    <integer>5</integer>
+
+    <key>StandardOutPath</key>
+    <string>__REPO_DIR__/creds/run_logs/backup.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>__REPO_DIR__/creds/run_logs/backup.err.log</string>
+</dict>
+</plist>

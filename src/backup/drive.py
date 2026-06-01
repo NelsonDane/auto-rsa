@@ -158,6 +158,34 @@ def list_backups(
     return list(files)
 
 
+def delete_from_drive(sa_json: str, file_id: str) -> None:
+    """Delete a Drive file by ID (used by retention cleanup).
+
+    Returns silently on 404 (already gone) so retention sweeps are
+    idempotent across runs.
+    """
+    if not file_id:
+        msg = "No Drive file ID supplied."
+        raise DriveError(msg)
+    import requests  # noqa: PLC0415
+
+    token = _bearer_token(sa_json)
+    try:
+        resp = requests.delete(
+            f"https://www.googleapis.com/drive/v3/files/{file_id}",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=30,
+        )
+    except requests.RequestException as exc:
+        msg = f"Network error deleting from Google Drive: {exc}"
+        raise DriveError(msg) from exc
+    # Drive returns 204 No Content on success; 404 means already gone.
+    if resp.status_code in {204, _HTTP_NOT_FOUND}:
+        return
+    msg = f"Drive returned HTTP {resp.status_code}: {resp.text[:200]}"
+    raise DriveError(msg)
+
+
 def download_from_drive(sa_json: str, file_id: str) -> bytes:
     """Download a Drive file's bytes by its file ID."""
     if not file_id:

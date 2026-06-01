@@ -137,6 +137,46 @@ sudo launchctl bootout system/com.autorsa.edgar
 sudo rm /Library/LaunchDaemons/com.autorsa.edgar.plist
 ```
 
+## 10a. Optional: weekly encrypted backup to Google Drive
+
+Bundles `creds/vault.json` + `creds/ledger.db` + `creds/license.token`,
+encrypts with a separate passphrase, uploads to a Google Drive folder
+shared with the same SA you set up for Sheets. Runs Sundays at 03:00
+local; manual button in the GUI sidebar always works regardless.
+
+**Configure first** (via the GUI):
+1. In Drive, create a folder named `AutoRSA Backups`. Share it with
+   the SA's `client_email` (Editor). Copy the folder ID from the URL.
+2. In the GUI sidebar → **🔐 Backups (Google Drive)**: paste the
+   folder ID + a backup passphrase + retention count → **Save**.
+3. (Optional) Click **📤 Back up now** once to verify uploads work
+   before scheduling.
+
+**Install the launchd job**:
+```sh
+sed -e "s|__MACOS_USER__|$USER|g" \
+    -e "s|__REPO_DIR__|$PWD|g" \
+    -e "s|__SA_KEY_PATH__|$PWD/creds/sa-key.json|g" \
+    deploy/macmini/com.autorsa.backup.plist \
+  | sudo tee /Library/LaunchDaemons/com.autorsa.backup.plist >/dev/null
+sudo chown root:wheel /Library/LaunchDaemons/com.autorsa.backup.plist
+sudo chmod 644 /Library/LaunchDaemons/com.autorsa.backup.plist
+sudo launchctl bootstrap system /Library/LaunchDaemons/com.autorsa.backup.plist
+sudo launchctl enable system/com.autorsa.backup
+```
+
+Check it:
+```sh
+tail -200 creds/run_logs/backup.out.log
+sudo launchctl kickstart -k system/com.autorsa.backup   # run now (verify)
+```
+
+Uninstall:
+```sh
+sudo launchctl bootout system/com.autorsa.backup
+sudo rm /Library/LaunchDaemons/com.autorsa.backup.plist
+```
+
 ## 11. Optional: shadow executor (M5 phase 1 — no orders)
 
 Reports what it *would* buy from GUI_QUEUE. **Places no orders,

@@ -26,6 +26,7 @@ What's deliberately NOT bundled:
                             license binding. Excluded by design.
 """
 
+from src.backup import config
 from src.backup.bundle import (
     BackupError,
     create_bundle,
@@ -33,17 +34,28 @@ from src.backup.bundle import (
 )
 from src.backup.drive import (
     DriveError,
+    delete_from_drive,
     download_from_drive,
     list_backups,
     upload_to_drive,
+)
+from src.backup.runner import (
+    backup_filename,
+    run_backup,
+    run_restore,
 )
 
 __all__ = [
     "BackupError",
     "DriveError",
+    "backup_filename",
+    "config",
     "create_bundle",
+    "delete_from_drive",
     "download_from_drive",
     "list_backups",
     "restore_bundle",
+    "run_backup",
+    "run_restore",
     "upload_to_drive",
 ]

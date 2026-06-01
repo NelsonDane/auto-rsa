@@ -192,6 +192,153 @@ def _sidebar() -> None:  # noqa: C901, PLR0912, PLR0915
             except VaultError as exc:
                 st.error(str(exc))
 
+    _sidebar_backups(vault)
+
+
+def _sidebar_backups(vault: Vault) -> None:  # noqa: C901, PLR0912, PLR0915
+    """Sidebar Backups section: save config, back up now, restore.
+
+    Service-account credentials come from the existing Sheets config
+    (no duplicate input). Drive folder ID + passphrase are stored
+    plaintext at creds/backup_config.json so the scheduled launchd
+    job can run without the vault master password (same threat
+    model as the unencrypted ledger).
+    """
+    from src.backup import (  # noqa: PLC0415
+        BackupError,
+        DriveError,
+        backup_filename,
+        list_backups,
+        run_backup,
+        run_restore,
+    )
+    from src.backup import config as bcfg  # noqa: PLC0415
+
+    st.sidebar.divider()
+    with st.sidebar.expander("🔐 Backups (Google Drive)"):
+        sheets_cfg = vault.get_sheets_config()
+        sa_json = sheets_cfg.get("service_account_json", "")
+        if not sa_json:
+            st.caption(
+                "Configure the Signals tab's Google Sheet first — "
+                "backups reuse the same service account.",
+            )
+            return
+
+        cfg = bcfg.load()
+        st.caption(
+            "Encrypts vault + ledger + license token with a separate "
+            "passphrase, then uploads to a Google Drive folder shared "
+            "with your service account.",
+        )
+        folder_id = st.text_input(
+            "Drive folder ID",
+            value=cfg.get("drive_folder_id", ""),
+            help="Create a folder in Drive, share it with the SA's "
+            "client_email (Editor), paste the folder ID here.",
+            key="backup_folder_id",
+        )
+        passphrase = st.text_input(
+            "Backup passphrase",
+            type="password",
+            value=cfg.get("passphrase", ""),
+            help="Required to decrypt the backup on restore. Keep it "
+            "somewhere safe (password manager) — losing it makes the "
+            "backups unreadable.",
+            key="backup_passphrase",
+        )
+        retention = st.number_input(
+            "Keep last N backups",
+            min_value=1, max_value=100,
+            value=int(cfg.get("retention", bcfg.DEFAULT_RETENTION)),
+            help="Older backups are auto-deleted from Drive after each "
+            "successful upload.",
+            key="backup_retention",
+        )
+        if st.button("Save backup config"):
+            try:
+                bcfg.save(
+                    drive_folder_id=folder_id.strip(),
+                    passphrase=passphrase,
+                    retention=int(retention),
+                )
+                st.success("Saved.")
+                st.rerun()
+            except ValueError as exc:
+                st.error(str(exc))
+
+        if not bcfg.is_configured():
+            return
+
+        # Manual backup
+        st.divider()
+        if st.button(
+            f"📤 Back up now → {backup_filename()}",
+            help="Creates an encrypted bundle and uploads to Drive.",
+        ):
+            with st.spinner("Encrypting + uploading…"):
+                try:
+                    summary = run_backup(sa_json=sa_json)
+                except (BackupError, DriveError) as exc:
+                    st.error(str(exc))
+                else:
+                    st.success(
+                        f"Uploaded {summary['uploaded']} "
+                        f"({summary['size_bytes']:,} bytes).",
+                    )
+                    if summary["retention_deleted"]:
+                        st.caption(
+                            f"Retention swept "
+                            f"{len(summary['retention_deleted'])} "
+                            "older backup(s).",
+                        )
+
+        # Restore
+        st.divider()
+        st.caption("⚠️ Restore overwrites the live vault / ledger / token. Restart the GUI after.")
+        if st.button("List recent backups"):
+            try:
+                files = list_backups(sa_json, cfg["drive_folder_id"], max_results=20)
+            except DriveError as exc:
+                st.error(str(exc))
+            else:
+                st.session_state["_backup_listing"] = files
+        files = st.session_state.get("_backup_listing", [])
+        if files:
+            labels = {
+                f"{f.get('name', f['id'])}  ({f.get('createdTime', '')[:19].replace('T', ' ')})": f["id"]
+                for f in files
+            }
+            pick = st.selectbox("Pick a backup", list(labels), key="backup_restore_pick")
+            restore_pw = st.text_input(
+                "Passphrase for this backup",
+                type="password",
+                key="backup_restore_pw",
+            )
+            confirm = st.text_input(
+                "Type RESTORE to confirm",
+                key="backup_restore_confirm",
+            )
+            if st.button(
+                "♻️ Restore selected backup",
+                disabled=(confirm != "RESTORE" or not restore_pw),
+            ):
+                with st.spinner("Downloading + decrypting…"):
+                    try:
+                        written = run_restore(
+                            sa_json=sa_json,
+                            file_id=labels[pick],
+                            passphrase=restore_pw,
+                        )
+                    except (BackupError, DriveError) as exc:
+                        st.error(str(exc))
+                    else:
+                        st.success(
+                            f"Restored {', '.join(written)}. "
+                            "Stop and restart the GUI now to "
+                            "reload the on-disk state.",
+                        )
+
 
 # --------------------------------------------------------------------------
 # Status tab
