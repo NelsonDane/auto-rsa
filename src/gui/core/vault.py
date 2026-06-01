@@ -46,6 +46,13 @@ DEFAULT_SETTINGS: dict[str, str] = {
     # original reverse-split flow only — no behavior change until
     # the operator explicitly enables the new types in the GUI.
     "RSA_SIGNAL_TYPES_ENABLED": "ROUND_UP_REVERSE",
+    # Phase 9: operator-set expected profit per fill, in USD. Used
+    # for the Performance dashboard's estimated-profit column.
+    # Blank means "use the code default" (3.50 / 5.00 / 10.00 — see
+    # src/dashboard/per_signal_type.py:DEFAULT_AVG_PROFIT_PER_FILL).
+    "RSA_AVG_PROFIT_ROUND_UP_REVERSE": "",
+    "RSA_AVG_PROFIT_SPIN_OFF": "",
+    "RSA_AVG_PROFIT_SPECIAL_DIV": "",
 }
 
 

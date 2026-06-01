@@ -1690,6 +1690,96 @@ def _play_availability_panel(rows: list[dict[str, object]]) -> None:
         )
 
 
+def _tab_performance() -> None:
+    """Per-signal-type performance dashboard (Phase 9).
+
+    Counts are real (from the ledger). The estimated-profit column
+    is `bought x operator_avg_profit_per_fill` — the operator sets
+    the per-type average via the editor below. Real per-fill P&L
+    would need broker-side price data the ledger doesn't capture,
+    and it varies per account per day — labeled as estimate to
+    keep the dashboard honest.
+    """
+    from src.dashboard import aggregate_by_signal_type  # noqa: PLC0415
+    from src.dashboard.per_signal_type import (  # noqa: PLC0415
+        DEFAULT_AVG_PROFIT_PER_FILL,
+        overrides_from_settings,
+        vault_setting_key,
+    )
+
+    vault = _get_vault()
+    st.subheader("Performance by signal type")
+    if not vault.is_unlocked():
+        st.warning("Unlock the vault in the sidebar first.")
+        return
+
+    rows = ledger.list_executions()
+    settings = vault.get_settings()
+    overrides = overrides_from_settings(settings)
+    metrics = aggregate_by_signal_type(rows, avg_profit_overrides=overrides)
+
+    st.caption(
+        "Counts come from the local ledger and are accurate. "
+        "**Estimated profit** is `bought x avg_profit_per_fill` "
+        "where `avg_profit_per_fill` is YOUR setting below — actual "
+        "per-fill profit varies by broker / account / day and isn't "
+        "captured by this tool. Tune the estimates after a few weeks "
+        "of real fills.",
+    )
+
+    if not rows:
+        st.info("No ledger activity yet — nothing to summarize.")
+        return
+
+    # Table view
+    st.markdown("#### Counts + estimated profit")
+    st.dataframe(
+        [
+            {
+                "Signal type": m.signal_type,
+                "Distinct alerts": m.distinct_alerts,
+                "In-flight": m.intended,
+                "Bought (fills)": m.bought,
+                "Sold (completed)": m.sold,
+                "Failed rows": m.failed,
+                "Completion": f"{m.completion_rate * 100:.0f}%" if m.bought else "—",
+                "Avg profit / fill": f"${m.avg_profit_per_fill_usd:.2f}",
+                "Estimated profit": f"${m.estimated_profit_usd:.2f}",
+            }
+            for m in metrics
+        ],
+        width="stretch",
+        hide_index=True,
+    )
+
+    # Editor for the operator estimates
+    st.markdown("#### Tune avg profit per fill")
+    st.caption(
+        "Blank = use the code default. After a few weeks, "
+        "look at actual fills and refine each per-type estimate.",
+    )
+    new_overrides: dict[str, str] = {}
+    cols = st.columns(3)
+    for i, st_type in enumerate(("ROUND_UP_REVERSE", "SPIN_OFF", "SPECIAL_DIV")):
+        with cols[i]:
+            default = DEFAULT_AVG_PROFIT_PER_FILL.get(st_type, 0.0)
+            current = settings.get(vault_setting_key(st_type), "").strip()
+            val = st.text_input(
+                f"{st_type}",
+                value=current,
+                placeholder=f"(default ${default:.2f})",
+                key=f"perf_avg_{st_type}",
+                help="Dollars per filled buy. Blank to use the default.",
+            )
+            new_overrides[vault_setting_key(st_type)] = val.strip()
+    if st.button("Save avg profit overrides"):
+        merged = dict(settings)
+        merged.update(new_overrides)
+        vault.set_settings(merged)
+        st.success("Saved. Re-render the table to see new estimates.")
+        st.rerun()
+
+
 def _tab_ledger() -> None:
     vault = _get_vault()
     st.subheader("Execution Ledger")
@@ -1759,8 +1849,10 @@ def main() -> None:
     runner = _get_runner()
     _activity_fragment(runner)
 
-    tab_status, tab_creds, tab_signals, tab_trade, tab_ledger, tab_hold = st.tabs(
-        ["Status", "Credentials", "Signals", "Trade", "Ledger", "Balances"],
+    (tab_status, tab_creds, tab_signals, tab_trade,
+     tab_ledger, tab_perf, tab_hold) = st.tabs(
+        ["Status", "Credentials", "Signals", "Trade",
+         "Ledger", "Performance", "Balances"],
     )
     with tab_status:
         _tab_status()
@@ -1772,6 +1864,8 @@ def main() -> None:
         _tab_trade()
     with tab_ledger:
         _tab_ledger()
+    with tab_perf:
+        _tab_performance()
     with tab_hold:
         _tab_holdings()
 
