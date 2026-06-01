@@ -101,6 +101,30 @@ last commit.
     Ruff: `uv run --no-sync ruff check`. Both must be clean — if
     the user is about to push with failures, surface those.
 
+11. **Broker safety guards (C1 + C2).** Run
+    `uv run --no-sync python scripts/audit_broker_safety.py` and
+    report its full output verbatim. The script is the canonical,
+    deterministic detector for the two real-money bugs the audit
+    found:
+    - **C1 (ledger idempotency)**: every broker's `<broker>_transaction`
+      must call `record_intent` AND `mark_result` so a retry / crash-
+      resume / re-fired signal can't double-buy.
+    - **C2 (per-broker account allow-list)**: every broker's
+      `<broker>_transaction` must call `account_allowed(...)` so the
+      GUI's per-account filter (persisted via `RSA_ACCOUNT_FILTER`)
+      is honored.
+
+    The script exits 1 if any broker is unguarded; treat that as
+    a HARD STOP for the push unless a specific broker is in
+    `EXEMPT_LEDGER` / `EXEMPT_ACCOUNT_FILTER` with a documented
+    reason. **Touching that exemption dict counts as a change to
+    real-money safety; flag it for human review.**
+
+    If the diff TOUCHES `src/brokerages/` and the script's output
+    is unchanged, that's good — no new brokers regressed. If a
+    previously-passing broker now fails, that's a regression — block
+    the push and surface which guard was removed.
+
 # Output format
 
 ```
@@ -118,6 +142,7 @@ Checks:
   8. License regression      ✓ clear   |  ✗ <findings>
   9. Model id in commit msg  ✓ clear   |  ✗ <findings>
  10. Tests + ruff            ✓ clear   |  ✗ <findings>
+ 11. Broker C1+C2 audit      ✓ clear   |  ✗ <N guards missing across M brokers>
 
 Verdict: <SAFE TO PUSH | FIX BEFORE PUSH>
 Punch list:
