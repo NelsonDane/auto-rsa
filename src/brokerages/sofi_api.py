@@ -14,7 +14,7 @@ from discord.ext.commands import Bot
 from dotenv import load_dotenv
 from nodriver.core.browser import Browser, tab
 
-from src.helper_api import Brokerage, StockOrder, get_local_timezone, get_otp_from_discord, mask_string, print_all_holdings, print_and_discord
+from src.helper_api import Brokerage, StockOrder, complete_or_fail, get_local_timezone, get_otp_from_discord, mask_string, print_all_holdings, print_and_discord, reserve_or_skip
 
 load_dotenv()
 
@@ -538,14 +538,24 @@ def sofi_transaction(browser: Browser, order_boj: StockOrder, discord_loop: asyn
     dry_mode = order_boj.get_dry()
     for stock in order_boj.get_stocks():
         if order_boj.get_action() == "buy":
-            sofi_loop.run_until_complete(_sofi_buy(browser, stock, order_boj.get_amount(), discord_loop, dry_mode=dry_mode))
+            sofi_loop.run_until_complete(
+                _sofi_buy(
+                    browser, stock, order_boj.get_amount(), discord_loop,
+                    order_obj=order_boj, dry_mode=dry_mode,
+                ),
+            )
         elif order_boj.get_action() == "sell":
-            sofi_loop.run_until_complete(_sofi_sell(browser, stock, order_boj.get_amount(), discord_loop, dry_mode=dry_mode))
+            sofi_loop.run_until_complete(
+                _sofi_sell(
+                    browser, stock, order_boj.get_amount(), discord_loop,
+                    order_obj=order_boj, dry_mode=dry_mode,
+                ),
+            )
         else:
             print(f"Unknown action: {order_boj.get_action()}")
 
 
-async def _sofi_buy(browser: Browser, symbol: str, quantity: float, discord_loop: asyncio.AbstractEventLoop | None = None, *, dry_mode: bool = False) -> None:  # noqa: C901
+async def _sofi_buy(browser: Browser, symbol: str, quantity: float, discord_loop: asyncio.AbstractEventLoop | None = None, *, order_obj: StockOrder | None = None, dry_mode: bool = False) -> None:  # noqa: C901, PLR0912, PLR0915
     page = None
     try:
         # Step 1: Navigate to stock page and get valid cookies
@@ -583,6 +593,22 @@ async def _sofi_buy(browser: Browser, symbol: str, quantity: float, discord_loop
             buying_power = account["accountBuyingPower"]
             account_name = account.get("accountType")
 
+            # C2 + C1-pre: account filter + ledger intent reservation.
+            # order_obj is required for proper ledger semantics; if a
+            # legacy caller passes None we degrade gracefully (no
+            # reservation, no record — the audit script already flags
+            # the call site).
+            play = None
+            if order_obj is not None:
+                play = reserve_or_skip(
+                    broker_key="sofi", account=account_id, ticker=symbol,
+                    order_obj=order_obj,
+                    display_label=f"SoFi {mask_string(account_id)}",
+                    loop=discord_loop,
+                )
+                if play is None:
+                    continue
+
             total_price = limit_price * quantity
             if total_price <= buying_power:
                 if dry_mode:
@@ -591,6 +617,11 @@ async def _sofi_buy(browser: Browser, symbol: str, quantity: float, discord_loop
                         f"[DRY MODE] Would place limit order for {symbol} in account {account_name} with limit price: {limit_price}",
                         discord_loop,
                     )
+                    if play is not None and order_obj is not None:
+                        complete_or_fail(
+                            play, order_obj=order_obj,
+                            success=True, detail="dry run",
+                        )
                     continue
 
                 if quantity < 1:
@@ -619,11 +650,27 @@ async def _sofi_buy(browser: Browser, symbol: str, quantity: float, discord_loop
                         f"Successfully bought {quantity} of {symbol} in account {mask_string(account_id)}",
                         discord_loop,
                     )
+                    if play is not None and order_obj is not None:
+                        complete_or_fail(
+                            play, order_obj=order_obj, success=True,
+                            detail="bought",
+                        )
+                elif play is not None and order_obj is not None:
+                    complete_or_fail(
+                        play, order_obj=order_obj, success=False,
+                        detail=str(result),
+                    )
             else:
                 print_and_discord(
                     f"Insufficient buying power in {account_name}. Needed: {total_price}, Available: {buying_power}",
                     discord_loop,
                 )
+                if play is not None and order_obj is not None:
+                    complete_or_fail(
+                        play, order_obj=order_obj, success=False,
+                        detail=f"insufficient buying power "
+                        f"(need {total_price}, have {buying_power})",
+                    )
     except Exception as e:
         await _sofi_error(
             f"Error during buy transaction for {symbol}: {e}",
@@ -632,7 +679,7 @@ async def _sofi_buy(browser: Browser, symbol: str, quantity: float, discord_loop
         )
 
 
-async def _sofi_sell(browser: Browser, symbol: str, quantity: float, discord_loop: asyncio.AbstractEventLoop | None = None, *, dry_mode: bool = False) -> None:  # noqa: C901, PLR0912
+async def _sofi_sell(browser: Browser, symbol: str, quantity: float, discord_loop: asyncio.AbstractEventLoop | None = None, *, order_obj: StockOrder | None = None, dry_mode: bool = False) -> None:  # noqa: C901, PLR0912, PLR0915
     try:
         # Step 1: Fetch holdings for the stock symbol
         cookies = {cookie.name: cookie.value for cookie in await browser.cookies.get_all()}
@@ -691,12 +738,29 @@ async def _sofi_sell(browser: Browser, symbol: str, quantity: float, discord_loo
                 )
                 continue  # Move to the next account
 
+            # C2 + C1-pre: account filter + ledger intent reservation.
+            play = None
+            if order_obj is not None:
+                play = reserve_or_skip(
+                    broker_key="sofi", account=account_id, ticker=symbol,
+                    order_obj=order_obj,
+                    display_label=f"SoFi {mask_string(account_id)}",
+                    loop=discord_loop,
+                )
+                if play is None:
+                    continue
+
             if dry_mode:
                 # Dry mode: Log what would have been done
                 print_and_discord(
                     f"[DRY MODE] Would place sell order for {quantity} shares of {symbol} in account {mask_string(account_id)}",
                     discord_loop,
                 )
+                if play is not None and order_obj is not None:
+                    complete_or_fail(
+                        play, order_obj=order_obj,
+                        success=True, detail="dry run",
+                    )
                 continue
 
             if quantity < 1:
@@ -725,6 +789,15 @@ async def _sofi_sell(browser: Browser, symbol: str, quantity: float, discord_loo
                 print_and_discord(
                     f"Successfully sold {quantity} of {symbol} in account {mask_string(account_id)}",
                     discord_loop,
+                )
+                if play is not None and order_obj is not None:
+                    complete_or_fail(
+                        play, order_obj=order_obj, success=True, detail="sold",
+                    )
+            elif play is not None and order_obj is not None:
+                complete_or_fail(
+                    play, order_obj=order_obj, success=False,
+                    detail=str(result),
                 )
     except Exception as e:
         await _sofi_error(

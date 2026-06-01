@@ -204,6 +204,7 @@ def test_real_repo_audit_known_safe_brokers_pass():
         "firstrade",
         "webull",
         "wellsfargo",
+        "sofi",
         # Operator-confirmed unused — exempted, so they pass the audit
         # without needing the helper wiring.
         "tasty",
@@ -249,6 +250,35 @@ def test_helper_pair_satisfies_both_guards(tmp_path):
     """)
     _, findings = audit.audit_file(
         tmp_path / "src" / "brokerages" / "neat_api.py",
+    )
+    assert findings == []
+
+
+def test_helpers_in_a_called_private_function_satisfy_audit(tmp_path):
+    """SoFi-style brokers split sofi_transaction into a private async
+    helper (_sofi_buy / _sofi_sell). The audit follows in-module
+    calls one level deep so the helper pair counts even when it's
+    not at the top of the transaction function itself."""
+    _write_module(tmp_path, "delegating_api.py", """
+        from src.helper_api import reserve_or_skip, complete_or_fail
+
+        def delegating_transaction(obj, order_obj, loop=None):
+            return _do_orders(obj, order_obj, loop)
+
+        def _do_orders(obj, order_obj, loop):
+            for account in obj.get_accounts():
+                play = reserve_or_skip(
+                    broker_key="delegating", account=account,
+                    ticker="X", order_obj=order_obj, loop=loop,
+                )
+                if play is None:
+                    continue
+                obj.place_order("X", 1)
+                complete_or_fail(play, order_obj=order_obj,
+                                 success=True, detail="")
+    """)
+    _, findings = audit.audit_file(
+        tmp_path / "src" / "brokerages" / "delegating_api.py",
     )
     assert findings == []
 

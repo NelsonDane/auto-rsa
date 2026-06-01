@@ -92,6 +92,31 @@ def _function_calls(node: ast.AST) -> set[str]:
     return names
 
 
+def _calls_with_followed_helpers(
+    tree: ast.Module,
+    fn: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> set[str]:
+    """Calls in ``fn`` PLUS calls inside any same-module functions it calls.
+
+    SoFi-style brokers split ``broker_transaction`` into private async
+    helpers (``_sofi_buy`` / ``_sofi_sell``); the C1/C2 guards must
+    live somewhere in that call chain. One level of follow-through is
+    enough — anything deeper is a code smell worth flagging anyway.
+    """
+    direct = _function_calls(fn)
+    # Index this module's other top-level functions by name.
+    by_name: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] = {}
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            by_name[node.name] = node
+    followed: set[str] = set(direct)
+    for name in direct:
+        target = by_name.get(name)
+        if target is not None and target is not fn:
+            followed |= _function_calls(target)
+    return followed
+
+
 def _transaction_function(
     tree: ast.Module, broker_key: str,
 ) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
@@ -126,7 +151,7 @@ def audit_file(path: Path) -> tuple[str, list[str]]:
         # but don't fail; the broker can't place orders so the
         # guards are moot.
         return broker, []
-    calls = _function_calls(fn)
+    calls = _calls_with_followed_helpers(tree, fn)
 
     # The helpers in src/helper_api.py wrap both guards. If both are
     # present, treat C1 + C2 as satisfied — but if only one helper is
