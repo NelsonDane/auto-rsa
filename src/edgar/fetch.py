@@ -26,6 +26,19 @@ _ARCHIVES = "https://www.sec.gov/Archives/edgar/data/{cik}/{acc}/{doc}"
 
 DEFAULT_FORMS = ("8-K", "424B1", "424B3", "424B4", "424B5", "DEF 14A", "PRE 14A")
 DEFAULT_QUERIES = ('"reverse stock split"', '"reverse split"')
+
+# Phase 5: spin-off + special-dividend discovery use their own
+# EFTS queries so the existing reverse-split pipeline stays
+# focused. Special dividends most often land in 8-K item 8.01;
+# spin-offs in 8-K + 10-12B + Form 10.
+SPIN_OFF_QUERIES = ('"spin-off"', '"spinoff"', '"distribution of"')
+SPIN_OFF_FORMS = ("8-K", "10-12B", "10-12B/A", "S-1", "S-4")
+SPECIAL_DIV_QUERIES = (
+    '"special cash dividend"',
+    '"special dividend"',
+    '"extraordinary dividend"',
+)
+SPECIAL_DIV_FORMS = ("8-K",)
 _DEFAULT_UA = "AutoRSA reverse-split research (ralanleder@gmail.com)"
 _SEC_SLEEP_S = 0.4
 _HTTP_OK = 200

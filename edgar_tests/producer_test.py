@@ -89,6 +89,9 @@ def test_to_gui_rows_schema():
     assert row[10] == "PENDING"
     # pre-split deadline = last NYSE session before 6/1/2026 (Mon) = Fri 5/29
     assert row[5] == "May 29 by 4pm (Eastern Time)"
+    # SIGNAL_TYPE is the 12th column, defaulting to ROUND_UP_REVERSE
+    # when not explicitly set on the Play.
+    assert row[11] == "ROUND_UP_REVERSE"
 
 
 def test_unspecified_is_not_alert_worthy(monkeypatch):

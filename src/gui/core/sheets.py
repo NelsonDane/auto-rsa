@@ -30,7 +30,12 @@ _HEADER = (
     "SOURCE",
     "KEY",
     "STATUS",
+    "SIGNAL_TYPE",  # Phase 5b — see GUI_QUEUE_HEADER in producer.py
 )
+# Default signal_type when the header is absent (legacy 11-column
+# sheets written before Phase 5b) — keeps the existing reverse-
+# split flow working until the Apps Script is upgraded.
+_DEFAULT_SIGNAL_TYPE = "ROUND_UP_REVERSE"
 _READONLY_SCOPE = "https://www.googleapis.com/auth/spreadsheets.readonly"
 _HTTP_OK = 200
 _HTTP_FORBIDDEN = 403
@@ -42,7 +47,14 @@ class SheetsError(RuntimeError):
 
 
 class Signal(NamedTuple):
-    """One reverse-split play row from GUI_QUEUE."""
+    """One play row from GUI_QUEUE.
+
+    Phase 5b: ``signal_type`` distinguishes ROUND_UP_REVERSE (the
+    pre-existing reverse-split flow) from SPIN_OFF and SPECIAL_DIV
+    so plan_signals can gate execution per type. Defaults to
+    ROUND_UP_REVERSE for sheets written before Phase 5b — those
+    legacy rows still behave exactly as before.
+    """
 
     created_at: str
     ticker: str
@@ -55,6 +67,7 @@ class Signal(NamedTuple):
     source: str
     key: str
     status: str
+    signal_type: str = _DEFAULT_SIGNAL_TYPE
 
 
 def extract_spreadsheet_id(url_or_id: str) -> str:
@@ -130,6 +143,12 @@ def parse_values(values: list[list[object]]) -> list[Signal]:
                 source=cell(row, "SOURCE"),
                 key=key,
                 status=cell(row, "STATUS"),
+                # Phase 5b: legacy 11-column sheets default to
+                # ROUND_UP_REVERSE so the existing flow keeps working
+                # until the upstream Apps Script (Phase 6) is upgraded.
+                signal_type=(
+                    cell(row, "SIGNAL_TYPE") or _DEFAULT_SIGNAL_TYPE
+                ).upper(),
             ),
         )
     return out

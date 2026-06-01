@@ -52,3 +52,42 @@ def split_key(
         return ""
     frac = str(fractional_policy or "").strip().upper()
     return f"{t}|{ratio_n}|{eff_n}|{frac}"
+
+
+def spin_off_key(
+    parent_ticker: str,
+    record_date: str,
+    distribution_ratio: str,
+) -> str:
+    """Economic identity for a spin-off — ``''`` if too sparse to trust.
+
+    Includes the SIGNAL_TYPE prefix so a reverse-split and a spin-off
+    with the same ticker / date never collide in the cross-feed ledger.
+    """
+    t = str(parent_ticker or "").strip().upper()
+    if not t:
+        return ""
+    rd = _WS.sub(" ", str(record_date or "")).strip().upper()
+    dr = re.sub(r"\s+", "", str(distribution_ratio or "")).upper()
+    if not rd and not dr:
+        return ""
+    return f"SPIN_OFF|{t}|{rd}|{dr}"
+
+
+def special_dividend_key(
+    ticker: str,
+    record_date: str,
+    amount_per_share: float | str,
+) -> str:
+    """Economic identity for a special dividend — ``''`` if too sparse."""
+    t = str(ticker or "").strip().upper()
+    if not t:
+        return ""
+    rd = _WS.sub(" ", str(record_date or "")).strip().upper()
+    try:
+        amt = float(amount_per_share or 0)
+    except (TypeError, ValueError):
+        amt = 0.0
+    if not rd and amt == 0.0:
+        return ""
+    return f"SPECIAL_DIV|{t}|{rd}|{amt:.4f}"
