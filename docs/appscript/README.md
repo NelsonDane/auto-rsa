@@ -68,3 +68,55 @@ detect→execute pipeline with Discord removed.
 Fixes the v2.2 limitation where only the first ~10 reverse-split 8-Ks
 in the window were seen. Same signature/return contract — just swap
 the function body.
+
+## v2.3 — signal types (Phase 5/6)
+
+`phase5_signal_types.gs` extends the script to detect TWO new event
+classes alongside the existing reverse-split flow:
+
+- **Spin-offs** — `parseSpinOff_(text)` flags filings announcing a
+  subsidiary distribution (SEC 8-K, S-1, S-4, Form 10). Returns
+  `{matched, confidence, recordDate, distRatio, evidence}`.
+- **Special dividends** — `parseSpecialDividend_(text)` flags
+  one-time cash distributions (SEC 8-K Item 8.01). Returns
+  `{matched, confidence, amountPerShare, exDate, recordDate,
+  paymentDate, evidence}`.
+
+Both are conservative ports of the Python classifiers in
+`src/edgar/classify.py` (parse_spin_off / parse_special_dividend) and
+share the same confidence floor (0.75). False positives cost more than
+misses here — strong trigger phrases AND supporting context required.
+
+Companion changes:
+- **REPLACE** `writeGuiQueue_` with the version in `phase5_signal_types.gs`
+  — adds a 12th column **SIGNAL_TYPE** and accepts `r.signalType`
+  per emitted row (defaults to `ROUND_UP_REVERSE` for back-compat).
+- **RUN ONCE** `migrateGuiQueueHeader_()` from the Apps Script editor
+  to add the SIGNAL_TYPE column header to your existing GUI_QUEUE
+  sheet and backfill existing rows with `ROUND_UP_REVERSE`. Idempotent.
+- **EDIT** `runImportCore_` to also call the two new classifiers per
+  filing and push additional `guiQueueRows` entries when they match.
+  Full wiring example at the bottom of `phase5_signal_types.gs`.
+
+The Python pipeline (`src/edgar/producer.py` + `src/gui/core/sheets.py`)
+handles legacy 11-column sheets by defaulting SIGNAL_TYPE to
+`ROUND_UP_REVERSE`, so you can stage this rollout: ship the Python
+side first (already done), run for a week to verify nothing regresses,
+THEN apply the Apps Script patches.
+
+### GUI_QUEUE columns (v2.3)
+
+| Col | Field | Meaning |
+|---|---|---|
+| A | CREATED_AT | timestamp written |
+| B | TICKER | symbol to act on |
+| C | ACTION | `buy` (pre-split / record date) |
+| D | RATIO | reverse-split ratio OR `1-for-N` distribution ratio OR `$X.XX` for special-div |
+| E | EFFECTIVE_DATE | effective date (reverse split) OR record date (spin-off / special-div) |
+| F | PRESPLIT_DEADLINE | last buy time (prev market day, 4pm ET) — only meaningful for reverse splits |
+| G | FRACTIONAL_POLICY | ROUND_UP / CASH_IN_LIEU / … (blank for spin-off / special-div) |
+| H | CONFIDENCE | 0–1 |
+| I | SOURCE | feed label / type |
+| J | KEY | dedupe key (matches ANNOUNCEMENTS.KEY) |
+| K | STATUS | `PENDING` — the GUI writes back `EXECUTED`/`FAILED`/`SKIPPED` |
+| **L** | **SIGNAL_TYPE** | `ROUND_UP_REVERSE` / `SPIN_OFF` / `SPECIAL_DIV` |
