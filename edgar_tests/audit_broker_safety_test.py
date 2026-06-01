@@ -177,22 +177,33 @@ def test_exemption_dict_short_circuits_a_check(tmp_path, monkeypatch):
 
 # --- repo-level behavior ---------------------------------------------
 
-def test_real_repo_audit_currently_fails_on_known_gap():
-    """Locks in the known baseline (audit C1/C2): every broker except
-    Fidelity is missing guards. If this passes, either the bug was
-    fixed (great — update this test) or the audit logic broke (bad)."""
+def test_real_repo_audit_known_safe_brokers_pass():
+    """The brokers whose C1/C2 fix has landed must continue to pass.
+
+    As brokers get fixed, add them here so a regression that strips a
+    guard from one of them fails loudly. If the entire repo passes
+    (no failing brokers anywhere), the audit script naturally exits
+    0 and CI is green — no further changes needed here.
+    """
     repo = Path(__file__).resolve().parents[1]
-    code, results = audit.audit_repo(repo)
+    _code, results = audit.audit_repo(repo)
     failing_brokers = {b for b, f in results if f}
-    # Locked baseline: Fidelity passes; everyone else fails.
-    assert code == 1
-    assert "fidelity" not in failing_brokers
-    # Spot-check a few we know are unguarded (whole list is fine too).
-    for expected in ("bbae", "chase", "public", "robinhood", "schwab",
-                     "wellsfargo", "tasty"):
-        assert expected in failing_brokers, (
-            f"{expected} should be flagged until C1/C2 are fixed for it"
-        )
+    # Brokers whose C1+C2 fix has already shipped. ADD HERE as more
+    # brokers get fixed; never REMOVE without explicit reason (that
+    # would mask a regression).
+    must_pass = {
+        "fidelity",  # original reference implementation
+        "public",
+        "bbae",
+        "dspac",
+        "robinhood",
+        "fennel",
+    }
+    regressed = must_pass & failing_brokers
+    assert not regressed, (
+        f"These brokers had C1/C2 guards but now fail audit — "
+        f"someone removed a guard: {sorted(regressed)}"
+    )
 
 
 def test_main_returns_nonzero_when_findings_exist():

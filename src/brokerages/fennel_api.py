@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from email_validator import EmailNotValidError, validate_email
 from fennel_invest_api import Fennel
 
-from src.helper_api import Brokerage, StockOrder, print_all_holdings, print_and_discord
+from src.helper_api import Brokerage, StockOrder, complete_or_fail, print_all_holdings, print_and_discord, reserve_or_skip
 
 if TYPE_CHECKING:
     from fennel_invest_api.models.accounts_pb2 import Account
@@ -99,6 +99,14 @@ def fennel_transaction(fbo: Brokerage, order_obj: StockOrder, loop: AbstractEven
             for account in fbo.get_account_numbers(key):
                 obj = cast("Fennel", fbo.get_logged_in_objects(key, "fb"))
                 account_info = cast("Account", fbo.get_logged_in_objects(key, account))
+                # C2 + C1-pre: account filter + ledger intent reservation.
+                play = reserve_or_skip(
+                    broker_key="fennel", account=account, ticker=s,
+                    order_obj=order_obj,
+                    display_label=f"{key} {account}", loop=loop,
+                )
+                if play is None:
+                    continue
                 try:
                     if not order_obj.get_dry():
                         order = obj.place_order(
@@ -108,13 +116,21 @@ def fennel_transaction(fbo: Brokerage, order_obj: StockOrder, loop: AbstractEven
                             side="BUY" if order_obj.get_action().lower() == "buy" else "SELL",
                         )
                         message = f"Success: {order.success}, Status: {order.status}, ID: {order.id}"
+                        success = bool(getattr(order, "success", False))
                     else:
                         message = "Dry Run Success"
+                        success = True
                     print_and_discord(
                         f"{key}: {order_obj.get_action()} {order_obj.get_amount()} of {s} in {account}: {message}",
                         loop,
                     )
+                    complete_or_fail(
+                        play, order_obj=order_obj, success=success, detail=message,
+                    )
                 except Exception as e:
                     print_and_discord(f"{key} {account}: Error placing order: {e}", loop)
                     print(traceback.format_exc())
+                    complete_or_fail(
+                        play, order_obj=order_obj, success=False, detail=str(e),
+                    )
                     continue

@@ -9,7 +9,7 @@ from typing import Any, cast
 
 from dotenv import load_dotenv
 
-from src.helper_api import Brokerage, StockOrder, mask_string, print_all_holdings, print_and_discord
+from src.helper_api import Brokerage, StockOrder, complete_or_fail, mask_string, print_all_holdings, print_and_discord, reserve_or_skip
 from src.vendors.robin_stocks.robin_stocks import robinhood as rh
 
 
@@ -101,7 +101,7 @@ def robinhood_holdings(rho: Brokerage, loop: AbstractEventLoop | None = None) ->
     print_all_holdings(rho, loop)
 
 
-def robinhood_transaction(rho: Brokerage, order_obj: StockOrder, loop: AbstractEventLoop | None = None) -> None:  # noqa: C901, PLR0912
+def robinhood_transaction(rho: Brokerage, order_obj: StockOrder, loop: AbstractEventLoop | None = None) -> None:  # noqa: C901, PLR0912, PLR0915
     """Handle Robinhood API transactions."""
     print()
     print("==============================")
@@ -117,6 +117,14 @@ def robinhood_transaction(rho: Brokerage, order_obj: StockOrder, loop: AbstractE
             for account in rho.get_account_numbers(key):
                 login_with_cache(pickle_path="./creds/", pickle_name=key)
                 print_account = mask_string(account)
+                # C2 + C1-pre: account filter + ledger intent reservation.
+                play = reserve_or_skip(
+                    broker_key="robinhood", account=account, ticker=s,
+                    order_obj=order_obj,
+                    display_label=f"{key} {print_account}", loop=loop,
+                )
+                if play is None:
+                    continue
                 if not order_obj.get_dry():
                     try:
                         # Market order
@@ -149,6 +157,10 @@ def robinhood_transaction(rho: Brokerage, order_obj: StockOrder, loop: AbstractE
                                     f"{key}: Error getting price for {s}",
                                     loop,
                                 )
+                                complete_or_fail(
+                                    play, order_obj=order_obj, success=False,
+                                    detail="quote unavailable",
+                                )
                                 continue
                             limit_order = rh.order(
                                 symbol=s,
@@ -163,6 +175,10 @@ def robinhood_transaction(rho: Brokerage, order_obj: StockOrder, loop: AbstractE
                                     f"{key}: Error {order_obj.get_action()}ing {order_obj.get_amount()} of {s} in {print_account}",
                                     loop,
                                 )
+                                complete_or_fail(
+                                    play, order_obj=order_obj, success=False,
+                                    detail="limit order returned None",
+                                )
                                 continue
                             message = "Success"
                             limit_order = cast("dict[str, str]", limit_order)
@@ -171,6 +187,10 @@ def robinhood_transaction(rho: Brokerage, order_obj: StockOrder, loop: AbstractE
                             print_and_discord(
                                 f"{key}: {order_obj.get_action()} {order_obj.get_amount()} of {s} in {print_account} @ {price}: {message}",
                                 loop,
+                            )
+                            complete_or_fail(
+                                play, order_obj=order_obj,
+                                success=(message == "Success"), detail=message,
                             )
                         else:
                             message = "Success"
@@ -181,11 +201,22 @@ def robinhood_transaction(rho: Brokerage, order_obj: StockOrder, loop: AbstractE
                                 f"{key}: {order_obj.get_action()} {order_obj.get_amount()} of {s} in {print_account}: {message}",
                                 loop,
                             )
+                            complete_or_fail(
+                                play, order_obj=order_obj,
+                                success=(message == "Success"), detail=message,
+                            )
                     except Exception as e:
                         print_and_discord(f"{key} Error submitting order: {e}", loop)
                         print(traceback.format_exc())
+                        complete_or_fail(
+                            play, order_obj=order_obj, success=False, detail=str(e),
+                        )
                 else:
                     print_and_discord(
                         f"{key} {print_account} Running in DRY mode. Transaction would've been: {order_obj.get_action()} {order_obj.get_amount()} of {s}",
                         loop,
+                    )
+                    # Dry run: complete_or_fail is a no-op (see helper docs).
+                    complete_or_fail(
+                        play, order_obj=order_obj, success=True, detail="dry run",
                     )

@@ -10,7 +10,7 @@ from email_validator import EmailNotValidError, validate_email
 from public_api_sdk import AccountType, InstrumentType, OrderExpirationRequest, OrderInstrument, OrderRequest, OrderSide, OrderType, PreflightRequest, PublicApiClient, TimeInForce
 from public_api_sdk.auth_config import ApiKeyAuthConfig
 
-from src.helper_api import Brokerage, StockOrder, mask_string, print_all_holdings, print_and_discord
+from src.helper_api import Brokerage, StockOrder, complete_or_fail, mask_string, print_all_holdings, print_and_discord, reserve_or_skip
 
 TRADABLE_ACCOUNT_TYPES = [
     AccountType.BROKERAGE,
@@ -104,6 +104,14 @@ def public_transaction(pbo: Brokerage, order_obj: StockOrder, loop: AbstractEven
                 # Get Public API object
                 obj = cast("PublicApiClient", pbo.get_logged_in_objects(key, "pb"))
                 print_account = mask_string(account)
+                # C2 + C1-pre: per-account allow-list + ledger intent.
+                play = reserve_or_skip(
+                    broker_key="public", account=account, ticker=s,
+                    order_obj=order_obj,
+                    display_label=f"{key} {print_account}", loop=loop,
+                )
+                if play is None:
+                    continue
                 # Dry run
                 if order_obj.get_dry():
                     try:
@@ -126,6 +134,7 @@ def public_transaction(pbo: Brokerage, order_obj: StockOrder, loop: AbstractEven
                     except Exception as e:
                         print_and_discord(f"DRY RUN: {print_account}: Preflight check failed: {e}", loop)
                         traceback.print_exc()
+                    complete_or_fail(play, order_obj=order_obj, success=True, detail="")
                 else:
                     try:
                         order_request = OrderRequest(
@@ -145,7 +154,9 @@ def public_transaction(pbo: Brokerage, order_obj: StockOrder, loop: AbstractEven
                             f"{order_obj.get_action()} {order_obj.get_amount()} of {s} in {print_account}: Success",
                             loop,
                         )
+                        complete_or_fail(play, order_obj=order_obj, success=True, detail="")
                     except Exception as e:
                         print_and_discord(f"{print_account}: Error placing order: {e}", loop)
                         traceback.print_exc()
+                        complete_or_fail(play, order_obj=order_obj, success=False, detail=str(e))
                         continue

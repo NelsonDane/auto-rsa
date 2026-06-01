@@ -8,7 +8,7 @@ from discord.ext.commands import Bot
 from dotenv import load_dotenv
 from dspac_invest_api import DSPACAPI
 
-from src.helper_api import Brokerage, StockOrder, get_input_from_discord, get_otp_from_discord, mask_string, print_all_holdings, print_and_discord, send_captcha_to_discord
+from src.helper_api import Brokerage, StockOrder, complete_or_fail, get_input_from_discord, get_otp_from_discord, mask_string, print_all_holdings, print_and_discord, reserve_or_skip, send_captcha_to_discord
 
 
 def dspac_init(bot_obj: Bot | None = None, loop: asyncio.AbstractEventLoop | None = None) -> Brokerage | None:
@@ -214,7 +214,7 @@ def dspac_holdings(ds: Brokerage, loop: asyncio.AbstractEventLoop | None = None)
     print_all_holdings(ds, loop, mask_account_number=False)
 
 
-def dspac_transaction(ds: Brokerage, order_obj: StockOrder, loop: asyncio.AbstractEventLoop | None = None) -> None:  # noqa: C901, PLR0912
+def dspac_transaction(ds: Brokerage, order_obj: StockOrder, loop: asyncio.AbstractEventLoop | None = None) -> None:  # noqa: C901, PLR0912, PLR0915
     """Handle Fennel DSPAC transactions."""
     print()
     print("==============================")
@@ -230,6 +230,14 @@ def dspac_transaction(ds: Brokerage, order_obj: StockOrder, loop: asyncio.Abstra
             )
             for account in ds.get_account_numbers(key):
                 obj = cast("DSPACAPI", ds.get_logged_in_objects(key, "ds"))
+                # C2 + C1-pre: account filter + ledger intent reservation.
+                play = reserve_or_skip(
+                    broker_key="dspac", account=account, ticker=s,
+                    order_obj=order_obj,
+                    display_label=f"{key} {account}", loop=loop,
+                )
+                if play is None:
+                    continue
                 try:
                     quantity = order_obj.get_amount()
                     is_dry_run = order_obj.get_dry()
@@ -246,6 +254,10 @@ def dspac_transaction(ds: Brokerage, order_obj: StockOrder, loop: asyncio.Abstra
                             print_and_discord(
                                 f"{key} {account}: Validation failed for buying {quantity} of {s}: {validation_response['Message']}",
                                 loop,
+                            )
+                            complete_or_fail(
+                                play, order_obj=order_obj, success=False,
+                                detail=f"validation failed: {validation_response['Message']}",
                             )
                             continue
                         # Proceed to execute the buy if not in dry run mode
@@ -271,6 +283,10 @@ def dspac_transaction(ds: Brokerage, order_obj: StockOrder, loop: asyncio.Abstra
                                 f"{key} {account}: Error checking holdings: {holdings_response['Message']}",
                                 loop,
                             )
+                            complete_or_fail(
+                                play, order_obj=order_obj, success=False,
+                                detail=f"holdings check failed: {holdings_response['Message']}",
+                            )
                             continue
                         available_amount = float(
                             holdings_response["Data"]["enableAmount"],
@@ -280,6 +296,10 @@ def dspac_transaction(ds: Brokerage, order_obj: StockOrder, loop: asyncio.Abstra
                             print_and_discord(
                                 f"{key} {account}: Not enough shares to sell {quantity} of {s}. Available: {available_amount}",
                                 loop,
+                            )
+                            complete_or_fail(
+                                play, order_obj=order_obj, success=False,
+                                detail=f"insufficient shares: have {available_amount}, want {quantity}",
                             )
                             continue
                         # Validate the sell transaction
@@ -292,6 +312,10 @@ def dspac_transaction(ds: Brokerage, order_obj: StockOrder, loop: asyncio.Abstra
                             print_and_discord(
                                 f"{key} {account}: Validation failed for selling {quantity} of {s}: {validation_response['Message']}",
                                 loop,
+                            )
+                            complete_or_fail(
+                                play, order_obj=order_obj, success=False,
+                                detail=f"validation failed: {validation_response['Message']}",
                             )
                             continue
                         # Proceed to execute the sell if not in dry run mode
@@ -311,7 +335,13 @@ def dspac_transaction(ds: Brokerage, order_obj: StockOrder, loop: asyncio.Abstra
                         f"{key}: {order_obj.get_action().capitalize()} {quantity} of {s} in {account}: {message}",
                         loop,
                     )
+                    complete_or_fail(
+                        play, order_obj=order_obj, success=True, detail=message,
+                    )
                 except Exception as e:
                     print_and_discord(f"{key} {account}: Error placing order: {e}", loop)
                     print(traceback.format_exc())
+                    complete_or_fail(
+                        play, order_obj=order_obj, success=False, detail=str(e),
+                    )
                     continue
