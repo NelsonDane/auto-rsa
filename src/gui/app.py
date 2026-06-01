@@ -1111,6 +1111,108 @@ def _ledger_status(key: str) -> tuple[str, dict[str, int]]:
     return ", ".join(parts) if parts else "—", counts
 
 
+def _bucket_signals_by_day(
+    signals: list[Signal],
+    *,
+    today: datetime | None = None,
+    past_days: int = 7,
+    forward_days: int = 30,
+) -> tuple[list[datetime], dict[str, list[Signal]]]:
+    """Return (ordered list of dates in window, signals bucketed by ISO date).
+
+    Pure helper extracted from the calendar view so it can be unit-tested
+    without Streamlit. Signals without a parseable effective date are
+    excluded (they show up in the 'no parseable date' caption elsewhere).
+    """
+    now = today or datetime.now()  # noqa: DTZ005
+    start = now.date() - timedelta(days=past_days)
+    end = now.date() + timedelta(days=forward_days)
+    days: list[datetime] = []
+    cursor = start
+    while cursor <= end:
+        days.append(datetime(cursor.year, cursor.month, cursor.day))  # noqa: DTZ001
+        cursor += timedelta(days=1)
+    by_day: dict[str, list[Signal]] = {}
+    for sig in signals:
+        eff = _parse_date(sig.effective_date)
+        if eff is None:
+            continue
+        if not (start <= eff.date() <= end):
+            continue
+        by_day.setdefault(eff.date().isoformat(), []).append(sig)
+    return days, by_day
+
+
+_DAYS_OF_WEEK = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+_SUNDAY_WEEKDAY = 6
+
+
+def _signal_calendar_view(signals: list[Signal]) -> None:  # noqa: C901, PLR0912, PLR0914
+    """Render a 7d-back / 30d-forward calendar of upcoming signals.
+
+    One row per ISO week, one column per weekday (Mon→Sun). Each cell
+    shows the date and a count badge if signals are scheduled that day;
+    today's cell is highlighted; past days render dim. Tickers for the
+    day appear as a comma-separated suffix so the operator can scan
+    multi-signal clusters at a glance.
+    """
+    days, by_day = _bucket_signals_by_day(signals)
+    if not days:
+        return
+    today_iso = datetime.now().date().isoformat()  # noqa: DTZ005
+    # Group days into ISO-weeks: list[list[datetime]] (always 7 long;
+    # leading/trailing pad cells are None so weeks always align Mon-Sun).
+    weeks: list[list[datetime | None]] = []
+    current: list[datetime | None] = []
+    # Pad the first row up to Monday.
+    first = days[0]
+    pad_left = first.weekday()  # Mon=0, Sun=6
+    current.extend([None] * pad_left)
+    for d in days:
+        current.append(d)
+        if d.weekday() == _SUNDAY_WEEKDAY:  # Sunday: close the week
+            weeks.append(current)
+            current = []
+    if current:
+        # Pad the last partial week to 7 cells.
+        current.extend([None] * (7 - len(current)))
+        weeks.append(current)
+    st.markdown("#### 📆 Calendar — next 30 days (last 7 too)")
+    st.caption(
+        "One tile per day. The number is the count of signals with that "
+        "effective date; tickers shown below. Today is highlighted; "
+        "past days are dimmed.",
+    )
+    # Header row: Mon-Sun
+    header_cols = st.columns(7)
+    for i, label in enumerate(_DAYS_OF_WEEK):
+        header_cols[i].markdown(f"**{label}**")
+    for week in weeks:
+        cols = st.columns(7)
+        for i, day in enumerate(week):
+            if day is None:
+                cols[i].markdown(" ")
+                continue
+            iso = day.date().isoformat()
+            day_sigs = by_day.get(iso, [])
+            is_today = iso == today_iso
+            is_past = day.date() < datetime.now().date()  # noqa: DTZ005
+            day_label = f"{day.month}/{day.day}"
+            if is_today:
+                head = f"**🔵 {day_label}**"
+            elif is_past:
+                head = f"_{day_label}_"
+            else:
+                head = day_label
+            count = len(day_sigs)
+            if count:
+                badge = f"**{count} signal{'s' if count != 1 else ''}**"
+                tickers = ", ".join(sorted({s.ticker for s in day_sigs}))
+                cols[i].markdown(f"{head}\n\n{badge}\n\n_{tickers}_")
+            else:
+                cols[i].markdown(head)
+
+
 def _signal_rows(signals: list[Signal]) -> list[dict[str, object]]:
     rows: list[dict[str, object]] = []
     for sig in signals:
@@ -1237,6 +1339,8 @@ def _tab_signals() -> None:  # noqa: C901, PLR0912, PLR0914, PLR0915
     m1.metric("Signals loaded", len(signals))
     m2.metric("Upcoming (≤21d)", len(upcoming))
     m3.metric("New this week", len(recent))
+
+    _signal_calendar_view(signals)
 
     st.markdown("#### 📅 Upcoming round-ups")
     if upcoming:
