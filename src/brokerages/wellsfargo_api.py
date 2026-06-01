@@ -20,7 +20,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.support.wait import WebDriverWait
 
-from src.helper_api import Brokerage, StockOrder, check_if_page_loaded, get_local_timezone, get_otp_from_discord, get_selenium_driver, kill_all_selenium_drivers, print_all_holdings, print_and_discord, type_slowly
+from src.helper_api import Brokerage, StockOrder, check_if_page_loaded, complete_or_fail, get_local_timezone, get_otp_from_discord, get_selenium_driver, kill_all_selenium_drivers, print_all_holdings, print_and_discord, reserve_or_skip, type_slowly
 
 
 def _wellsfargo_error(driver: Chrome, error: str) -> None:
@@ -416,6 +416,17 @@ def wellsfargo_transaction(wf_obj: Brokerage, order_obj: StockOrder, loop: async
                 print("Could not change account")
                 kill_all_selenium_drivers(wf_obj)
             for s in order_obj.get_stocks():
+                # C2 + C1-pre: account filter + ledger intent reservation.
+                # WF identifies the account by mask; we use that as the
+                # ledger account identifier so retries match.
+                play = reserve_or_skip(
+                    broker_key="wellsfargo",
+                    account=account_masks[account],
+                    ticker=s, order_obj=order_obj,
+                    display_label=f"{key} {account_masks[account]}", loop=loop,
+                )
+                if play is None:
+                    continue
                 WebDriverWait(driver, 20).until(check_if_page_loaded)
                 # If an order fails need to sort of reset the tradings screen. Refresh does not work
                 if order_failed:
@@ -529,12 +540,18 @@ def wellsfargo_transaction(wf_obj: Brokerage, order_obj: StockOrder, loop: async
                         )
                         driver.execute_script("arguments[0].click();", buy_next)
                         order_failed = False
+                        complete_or_fail(
+                            play, order_obj=order_obj, success=True, detail="",
+                        )
                     elif order_obj.get_dry():
                         print_and_discord(
                             f"DRY: {key} account {wf_obj.get_account_numbers(key)[account]}: {order_obj.get_action()} {order_obj.get_amount()} shares of {s}",
                             loop,
                         )
                         order_failed = True
+                        complete_or_fail(
+                            play, order_obj=order_obj, success=True, detail="dry run",
+                        )
                 except TimeoutException:
                     error_text = driver.find_element(
                         By.XPATH,
@@ -544,6 +561,10 @@ def wellsfargo_transaction(wf_obj: Brokerage, order_obj: StockOrder, loop: async
                     print_and_discord(
                         f"{key} {wf_obj.get_account_numbers(key)[account]}: {order_obj.get_action()} {order_obj.get_amount()} shares of {s}. FAILED! \n{error_text}",
                         loop,
+                    )
+                    complete_or_fail(
+                        play, order_obj=order_obj, success=False,
+                        detail=f"WF preview timeout: {error_text}",
                     )
                     # Cancel the trade
                     cancel_button = WebDriverWait(driver, 3).until(
