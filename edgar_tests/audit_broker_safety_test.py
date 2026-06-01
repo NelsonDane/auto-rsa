@@ -198,6 +198,7 @@ def test_real_repo_audit_known_safe_brokers_pass():
         "dspac",
         "robinhood",
         "fennel",
+        "schwab",
     }
     regressed = must_pass & failing_brokers
     assert not regressed, (

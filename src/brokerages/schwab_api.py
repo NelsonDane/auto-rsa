@@ -10,7 +10,7 @@ from typing import cast
 from dotenv import load_dotenv
 from schwab_api.schwab import Schwab
 
-from src.helper_api import Brokerage, StockOrder, mask_string, print_all_holdings, print_and_discord
+from src.helper_api import Brokerage, StockOrder, complete_or_fail, mask_string, print_all_holdings, print_and_discord, reserve_or_skip
 
 # Define known transaction errors
 TRANSACTION_ERRORS = {
@@ -88,7 +88,7 @@ def schwab_holdings(schwab_o: Brokerage, loop: AbstractEventLoop | None = None) 
     print_all_holdings(schwab_o, loop)
 
 
-def schwab_transaction(schwab_o: Brokerage, order_obj: StockOrder, loop: AbstractEventLoop | None = None) -> None:  # noqa: C901
+def schwab_transaction(schwab_o: Brokerage, order_obj: StockOrder, loop: AbstractEventLoop | None = None) -> None:  # noqa: C901, PLR0912
     """Handle Schwab API transactions."""
     print()
     print("==============================")
@@ -108,6 +108,14 @@ def schwab_transaction(schwab_o: Brokerage, order_obj: StockOrder, loop: Abstrac
                 print_account = mask_string(account)
                 if purchase_accounts != [""] and order_obj.get_action().lower() != "sell" and str(account) not in purchase_accounts:
                     print(f"Skipping account {print_account}, not in SCHWAB_ACCOUNT_NUMBERS")
+                    continue
+                # C2 + C1-pre: account filter + ledger intent reservation.
+                play = reserve_or_skip(
+                    broker_key="schwab", account=account, ticker=s,
+                    order_obj=order_obj,
+                    display_label=f"{key} account {print_account}", loop=loop,
+                )
+                if play is None:
                     continue
                 # If DRY is True, don't actually make the transaction
                 if order_obj.get_dry():
@@ -133,6 +141,10 @@ def schwab_transaction(schwab_o: Brokerage, order_obj: StockOrder, loop: Abstrac
                                 break  # Exit the inner loop once an error is handled
 
                     if handled:
+                        complete_or_fail(
+                            play, order_obj=order_obj, success=False,
+                            detail=str(messages),
+                        )
                         continue  # Skip to the next account or stock
 
                     print_and_discord(
@@ -157,10 +169,17 @@ def schwab_transaction(schwab_o: Brokerage, order_obj: StockOrder, loop: Abstrac
                                 f"{key} account {print_account}: The order verification produced the following messages: {messages}",
                                 loop,
                             )
+                    complete_or_fail(
+                        play, order_obj=order_obj, success=success,
+                        detail=str(messages) if not success else "",
+                    )
                 except Exception as e:
                     print_and_discord(
                         f"{key} {print_account}: Error submitting order: {e}",
                         loop,
                     )
                     print(traceback.format_exc())
+                    complete_or_fail(
+                        play, order_obj=order_obj, success=False, detail=str(e),
+                    )
                 sleep(1)
