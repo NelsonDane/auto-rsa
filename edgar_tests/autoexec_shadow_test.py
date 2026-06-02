@@ -6,10 +6,13 @@ from src.autoexec.shadow import build_shadow, parse_account_filter
 from src.gui.core.sheets import Signal
 
 
-def _sig(ticker, policy, conf, *, key=None, ratio="1-for-30"):
+def _sig(ticker, policy, conf, *, key=None, ratio="1-for-30",
+         eff="December 1, 2099"):
+    """Default effective_date is far in the future so plan_signals
+    doesn't skip on past-date regardless of wall-clock time."""
     return Signal(
         created_at="2026-05-17", ticker=ticker, action="buy", ratio=ratio,
-        effective_date="June 1, 2026", presplit_deadline="",
+        effective_date=eff, presplit_deadline="",
         fractional_policy=policy, confidence=str(conf), source="SEC_EFTS",
         key=key or f"K-{ticker}", status="PENDING",
     )

@@ -16,7 +16,7 @@ from discord.ext.commands import Bot
 from dotenv import load_dotenv
 from fidelity import fidelity
 
-from src.brokerages import _fidelity_afterhours_limit, _fidelity_modal_dismiss, _fidelity_patchright
+from src.brokerages import _fidelity_afterhours_limit, _fidelity_iccmx_and_buy_button, _fidelity_modal_dismiss, _fidelity_patchright
 from src.helper_api import Brokerage, StockOrder, account_allowed, get_otp_from_discord, mask_string, print_all_holdings, print_and_discord
 from src.ledger import Play, mark_result, record_intent
 
@@ -24,6 +24,9 @@ from src.ledger import Play, mark_result, record_intent
 # any FidelityAutomation is constructed, and stop a single rejected
 # order from cascading 30s timeouts into every following account.
 _fidelity_patchright.apply()
+# Apply BEFORE the modal-dismiss / afterhours wrappers so those wrap
+# the fixed transaction (symbol typeahead + fast-fail action menu).
+_fidelity_iccmx_and_buy_button.apply()
 _fidelity_modal_dismiss.apply()
 # Applied last so it is the OUTERMOST transaction wrapper: its retry
 # goes back through the modal-dismiss cleanup on the second attempt.

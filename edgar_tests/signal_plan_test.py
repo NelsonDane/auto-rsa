@@ -33,7 +33,9 @@ def _sig(ticker, policy, conf, *, action="buy", ratio="1-for-40",
 
 def test_actionable_round_up():
     sigs = [_sig("ACME", "ROUND_UP", 0.93)]
-    (item,) = plan_signals(sigs, is_done=lambda _sk: False)
+    (item,) = plan_signals(
+        sigs, is_done=lambda _sk: False, today=date(2026, 5, 26),
+    )
     assert item.decision == DECISION_ACTIONABLE
     assert item.ticker == "ACME"
     assert item.split_key == "ACME|1-FOR-40|JUNE 1, 2026|ROUND_UP"
@@ -47,7 +49,9 @@ def test_skips_non_round_up_and_low_conf_and_sell():
         _sig("SELLCO", "ROUND_UP", 0.93, action="sell"),
         _sig("UNSPEC", "UNSPECIFIED", 0.20),
     ]
-    plan = plan_signals(sigs, is_done=lambda _sk: False)
+    plan = plan_signals(
+        sigs, is_done=lambda _sk: False, today=date(2026, 5, 26),
+    )
     assert {p.ticker: p.decision for p in plan} == {
         "CASHCO": DECISION_SKIP,
         "LOWCO": DECISION_SKIP,
@@ -60,14 +64,19 @@ def test_skips_non_round_up_and_low_conf_and_sell():
 
 def test_skips_when_ledger_says_done():
     sigs = [_sig("DONE", "ROUND_UP", 0.93)]
-    (item,) = plan_signals(sigs, is_done=lambda sk: sk.startswith("DONE|"))
+    (item,) = plan_signals(
+        sigs, is_done=lambda sk: sk.startswith("DONE|"),
+        today=date(2026, 5, 26),
+    )
     assert item.decision == DECISION_SKIP
     assert "already executed" in item.reason
 
 
 def test_bad_confidence_string_is_safe():
     sigs = [_sig("BADCONF", "ROUND_UP", "n/a")]
-    (item,) = plan_signals(sigs, is_done=lambda _sk: False)
+    (item,) = plan_signals(
+        sigs, is_done=lambda _sk: False, today=date(2026, 5, 26),
+    )
     assert item.decision == DECISION_SKIP
     assert item.confidence == 0.0
 
