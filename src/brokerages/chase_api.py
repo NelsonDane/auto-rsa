@@ -365,11 +365,91 @@ def _process_order_messages(messages: dict, order_obj: StockOrder, key: str, acc
             )
 
 
+def _flatten_chase_error(invalid: object) -> str:
+    """Render Chase's ORDER INVALID as a single readable line.
+
+    Chase returns ``tradeErrorMessages`` as a list and the upstream
+    library shoves that list straight into ``ORDER INVALID``. The
+    GUI then shows ``['Trade rejected: insufficient buying power']``
+    — operator-confusing. Flatten lists to ``"; "``-joined strings
+    so the displayed reason reads like a sentence.
+    """
+    if not invalid:
+        return ""
+    if isinstance(invalid, list):
+        return "; ".join(str(m) for m in invalid if m)
+    return str(invalid)
+
+
+def _verify_chase_response(
+    messages: dict, *, symbol: str, quantity: int, action: str,
+) -> str:
+    """Defense-in-depth: confirm Chase's response matches the request.
+
+    Returns an empty string on match (or when there's nothing to
+    verify), or a human-readable mismatch description on failure —
+    same shape as the Fidelity Symbol-mismatch guard. If Chase's
+    validation/confirmation echoes back a different ticker, qty, or
+    side than we asked for, treat the order as FAILED regardless of
+    what ORDER CONFIRMATION says.
+
+    Operates on whichever of ORDER CONFIRMATION (live) or
+    ORDER VALIDATION (dry run) is populated. Both are dicts when
+    Chase returned cleanly; either may be empty string when the
+    order short-circuited at validation.
+    """
+    confirmation = (
+        messages.get("ORDER CONFIRMATION")
+        or messages.get("ORDER VALIDATION")
+    )
+    if not isinstance(confirmation, dict):
+        return ""
+
+    resp_symbol = str(confirmation.get("securitySymbolCode", "")).upper().strip()
+    if resp_symbol and resp_symbol != symbol.upper().strip():
+        return (
+            f"Chase returned wrong symbol: "
+            f"asked {symbol.upper()!r}, got {resp_symbol!r}"
+        )
+
+    resp_qty = confirmation.get("orderQuantity")
+    if resp_qty is not None:
+        try:
+            if int(resp_qty) != int(quantity):
+                return (
+                    f"Chase returned wrong quantity: "
+                    f"asked {quantity}, got {resp_qty}"
+                )
+        except (TypeError, ValueError):
+            pass  # unparseable qty — don't block on a serialization quirk
+
+    resp_action = str(confirmation.get("tradeActionName", "")).upper().strip()
+    if resp_action and resp_action != action.upper().strip():
+        return (
+            f"Chase returned wrong action: "
+            f"asked {action.upper()!r}, got {resp_action!r}"
+        )
+
+    return ""
+
+
 def _execute_single_order(ch_session: session.ChaseSession, all_accounts: ch_account.AllAccount, order_obj: StockOrder, ticker: str, account: str, price_type: order.PriceType, limit_price: float, key: str, loop: asyncio.AbstractEventLoop | None) -> None:  # noqa: PLR0917
     """Execute a single order for one account."""
     target_account_id = get_account_id(all_accounts.account_connectors, account)
     if not target_account_id:
         print_and_discord(f"{key} {account}: Unable to find account ID, skipping order.", loop)
+        return
+
+    # Symbol normalization at the boundary (defense-in-depth, same
+    # spirit as the Fidelity Symbol-input guard): catches stray
+    # whitespace / mixed case before Chase's API silently rejects
+    # the order with a generic 4xx.
+    ticker = (ticker or "").upper().strip()
+    if not ticker:
+        print_and_discord(
+            f"{key} {account}: empty ticker after normalization, skipping.",
+            loop,
+        )
         return
 
     # C2 + C1-pre: account filter + ledger intent reservation.
@@ -415,11 +495,22 @@ def _execute_single_order(ch_session: session.ChaseSession, all_accounts: ch_acc
     # value = failure) and either ORDER VALIDATION (dry run) or
     # ORDER CONFIRMATION (live) on success. Use those for the outcome
     # rather than re-parsing the printed text.
-    invalid = messages.get("ORDER INVALID", "")
+    invalid = _flatten_chase_error(messages.get("ORDER INVALID"))
+    # Defense-in-depth: confirm Chase's response is for the security
+    # we asked about. A mismatch makes ORDER CONFIRMATION irrelevant —
+    # we treat the order as FAILED so the ledger doesn't claim
+    # success for a wrong-ticker fill.
+    mismatch = _verify_chase_response(
+        messages, symbol=ticker, quantity=int(order_obj.get_amount()),
+        action=str(order_type.value if hasattr(order_type, "value") else order_type),
+    )
+    if mismatch:
+        invalid = mismatch
+        print_and_discord(f"{key} {account}: {mismatch}", loop)
     success = not bool(invalid) and bool(
         messages.get("ORDER CONFIRMATION") or messages.get("ORDER VALIDATION"),
     )
-    detail = str(invalid) if invalid else ""
+    detail = invalid or ""
     complete_or_fail(play, order_obj=order_obj, success=success, detail=detail)
 
 
