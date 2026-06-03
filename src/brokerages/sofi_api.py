@@ -242,6 +242,11 @@ def sofi_run(order_obj: StockOrder, command: tuple[str, str] | None = None, bot_
 # run with a clear "[sofi-init] nav timed out" message instead of
 # freezing. Also surfaces per-step traces so we can pinpoint hangs.
 _SOFI_NAV_TIMEOUT_S = 30
+# SoFi's Auth0 redirect chain to the login form occasionally
+# doesn't settle within 30s (operator log showed a 30s timeout
+# right after a 1.0s success the prior run). Give the login-path
+# navs a more lenient bound + one retry.
+_SOFI_LOGIN_NAV_TIMEOUT_S = 60
 
 
 def _sofi_log(step: str, t0: float, extra: str = "") -> None:
@@ -365,7 +370,7 @@ def sofi_init(  # noqa: PLR0917
     return sofi_obj
 
 
-async def _sofi_login_and_account(browser: Browser, page: tab.Tab, account: list[str], name: str, bot_obj: Bot | None = None, discord_loop: asyncio.AbstractEventLoop | None = None, init_t0: float | None = None) -> None:  # noqa: PLR0917
+async def _sofi_login_and_account(browser: Browser, page: tab.Tab, account: list[str], name: str, bot_obj: Bot | None = None, discord_loop: asyncio.AbstractEventLoop | None = None, init_t0: float | None = None) -> None:  # noqa: C901, PLR0915, PLR0917
     """Drive the SoFi login form with timed step traces.
 
     ``init_t0`` shares the [sofi-init] trace timeline so log lines
@@ -386,10 +391,30 @@ async def _sofi_login_and_account(browser: Browser, page: tab.Tab, account: list
             raise Exception(msg)
 
         _sofi_log("login: navigating wealth/app", t0)
-        await _nav_with_timeout(
-            lambda: page.get("https://www.sofi.com/wealth/app"),
-            label="wealth/app nav (login path)", t0=t0,
-        )
+        # One retry: SoFi's Auth0 redirect chain occasionally takes
+        # >30s to settle. A 60s budget + a single retry catches the
+        # transient case without escalating to the 600s watchdog.
+        last_nav_exc: Exception | None = None
+        for nav_attempt in range(2):
+            try:
+                await _nav_with_timeout(
+                    lambda: page.get("https://www.sofi.com/wealth/app"),
+                    label=f"wealth/app nav (login path) attempt {nav_attempt + 1}",
+                    t0=t0,
+                    timeout=_SOFI_LOGIN_NAV_TIMEOUT_S,
+                )
+                last_nav_exc = None
+                break
+            except Exception as exc:
+                last_nav_exc = exc
+                _sofi_log(
+                    f"login: wealth/app nav attempt {nav_attempt + 1} failed; "
+                    "sleeping 3s before retry",
+                    t0,
+                )
+                await asyncio.sleep(3)
+        if last_nav_exc is not None:
+            raise last_nav_exc
         await asyncio.sleep(2)
         _sofi_log("login: locating username input", t0)
         username_input = await asyncio.wait_for(
@@ -447,6 +472,10 @@ async def _sofi_login_and_account(browser: Browser, page: tab.Tab, account: list
             page=page,
             discord_loop=discord_loop,
         )
+        # Re-raise so sofi_init's outer try/except sets init_result
+        # to None and sofi_run skips the holdings/transaction step
+        # instead of pretending login succeeded.
+        raise
 
 
 async def _sofi_account_info(browser: Browser, discord_loop: asyncio.AbstractEventLoop | None = None) -> dict[str, dict[str, float]] | None:
