@@ -59,6 +59,13 @@ _DIRECT_MARKER = "_rsa_chase_direct"
 _VALIDATE_TIMEOUT = 45
 _EXECUTE_TIMEOUT = 45
 _QUOTE_TIMEOUT = 20
+# How long browser.cookies.get_all() can take before we abort. The
+# underlying CDP Storage.getCookies call has been observed hanging
+# indefinitely on multi-account Chase sessions (operator trace Dec
+# 2025: '[chase-direct] T+ 0.00s quote start' followed by silence).
+# 30s is generous; CDP cookie fetches on a healthy session complete
+# in ~50ms.
+_COOKIES_TIMEOUT = 30
 # Quote GETs are idempotent and read-only — retrying is safe and
 # pulls intermittent transient stalls out of the hot path. Order
 # POSTs stay single-shot (retrying execute could double-fill).
@@ -177,9 +184,21 @@ def apply() -> None:  # noqa: C901, PLR0915
 
         # Cookies straight from the browser jar — no page navigation
         # needed. Same call the original makes; lifted before the
-        # page.get() we removed.
+        # page.get() we removed. Bounded so an indefinite CDP
+        # Storage.getCookies hang (observed on multi-account Chase)
+        # aborts cleanly rather than freezing the run.
         try:
-            cookies = await self.session.browser.cookies.get_all()  # type: ignore[attr-defined]
+            cookies = await asyncio.wait_for(
+                self.session.browser.cookies.get_all(),  # type: ignore[attr-defined]
+                timeout=_COOKIES_TIMEOUT,
+            )
+        except TimeoutError:
+            _log("cookies TIMED OUT", t0, f"{_COOKIES_TIMEOUT}s")
+            order_messages["ORDER INVALID"] = (
+                f"Cookie fetch timed out after {_COOKIES_TIMEOUT}s "
+                "(CDP Storage.getCookies hung)."
+            )
+            return order_messages
         except Exception as exc:
             order_messages["ORDER INVALID"] = f"Cookie fetch failed: {exc}"
             return order_messages
@@ -301,7 +320,13 @@ def apply() -> None:  # noqa: C901, PLR0915
                 f"symbol={self.symbol}",  # type: ignore[attr-defined]
             )
             try:
-                cookies = await self.session.browser.cookies.get_all()  # type: ignore[attr-defined]
+                cookies = await asyncio.wait_for(
+                    self.session.browser.cookies.get_all(),  # type: ignore[attr-defined]
+                    timeout=_COOKIES_TIMEOUT,
+                )
+            except TimeoutError:
+                _log("quote cookies TIMED OUT", t0, f"{_COOKIES_TIMEOUT}s")
+                return
             except Exception as exc:
                 _log("quote cookies FAIL", t0, repr(exc))
                 return
