@@ -450,19 +450,41 @@ async def _sofi_login_and_account(browser: Browser, page: tab.Tab, account: list
 
 
 async def _sofi_account_info(browser: Browser, discord_loop: asyncio.AbstractEventLoop | None = None) -> dict[str, dict[str, float]] | None:
+    """Fetch the post-login SoFi account list.
+
+    Traces every step at the `[sofi-holdings]` prefix and bounds the
+    /wealth/app/overview nav so a SoFi splash/redirect hang doesn't
+    blow past the fun_run 600s watchdog. The /json/accounts HTTP
+    fetch already has _HTTP_TIMEOUT (30s); only the browser nav was
+    unbounded.
+    """
+    t0 = datetime.datetime.now(datetime.UTC).timestamp()
+    _sofi_log("holdings: enter", t0)
     try:
         await browser.sleep(1)
-        await browser.get("https://www.sofi.com/wealth/app/overview")
+        _sofi_log("holdings: pre-overview nav", t0)
+        await _nav_with_timeout(
+            lambda: browser.get("https://www.sofi.com/wealth/app/overview"),
+            label="wealth/app/overview nav", t0=t0,
+        )
+        _sofi_log("holdings: post-overview nav, sleeping 5s", t0)
         await browser.sleep(5)
 
-        cookies = await browser.cookies.get_all()
+        _sofi_log("holdings: fetching cookies", t0)
+        cookies = await asyncio.wait_for(
+            browser.cookies.get_all(), timeout=_SOFI_NAV_TIMEOUT_S,
+        )
         cookies_dict = {cookie.name: cookie.value for cookie in cookies}
+        _sofi_log("holdings: cookies fetched", t0, f"n={len(cookies_dict)}")
+
+        _sofi_log("holdings: GET /json/accounts", t0, f"timeout={_HTTP_TIMEOUT}s")
         response = requests.get(
             "https://www.sofi.com/wealth/backend/v1/json/accounts",
             impersonate="chrome", timeout=_HTTP_TIMEOUT,
             headers=_build_headers(),
             cookies=cookies_dict,
         )
+        _sofi_log("holdings: /json/accounts response", t0, f"http={response.status_code}")
 
         if not response.ok:
             msg = f"Failed to fetch account info, status code: {response.status_code}"
@@ -482,7 +504,9 @@ async def _sofi_account_info(browser: Browser, discord_loop: asyncio.AbstractEve
                 "balance": float(current_value),
                 "id": account_id,
             }
+        _sofi_log("holdings: parsed accounts", t0, f"n={len(account_dict)}")
     except Exception as e:
+        _sofi_log("holdings: EXCEPTION", t0, repr(e))
         await _sofi_error(
             f"Error fetching SoFi account information: {e}",
             discord_loop=discord_loop,
@@ -494,12 +518,16 @@ async def _sofi_account_info(browser: Browser, discord_loop: asyncio.AbstractEve
 
 def sofi_holdings(browser: Browser, name: str, sofi_obj: Brokerage, discord_loop: asyncio.AbstractEventLoop | None = None) -> None:
     """Retrieve and display all SoFi account holdings."""
+    t0 = datetime.datetime.now(datetime.UTC).timestamp()
+    _sofi_log(f"holdings: sofi_holdings start name={name}", t0)
     account_dict = sofi_loop.run_until_complete(_sofi_account_info(browser, discord_loop))
     if not account_dict:
         msg = f"Failed to retrieve account info for {name}"
         raise Exception(msg)
+    _sofi_log(f"holdings: got {len(account_dict)} accounts", t0)
 
-    for acct, account_info in account_dict.items():
+    for i, (acct, account_info) in enumerate(account_dict.items(), start=1):
+        _sofi_log(f"holdings: account {i}/{len(account_dict)} {mask_string(acct)}", t0)
         real_account_number = acct
         sofi_obj.set_account_number(name, real_account_number)
         sofi_obj.set_account_totals(name, real_account_number, account_info["balance"])
@@ -510,6 +538,7 @@ def sofi_holdings(browser: Browser, name: str, sofi_obj: Brokerage, discord_loop
         try:
             holdings = _get_holdings_formatted(account_id, cookies)
         except Exception as e:
+            _sofi_log(f"holdings: fetch FAILED for {mask_string(account_id)}", t0, repr(e))
             sofi_loop.run_until_complete(
                 _sofi_error(
                     f"Error fetching holdings for SOFI account {mask_string(account_id)}: {e}",
@@ -517,6 +546,7 @@ def sofi_holdings(browser: Browser, name: str, sofi_obj: Brokerage, discord_loop
                 ),
             )
             continue
+        _sofi_log(f"holdings: got {len(holdings)} positions for {mask_string(account_id)}", t0)
 
         for holding in holdings:
             company_name = str(holding.get("company_name", "N/A"))
@@ -534,6 +564,7 @@ def sofi_holdings(browser: Browser, name: str, sofi_obj: Brokerage, discord_loop
             )
 
     # Log info after holdings are processed
+    _sofi_log("holdings: all done", t0)
     print(f"All holdings processed for {name}.")
     print_all_holdings(sofi_obj, discord_loop)
 
