@@ -555,52 +555,117 @@ async def _sofi_login_and_account(browser: Browser, page: tab.Tab, account: list
         raise
 
 
-async def _sofi_account_info(browser: Browser, discord_loop: asyncio.AbstractEventLoop | None = None) -> dict[str, dict[str, float]] | None:
-    """Fetch the post-login SoFi account list.
+async def _in_page_fetch(
+    browser: Browser, url: str, *, label: str, t0: float,
+    timeout: float = _SOFI_NAV_TIMEOUT_S,  # noqa: ASYNC109
+) -> dict | list | None:
+    """Run ``fetch(url)`` inside the page context and return its JSON.
 
-    Traces every step at the `[sofi-holdings]` prefix and bounds the
-    /wealth/app/overview nav so a SoFi splash/redirect hang doesn't
-    blow past the fun_run 600s watchdog. The /json/accounts HTTP
-    fetch already has _HTTP_TIMEOUT (30s); only the browser nav was
-    unbounded.
+    Why not requests + extracted cookies: nodriver's
+    ``browser.cookies.get_all()`` (CDP ``Storage.getCookies``) was
+    observed hanging post-login on the operator's box, blowing past
+    a 30s timeout. Even when extraction works, ``document.cookie``
+    only returns non-HttpOnly cookies — SoFi's session token is
+    HttpOnly, so direct requests calls would 401 without it.
+
+    Running ``fetch()`` in the page context sidesteps both problems:
+    the browser supplies the session jar (including HttpOnly) and
+    the call goes through ``Runtime.evaluate`` which uses a
+    different CDP code path than ``Storage.getCookies``.
+
+    Returns the parsed JSON body on 2xx, or ``None`` on any failure
+    (logged via ``_sofi_log``). Caller decides whether to raise.
+    """
+    _sofi_log(f"{label}: in-page fetch {url}", t0, f"timeout={timeout}s")
+    # Resolve a tab to evaluate inside. nodriver's browser keeps a
+    # list of open tabs; we want the most recent one (where login
+    # / overview navs landed).
+    tabs = list(getattr(browser, "tabs", []) or [])
+    if not tabs:
+        _sofi_log(f"{label}: no tabs available; aborting fetch", t0)
+        return None
+    page = tabs[-1]
+
+    # The IIFE returns a JSON-serializable dict that nodriver can
+    # parse back to Python. await_promise=True lets the evaluate
+    # call wait for the inner fetch promise to resolve.
+    js = (
+        "(async () => {"
+        f"  const r = await fetch({url!r}, {{"
+        "    credentials: 'include',"
+        "    headers: {"
+        "      'accept': 'application/json',"
+        "      'x-requested-with': 'XMLHttpRequest'"
+        "    }"
+        "  });"
+        "  if (!r.ok) {"
+        "    let body = ''; try { body = await r.text(); } catch (e) {}"
+        "    return {ok: false, status: r.status, body: body.slice(0, 500)};"
+        "  }"
+        "  return {ok: true, data: await r.json()};"
+        "})()"
+    )
+    try:
+        raw = await asyncio.wait_for(
+            page.evaluate(js, await_promise=True),
+            timeout=timeout,
+        )
+    except (TimeoutError, asyncio.CancelledError) as exc:
+        _sofi_log(f"{label}: in-page fetch TIMED OUT", t0, repr(exc))
+        return None
+    except Exception as exc:
+        _sofi_log(f"{label}: in-page fetch EXCEPTION", t0, repr(exc))
+        return None
+    if not isinstance(raw, dict):
+        _sofi_log(f"{label}: unexpected fetch result shape", t0, repr(type(raw)))
+        return None
+    if not raw.get("ok"):
+        _sofi_log(
+            f"{label}: SoFi rejected fetch",
+            t0,
+            f"status={raw.get('status')} body={str(raw.get('body'))[:200]!r}",
+        )
+        return None
+    return raw.get("data")
+
+
+async def _sofi_account_info(browser: Browser, discord_loop: asyncio.AbstractEventLoop | None = None) -> dict[str, dict[str, float]] | None:
+    """Fetch the post-login SoFi account list via in-page fetch().
+
+    Uses ``_in_page_fetch`` instead of extracting cookies +
+    curl_cffi.requests — both because nodriver's cookie
+    extraction was observed hanging on this operator's setup,
+    and because SoFi's HttpOnly session cookie wouldn't be
+    visible to document.cookie anyway.
     """
     t0 = datetime.datetime.now(datetime.UTC).timestamp()
     _sofi_log("holdings: enter", t0)
     try:
         await browser.sleep(1)
         _sofi_log("holdings: pre-overview nav", t0)
-        # SPA — see _soft_nav rationale. The GET /json/accounts
-        # below is the real verification that the session works.
         await _soft_nav(
             lambda: browser.get("https://www.sofi.com/wealth/app/overview"),
             label="wealth/app/overview nav", t0=t0, timeout=10,
         )
-        _sofi_log("holdings: post-overview nav, sleeping 5s", t0)
-        await browser.sleep(5)
+        _sofi_log("holdings: post-overview nav, sleeping 3s", t0)
+        await browser.sleep(3)
 
-        _sofi_log("holdings: fetching cookies", t0)
-        cookies = await asyncio.wait_for(
-            browser.cookies.get_all(), timeout=_SOFI_NAV_TIMEOUT_S,
-        )
-        cookies_dict = {cookie.name: cookie.value for cookie in cookies}
-        _sofi_log("holdings: cookies fetched", t0, f"n={len(cookies_dict)}")
-
-        _sofi_log("holdings: GET /json/accounts", t0, f"timeout={_HTTP_TIMEOUT}s")
-        response = requests.get(
+        accounts_data = await _in_page_fetch(
+            browser,
             "https://www.sofi.com/wealth/backend/v1/json/accounts",
-            impersonate="chrome", timeout=_HTTP_TIMEOUT,
-            headers=_build_headers(),
-            cookies=cookies_dict,
+            label="holdings: /json/accounts", t0=t0,
         )
-        _sofi_log("holdings: /json/accounts response", t0, f"http={response.status_code}")
-
-        if not response.ok:
-            msg = f"Failed to fetch account info, status code: {response.status_code}"
+        if accounts_data is None:
+            msg = (
+                "SoFi /json/accounts fetch failed (see preceding "
+                "[sofi-holdings] line for HTTP status / body)."
+            )
             raise Exception(msg)
+        if not isinstance(accounts_data, list):
+            msg = f"SoFi /json/accounts returned unexpected shape: {type(accounts_data).__name__}"
+            raise Exception(msg)  # noqa: TRY004
 
-        accounts_data = response.json()
         account_dict: dict[str, dict[str, float]] = {}
-
         for account in accounts_data:
             account_number = account["apexAccountId"]
             account_id = account["id"]
@@ -641,10 +706,14 @@ def sofi_holdings(browser: Browser, name: str, sofi_obj: Brokerage, discord_loop
         sofi_obj.set_account_totals(name, real_account_number, account_info["balance"])
 
         account_id = str(account_info.get("id"))
-        cookies = {cookie.name: cookie.value for cookie in sofi_loop.run_until_complete(browser.cookies.get_all())}
-
         try:
-            holdings = _get_holdings_formatted(account_id, cookies)
+            holdings_data = sofi_loop.run_until_complete(
+                _in_page_fetch(
+                    browser,
+                    f"https://www.sofi.com/wealth/backend/api/v3/account/{account_id}/holdings?accountDataType=INTERNAL",
+                    label=f"holdings: account {mask_string(account_id)}", t0=t0,
+                ),
+            )
         except Exception as e:
             _sofi_log(f"holdings: fetch FAILED for {mask_string(account_id)}", t0, repr(e))
             sofi_loop.run_until_complete(
@@ -654,6 +723,21 @@ def sofi_holdings(browser: Browser, name: str, sofi_obj: Brokerage, discord_loop
                 ),
             )
             continue
+        if not isinstance(holdings_data, dict):
+            _sofi_log(
+                f"holdings: account {mask_string(account_id)} fetch returned no data",
+                t0,
+            )
+            continue
+
+        holdings = [
+            {
+                "company_name": str(h.get("symbol", "N/A")) or "N/A",
+                "shares": h.get("shares", "N/A"),
+                "price": h.get("price", "N/A"),
+            }
+            for h in holdings_data.get("holdings", [])
+        ]
         _sofi_log(f"holdings: got {len(holdings)} positions for {mask_string(account_id)}", t0)
 
         for holding in holdings:
