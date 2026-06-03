@@ -661,7 +661,7 @@ async def _sofi_login_and_account(browser: Browser, page: tab.Tab, account: list
         raise
 
 
-async def _in_page_fetch(
+async def _in_page_fetch(  # noqa: PLR0911
     browser: Browser, url: str, *, label: str, t0: float,
     timeout: float = _SOFI_NAV_TIMEOUT_S,  # noqa: ASYNC109
 ) -> dict | list | None:
@@ -681,20 +681,24 @@ async def _in_page_fetch(
 
     Returns the parsed JSON body on 2xx, or ``None`` on any failure
     (logged via ``_sofi_log``). Caller decides whether to raise.
+
+    Implementation detail: the JS wrapper returns
+    ``JSON.stringify({ok, data})`` rather than the object itself.
+    Reason: nodriver's ``Runtime.evaluate`` object-marshalling
+    strips the outer envelope when the resolved promise value is
+    a complex object — operator log Dec 2025 showed our
+    ``{ok:true, data:[...]}`` wrapper coming back as the raw
+    list. JSON-string + Python-side parse is unambiguous.
     """
+    import json as _json  # noqa: PLC0415
+
     _sofi_log(f"{label}: in-page fetch {url}", t0, f"timeout={timeout}s")
-    # Resolve a tab to evaluate inside. nodriver's browser keeps a
-    # list of open tabs; we want the most recent one (where login
-    # / overview navs landed).
     tabs = list(getattr(browser, "tabs", []) or [])
     if not tabs:
         _sofi_log(f"{label}: no tabs available; aborting fetch", t0)
         return None
     page = tabs[-1]
 
-    # The IIFE returns a JSON-serializable dict that nodriver can
-    # parse back to Python. await_promise=True lets the evaluate
-    # call wait for the inner fetch promise to resolve.
     js = (
         "(async () => {"
         f"  const r = await fetch({url!r}, {{"
@@ -706,9 +710,9 @@ async def _in_page_fetch(
         "  });"
         "  if (!r.ok) {"
         "    let body = ''; try { body = await r.text(); } catch (e) {}"
-        "    return {ok: false, status: r.status, body: body.slice(0, 500)};"
+        "    return JSON.stringify({ok: false, status: r.status, body: body.slice(0, 500)});"
         "  }"
-        "  return {ok: true, data: await r.json()};"
+        "  return JSON.stringify({ok: true, data: await r.json()});"
         "})()"
     )
     try:
@@ -722,17 +726,39 @@ async def _in_page_fetch(
     except Exception as exc:
         _sofi_log(f"{label}: in-page fetch EXCEPTION", t0, repr(exc))
         return None
-    if not isinstance(raw, dict):
-        _sofi_log(f"{label}: unexpected fetch result shape", t0, repr(type(raw)))
+
+    # Parse the JSON-string envelope. Tolerate the rare case where
+    # nodriver returns the dict directly anyway (didn't strip the
+    # envelope) so we don't double-parse.
+    if isinstance(raw, str):
+        try:
+            parsed = _json.loads(raw)
+        except ValueError as exc:
+            _sofi_log(
+                f"{label}: returned non-JSON string", t0,
+                f"{exc!r} sample={raw[:200]!r}",
+            )
+            return None
+    elif isinstance(raw, dict):
+        parsed = raw
+    else:
+        _sofi_log(
+            f"{label}: unexpected fetch envelope shape", t0,
+            f"type={type(raw).__name__} sample={str(raw)[:200]!r}",
+        )
         return None
-    if not raw.get("ok"):
+
+    if not isinstance(parsed, dict) or "ok" not in parsed:
+        _sofi_log(f"{label}: envelope missing 'ok' key", t0, repr(parsed)[:200])
+        return None
+    if not parsed.get("ok"):
         _sofi_log(
             f"{label}: SoFi rejected fetch",
             t0,
-            f"status={raw.get('status')} body={str(raw.get('body'))[:200]!r}",
+            f"status={parsed.get('status')} body={str(parsed.get('body'))[:200]!r}",
         )
         return None
-    return raw.get("data")
+    return parsed.get("data")
 
 
 async def _sofi_account_info(browser: Browser, discord_loop: asyncio.AbstractEventLoop | None = None) -> dict[str, dict[str, float]] | None:
