@@ -664,6 +664,8 @@ async def _sofi_login_and_account(browser: Browser, page: tab.Tab, account: list
 async def _in_page_fetch(  # noqa: PLR0911
     browser: Browser, url: str, *, label: str, t0: float,
     timeout: float = _SOFI_NAV_TIMEOUT_S,  # noqa: ASYNC109
+    method: str = "GET",
+    body: dict | None = None,
 ) -> dict | list | None:
     """Run ``fetch(url)`` inside the page context and return its JSON.
 
@@ -675,9 +677,9 @@ async def _in_page_fetch(  # noqa: PLR0911
     HttpOnly, so direct requests calls would 401 without it.
 
     Running ``fetch()`` in the page context sidesteps both problems:
-    the browser supplies the session jar (including HttpOnly) and
-    the call goes through ``Runtime.evaluate`` which uses a
-    different CDP code path than ``Storage.getCookies``.
+    the browser supplies the session jar (including HttpOnly) AND
+    automatically handles CSRF tokens. ``credentials: 'include'``
+    is sufficient for both reads (GET) and writes (POST with body).
 
     Returns the parsed JSON body on 2xx, or ``None`` on any failure
     (logged via ``_sofi_log``). Caller decides whether to raise.
@@ -692,27 +694,37 @@ async def _in_page_fetch(  # noqa: PLR0911
     """
     import json as _json  # noqa: PLC0415
 
-    _sofi_log(f"{label}: in-page fetch {url}", t0, f"timeout={timeout}s")
+    _sofi_log(
+        f"{label}: in-page fetch {method} {url}",
+        t0, f"timeout={timeout}s",
+    )
     tabs = list(getattr(browser, "tabs", []) or [])
     if not tabs:
         _sofi_log(f"{label}: no tabs available; aborting fetch", t0)
         return None
     page = tabs[-1]
 
+    body_js = _json.dumps(body) if body is not None else "null"
     js = (
         "(async () => {"
-        f"  const r = await fetch({url!r}, {{"
+        f"  const init = {{"
+        f"    method: {method!r},"
         "    credentials: 'include',"
         "    headers: {"
         "      'accept': 'application/json',"
+        "      'content-type': 'application/json',"
         "      'x-requested-with': 'XMLHttpRequest'"
         "    }"
-        "  });"
+        "  };"
+        f"  const body = {body_js};"
+        "  if (body !== null) init.body = JSON.stringify(body);"
+        f"  const r = await fetch({url!r}, init);"
         "  if (!r.ok) {"
-        "    let body = ''; try { body = await r.text(); } catch (e) {}"
-        "    return JSON.stringify({ok: false, status: r.status, body: body.slice(0, 500)});"
+        "    let bodyText = ''; try { bodyText = await r.text(); } catch (e) {}"
+        "    return JSON.stringify({ok: false, status: r.status, body: bodyText.slice(0, 500)});"
         "  }"
-        "  return JSON.stringify({ok: true, data: await r.json()});"
+        "  let data; try { data = await r.json(); } catch (e) { data = null; }"
+        "  return JSON.stringify({ok: true, data: data});"
         "})()"
     )
     try:
@@ -727,9 +739,6 @@ async def _in_page_fetch(  # noqa: PLR0911
         _sofi_log(f"{label}: in-page fetch EXCEPTION", t0, repr(exc))
         return None
 
-    # Parse the JSON-string envelope. Tolerate the rare case where
-    # nodriver returns the dict directly anyway (didn't strip the
-    # envelope) so we don't double-parse.
     if isinstance(raw, str):
         try:
             parsed = _json.loads(raw)
@@ -1119,26 +1128,24 @@ def sofi_transaction(browser: Browser, order_boj: StockOrder, discord_loop: asyn
             print(f"Unknown action: {order_boj.get_action()}")
 
 
-async def _sofi_buy(browser: Browser, symbol: str, quantity: float, discord_loop: asyncio.AbstractEventLoop | None = None, *, order_obj: StockOrder | None = None, dry_mode: bool = False) -> None:  # noqa: C901, PLR0912, PLR0915
+async def _sofi_buy(browser: Browser, symbol: str, quantity: float, discord_loop: asyncio.AbstractEventLoop | None = None, *, order_obj: StockOrder | None = None, dry_mode: bool = False) -> None:  # noqa: C901, PLR0912
     page = None
     try:
-        # Step 1: Navigate to stock page and get valid cookies
+        # Step 1: Navigate to the stock page so the browser's session
+        # context is loaded. Cookies / CSRF are NOT extracted -- the
+        # subsequent _in_page_fetch calls reuse the browser's existing
+        # session jar (HttpOnly + CSRF) automatically via
+        # credentials:'include'.
         stock_url = f"https://www.sofi.com/wealth/app/stock/{symbol}"
-        page = await browser.get(stock_url)
-        await page.select("body")
-
-        cookies = {cookie.name: cookie.value for cookie in await browser.cookies.get_all()}
-        if not cookies:
-            msg = "Failed to retrieve valid cookies for the session."
-            raise Exception(msg)
-
-        csrf_token = cookies.get("SOFI_CSRF_COOKIE") or cookies.get("SOFI_R_CSRF_TOKEN")
-        if not csrf_token:
-            msg = "Failed to retrieve CSRF token from cookies."
-            raise Exception(msg)
+        await _soft_nav(
+            lambda: browser.get(stock_url),
+            label=f"buy stock-page nav {symbol}",
+            t0=datetime.datetime.now(datetime.UTC).timestamp(),
+            timeout=10,
+        )
 
         # Step 2: Get the stock price
-        stock_price = await _fetch_stock_price(symbol)
+        stock_price = await _fetch_stock_price(browser, symbol)
         if stock_price is None:
             msg = f"Failed to retrieve stock price for {symbol}"
             raise Exception(msg)
@@ -1146,7 +1153,7 @@ async def _sofi_buy(browser: Browser, symbol: str, quantity: float, discord_loop
         limit_price = stock_price
 
         # Step 3: Fetch all funded accounts and their buying power
-        accounts = await _fetch_funded_accounts(cookies)
+        accounts = await _fetch_funded_accounts(browser)
         if not accounts:
             msg = "Failed to retrieve funded accounts or none available."
             raise Exception(msg)
@@ -1190,24 +1197,13 @@ async def _sofi_buy(browser: Browser, symbol: str, quantity: float, discord_loop
 
                 if quantity < 1:
                     result = await _place_fractional_order(
-                        symbol,
-                        quantity,
-                        account_id,
-                        order_type="BUY",
-                        cookies=cookies,
-                        csrf_token=csrf_token,
-                        discord_loop=discord_loop,
+                        browser, symbol, quantity, account_id,
+                        order_type="BUY", discord_loop=discord_loop,
                     )
                 else:
                     result = await _place_order(
-                        symbol,
-                        quantity,
-                        limit_price,
-                        account_id,
-                        order_type="BUY",
-                        cookies=cookies,
-                        csrf_token=csrf_token,
-                        discord_loop=discord_loop,
+                        browser, symbol, quantity, limit_price, account_id,
+                        order_type="BUY", discord_loop=discord_loop,
                     )
                 if result and result["header"] == "Your order is placed.":  # Success
                     print_and_discord(
@@ -1243,46 +1239,32 @@ async def _sofi_buy(browser: Browser, symbol: str, quantity: float, discord_loop
         )
 
 
-async def _sofi_sell(browser: Browser, symbol: str, quantity: float, discord_loop: asyncio.AbstractEventLoop | None = None, *, order_obj: StockOrder | None = None, dry_mode: bool = False) -> None:  # noqa: C901, PLR0912, PLR0915
+async def _sofi_sell(browser: Browser, symbol: str, quantity: float, discord_loop: asyncio.AbstractEventLoop | None = None, *, order_obj: StockOrder | None = None, dry_mode: bool = False) -> None:  # noqa: C901, PLR0912
+    t0 = datetime.datetime.now(datetime.UTC).timestamp()
     try:
-        # Step 1: Fetch holdings for the stock symbol
-        cookies = {cookie.name: cookie.value for cookie in await browser.cookies.get_all()}
-        if not cookies:
-            msg = "Failed to retrieve valid cookies for the session."
-            raise Exception(msg)
-
-        csrf_token = cookies.get("SOFI_CSRF_COOKIE") or cookies.get("SOFI_R_CSRF_TOKEN")
-        if not csrf_token:
-            msg = "Failed to retrieve CSRF token from cookies."
-            raise Exception(msg)
-
-        # Fetch holdings for the specific symbol
-        holdings_url = f"https://www.sofi.com/wealth/backend/api/v3/customer/holdings/symbol/{symbol}"
-        response = requests.get(
-            holdings_url,
-            impersonate="chrome", timeout=_HTTP_TIMEOUT,
-            headers=_build_headers(),
-            cookies=cookies,
+        # Fetch holdings for the specific symbol via in-page fetch
+        # (no cookie / CSRF extraction; the browser session is used
+        # via credentials:'include').
+        holdings_data = await _in_page_fetch(
+            browser,
+            f"https://www.sofi.com/wealth/backend/api/v3/customer/holdings/symbol/{symbol}",
+            label=f"sell holdings-lookup {symbol}", t0=t0,
         )
+        if not isinstance(holdings_data, dict):
+            msg = f"Failed to fetch holdings for {symbol} (see preceding log)."
+            raise Exception(msg)  # noqa: TRY004
 
-        if not response.ok:
-            msg = f"Failed to fetch holdings for {symbol}. Status code: {response.status_code}"
-            raise Exception(msg)
-
-        holdings_data = response.json()
         account_holding_infos = holdings_data.get("accountHoldingInfos", [])
-
         if not account_holding_infos:
             msg = f"No holdings found for symbol {symbol}. Cannot proceed with the sell order."
             raise Exception(msg)
 
         total_available_shares = sum(info["salableQuantity"] for info in account_holding_infos)
-
         if total_available_shares < quantity:
             msg = f"Not enough shares to sell. Available: {total_available_shares}, Requested: {quantity}"
             raise Exception(msg)
 
-        stock_price = await _fetch_stock_price(symbol)
+        stock_price = await _fetch_stock_price(browser, symbol)
         if stock_price is None:
             msg = f"Failed to retrieve stock price for {symbol}"
             raise Exception(msg)
@@ -1329,25 +1311,13 @@ async def _sofi_sell(browser: Browser, symbol: str, quantity: float, discord_loo
 
             if quantity < 1:
                 result = await _place_fractional_order(
-                    symbol,
-                    quantity,
-                    account_id,
-                    order_type="SELL",
-                    cookies=cookies,
-                    csrf_token=csrf_token,
-                    discord_loop=discord_loop,
+                    browser, symbol, quantity, account_id,
+                    order_type="SELL", discord_loop=discord_loop,
                 )
             else:
-                # Place the sell order
                 result = await _place_order(
-                    symbol,
-                    quantity,
-                    limit_price,
-                    account_id,
-                    order_type="SELL",
-                    cookies=cookies,
-                    csrf_token=csrf_token,
-                    discord_loop=discord_loop,
+                    browser, symbol, quantity, limit_price, account_id,
+                    order_type="SELL", discord_loop=discord_loop,
                 )
             if result and result["header"] == "Your order is placed.":  # Success
                 print_and_discord(
@@ -1370,51 +1340,54 @@ async def _sofi_sell(browser: Browser, symbol: str, quantity: float, discord_loo
         )
 
 
-async def _fetch_funded_accounts(cookies: dict[str, str]) -> dict | None:
-    try:
-        url = "https://www.sofi.com/wealth/backend/api/v1/user/funded-brokerage-accounts"
-        response = requests.get(
-            url,
-            impersonate="chrome", timeout=_HTTP_TIMEOUT,
-            headers=_build_headers(),
-            cookies=cookies,
-        )
-        if response.ok:
-            return response.json()
-        print(f"Failed to fetch funded accounts. Status code: {response.status_code}")
-    except Exception as e:
-        await _sofi_error(f"Error fetching funded accounts: {e}")
+async def _fetch_funded_accounts(browser: Browser) -> list | None:
+    """Fetch SoFi's funded brokerage accounts via in-page fetch."""
+    t0 = datetime.datetime.now(datetime.UTC).timestamp()
+    result = await _in_page_fetch(
+        browser,
+        "https://www.sofi.com/wealth/backend/api/v1/user/funded-brokerage-accounts",
+        label="funded-accounts", t0=t0,
+    )
+    if result is None:
+        return None
+    # SoFi returns a list directly; tolerate either shape.
+    if isinstance(result, list):
+        return result
+    if isinstance(result, dict):
+        return result.get("accounts", result)
     return None
 
 
-async def _fetch_stock_price(symbol: str) -> float | None:
+async def _fetch_stock_price(browser: Browser, symbol: str) -> float | None:
+    """Fetch the current price for a symbol via in-page fetch."""
+    t0 = datetime.datetime.now(datetime.UTC).timestamp()
     try:
         url = f"https://www.sofi.com/wealth/backend/api/v1/tearsheet/quote?symbol={symbol}&productSubtype=BROKERAGE"
-        response = requests.get(url, impersonate="chrome", timeout=_HTTP_TIMEOUT, headers=_build_headers())
-        if response.ok:
-            data = response.json()
+        data = await _in_page_fetch(
+            browser, url, label=f"quote-{symbol}", t0=t0,
+        )
+        if isinstance(data, dict):
             price = data.get("price")
             if price:
                 # Round the price to the nearest second decimal place
                 return round(float(price), 2)
-        print(
-            f"Failed to fetch stock price for {symbol}. Status code: {response.status_code}",
-        )
+        print(f"Failed to fetch stock price for {symbol}.")
     except Exception as e:
         await _sofi_error(f"Error fetching stock price for {symbol}: {e}")
     return None
 
 
 async def _place_order(  # noqa: PLR0917
+    browser: Browser,
     symbol: str,
     quantity: float,
     limit_price: float,
     account_id: str,
     order_type: str,
-    cookies: dict[str, str],
-    csrf_token: str,
     discord_loop: asyncio.AbstractEventLoop | None = None,
 ) -> dict | None:
+    """Place a whole-share LIMIT order via in-page fetch."""
+    t0 = datetime.datetime.now(datetime.UTC).timestamp()
     try:
         payload = {
             "operation": order_type,
@@ -1426,26 +1399,18 @@ async def _place_order(  # noqa: PLR0917
             "accountId": account_id,
             "tradingSession": "CORE_HOURS",
         }
-
-        url = "https://www.sofi.com/wealth/backend/api/v1/trade/order"
-        response = requests.post(
-            url,
-            impersonate="chrome", timeout=_HTTP_TIMEOUT,
-            json=payload,
-            headers=_build_headers(csrf_token),
-            cookies=cookies,
+        result = await _in_page_fetch(
+            browser,
+            "https://www.sofi.com/wealth/backend/api/v1/trade/order",
+            label=f"order-{order_type}-{symbol}", t0=t0,
+            method="POST", body=payload,
         )
-
-        if response.ok:
-            return response.json()
-
-        print(
-            f"Failed to place order for {symbol}. Status code: {response.status_code}",
-        )
-        print(f"Response text: {response.text}")
-        if "cannot be traded" in response.text.lower():
-            msg = f"{symbol} cannot be traded"
-            raise Exception(msg)
+        if result is not None and isinstance(result, dict):
+            return result
+        # _in_page_fetch already logged the SoFi error body. Re-derive
+        # the "cannot be traded" surface for the caller's existing
+        # error-handling branch.
+        print(f"Failed to place order for {symbol} (see [sofi-holdings] log).")
     except Exception as e:
         await _sofi_error(
             f"Error placing order for {symbol}: {e}",
@@ -1455,28 +1420,25 @@ async def _place_order(  # noqa: PLR0917
 
 
 async def _place_fractional_order(  # noqa: PLR0917
+    browser: Browser,
     symbol: str,
     quantity: float,
     account_id: str,
     order_type: str,
-    cookies: dict[str, str],
-    csrf_token: str,
     discord_loop: asyncio.AbstractEventLoop | None = None,
 ) -> dict | None:
+    """Place a fractional MARKET order (sub-1-share) via in-page fetch."""
+    t0 = datetime.datetime.now(datetime.UTC).timestamp()
     try:
-        # Step 1: Fetch the current stock price to calculate cashAmount
-        stock_price = await _fetch_stock_price(symbol)
+        stock_price = await _fetch_stock_price(browser, symbol)
         if stock_price is None:
             msg = f"Failed to retrieve stock price for {symbol}"
             raise Exception(msg)
 
-        # Calculate the cash amount based on the quantity of fractional shares
-        cash_amount = round(stock_price * quantity, 2)  # Round to 2 decimal places for currency
-
-        # Step 2: Prepare payload for the fractional sell order
+        cash_amount = round(stock_price * quantity, 2)
         payload = {
             "operation": order_type,
-            "cashAmount": cash_amount,  # Calculated cash amount based on stock price and quantity
+            "cashAmount": cash_amount,
             "quantity": quantity,
             "symbol": symbol,
             "accountId": account_id,
@@ -1485,27 +1447,18 @@ async def _place_fractional_order(  # noqa: PLR0917
             "tradingSession": "CORE_HOURS",
             "sellAll": False,
         }
-
-        # Step 3: Send the request to sell fractional shares
-        url = "https://www.sofi.com/wealth/backend/api/v1/trade/order-fractional"
-        response = requests.post(
-            url,
-            impersonate="chrome", timeout=_HTTP_TIMEOUT,
-            json=payload,
-            headers=_build_headers(csrf_token),
-            cookies=cookies,
+        result = await _in_page_fetch(
+            browser,
+            "https://www.sofi.com/wealth/backend/api/v1/trade/order-fractional",
+            label=f"order-frac-{order_type}-{symbol}", t0=t0,
+            method="POST", body=payload,
         )
-
-        if response.ok:
-            return response.json()
-
-        print(
-            f"Failed to place fractional sell order for {symbol}. Status code: {response.status_code}",
-        )
-        print(f"Response text: {response.text}")
-        if "cannot be traded" in response.text.lower():
-            msg = f"{symbol} cannot be traded"
-            raise Exception(msg)
+        if result is not None and isinstance(result, dict):
+            return result
+        print(f"Failed to place fractional order for {symbol} (see [sofi-holdings] log).")
     except Exception as e:
-        await _sofi_error(f"Error placing fractional order for {symbol}: {e}", discord_loop=discord_loop)
+        await _sofi_error(
+            f"Error placing fractional order for {symbol}: {e}",
+            discord_loop=discord_loop,
+        )
     return None
