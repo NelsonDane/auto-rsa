@@ -157,7 +157,7 @@ def _find_system_chrome() -> str | None:
     return None
 
 
-def sofi_run(order_obj: StockOrder, command: tuple[str, str] | None = None, bot_obj: Bot | None = None, loop: asyncio.AbstractEventLoop | None = None) -> None:
+def sofi_run(order_obj: StockOrder, command: tuple[str, str] | None = None, bot_obj: Bot | None = None, loop: asyncio.AbstractEventLoop | None = None) -> None:  # noqa: C901, PLR0912, PLR0915
     """Run the SoFi process.
 
     ``command`` is the legacy CLI ``(broker, "_holdings"|"_transaction")``
@@ -221,18 +221,40 @@ def sofi_run(order_obj: StockOrder, command: tuple[str, str] | None = None, bot_
                 sofi_holdings(browser, name, sofi_obj, loop)
             else:
                 sofi_transaction(browser, order_obj, loop)
+            print(f"SoFi {name}: all done.")
     except Exception as e:
         sofi_loop.run_until_complete(_sofi_error(f"Error during SoFi init process: {e}", discord_loop=loop))
         return
     finally:
+        # Cleanup must be bounded -- nodriver's cookies.save() calls
+        # CDP Storage.getCookies internally, which was observed
+        # hanging post-login (same bug we bypassed for the read
+        # path). browser.stop() might also issue CDP calls during
+        # teardown. A frozen cleanup is what kept the browser
+        # window open and prevented the run from reporting
+        # completion. Wrap both in asyncio.wait_for so a hang in
+        # either step times out cleanly instead of freezing.
         if browser and cookie_filename:
             try:
                 sofi_loop.run_until_complete(
-                    _save_cookies_to_pkl(browser, cookie_filename),
+                    asyncio.wait_for(
+                        _save_cookies_to_pkl(browser, cookie_filename),
+                        timeout=10,
+                    ),
                 )
-                browser.stop()
+            except TimeoutError:
+                print("SoFi: cookies.save() timed out (CDP hang); skipping.")
             except Exception as e:
-                sofi_loop.run_until_complete(_sofi_error(f"Error closing the browser: {e}", discord_loop=loop))
+                print(f"SoFi: cookies.save() failed: {e}")
+            # browser.stop() is synchronous in nodriver; if it ever
+            # hangs we can't easily wait_for it, but it usually
+            # completes instantly. Wrapped in try/except so any
+            # teardown error doesn't mask the run's actual outcome.
+            try:
+                browser.stop()
+                print("SoFi: browser closed.")
+            except Exception as e:
+                print(f"SoFi: browser.stop() failed: {e}")
     return
 
 
