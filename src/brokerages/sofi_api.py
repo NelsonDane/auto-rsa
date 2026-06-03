@@ -577,95 +577,79 @@ def _get_2fa_code(secret: str) -> str:
 
 
 async def _handle_2fa(page: tab.Tab, account: list[str], name: str, bot_obj: Bot | None, discord_loop: asyncio.AbstractEventLoop | None, t0: float | None = None, url_hint: str | None = None) -> None:  # noqa: C901, PLR0912, PLR0915, PLR0917
-    """Handle both authenticator app 2FA and SMS-based 2FA.
+    """Handle SoFi's 2FA prompt using URL-based path selection.
 
-    Priority (preserves historical working behavior):
+    SoFi shows ONE of two challenge URLs at this step:
 
-    1. ``secret`` present (TOTP configured in Credentials)
-       -> authenticator path, regardless of URL. SoFi's
-       mfa-sms-challenge page accepts TOTP codes in the same
-       input field; the user reports this has worked in the past.
-    2. ``secret`` absent -> SMS path. URL hint
-       (``mfa-sms-challenge``) is the authoritative signal that
-       SMS was sent; the page-text match
-       ("We've sent a text message to:") is a fallback for
-       when the caller didn't pass a URL.
+    * ``mfa-sms-challenge`` — SoFi already sent a text. The form
+      input only accepts the SMS code, NOT a TOTP code, even when
+      the user has authenticator-app 2FA configured. (Confirmed
+      by operator log Dec 2025: TOTP entered into the SMS form
+      was silently rejected — the page stayed on the challenge
+      URL and the run printed 'init complete' without ever
+      authenticating.)
+    * ``mfa-otp-challenge`` / ``mfa-app-challenge`` — authenticator
+      app step. Form accepts TOTP from a configured secret, or a
+      manually-typed code.
 
-    Three improvements over the previous version:
-    - Re-raises on failure so the caller's outer try/except sets
-      init_result=None instead of silently returning to a
-      'Logged in to SoFi 1!' lie.
-    - [sofi-init] traces at every branch so the operator can see
-      which path fired and where it stopped.
-    - Clearer prompt message ("SoFi {name} SMS code (check your
-      phone):") so the GUI Console tab shows what to enter.
+    So path selection MUST be URL-driven:
+
+    +-----------------------+----------------+------------------+
+    | URL                   | secret set?    | Code source      |
+    +-----------------------+----------------+------------------+
+    | mfa-sms-challenge     | yes OR no      | prompt operator  |
+    |                       |                | (typed-in SMS)   |
+    +-----------------------+----------------+------------------+
+    | mfa-otp-challenge     | yes            | TOTP from secret |
+    +-----------------------+----------------+------------------+
+    | mfa-otp-challenge     | no             | prompt operator  |
+    |                       |                | (typed-in TOTP)  |
+    +-----------------------+----------------+------------------+
+    | (none of the above)   | any            | page-text SMS    |
+    |                       |                | detection then   |
+    |                       |                | prompt           |
+    +-----------------------+----------------+------------------+
+
+    Post-submit: poll the URL for up to 20s. If still on a
+    challenge URL, raise — operator typed a wrong code or SoFi
+    rejected it, and the caller's try/except sets init_result=None
+    so the run doesn't pretend it logged in.
     """
     t0 = t0 if t0 is not None else datetime.datetime.now(datetime.UTC).timestamp()
     _sofi_log("2fa: enter", t0, f"url={url_hint!r}")
     try:
         secret = account[2] if len(account) > 2 else None  # noqa: PLR2004
-        # Checks for people that don't read the README
         if isinstance(secret, str) and (secret.lower() == "none" or secret.lower() == "false"):
             secret = None
 
-        if secret is not None:
-            _sofi_log("2fa: authenticator path (secret configured)", t0)
-            try:
-                remember = await asyncio.wait_for(
-                    page.select("input[id=rememberBrowser]"),
-                    timeout=5,
-                )
-                if remember:
-                    await remember.click()
-            except TimeoutError:
-                print(
-                    f"'rememberBrowser' checkbox not found for {name}. Continuing without it...",
-                )
+        url_lower = (url_hint or "").lower()
+        is_sms_url = "mfa-sms-challenge" in url_lower
+        is_otp_url = (
+            "mfa-otp-challenge" in url_lower
+            or "mfa-app-challenge" in url_lower
+        )
 
-            twofa_input = await page.select("input[id=code]")
-            if not twofa_input:
-                msg = (
-                    f"Unable to locate 2FA input field for {name}. "
-                    f"URL was {url_hint!r}; SoFi may have changed the "
-                    "form."
-                )
-                raise Exception(msg)
-
-            two_fa_code = _get_2fa_code(secret)
-            await twofa_input.send_keys(two_fa_code)
-            verify_button = await page.find("Verify Code")
-            if verify_button:
-                await verify_button.click()
-            _sofi_log("2fa: authenticator code submitted", t0)
-            return
-
-        # SMS path — no secret configured.
-        url_says_sms = "mfa-sms-challenge" in (url_hint or "").lower()
-        sms_2fa_element = None
-        if url_says_sms:
+        # Determine the code SOURCE.
+        if is_sms_url:
             _sofi_log("2fa: SMS path (URL match)", t0)
-            sms_2fa_element = True  # truthy sentinel — URL already confirms
-        else:
-            try:
-                sms_2fa_element = await asyncio.wait_for(
-                    page.find("We've sent a text message to:", best_match=True),
-                    timeout=5,
+            if secret is not None:
+                _sofi_log(
+                    "2fa: NOTE TOTP secret is set but URL is SMS-only; "
+                    "SoFi will reject TOTP here. Prompting for the "
+                    "texted code instead.", t0,
                 )
-                if sms_2fa_element:
-                    _sofi_log("2fa: SMS path (page-text match)", t0)
-            except TimeoutError:
-                _sofi_log("2fa: page-text SMS detection timed out", t0)
+            code_source = "sms"
+        elif is_otp_url:
+            _sofi_log("2fa: authenticator path (URL match)", t0)
+            code_source = "totp" if secret is not None else "prompt"
+        else:
+            # URL is something else (older flow or new variant) —
+            # fall back to the historical behavior: secret-first.
+            _sofi_log("2fa: URL not recognized, falling back", t0)
+            code_source = "totp" if secret is not None else "sms"
 
-        if not sms_2fa_element:
-            msg = (
-                f"No valid 2FA method found for SoFi {name}. URL "
-                f"is {url_hint!r}; page didn't expose any SMS marker. "
-                "Add the TOTP secret in Credentials for a stable "
-                "authenticator-app path."
-            )
-            raise Exception(msg)
-
-        # SMS code entry
+        # Tick the "Remember this browser" checkbox if SoFi shows
+        # one — same on both challenge pages.
         try:
             remember = await asyncio.wait_for(
                 page.select("input[id=rememberBrowser]"),
@@ -673,42 +657,80 @@ async def _handle_2fa(page: tab.Tab, account: list[str], name: str, bot_obj: Bot
             )
             if remember:
                 await remember.click()
+                _sofi_log("2fa: rememberBrowser ticked", t0)
         except TimeoutError:
-            print(
-                f"'rememberBrowser' checkbox not found for {name}. Continuing without it...",
-            )
+            _sofi_log("2fa: no rememberBrowser checkbox; continuing", t0)
 
-        sms2fa_input = await page.select("input[id=code]")
-        if not sms2fa_input:
+        # Locate the code input. Same id on both challenge pages.
+        code_input = await page.select("input[id=code]")
+        if not code_input:
             msg = (
-                f"Unable to locate SMS 2FA input field for {name} "
-                "(SoFi DOM may have changed)."
+                f"Unable to locate 2FA input field for SoFi {name}. "
+                f"URL was {url_hint!r}; SoFi DOM may have changed."
             )
             raise Exception(msg)
 
-        if bot_obj is not None and discord_loop is not None:
-            _sofi_log("2fa: requesting SMS code via Discord", t0)
-            sms_code = asyncio.run_coroutine_threadsafe(
+        # Get the code from the appropriate source.
+        if code_source == "totp":
+            two_fa_code = _get_2fa_code(secret)
+            _sofi_log("2fa: generated TOTP code from secret", t0)
+        elif bot_obj is not None and discord_loop is not None:
+            _sofi_log("2fa: requesting code via Discord webhook", t0)
+            two_fa_code = asyncio.run_coroutine_threadsafe(
                 get_otp_from_discord(bot_obj, name, timeout=300, loop=discord_loop),
                 discord_loop,
             ).result()
-            if sms_code is None:
-                msg = f"Sofi {name} SMS code not received in time..."
+            if two_fa_code is None:
+                msg = f"SoFi {name}: code not received in time."
                 raise Exception(msg)
         else:
-            # GUI engine subprocess: builtins.input is bridged via
-            # PROMPT_SENTINEL so this prompt reaches the Streamlit
-            # Console tab. CLI: stdin reads as normal.
-            _sofi_log("2fa: prompting operator for SMS code", t0)
-            sms_code = input(  # noqa: ASYNC250
-                f"SoFi {name} SMS code (check your phone): ",
+            prompt_kind = "SMS code (check your phone)" if code_source == "sms" else "authenticator app code"
+            _sofi_log(f"2fa: prompting operator for {prompt_kind}", t0)
+            two_fa_code = input(  # noqa: ASYNC250
+                f"SoFi {name} 2FA — {prompt_kind}: ",
             )
 
-        await sms2fa_input.send_keys(sms_code)
+        await code_input.send_keys(two_fa_code)
+        _sofi_log("2fa: code typed into form", t0)
         verify_button = await page.find("Verify Code")
         if verify_button:
             await verify_button.click()
-        _sofi_log("2fa: SMS code submitted", t0)
+            _sofi_log("2fa: Verify Code clicked", t0)
+        else:
+            _sofi_log("2fa: WARNING Verify Code button not found", t0)
+
+        # Post-submit verification: poll the URL for up to 20s. If
+        # we don't leave a challenge URL, the code was wrong /
+        # rejected — raise so caller knows login failed instead of
+        # silently returning.
+        for attempt in range(20):
+            await asyncio.sleep(1)
+            try:
+                post_url = await get_current_url(page, discord_loop)
+            except Exception:
+                post_url = None
+            if post_url is None:
+                continue
+            post_lower = post_url.lower()
+            still_challenge = (
+                "mfa-sms-challenge" in post_lower
+                or "mfa-otp-challenge" in post_lower
+                or "mfa-app-challenge" in post_lower
+            )
+            if not still_challenge:
+                _sofi_log(
+                    f"2fa: post-submit url after {attempt + 1}s",
+                    t0, repr(post_url),
+                )
+                return
+        msg = (
+            f"SoFi {name}: 2FA code rejected — page is still on a "
+            f"challenge URL 20s after Verify Code click. Source was "
+            f"{code_source!r}; secret_configured={secret is not None}. "
+            "Re-check the code (TOTP windows are 30s) and that the "
+            "right method matches SoFi's prompt URL."
+        )
+        raise Exception(msg)
 
     except Exception as e:
         _sofi_log("2fa: EXCEPTION", t0, repr(e))
@@ -717,9 +739,6 @@ async def _handle_2fa(page: tab.Tab, account: list[str], name: str, bot_obj: Bot
             page=page,
             discord_loop=discord_loop,
         )
-        # Re-raise so sofi_init's outer try/except sets init_result
-        # to None and the run skips holdings/transaction instead of
-        # silently pretending we logged in.
         raise
 
 
