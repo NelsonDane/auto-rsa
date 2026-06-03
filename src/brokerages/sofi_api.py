@@ -95,9 +95,37 @@ async def _sofi_error(error: str, page: tab.Tab | None = None, discord_loop: asy
 
 
 async def get_current_url(page: tab.Tab, discord_loop: asyncio.AbstractEventLoop | None = None) -> str | None:
-    """Get the current page URL by evaluating JavaScript."""
+    """Get the current page URL by evaluating JavaScript.
+
+    Resilient to nodriver's stale-document-node race: if SoFi is
+    mid-redirect (e.g. sofi.com -> login page) when this is called,
+    page.select("body") raises ProtocolException -32000 "Could not
+    find node with given id" because nodriver's cached document
+    refers to the PRE-redirect page. Retry the select up to 15 times
+    (same pattern already used after the Log-In click below);
+    nodriver re-fetches the doc on the next call so the next attempt
+    succeeds.
+    """
     await page.sleep(1)
-    await page.select("body")
+    select_ok = False
+    for attempt in range(15):
+        try:
+            await page.select("body")
+            select_ok = True
+            break
+        except Exception as exc:
+            if attempt == 0:
+                # Log once so the diagnostic trace shows the race fired,
+                # then suppress the rest of the retries to avoid spam.
+                print(f"get_current_url: body select race; retrying ({exc})")
+            await asyncio.sleep(1)
+    if not select_ok:
+        # 15 attempts at 1s each — the page is genuinely stuck.
+        await _sofi_error(
+            "get_current_url: body never settled after 15 attempts",
+            page=page, discord_loop=discord_loop,
+        )
+        return None
     try:
         # Run JavaScript to get the current URL
         current_url = await page.evaluate("window.location.href")
@@ -179,8 +207,15 @@ def sofi_run(order_obj: StockOrder, command: tuple[str, str] | None = None, bot_
                 start_kwargs["browser_executable_path"] = chrome_path
             browser = sofi_loop.run_until_complete(uc.start(**start_kwargs))
             print(f"Logging into {name}...")
-            sofi_init(account, name, cookie_filename, bot_obj, browser, loop, sofi_obj)
+            init_result = sofi_init(account, name, cookie_filename, bot_obj, browser, loop, sofi_obj)
             sofi_loop.run_until_complete(browser.sleep(5))
+            if init_result is None:
+                # sofi_init returned None -> exception inside init; the
+                # _sofi_error path already logged the cause. Don't pretend
+                # we're logged in and don't fire holdings / transaction
+                # against an unauthenticated session.
+                print(f"SoFi {name}: init failed, skipping holdings/transaction.")
+                continue
             print(f"Logged in to {name}!")
             if second_command == "_holdings":
                 sofi_holdings(browser, name, sofi_obj, loop)
