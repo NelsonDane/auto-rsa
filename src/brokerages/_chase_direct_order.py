@@ -125,6 +125,93 @@ def _log(label: str, t0: float, extra: str = "") -> None:
     print(f"[chase-direct] T+{elapsed:5.2f}s {label}{suffix}")
 
 
+async def _in_page_fetch(  # noqa: PLR0911
+    browser: object, url: str, *, label: str, t0: float,
+    method: str = "GET", body: dict | None = None,
+    timeout: float = 30,  # noqa: ASYNC109
+) -> dict | None:
+    """Run ``fetch(url)`` inside the browser tab.
+
+    Mirrors the SoFi pattern: bypass nodriver's CDP cookie extraction
+    (``Storage.getCookies`` hangs indefinitely on multi-account Chase
+    sessions) by running the HTTPS request from within the page
+    context. The browser's session jar (including HttpOnly cookies
+    and any anti-CSRF tokens) is forwarded automatically via
+    ``credentials: 'include'``.
+
+    Returns the parsed JSON body of a 2xx response, or ``None`` on
+    any failure (timeout, network error, non-2xx, broken envelope).
+    Failures log the SoFi-style status/body diagnostic so the next
+    trace shows the real reason instead of a silent abort.
+    """
+    import json as _json  # noqa: PLC0415
+
+    _log(f"{label}: in-page fetch {method} {url}", t0, f"timeout={timeout}s")
+    tabs = list(getattr(browser, "tabs", []) or [])
+    if not tabs:
+        _log(f"{label}: no tabs available", t0)
+        return None
+    page = tabs[-1]
+
+    body_js = _json.dumps(body) if body is not None else "null"
+    js = (
+        "(async () => {"
+        f"  const init = {{"
+        f"    method: {method!r},"
+        "    credentials: 'include',"
+        "    headers: {"
+        "      'accept': 'application/json',"
+        "      'content-type': 'application/json',"
+        "      'x-jpmc-csrf-token': 'NONE',"
+        "      'x-requested-with': 'XMLHttpRequest'"
+        "    }"
+        "  };"
+        f"  const body = {body_js};"
+        "  if (body !== null) init.body = JSON.stringify(body);"
+        f"  const r = await fetch({url!r}, init);"
+        "  if (!r.ok) {"
+        "    let bodyText = ''; try { bodyText = await r.text(); } catch (e) {}"
+        "    return JSON.stringify({ok: false, status: r.status, body: bodyText.slice(0, 500)});"
+        "  }"
+        "  let data; try { data = await r.json(); } catch (e) { data = null; }"
+        "  return JSON.stringify({ok: true, data: data});"
+        "})()"
+    )
+    try:
+        raw = await asyncio.wait_for(
+            page.evaluate(js, await_promise=True), timeout=timeout,
+        )
+    except (TimeoutError, asyncio.CancelledError) as exc:
+        _log(f"{label}: in-page fetch TIMED OUT", t0, repr(exc))
+        return None
+    except Exception as exc:
+        _log(f"{label}: in-page fetch EXCEPTION", t0, repr(exc))
+        return None
+
+    if isinstance(raw, str):
+        try:
+            parsed = _json.loads(raw)
+        except ValueError as exc:
+            _log(f"{label}: non-JSON envelope", t0, repr(exc))
+            return None
+    elif isinstance(raw, dict):
+        parsed = raw
+    else:
+        _log(f"{label}: weird envelope shape", t0, f"type={type(raw).__name__}")
+        return None
+
+    if not isinstance(parsed, dict) or "ok" not in parsed:
+        _log(f"{label}: envelope missing 'ok'", t0, repr(parsed)[:200])
+        return None
+    if not parsed.get("ok"):
+        _log(
+            f"{label}: HTTP error", t0,
+            f"status={parsed.get('status')} body={str(parsed.get('body'))[:200]!r}",
+        )
+        return None
+    return parsed.get("data")
+
+
 def _enabled() -> bool:
     # Accept the HEADLESS-style "true"/"false" the GUI vault writes,
     # plus 1/yes/on so a shell-set env var still works.
@@ -147,11 +234,9 @@ def apply() -> None:  # noqa: C901, PLR0915
         from chase import symbols as _cs  # noqa: PLC0415
         from chase.urls import (  # noqa: PLC0415
             execute_order,
-            get_headers,
             quote_url,
             validate_order,
         )
-        from curl_cffi import requests as _cc_requests  # noqa: PLC0415
     except Exception as exc:
         print(f"Chase: direct-order patch not applied ({exc})")
         return
@@ -161,7 +246,7 @@ def apply() -> None:  # noqa: C901, PLR0915
         _applied = True
         return
 
-    async def _direct_place_order_async(  # noqa: C901, PLR0911, PLR0912, PLR0915, PLR0917
+    async def _direct_place_order_async(  # noqa: C901, PLR0911, PLR0912, PLR0917
         self: object,
         account_id: str,
         quantity: int,
@@ -182,29 +267,15 @@ def apply() -> None:  # noqa: C901, PLR0915
             "ORDER CONFIRMATION": "",
         }
 
-        # Cookies straight from the browser jar — no page navigation
-        # needed. Same call the original makes; lifted before the
-        # page.get() we removed. Bounded so an indefinite CDP
-        # Storage.getCookies hang (observed on multi-account Chase)
-        # aborts cleanly rather than freezing the run.
-        try:
-            cookies = await asyncio.wait_for(
-                self.session.browser.cookies.get_all(),  # type: ignore[attr-defined]
-                timeout=_COOKIES_TIMEOUT,
-            )
-        except TimeoutError:
-            _log("cookies TIMED OUT", t0, f"{_COOKIES_TIMEOUT}s")
-            order_messages["ORDER INVALID"] = (
-                f"Cookie fetch timed out after {_COOKIES_TIMEOUT}s "
-                "(CDP Storage.getCookies hung)."
-            )
+        # Cookies are no longer extracted (CDP Storage.getCookies
+        # hangs on multi-account Chase sessions; operator trace Dec
+        # 2025). The HTTPS requests below run inside the browser tab
+        # via _in_page_fetch -- the session jar (including HttpOnly
+        # cookies) is forwarded automatically.
+        browser = getattr(self.session, "browser", None)  # type: ignore[attr-defined]
+        if browser is None:
+            order_messages["ORDER INVALID"] = "Chase: no browser handle on session"
             return order_messages
-        except Exception as exc:
-            order_messages["ORDER INVALID"] = f"Cookie fetch failed: {exc}"
-            return order_messages
-        cookies_dict = {c.name: c.value for c in cookies}
-        headers = get_headers()
-        _log("cookies fetched", t0, f"n={len(cookies_dict)}")
 
         payload: dict[str, object] = {
             "accountIdentifier": int(account_id),
@@ -237,31 +308,26 @@ def apply() -> None:  # noqa: C901, PLR0915
 
         exchange_id = None
         try:
-            _log("validate POST →", t0, f"timeout={_validate_timeout()}s")
-            resp_val = _cc_requests.post(
-                validate_order(order_type=order_type),
-                headers=headers,
-                cookies=cookies_dict,
-                json=payload,
-                impersonate="chrome",
+            val_data = await _in_page_fetch(
+                browser, validate_order(order_type=order_type),
+                label="validate", t0=t0,
+                method="POST", body=payload,
                 timeout=_validate_timeout(),
             )
-            _log("validate POST ←", t0, f"http={resp_val.status_code}")
-            if resp_val.status_code != 200:  # noqa: PLR2004
+            if val_data is None:
                 order_messages["ORDER INVALID"] = (
-                    f"Validation Failed ({resp_val.status_code}): "
-                    f"{resp_val.text}"
+                    "Validation Failed (in-page fetch — see preceding "
+                    "[chase-direct] line for HTTP status / body)."
                 )
                 return order_messages
-            val_data = resp_val.json()
-            errs = val_data.get("tradeErrorMessages", [])
+            errs = val_data.get("tradeErrorMessages", []) if isinstance(val_data, dict) else []
             if errs:
                 order_messages["ORDER INVALID"] = errs
                 return order_messages
             order_messages["ORDER VALIDATION"] = val_data
             exchange_id = val_data.get(
                 "financialInformationExchangeSystemOrderIdentifier",
-            )
+            ) if isinstance(val_data, dict) else None
             if dry_run:
                 _log("dry-run done", t0)
                 return order_messages
@@ -282,23 +348,19 @@ def apply() -> None:  # noqa: C901, PLR0915
             exec_payload[
                 "financialInformationExchangeSystemOrderIdentifier"
             ] = exchange_id
-            _log("execute POST →", t0, f"timeout={_execute_timeout()}s")
-            resp_exec = _cc_requests.post(
-                execute_order(order_type=order_type),
-                headers=headers,
-                cookies=cookies_dict,
-                json=exec_payload,
-                impersonate="chrome",
+            exec_data = await _in_page_fetch(
+                browser, execute_order(order_type=order_type),
+                label="execute", t0=t0,
+                method="POST", body=exec_payload,
                 timeout=_execute_timeout(),
             )
-            _log("execute POST ←", t0, f"http={resp_exec.status_code}")
-            if resp_exec.status_code != 200:  # noqa: PLR2004
+            if exec_data is None:
                 order_messages["ORDER INVALID"] = (
-                    f"Execution Failed ({resp_exec.status_code}): "
-                    f"{resp_exec.text}"
+                    "Execution Failed (in-page fetch — see preceding "
+                    "[chase-direct] line for HTTP status / body)."
                 )
                 return order_messages
-            order_messages["ORDER CONFIRMATION"] = resp_exec.json()
+            order_messages["ORDER CONFIRMATION"] = exec_data
         except Exception as exc:
             order_messages["ORDER INVALID"] = (
                 f"Execution Exception [{_classify_chase_exc(exc)}]: {exc}"
@@ -319,18 +381,10 @@ def apply() -> None:  # noqa: C901, PLR0915
                 "quote start", t0,
                 f"symbol={self.symbol}",  # type: ignore[attr-defined]
             )
-            try:
-                cookies = await asyncio.wait_for(
-                    self.session.browser.cookies.get_all(),  # type: ignore[attr-defined]
-                    timeout=_COOKIES_TIMEOUT,
-                )
-            except TimeoutError:
-                _log("quote cookies TIMED OUT", t0, f"{_COOKIES_TIMEOUT}s")
+            browser = getattr(self.session, "browser", None)  # type: ignore[attr-defined]
+            if browser is None:
+                _log("quote no browser handle on session", t0)
                 return
-            except Exception as exc:
-                _log("quote cookies FAIL", t0, repr(exc))
-                return
-            cookies_dict = {c.name: c.value for c in cookies}
             url = (
                 f"{quote_url()}?security-symbol-code={self.symbol}"  # type: ignore[attr-defined]
                 "&security-validate-indicator=true"
@@ -348,19 +402,16 @@ def apply() -> None:  # noqa: C901, PLR0915
                     f"timeout={_quote_timeout()}s",
                 )
                 try:
-                    resp = _cc_requests.get(
-                        url,
-                        headers=get_headers(),
-                        cookies=cookies_dict,
-                        impersonate="chrome",
+                    result = await _in_page_fetch(
+                        browser, url,
+                        label=f"quote attempt {attempt}", t0=t0,
                         timeout=_quote_timeout(),
                     )
-                    _log("quote GET ←", t0, f"http={resp.status_code}")
-                    if resp.status_code == 200:  # noqa: PLR2004
-                        q = resp.json()
+                    if result is not None and isinstance(result, dict):
+                        q = result
                         break
                     last_exc = RuntimeError(
-                        f"http {resp.status_code}: {resp.text[:200]}",
+                        "in-page fetch returned None (see preceding line)",
                     )
                 except Exception as exc:
                     last_exc = exc
