@@ -411,7 +411,79 @@ def sofi_init(  # noqa: PLR0917
     return sofi_obj
 
 
-async def _sofi_login_and_account(browser: Browser, page: tab.Tab, account: list[str], name: str, bot_obj: Bot | None = None, discord_loop: asyncio.AbstractEventLoop | None = None, init_t0: float | None = None) -> None:  # noqa: C901, PLR0912, PLR0915, PLR0917
+async def _wait_for_login_form(
+    page: tab.Tab, name: str, *, t0: float,
+    discord_loop: asyncio.AbstractEventLoop | None,
+) -> object:
+    """Poll for the SoFi login form with diagnostic + one reload retry.
+
+    SoFi's Auth0-hosted login page is an SPA whose JS rendering
+    occasionally stalls (sometimes the form is there in 200ms,
+    sometimes it doesn't show in 30s — observed across runs with
+    no code change). When the first 15s budget elapses without
+    finding ``input[id=username]``, this helper:
+
+    1. Logs the current URL (so we can tell whether we're on the
+       login page at all, or stuck on a homepage redirect / CAPTCHA).
+    2. Saves a screenshot named ``SoFi-form-missing-<ts>.png``
+       in the working directory so the operator can see the page
+       state at the failure point.
+    3. Reloads the page once and waits another 30s.
+
+    Only re-raises with a clearer message after the reload retry
+    also fails -- so a transient SPA stall has a real chance to
+    recover instead of killing the run.
+    """
+    _sofi_log("login: waiting for username input (polling 15s)", t0)
+    try:
+        return await page.wait_for(
+            selector="input[id=username]", timeout=15,
+        )
+    except Exception:
+        _sofi_log("login: form not found in 15s; diagnosing", t0)
+
+    # Capture diagnostic state.
+    try:
+        curr_url = await asyncio.wait_for(
+            get_current_url(page, discord_loop), timeout=5,
+        )
+    except Exception:
+        curr_url = "<get_current_url failed>"
+    _sofi_log("login: current url at form-missing", t0, repr(curr_url))
+    try:
+        ts = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d_%H%M%S")
+        shot = f"SoFi-form-missing-{ts}.png"
+        await asyncio.wait_for(
+            page.save_screenshot(filename=shot, full_page=True),
+            timeout=10,
+        )
+        _sofi_log(f"login: screenshot saved {shot}", t0)
+    except Exception as exc:
+        _sofi_log(f"login: screenshot failed: {exc!r}", t0)
+
+    # Retry once: reload the page (in case the SPA stalled mid-render)
+    # then wait a longer 30s budget.
+    _sofi_log("login: reloading and waiting up to 30s", t0)
+    try:
+        await asyncio.wait_for(page.reload(), timeout=10)
+    except Exception as exc:
+        _sofi_log(f"login: reload threw {exc!r}; continuing anyway", t0)
+    await asyncio.sleep(3)
+    try:
+        return await page.wait_for(
+            selector="input[id=username]",
+            timeout=_SOFI_NAV_TIMEOUT_S,
+        )
+    except Exception as exc:
+        msg = (
+            f"Login form never rendered for SoFi {name} "
+            f"(input[id=username] not found after reload retry; "
+            f"current url={curr_url!r}): {exc}"
+        )
+        raise Exception(msg) from None
+
+
+async def _sofi_login_and_account(browser: Browser, page: tab.Tab, account: list[str], name: str, bot_obj: Bot | None = None, discord_loop: asyncio.AbstractEventLoop | None = None, init_t0: float | None = None) -> None:  # noqa: C901, PLR0915, PLR0917
     """Drive the SoFi login form with timed step traces.
 
     ``init_t0`` shares the [sofi-init] trace timeline so log lines
@@ -442,19 +514,9 @@ async def _sofi_login_and_account(browser: Browser, page: tab.Tab, account: list
             lambda: page.get("https://www.sofi.com/wealth/app"),
             label="wealth/app nav (login path)", t0=t0, timeout=10,
         )
-        _sofi_log("login: waiting for username input (polling 30s)", t0)
-        try:
-            username_input = await page.wait_for(
-                selector="input[id=username]",
-                timeout=_SOFI_NAV_TIMEOUT_S,
-            )
-        except Exception as exc:
-            msg = (
-                f"Login form never rendered for SoFi {name} "
-                f"(input[id=username] not found within "
-                f"{_SOFI_NAV_TIMEOUT_S}s): {exc}"
-            )
-            raise Exception(msg) from None
+        username_input = await _wait_for_login_form(
+            page, name, t0=t0, discord_loop=discord_loop,
+        )
         await username_input.send_keys(account[0])
         _sofi_log("login: typed username", t0)
 
