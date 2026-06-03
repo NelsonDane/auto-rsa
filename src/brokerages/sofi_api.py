@@ -411,7 +411,7 @@ def sofi_init(  # noqa: PLR0917
     return sofi_obj
 
 
-async def _sofi_login_and_account(browser: Browser, page: tab.Tab, account: list[str], name: str, bot_obj: Bot | None = None, discord_loop: asyncio.AbstractEventLoop | None = None, init_t0: float | None = None) -> None:  # noqa: PLR0917
+async def _sofi_login_and_account(browser: Browser, page: tab.Tab, account: list[str], name: str, bot_obj: Bot | None = None, discord_loop: asyncio.AbstractEventLoop | None = None, init_t0: float | None = None) -> None:  # noqa: C901, PLR0912, PLR0915, PLR0917
     """Drive the SoFi login form with timed step traces.
 
     ``init_t0`` shares the [sofi-init] trace timeline so log lines
@@ -457,6 +457,46 @@ async def _sofi_login_and_account(browser: Browser, page: tab.Tab, account: list
             raise Exception(msg) from None
         await username_input.send_keys(account[0])
         _sofi_log("login: typed username", t0)
+
+        # SoFi's Auth0 flow is multi-step: page 1 has just the
+        # username field + a Continue button; clicking it advances
+        # to page 2 which has the password field. If we skip the
+        # advance, page.wait_for(input[type=password]) either
+        # returns nothing (and we abort) OR matches an off-screen
+        # input that takes the typed text but goes nowhere
+        # visible -- the operator observed "username and password
+        # entered together in username field" with the URL still
+        # showing /u/login after click, confirming the password
+        # never actually landed in a password field. Look for
+        # Continue / Next / Submit by text; click if present;
+        # if not, assume the form is single-step.
+        advanced = False
+        for label_text in ("Continue", "Next", "Submit"):
+            try:
+                advance_button = await asyncio.wait_for(
+                    page.find(label_text, best_match=True),
+                    timeout=3,
+                )
+            except (Exception, TimeoutError):
+                advance_button = None
+            if advance_button:
+                _sofi_log(
+                    f"login: clicked '{label_text}' (multi-step flow)",
+                    t0,
+                )
+                try:
+                    await advance_button.click()
+                    await asyncio.sleep(2)
+                    advanced = True
+                    break
+                except Exception as exc:
+                    _sofi_log(
+                        f"login: '{label_text}' click failed: {exc!r}",
+                        t0,
+                    )
+                    continue
+        if not advanced:
+            _sofi_log("login: no advance button found; single-step form", t0)
 
         try:
             password_input = await page.wait_for(
