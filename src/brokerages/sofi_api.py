@@ -411,6 +411,37 @@ def sofi_init(  # noqa: PLR0917
     return sofi_obj
 
 
+async def _js_navigate(
+    page: tab.Tab, url: str, *, label: str, t0: float,
+) -> None:
+    """Trigger navigation via ``window.location.href`` from inside the page.
+
+    nodriver's ``page.get`` / ``browser.get`` await a CDP "page
+    settled" event that never fires on SoFi's SPA. Wrapping
+    them in ``asyncio.shield`` was supposed to keep the nav
+    alive after our wait_for timeout, but operator observation
+    confirmed otherwise: post-shield, the URL was still the
+    PRIOR page (sofi.com homepage, not /wealth/app). The nav
+    command was never sent.
+
+    JS-driven navigation via ``Runtime.evaluate`` is a different
+    CDP code path that completes as soon as Chrome accepts the
+    assignment — typically in milliseconds — regardless of
+    whether the destination page ever finishes loading.
+    """
+    _sofi_log(f"{label} (JS nav) -> {url}", t0)
+    try:
+        await asyncio.wait_for(
+            page.evaluate(f"window.location.href = {url!r}"),
+            timeout=10,
+        )
+        _sofi_log(f"{label} (JS nav) cmd sent", t0)
+    except (TimeoutError, asyncio.CancelledError) as exc:
+        _sofi_log(f"{label} (JS nav) timed out: {exc!r}", t0)
+    except Exception as exc:
+        _sofi_log(f"{label} (JS nav) threw: {exc!r}", t0)
+
+
 async def _wait_for_login_form(
     page: tab.Tab, name: str, *, t0: float,
     discord_loop: asyncio.AbstractEventLoop | None,
@@ -461,14 +492,22 @@ async def _wait_for_login_form(
     except Exception as exc:
         _sofi_log(f"login: screenshot failed: {exc!r}", t0)
 
-    # Retry once: reload the page (in case the SPA stalled mid-render)
-    # then wait a longer 30s budget.
-    _sofi_log("login: reloading and waiting up to 30s", t0)
-    try:
-        await asyncio.wait_for(page.reload(), timeout=10)
-    except Exception as exc:
-        _sofi_log(f"login: reload threw {exc!r}; continuing anyway", t0)
-    await asyncio.sleep(3)
+    # Retry once: if we ended up on the homepage (operator's
+    # screenshot showed this), JS-navigate to /login/ explicitly
+    # rather than reloading the wrong page.
+    if "sofi.com/" in str(curr_url) and "login" not in str(curr_url):
+        _sofi_log("login: stuck on homepage; re-navigating via JS to /login/", t0)
+        await _js_navigate(
+            page, "https://www.sofi.com/login/",
+            label="login retry JS nav", t0=t0,
+        )
+    else:
+        _sofi_log("login: reloading current page and waiting up to 30s", t0)
+        try:
+            await asyncio.wait_for(page.reload(), timeout=10)
+        except Exception as exc:
+            _sofi_log(f"login: reload threw {exc!r}; continuing anyway", t0)
+    await asyncio.sleep(5)
     try:
         return await page.wait_for(
             selector="input[id=username]",
@@ -503,17 +542,22 @@ async def _sofi_login_and_account(browser: Browser, page: tab.Tab, account: list
             msg = f"Failed to load SoFi login page for {name}"
             raise Exception(msg)
 
-        _sofi_log("login: navigating wealth/app", t0)
-        # SoFi's login page is an SPA. _soft_nav uses asyncio.shield
-        # so the navigation isn't cancelled mid-flight by our
-        # timeout; the page.wait_for(selector=...) call right after
-        # polls for the username input as the actual "is the form
-        # rendered yet" check (vs. page.select which queries once
-        # and returns None immediately if the form isn't there yet).
-        await _soft_nav(
-            lambda: page.get("https://www.sofi.com/wealth/app"),
-            label="wealth/app nav (login path)", t0=t0, timeout=10,
+        _sofi_log("login: navigating to /login/ directly", t0)
+        # Operator observation: page.get('/wealth/app') was leaving
+        # us stuck on www.sofi.com homepage even with asyncio.shield.
+        # The /wealth/app URL is intended for authenticated users
+        # and bounces through Auth0 redirects that nodriver's
+        # event-driven nav can't always resolve.
+        #
+        # /login/ is the canonical, browser-loadable login URL --
+        # static enough that JS-driven navigation reliably lands on
+        # the form. JS nav (window.location.href = ...) doesn't
+        # depend on the page-settled callback that's been failing.
+        await _js_navigate(
+            page, "https://www.sofi.com/login/",
+            label="login nav", t0=t0,
         )
+        await asyncio.sleep(3)
         username_input = await _wait_for_login_form(
             page, name, t0=t0, discord_loop=discord_loop,
         )
