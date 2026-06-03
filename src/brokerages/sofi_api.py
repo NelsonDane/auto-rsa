@@ -6,6 +6,10 @@ import shutil
 import sys
 import traceback
 from time import sleep
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
 
 import nodriver as uc
 import pyotp
@@ -197,6 +201,42 @@ def sofi_run(order_obj: StockOrder, command: tuple[str, str] | None = None, bot_
     return
 
 
+# SoFi init/login can wedge silently — nodriver's browser.get and
+# page.get block forever on a Chrome that's stopped responding. Bound
+# each navigation with a real timeout so a stuck session aborts the
+# run with a clear "[sofi-init] nav timed out" message instead of
+# freezing. Also surfaces per-step traces so we can pinpoint hangs.
+_SOFI_NAV_TIMEOUT_S = 30
+
+
+def _sofi_log(step: str, t0: float, extra: str = "") -> None:
+    """Print a `[sofi-init] T+Xs <step> <extra>` diagnostic line."""
+    dt = datetime.datetime.now(datetime.UTC).timestamp() - t0
+    suffix = f" {extra}" if extra else ""
+    print(f"[sofi-init] T+{dt:5.1f}s {step}{suffix}", flush=True)
+
+
+async def _nav_with_timeout(
+    coro_factory: "Callable[[], Awaitable[object]]", *, label: str, t0: float,
+    timeout: float = _SOFI_NAV_TIMEOUT_S,  # noqa: ASYNC109
+) -> object:
+    """Await a navigation coroutine bounded by ``timeout`` seconds.
+
+    Raises Exception on hang -- caller's existing try/except in
+    sofi_init turns that into a clean _sofi_error line instead of
+    a silent freeze.
+    """
+    _sofi_log(f"{label} ->", t0, f"timeout={timeout}s")
+    try:
+        result = await asyncio.wait_for(coro_factory(), timeout=timeout)
+    except TimeoutError:
+        _sofi_log(f"{label} TIMED OUT", t0)
+        msg = f"SoFi nav '{label}' did not complete within {timeout}s"
+        raise Exception(msg) from None
+    _sofi_log(f"{label} <-", t0, "ok")
+    return result
+
+
 def sofi_init(  # noqa: PLR0917
     sofi_account: str,
     name: str,
@@ -208,17 +248,26 @@ def sofi_init(  # noqa: PLR0917
 ) -> Brokerage | None:
     """Initialize the SoFi object."""
     page = None
+    t0 = datetime.datetime.now(datetime.UTC).timestamp()
+    _sofi_log("start", t0, f"name={name}")
     try:
         sleep(5)
+        _sofi_log("post-sleep(5)", t0)
         account = sofi_account.split(":")
 
         # The page sometimes doesn't load until after retrying
         max_attempts = 5
         attempts = 0
         while attempts < max_attempts:
-            page = sofi_loop.run_until_complete(browser.get("https://www.sofi.com/"))
+            page = sofi_loop.run_until_complete(
+                _nav_with_timeout(
+                    lambda: browser.get("https://www.sofi.com/"),
+                    label=f"warmup nav attempt {attempts + 1}", t0=t0,
+                ),
+            )
             sofi_loop.run_until_complete(page)  # Wait for events to be processed
             current_url = sofi_loop.run_until_complete(get_current_url(page, discord_loop))
+            _sofi_log(f"warmup attempt {attempts + 1} url", t0, repr(current_url))
             if current_url == "https://www.sofi.com/":
                 break
 
@@ -227,32 +276,49 @@ def sofi_init(  # noqa: PLR0917
         # Load cookies
         if page:
             sofi_loop.run_until_complete(page)  # Wait for events to be processed
-        page = sofi_loop.run_until_complete(browser.get("https://www.sofi.com"))
+        page = sofi_loop.run_until_complete(
+            _nav_with_timeout(
+                lambda: browser.get("https://www.sofi.com"),
+                label="sofi.com second nav", t0=t0,
+            ),
+        )
         sofi_loop.run_until_complete(browser.sleep(5))
+        _sofi_log("loading cookies", t0, cookie_filename)
         cookies_loaded = sofi_loop.run_until_complete(
             _load_cookies_from_pkl(browser, page, cookie_filename),
         )
+        _sofi_log("cookies result", t0, f"loaded={cookies_loaded}")
 
         if cookies_loaded:
-            sofi_loop.run_until_complete(page.get("https://www.sofi.com/wealth/app/"))
+            sofi_loop.run_until_complete(
+                _nav_with_timeout(
+                    lambda: page.get("https://www.sofi.com/wealth/app/"),
+                    label="wealth/app/ nav (cookies path)", t0=t0,
+                ),
+            )
             sofi_loop.run_until_complete(browser.sleep(5))
             sofi_loop.run_until_complete(page.select("body"))
             current_url = sofi_loop.run_until_complete(
                 get_current_url(page, discord_loop),
             )
+            _sofi_log("post-cookies url", t0, repr(current_url))
 
             if current_url and "overview" in current_url:
                 sofi_loop.run_until_complete(
                     _save_cookies_to_pkl(browser, cookie_filename),
                 )
+                _sofi_log("done via cookies", t0)
                 return sofi_obj
 
+        _sofi_log("starting fresh login", t0)
         # Proceed with login if cookies are invalid or expired
         sofi_loop.run_until_complete(
-            _sofi_login_and_account(browser, page, account, name, bot_obj, discord_loop),
+            _sofi_login_and_account(browser, page, account, name, bot_obj, discord_loop, init_t0=t0),
         )
         sofi_obj.set_logged_in_object(name, browser)
+        _sofi_log("init complete", t0)
     except Exception as e:
+        _sofi_log("EXCEPTION", t0, repr(e))
         sofi_loop.run_until_complete(
             _sofi_error(
                 f"Error during SoFi init process: {e}",
@@ -264,50 +330,80 @@ def sofi_init(  # noqa: PLR0917
     return sofi_obj
 
 
-async def _sofi_login_and_account(browser: Browser, page: tab.Tab, account: list[str], name: str, bot_obj: Bot | None = None, discord_loop: asyncio.AbstractEventLoop | None = None) -> None:  # noqa: PLR0917
+async def _sofi_login_and_account(browser: Browser, page: tab.Tab, account: list[str], name: str, bot_obj: Bot | None = None, discord_loop: asyncio.AbstractEventLoop | None = None, init_t0: float | None = None) -> None:  # noqa: PLR0917
+    """Drive the SoFi login form with timed step traces.
+
+    ``init_t0`` shares the [sofi-init] trace timeline so log lines
+    from sofi_init and this function are plotted against the same
+    start moment.
+    """
+    t0 = init_t0 if init_t0 is not None else datetime.datetime.now(datetime.UTC).timestamp()
     try:
+        _sofi_log("login: pre-sleep(5)", t0)
         await asyncio.sleep(5)
-        page = await browser.get("https://www.sofi.com")
+        _sofi_log("login: post-sleep, navigating sofi.com", t0)
+        page = await _nav_with_timeout(
+            lambda: browser.get("https://www.sofi.com"),
+            label="login sofi.com nav", t0=t0,
+        )
         if not page:
             msg = f"Failed to load SoFi login page for {name}"
             raise Exception(msg)
 
-        await page.get("https://www.sofi.com/wealth/app")
+        _sofi_log("login: navigating wealth/app", t0)
+        await _nav_with_timeout(
+            lambda: page.get("https://www.sofi.com/wealth/app"),
+            label="wealth/app nav (login path)", t0=t0,
+        )
         await asyncio.sleep(2)
-        username_input = await page.select("input[id=username]")
+        _sofi_log("login: locating username input", t0)
+        username_input = await asyncio.wait_for(
+            page.select("input[id=username]"), timeout=_SOFI_NAV_TIMEOUT_S,
+        )
         if not username_input:
             msg = f"Unable to locate the username input field for {name}"
             raise Exception(msg)
         await username_input.send_keys(account[0])
+        _sofi_log("login: typed username", t0)
 
-        password_input = await page.select("input[type=password]")
+        password_input = await asyncio.wait_for(
+            page.select("input[type=password]"), timeout=_SOFI_NAV_TIMEOUT_S,
+        )
         if not password_input:
             msg = f"Unable to locate the password input field for {name}"
             raise Exception(msg)
         await password_input.send_keys(account[1])
+        _sofi_log("login: typed password", t0)
 
-        login_button = await page.find("Log In", best_match=True)
+        login_button = await asyncio.wait_for(
+            page.find("Log In", best_match=True), timeout=_SOFI_NAV_TIMEOUT_S,
+        )
         if not login_button:
             msg = f"Unable to locate the login button for {name}"
             raise Exception(msg)
         await login_button.click()
+        _sofi_log("login: clicked Log In", t0)
 
         # Clicking "Log In" navigates, so nodriver's cached document
         # node goes stale ("Could not find node with given id"). Poll
         # for the new page rather than a single brittle select() that
         # races the navigation and aborts the whole login.
         await asyncio.sleep(3)
-        for _ in range(15):
+        for attempt in range(15):
             try:
                 await page.select("body")
+                _sofi_log(f"login: post-click body found on attempt {attempt + 1}", t0)
                 break
             except Exception:  # stale node mid-navigation; retry
                 await asyncio.sleep(1)
 
         current_url = await get_current_url(page, discord_loop)
+        _sofi_log("login: post-click url", t0, repr(current_url))
         if current_url is not None and "overview" not in current_url:
+            _sofi_log("login: 2FA branch", t0)
             await _handle_2fa(page, account, name, bot_obj, discord_loop)
     except Exception as e:
+        _sofi_log("login EXCEPTION", t0, repr(e))
         await _sofi_error(
             f"Error logging into account {name}: {e}",
             page=page,
