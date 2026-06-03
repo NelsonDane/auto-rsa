@@ -276,35 +276,46 @@ async def _soft_nav(
     coro_factory: "Callable[[], Awaitable[object]]", *, label: str, t0: float,
     timeout: float = 10,  # noqa: ASYNC109
 ) -> object | None:
-    """Fire a navigation but tolerate a non-settling wait.
+    """Fire a navigation, tolerate non-settling, DON'T cancel mid-flight.
 
     SoFi's login + wealth-app pages are SPAs that keep WebSockets
-    and polling requests open indefinitely, so nodriver's
-    ``browser.get`` / ``page.get`` "page loaded" condition never
-    fires even though the page rendered visually within a second
-    or two. Using the strict ``_nav_with_timeout`` here means we
-    burn the full 60s budget waiting for a load event SoFi will
-    never send, then mark the run as failed even though the
-    username form was visible the whole time.
+    and polling open indefinitely, so nodriver's ``page.get`` /
+    ``browser.get`` "page loaded" callback never fires even though
+    the page rendered visually within a second or two.
 
-    Pattern: trigger the nav, give it a short budget for the
-    initial render, log + continue if the "settled" callback
-    never fires. The caller MUST then verify by looking for an
-    expected element (e.g. ``page.select("input[id=username]")``)
-    so a genuinely-broken page still aborts the run.
+    Two failure modes the strict ``_nav_with_timeout`` triggers
+    when used on an SPA nav:
+
+    1. The 60s+ wait burns budget pointlessly.
+    2. ``asyncio.wait_for`` CANCELS the underlying coroutine on
+       timeout. If the cancel arrives before nodriver has actually
+       sent the ``Page.navigate`` CDP command (or while the CDP
+       handler is still wiring up), the navigation never happens.
+       Browser stays on the previous URL — observed in the
+       operator's log as "stuck on sofi home page, multiple
+       refreshes".
+
+    Use ``asyncio.shield`` so the navigation coroutine survives our
+    wait_for cancellation: the CDP command IS sent, the browser DOES
+    navigate, and we just stop waiting for the "settled" notification
+    that won't come. The caller MUST then verify by polling for an
+    expected element with ``page.wait_for(selector=...)``.
     """
     _sofi_log(f"{label} (soft) ->", t0, f"timeout={timeout}s")
+    nav = asyncio.ensure_future(coro_factory())
     try:
-        result = await asyncio.wait_for(coro_factory(), timeout=timeout)
+        result = await asyncio.wait_for(asyncio.shield(nav), timeout=timeout)
     except TimeoutError:
         _sofi_log(
             f"{label} (soft) did not settle in {timeout}s — continuing "
-            "(caller will verify via the next element lookup)",
+            "(nav still in flight via shield; caller will verify via "
+            "the next element lookup)",
             t0,
         )
         return None
-    _sofi_log(f"{label} (soft) <-", t0, "ok")
-    return result
+    else:
+        _sofi_log(f"{label} (soft) <-", t0, "ok")
+        return result
 
 
 def sofi_init(  # noqa: PLR0917
@@ -421,34 +432,43 @@ async def _sofi_login_and_account(browser: Browser, page: tab.Tab, account: list
             raise Exception(msg)
 
         _sofi_log("login: navigating wealth/app", t0)
-        # SoFi's login page is an SPA — page.get's "settled"
-        # callback never fires because WebSockets / polling stay
-        # open. Use the soft variant: give it 10s to do the
-        # initial render, log if the settled event never arrives,
-        # and continue. The page.select("input[id=username]")
-        # call right after IS the real check that the form
-        # rendered. If THAT fails, we abort.
+        # SoFi's login page is an SPA. _soft_nav uses asyncio.shield
+        # so the navigation isn't cancelled mid-flight by our
+        # timeout; the page.wait_for(selector=...) call right after
+        # polls for the username input as the actual "is the form
+        # rendered yet" check (vs. page.select which queries once
+        # and returns None immediately if the form isn't there yet).
         await _soft_nav(
             lambda: page.get("https://www.sofi.com/wealth/app"),
             label="wealth/app nav (login path)", t0=t0, timeout=10,
         )
-        await asyncio.sleep(2)
-        _sofi_log("login: locating username input", t0)
-        username_input = await asyncio.wait_for(
-            page.select("input[id=username]"), timeout=_SOFI_NAV_TIMEOUT_S,
-        )
-        if not username_input:
-            msg = f"Unable to locate the username input field for {name}"
-            raise Exception(msg)
+        _sofi_log("login: waiting for username input (polling 30s)", t0)
+        try:
+            username_input = await page.wait_for(
+                selector="input[id=username]",
+                timeout=_SOFI_NAV_TIMEOUT_S,
+            )
+        except Exception as exc:
+            msg = (
+                f"Login form never rendered for SoFi {name} "
+                f"(input[id=username] not found within "
+                f"{_SOFI_NAV_TIMEOUT_S}s): {exc}"
+            )
+            raise Exception(msg) from None
         await username_input.send_keys(account[0])
         _sofi_log("login: typed username", t0)
 
-        password_input = await asyncio.wait_for(
-            page.select("input[type=password]"), timeout=_SOFI_NAV_TIMEOUT_S,
-        )
-        if not password_input:
-            msg = f"Unable to locate the password input field for {name}"
-            raise Exception(msg)
+        try:
+            password_input = await page.wait_for(
+                selector="input[type=password]",
+                timeout=_SOFI_NAV_TIMEOUT_S,
+            )
+        except Exception as exc:
+            msg = (
+                f"Unable to locate the password input field for "
+                f"SoFi {name}: {exc}"
+            )
+            raise Exception(msg) from None
         await password_input.send_keys(account[1])
         _sofi_log("login: typed password", t0)
 
