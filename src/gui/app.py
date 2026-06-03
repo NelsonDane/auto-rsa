@@ -90,9 +90,10 @@ def _sidebar_license_banner(vault: Vault) -> None:
         # operator never forgets it's on. Yellow (warning) rather
         # than green so it reads as "deliberately off" not "fine".
         st.sidebar.warning(
-            "🛠️ License gating is DISABLED via RSA_LICENSE_BYPASS=1. "
-            "Unset that env var to re-enable the broker cap.",
+            "🛠️ License gating is DISABLED. Toggle off below "
+            "(or unset RSA_LICENSE_BYPASS) to re-enable the cap.",
         )
+        _sidebar_license_bypass_toggle()
         return
     # Distinguish "token file unreadable" (red, action required) from
     # "no token yet" (white, just informational).
@@ -109,6 +110,48 @@ def _sidebar_license_banner(vault: Vault) -> None:
             "can configure exactly one broker; swap it any time by "
             "deleting and adding a different one.",
         )
+        _sidebar_license_bypass_toggle()
+
+
+def _sidebar_license_bypass_toggle() -> None:
+    """Self-hosted operator escape hatch: toggle the cap off.
+
+    Lives in an expander labelled 'Self-hosted: disable license
+    cap' so it's discoverable but not in the operator's face on a
+    normal-licensed install. Creates/removes the sentinel file at
+    creds/license_bypass.flag — survives across restarts; no env
+    editing required.
+    """
+    from src.license import (  # noqa: PLC0415
+        bypass_flag_path,
+        set_bypass_flag,
+    )
+
+    flag_path = bypass_flag_path()
+    currently_on = flag_path.is_file()
+    with st.sidebar.expander("Self-hosted: disable license cap", expanded=False):
+        st.caption(
+            "For the self-hosted operator (you) running without an "
+            "issued license token. Enabling this drops the broker "
+            "cap entirely — the GUI banner will turn yellow while "
+            "active. Persists across restarts via a sentinel file "
+            "in creds/.",
+        )
+        new_state = st.checkbox(
+            "Disable license broker cap",
+            value=currently_on,
+            key="license_bypass_toggle",
+        )
+        if new_state != currently_on:
+            try:
+                set_bypass_flag(enabled=new_state)
+            except OSError as exc:
+                st.error(f"Couldn't update bypass flag: {exc}")
+            else:
+                st.success(
+                    "Bypass enabled." if new_state else "Bypass disabled.",
+                )
+                st.rerun()
 
 
 # --------------------------------------------------------------------------

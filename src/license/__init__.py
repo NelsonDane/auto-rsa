@@ -23,8 +23,10 @@ License tab once the Cloudflare Worker is up.
 
 from src.license.manager import (
     account_cap,
+    bypass_flag_path,
     can_add_broker,
     current_tier,
+    set_bypass_flag,
     status_summary,
 )
 from src.license.tiers import TIER_CAPS, Tier
@@ -33,7 +35,9 @@ __all__ = [
     "TIER_CAPS",
     "Tier",
     "account_cap",
+    "bypass_flag_path",
     "can_add_broker",
     "current_tier",
+    "set_bypass_flag",
     "status_summary",
 ]

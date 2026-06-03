@@ -16,8 +16,10 @@ Decision flow:
 
 from __future__ import annotations
 
+import contextlib
 import os
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 from src.license import _keys, fingerprint, token_store, verify
@@ -28,17 +30,71 @@ from src.license.tiers import TIER_CAPS, TIER_LABEL, Tier
 # in §11 of the design doc.
 _GRACE_DAYS = 7
 
-# Development / self-hosted-operator bypass. Set RSA_LICENSE_BYPASS=1
-# in the environment to disable the broker-count cap entirely; the
-# tier banner will show "Operator (bypass)" so the operator can SEE
-# the gate is off and isn't accidentally shipping it that way. This
-# is for the project author and self-hosted-only situations — the
-# friend-license code path is unchanged when the env var is absent.
+# Development / self-hosted-operator bypass. Disables the broker-
+# count cap entirely. Two ways to enable, in priority order:
+#
+# 1. ``RSA_LICENSE_BYPASS=1`` env var (headless / scripted use).
+# 2. Sentinel file at ``creds/license_bypass.flag`` (GUI toggle —
+#    the License sidebar section creates/deletes this file). Lives
+#    alongside vault.json which is already gitignored. Operator-
+#    friendly: no env editing required on Windows boxes that don't
+#    have a .env file.
+#
+# The tier banner shows "Operator (bypass)" in yellow when active
+# so the operator can SEE the gate is off and isn't accidentally
+# shipping it that way.
 _BYPASS_ENV = "RSA_LICENSE_BYPASS"
+_BYPASS_FLAG_PATH = (
+    Path(__file__).resolve().parents[2] / "creds" / "license_bypass.flag"
+)
+
+
+def _bypass_env_active() -> bool:
+    return os.getenv(_BYPASS_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _bypass_flag_active() -> bool:
+    """Return True iff the sentinel file exists.
+
+    Best-effort: any I/O weirdness (perm denied, racing delete)
+    reports False so we never SILENTLY bypass when the operator
+    didn't intend to.
+    """
+    try:
+        return _BYPASS_FLAG_PATH.is_file()
+    except OSError:
+        return False
 
 
 def _bypass_active() -> bool:
-    return os.getenv(_BYPASS_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
+    return _bypass_env_active() or _bypass_flag_active()
+
+
+def bypass_flag_path() -> Path:
+    """Path to the sentinel file (for GUI to create/delete)."""
+    return _BYPASS_FLAG_PATH
+
+
+def set_bypass_flag(*, enabled: bool) -> None:
+    """Create or remove the sentinel file. Idempotent.
+
+    Used by the GUI's License sidebar toggle. Touches no other
+    state. The env-var bypass (if set) overrides this flag —
+    they OR together.
+    """
+    if enabled:
+        _BYPASS_FLAG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        _BYPASS_FLAG_PATH.write_text(
+            "Presence of this file disables the license broker-count cap.\n"
+            "Created/removed by the GUI's License sidebar toggle.\n"
+            "Delete to re-enable the license gate.\n",
+            encoding="utf-8",
+        )
+        with contextlib.suppress(OSError):
+            _BYPASS_FLAG_PATH.chmod(0o600)
+    else:
+        with contextlib.suppress(FileNotFoundError):
+            _BYPASS_FLAG_PATH.unlink()
 
 
 def _now() -> datetime:
