@@ -242,11 +242,6 @@ def sofi_run(order_obj: StockOrder, command: tuple[str, str] | None = None, bot_
 # run with a clear "[sofi-init] nav timed out" message instead of
 # freezing. Also surfaces per-step traces so we can pinpoint hangs.
 _SOFI_NAV_TIMEOUT_S = 30
-# SoFi's Auth0 redirect chain to the login form occasionally
-# doesn't settle within 30s (operator log showed a 30s timeout
-# right after a 1.0s success the prior run). Give the login-path
-# navs a more lenient bound + one retry.
-_SOFI_LOGIN_NAV_TIMEOUT_S = 60
 
 
 def _sofi_log(step: str, t0: float, extra: str = "") -> None:
@@ -274,6 +269,41 @@ async def _nav_with_timeout(
         msg = f"SoFi nav '{label}' did not complete within {timeout}s"
         raise Exception(msg) from None
     _sofi_log(f"{label} <-", t0, "ok")
+    return result
+
+
+async def _soft_nav(
+    coro_factory: "Callable[[], Awaitable[object]]", *, label: str, t0: float,
+    timeout: float = 10,  # noqa: ASYNC109
+) -> object | None:
+    """Fire a navigation but tolerate a non-settling wait.
+
+    SoFi's login + wealth-app pages are SPAs that keep WebSockets
+    and polling requests open indefinitely, so nodriver's
+    ``browser.get`` / ``page.get`` "page loaded" condition never
+    fires even though the page rendered visually within a second
+    or two. Using the strict ``_nav_with_timeout`` here means we
+    burn the full 60s budget waiting for a load event SoFi will
+    never send, then mark the run as failed even though the
+    username form was visible the whole time.
+
+    Pattern: trigger the nav, give it a short budget for the
+    initial render, log + continue if the "settled" callback
+    never fires. The caller MUST then verify by looking for an
+    expected element (e.g. ``page.select("input[id=username]")``)
+    so a genuinely-broken page still aborts the run.
+    """
+    _sofi_log(f"{label} (soft) ->", t0, f"timeout={timeout}s")
+    try:
+        result = await asyncio.wait_for(coro_factory(), timeout=timeout)
+    except TimeoutError:
+        _sofi_log(
+            f"{label} (soft) did not settle in {timeout}s — continuing "
+            "(caller will verify via the next element lookup)",
+            t0,
+        )
+        return None
+    _sofi_log(f"{label} (soft) <-", t0, "ok")
     return result
 
 
@@ -370,7 +400,7 @@ def sofi_init(  # noqa: PLR0917
     return sofi_obj
 
 
-async def _sofi_login_and_account(browser: Browser, page: tab.Tab, account: list[str], name: str, bot_obj: Bot | None = None, discord_loop: asyncio.AbstractEventLoop | None = None, init_t0: float | None = None) -> None:  # noqa: C901, PLR0915, PLR0917
+async def _sofi_login_and_account(browser: Browser, page: tab.Tab, account: list[str], name: str, bot_obj: Bot | None = None, discord_loop: asyncio.AbstractEventLoop | None = None, init_t0: float | None = None) -> None:  # noqa: PLR0917
     """Drive the SoFi login form with timed step traces.
 
     ``init_t0`` shares the [sofi-init] trace timeline so log lines
@@ -391,30 +421,17 @@ async def _sofi_login_and_account(browser: Browser, page: tab.Tab, account: list
             raise Exception(msg)
 
         _sofi_log("login: navigating wealth/app", t0)
-        # One retry: SoFi's Auth0 redirect chain occasionally takes
-        # >30s to settle. A 60s budget + a single retry catches the
-        # transient case without escalating to the 600s watchdog.
-        last_nav_exc: Exception | None = None
-        for nav_attempt in range(2):
-            try:
-                await _nav_with_timeout(
-                    lambda: page.get("https://www.sofi.com/wealth/app"),
-                    label=f"wealth/app nav (login path) attempt {nav_attempt + 1}",
-                    t0=t0,
-                    timeout=_SOFI_LOGIN_NAV_TIMEOUT_S,
-                )
-                last_nav_exc = None
-                break
-            except Exception as exc:
-                last_nav_exc = exc
-                _sofi_log(
-                    f"login: wealth/app nav attempt {nav_attempt + 1} failed; "
-                    "sleeping 3s before retry",
-                    t0,
-                )
-                await asyncio.sleep(3)
-        if last_nav_exc is not None:
-            raise last_nav_exc
+        # SoFi's login page is an SPA — page.get's "settled"
+        # callback never fires because WebSockets / polling stay
+        # open. Use the soft variant: give it 10s to do the
+        # initial render, log if the settled event never arrives,
+        # and continue. The page.select("input[id=username]")
+        # call right after IS the real check that the form
+        # rendered. If THAT fails, we abort.
+        await _soft_nav(
+            lambda: page.get("https://www.sofi.com/wealth/app"),
+            label="wealth/app nav (login path)", t0=t0, timeout=10,
+        )
         await asyncio.sleep(2)
         _sofi_log("login: locating username input", t0)
         username_input = await asyncio.wait_for(
@@ -492,9 +509,11 @@ async def _sofi_account_info(browser: Browser, discord_loop: asyncio.AbstractEve
     try:
         await browser.sleep(1)
         _sofi_log("holdings: pre-overview nav", t0)
-        await _nav_with_timeout(
+        # SPA — see _soft_nav rationale. The GET /json/accounts
+        # below is the real verification that the session works.
+        await _soft_nav(
             lambda: browser.get("https://www.sofi.com/wealth/app/overview"),
-            label="wealth/app/overview nav", t0=t0,
+            label="wealth/app/overview nav", t0=t0, timeout=10,
         )
         _sofi_log("holdings: post-overview nav, sleeping 5s", t0)
         await browser.sleep(5)
