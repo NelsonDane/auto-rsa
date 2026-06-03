@@ -78,8 +78,22 @@ def _sidebar_license_banner(vault: Vault) -> None:
     }.get(tier, "⚪")
     configured = len(vault.configured_broker_keys()) if vault.is_unlocked() else 0
     cap_text = info["cap_text"]
-    line = f"{badge} **{info['tier_label']}** · {configured}/{cap_text} brokers"
+    bypass_active = info.get("license_id") == "BYPASS"
+    label_suffix = " (bypass)" if bypass_active else ""
+    line = (
+        f"{badge} **{info['tier_label']}{label_suffix}** · "
+        f"{configured}/{cap_text} brokers"
+    )
     st.sidebar.markdown(line)
+    if bypass_active:
+        # Make the bypass visible at the top of the sidebar so the
+        # operator never forgets it's on. Yellow (warning) rather
+        # than green so it reads as "deliberately off" not "fine".
+        st.sidebar.warning(
+            "🛠️ License gating is DISABLED via RSA_LICENSE_BYPASS=1. "
+            "Unset that env var to re-enable the broker cap.",
+        )
+        return
     # Distinguish "token file unreadable" (red, action required) from
     # "no token yet" (white, just informational).
     if info.get("token_error"):

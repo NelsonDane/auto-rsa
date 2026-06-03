@@ -16,6 +16,7 @@ Decision flow:
 
 from __future__ import annotations
 
+import os
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -26,6 +27,18 @@ from src.license.tiers import TIER_CAPS, TIER_LABEL, Tier
 # so a brief outage doesn't degrade the friend's tier. Documented
 # in §11 of the design doc.
 _GRACE_DAYS = 7
+
+# Development / self-hosted-operator bypass. Set RSA_LICENSE_BYPASS=1
+# in the environment to disable the broker-count cap entirely; the
+# tier banner will show "Operator (bypass)" so the operator can SEE
+# the gate is off and isn't accidentally shipping it that way. This
+# is for the project author and self-hosted-only situations — the
+# friend-license code path is unchanged when the env var is absent.
+_BYPASS_ENV = "RSA_LICENSE_BYPASS"
+
+
+def _bypass_active() -> bool:
+    return os.getenv(_BYPASS_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _now() -> datetime:
@@ -45,6 +58,19 @@ def _parse_iso(value: object) -> datetime | None:
 
 def _evaluate() -> dict[str, Any]:  # noqa: PLR0911
     """Resolve the active token into a decision record (never raises)."""
+    if _bypass_active():
+        # Operator-level cap (unlimited); reason makes the bypass
+        # visible in the GUI banner so it can't be left on by
+        # accident. Token-error / expiry are short-circuited.
+        return {
+            "tier": "operator",
+            "cap": None,
+            "expires_at": None,
+            "license_id": "BYPASS",
+            "in_grace": False,
+            "reason": f"{_BYPASS_ENV}=1 — license gating disabled",
+            "token_error": None,
+        }
     out: dict[str, Any] = {
         "tier": "unlicensed",
         "cap": TIER_CAPS["unlicensed"],

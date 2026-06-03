@@ -1,5 +1,17 @@
 # Design: license-gated parent-broker count (FOR REVIEW)
 
+> ## Bypass for the self-hosted operator
+>
+> Set `RSA_LICENSE_BYPASS=1` in the environment (or your `.env`)
+> to disable the broker-count cap entirely. The GUI banner will
+> read **🟣 Operator (bypass)** in yellow with a "license gating
+> is DISABLED" warning so it can't be left on by accident. Unset
+> the env var to re-enable the real gate.
+>
+> Use this when self-hosting the tool without having issued
+> yourself a license. The friend-license flow described in the
+> rest of this document is unchanged.
+
 Status: **proposal, not built.** Goal: cap how many **parent
 brokerage logins** a given install can configure, with three tiers
 that scale from "trying it out" to "operator-only", and an
