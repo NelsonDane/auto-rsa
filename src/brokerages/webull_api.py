@@ -186,16 +186,40 @@ def webull_transaction(wbo: Brokerage, order_obj: StockOrder, loop: AbstractEven
                             if not buy_success:
                                 msg = f"Error buying {big_amount} of {s}"
                                 raise Exception(msg)
+                            # The round-up share is captured the moment the
+                            # big-lot BUY fills. Record EXECUTED now so a
+                            # retry can NEVER re-buy the lot; the trim-sell
+                            # below is best-effort cleanup and its failure
+                            # must not mark the play FAILED (a retry would
+                            # then re-buy, compounding the position).
+                            print_and_discord(
+                                f"{key}: buy {big_amount} of {s} in {print_account}: Success",
+                                loop,
+                            )
+                            complete_or_fail(
+                                play, order_obj=order_obj, success=True,
+                                detail=f"dance buy {big_amount} filled",
+                            )
                             order_obj.set_amount(big_amount - old_amount)
                             order_obj.set_action("sell")
-                            sleep(1)
-                            order = place_order(obj, internal_account, order_obj, s)
+                            try:
+                                sleep(1)
+                                order = place_order(obj, internal_account, order_obj, s)
+                            except Exception:  # trim-sell must not flip the ledger  # noqa: BLE001
+                                order = None
+                                print(traceback.format_exc())
                             if not order:
-                                msg = f"Error selling {big_amount - old_amount} of {s}"
-                                raise Exception(msg)
-                        else:
-                            # Place normal order
-                            order = place_order(obj, internal_account, order_obj, s)
+                                print_and_discord(
+                                    f"{key} {print_account}: WARNING — bought "
+                                    f"{big_amount} of {s} but the trim-sell of "
+                                    f"{big_amount - old_amount} FAILED; holding the "
+                                    f"full lot. The round-up share is captured "
+                                    f"(ledger EXECUTED) — manual trim needed.",
+                                    loop,
+                                )
+                            continue  # play already resolved; finally restores state
+                        # Normal (non-dance) order.
+                        order = place_order(obj, internal_account, order_obj, s)
                         if order:
                             print_and_discord(
                                 f"{key}: {order_obj.get_action()} {order_obj.get_amount()} of {s} in {print_account}: Success",

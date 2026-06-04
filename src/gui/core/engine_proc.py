@@ -27,7 +27,9 @@ import sys
 PROMPT_SENTINEL = "\x00RSA_PROMPT\x00"
 # Account discovery: one line per sub-account seen after login, parsed and
 # persisted by the parent (the engine subprocess can't touch the vault).
-# Format: ``<ACCOUNT_SENTINEL><broker_key>\t<account>\n``
+# Format: ``<ACCOUNT_SENTINEL><broker_key>\t<parent>\t<account>\n``
+# (3 tab-separated fields — the parent login is kept so the GUI can
+# group discovered sub-accounts by login).
 ACCOUNT_SENTINEL = "\x00RSA_ACCT\x00"
 # Per-broker run progress for the GUI status bar. One line each:
 #   <PROGRESS_SENTINEL>PLAN\t<b1,b2,...>   (once, the planned order)

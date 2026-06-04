@@ -158,7 +158,19 @@ def _evaluate() -> dict[str, Any]:  # noqa: PLR0911
     tier: Tier = tier_value  # type: ignore[assignment]
     bound_hw = str(payload.get("hardware_id", ""))
     if bound_hw != fingerprint.hardware_id():
-        out["reason"] = "token bound to a different machine"
+        # Distinguish a genuine machine change from "couldn't read this
+        # machine's hardware id" (which yields a fallback fingerprint
+        # that won't match the bound one). The latter is an actionable
+        # transient, not a real re-bind — surface it so a legit user on
+        # the same box isn't silently and confusingly downgraded.
+        if fingerprint.using_fallback_id():
+            out["reason"] = (
+                "could not read this machine's hardware id "
+                "(using fallback) — license temporarily unverified"
+            )
+            out["token_error"] = "hardware_id_unreadable"
+        else:
+            out["reason"] = "token bound to a different machine"
         return out
     expires = _parse_iso(payload.get("expires_at"))
     if expires is None:

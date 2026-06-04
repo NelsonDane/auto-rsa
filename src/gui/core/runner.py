@@ -454,8 +454,19 @@ class TradeRunner:
                     self.prompts.open(text)
                     answer = self.prompts.wait_answer()
                     if proc.stdin is not None:
-                        proc.stdin.write(answer + "\n")
-                        proc.stdin.flush()
+                        try:
+                            proc.stdin.write(answer + "\n")
+                            proc.stdin.flush()
+                        except (BrokenPipeError, OSError, ValueError):
+                            # The engine exited (e.g. login timed out) while
+                            # the user was entering the 2FA code. Don't turn
+                            # this benign race into a generic "pump error"
+                            # that ends the reader — log it and keep draining
+                            # whatever output remains.
+                            self.log.write(
+                                "(engine exited before the 2FA code was "
+                                "submitted)\n",
+                            )
                 elif raw.startswith(ACCOUNT_SENTINEL):
                     payload = raw[len(ACCOUNT_SENTINEL):].rstrip("\r\n")
                     parts = payload.split("\t", 2)

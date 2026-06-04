@@ -220,10 +220,21 @@ class AllBrokersInfo:
         ]
 
     def parse_input(self, user_input: str) -> BrokerInfo | None:
-        """Parse user input and return the corresponding BrokerInfo object."""
-        user_input = user_input.lower()
+        """Parse user input and return the corresponding BrokerInfo object.
+
+        Input is normalized (lower-cased, spaces/underscores/hyphens
+        removed) before matching so "wells fargo", "wells_fargo" and
+        "Wells-Fargo" all resolve to ``wellsfargo`` instead of silently
+        returning None and dropping the broker from the run.
+        """
+        def _norm(value: str) -> str:
+            return value.lower().replace(" ", "").replace("_", "").replace("-", "")
+
+        ui = _norm(user_input)
+        if not ui:
+            return None
         for broker in self.brokers:
-            if broker.name.lower() == user_input or user_input in broker.nicknames:
+            if _norm(broker.name) == ui or ui in {_norm(n) for n in broker.nicknames}:
                 return broker
         return None
 
