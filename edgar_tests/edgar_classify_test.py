@@ -43,6 +43,28 @@ def test_round_up_variants():
         assert p.evidence
 
 
+def test_bare_rounded_up_no_longer_false_positives():
+    # Regression: a bare "round(ed) up" with no fractional-share context
+    # used to classify as ROUND_UP @ 0.93 and trigger a real-money buy.
+    for txt in (
+        "the proceeds were rounded up for accounting purposes",
+        "the exercise price will be rounded up to the nearest cent",
+        "the board approved a 1-for-10 reverse stock split; amounts were "
+        "rounded up in the table above",
+    ):
+        assert parse_fractional_policy(txt).policy != "ROUND_UP", txt
+
+
+def test_round_down_with_stray_round_up_is_not_a_buy():
+    # A genuine round-DOWN filing that also says "rounded up" somewhere is
+    # contradictory; it must NOT be classified as a buyable ROUND_UP.
+    txt = (
+        "fractional shares will be rounded down to the nearest whole "
+        "share; in no event will any fractional share be rounded up."
+    )
+    assert parse_fractional_policy(txt).policy == "ROUND_DOWN"
+
+
 def test_cash_beats_round_up_ordering():
     # Both phrasings present -> CASH must win (the money-safety invariant).
     both = (

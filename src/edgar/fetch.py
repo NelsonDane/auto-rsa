@@ -43,6 +43,12 @@ _DEFAULT_UA = "AutoRSA reverse-split research (ralanleder@gmail.com)"
 _SEC_SLEEP_S = 0.4
 _HTTP_OK = 200
 _FILING_MAX_CHARS = 20000
+# EFTS returns at most 10 hits per request and exposes hits.total.value.
+# Paginate via the ``from`` offset so a busy window isn't silently
+# truncated to the first 10 filings; cap the walk so a pathological
+# query can't loop unbounded.
+_EFTS_PAGE = 10
+_EFTS_MAX_HITS = 300
 
 
 def _ua() -> str:
@@ -69,66 +75,104 @@ class Hit(NamedTuple):
     title: str
 
 
-def efts_search(  # noqa: PLR0914
+def efts_search(  # noqa: PLR0912, PLR0914
     query: str,
     start_date: str,
     end_date: str,
     forms: tuple[str, ...] = DEFAULT_FORMS,
+    *,
+    errors: list[str] | None = None,
 ) -> list[Hit]:
-    """Run one EFTS full-text query. Returns [] on any failure."""
-    params = {
-        "q": query,
-        "forms": ",".join(forms),
-        "startdt": start_date,
-        "enddt": end_date,
-    }
-    time.sleep(_SEC_SLEEP_S)
-    try:
-        resp = requests.get(
-            _EFTS_URL, params=params, headers=_headers(json=True), timeout=30,
-        )
-    except requests.RequestException:
-        return []
-    if resp.status_code != _HTTP_OK:
-        return []
-    try:
-        hits = resp.json().get("hits", {}).get("hits", [])
-    except ValueError:
-        return []
+    """Run one EFTS full-text query, paginating over all result pages.
 
+    Returns whatever hits were collected; ``[]`` on an immediate
+    failure. Still best-effort (never raises), but a transport/HTTP/JSON
+    failure is now ALSO recorded in the optional ``errors`` list so the
+    caller can tell "genuinely zero filings" apart from "the SEC request
+    failed" (e.g. a 403 from a missing User-Agent, a 429 rate-limit, or
+    DNS failure) — otherwise a fully-failed scrape looks identical to an
+    empty window and silently misses every play.
+    """
     out: list[Hit] = []
-    for h in hits:
-        src = h.get("_source", {}) or {}
-        hid = str(h.get("_id", ""))
-        accession, _, filename = hid.partition(":")
-        ciks = src.get("ciks") or []
-        cik = str(ciks[0]).lstrip("0") if ciks else ""
-        if not (cik and accession):
-            continue
-        display = (src.get("display_names") or [""])[0]
-        ticker = None
-        if "(" in display and ")" in display:
-            seg = display[display.find("(") + 1:display.find(")")]
-            if seg.isalpha() and 1 <= len(seg) <= 6:  # noqa: PLR2004
-                ticker = seg.upper()
-        acc_nodash = accession.replace("-", "")
-        link = _ARCHIVES.format(
-            cik=cik,
-            acc=acc_nodash,
-            doc=filename or f"{accession}-index.htm",
-        )
-        forms_src = src.get("file_type") or src.get("root_forms") or ""
-        out.append(
-            Hit(
-                accession=accession,
+    seen_ids: set[str] = set()
+    frm = 0
+    while True:
+        params = {
+            "q": query,
+            "forms": ",".join(forms),
+            "startdt": start_date,
+            "enddt": end_date,
+            "from": frm,
+        }
+        time.sleep(_SEC_SLEEP_S)
+        try:
+            resp = requests.get(
+                _EFTS_URL, params=params, headers=_headers(json=True), timeout=30,
+            )
+        except requests.RequestException as exc:
+            if errors is not None:
+                errors.append(f"EFTS {query!r}: request failed ({exc.__class__.__name__})")
+            return out
+        if resp.status_code != _HTTP_OK:
+            if errors is not None:
+                errors.append(f"EFTS {query!r}: HTTP {resp.status_code}")
+            return out
+        try:
+            data = resp.json()
+        except ValueError:
+            if errors is not None:
+                errors.append(f"EFTS {query!r}: invalid JSON response")
+            return out
+
+        hits_obj = data.get("hits", {}) or {}
+        hits = hits_obj.get("hits", []) or []
+        total_obj = hits_obj.get("total") or {}
+        total = total_obj.get("value") if isinstance(total_obj, dict) else None
+
+        for h in hits:
+            src = h.get("_source", {}) or {}
+            hid = str(h.get("_id", ""))
+            if hid in seen_ids:
+                continue
+            seen_ids.add(hid)
+            accession, _, filename = hid.partition(":")
+            ciks = src.get("ciks") or []
+            cik = str(ciks[0]).lstrip("0") if ciks else ""
+            if not (cik and accession):
+                continue
+            display = (src.get("display_names") or [""])[0]
+            ticker = None
+            if "(" in display and ")" in display:
+                seg = display[display.find("(") + 1:display.find(")")]
+                if seg.isalpha() and 1 <= len(seg) <= 6:  # noqa: PLR2004
+                    ticker = seg.upper()
+            acc_nodash = accession.replace("-", "")
+            link = _ARCHIVES.format(
                 cik=cik,
-                ticker=ticker,
-                form=str(forms_src),
-                filing_date=str(src.get("file_date", "")),
-                link=link,
-                title=str(display or "8-K"),
-            ),
-        )
+                acc=acc_nodash,
+                doc=filename or f"{accession}-index.htm",
+            )
+            forms_src = src.get("file_type") or src.get("root_forms") or ""
+            out.append(
+                Hit(
+                    accession=accession,
+                    cik=cik,
+                    ticker=ticker,
+                    form=str(forms_src),
+                    filing_date=str(src.get("file_date", "")),
+                    link=link,
+                    title=str(display or "8-K"),
+                ),
+            )
+
+        # Advance to the next page. A short page (< page size) is the
+        # last one; also stop once we've reached the reported total or
+        # the safety cap.
+        frm += _EFTS_PAGE
+        if len(hits) < _EFTS_PAGE or frm >= _EFTS_MAX_HITS:
+            break
+        if total is not None and frm >= total:
+            break
     return out
 
 

@@ -39,6 +39,16 @@ def test_totp_secret_validation():
     # otpauth URI -> rejected with specific hint.
     n, e = normalize_totp_secret("otpauth://totp/x?secret=ABCD")
     assert n is None and "otpauth" in e
+    # Regression: secrets whose length isn't a multiple of 8 are valid —
+    # pyotp pads them at runtime. The validator must accept them too
+    # (it used to reject the common 20- and 26-char keys as "invalid").
+    import pyotp  # noqa: PLC0415
+
+    for secret in ("GEZDGNBVGY3TQOJQGEZA", "NB2W45DFOIZA", "JBSWY3DPEHPK3PXPGEZDGNBVGY"):
+        norm, err = normalize_totp_secret(secret)
+        assert err is None and norm == secret, secret
+        # And what we accept, pyotp must actually be able to consume.
+        assert pyotp.TOTP(norm).now()
 
 
 # --- results grouping -------------------------------------------------

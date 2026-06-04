@@ -52,7 +52,13 @@ _ROUND_UP_STRONG = re.compile(
     r"|in\s+lieu\s+of\s+any\s+fractional(?:\s+share|\s+interest)?"
     r"|fractional\s+entitlements?\s+will\s+be\s+rounded\s+up"
     r"|rounded\s+up\s+to\s+the\s+nearest\s+whole\s+share"
-    r"|(?:round|rounded)\s+up)",
+    # Constrained catch-all: only treat "round(ed) up" as the fractional
+    # policy when fractional / whole-share context is adjacent. A bare
+    # "(?:round|rounded) up" used to match here and fired a real-money buy
+    # on unrelated wording ("exercise price was rounded up", "proceeds
+    # were rounded up for accounting") inside a reverse-split filing.
+    r"|(?:fractional|fraction)[^.]{0,60}round(?:ed)?\s+up"
+    r"|round(?:ed)?\s+up[^.]{0,40}(?:whole|full)\s+share)",
     _I,
 )
 _ROUND_DOWN = re.compile(
@@ -109,6 +115,12 @@ def parse_fractional_policy(text: str) -> FractionalPolicy:  # noqa: PLR0911
             POLICY_AGGREGATED_SOLD_CASH, 0.95, _best_evidence(s, _AGG_SOLD_CASH),
         )
     if _ROUND_UP_STRONG.search(s):
+        # A filing that also carries explicit round-DOWN language is
+        # contradictory; treat it as the safe non-buy (ROUND_DOWN) so a
+        # stray "rounded up" can't override a real round-down and trigger
+        # a real-money buy on a no-economic-value event.
+        if _ROUND_DOWN.search(s):
+            return FractionalPolicy(POLICY_ROUND_DOWN, 0.92, _best_evidence(s, _ROUND_DOWN))
         return FractionalPolicy(POLICY_ROUND_UP, 0.93, _best_evidence(s, _ROUND_UP_STRONG))
     if _ROUND_DOWN.search(s):
         return FractionalPolicy(POLICY_ROUND_DOWN, 0.92, _best_evidence(s, _ROUND_DOWN))

@@ -52,13 +52,38 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = ap.parse_args(argv)
 
-    plays = discover(window_days=args.window, enrich=not args.no_enrich)
+    fetch_errors: list[str] = []
+    plays = discover(
+        window_days=args.window,
+        enrich=not args.no_enrich,
+        errors=fetch_errors,
+    )
     rows = to_gui_rows(plays)
 
     print("\t".join(GUI_QUEUE_HEADER))
     for r in rows:
         print("\t".join(str(c) for c in r))
     print(f"\n{len(rows)} alert-worthy play(s).", file=sys.stderr)
+
+    if fetch_errors:
+        print(
+            f"WARNING: {len(fetch_errors)} EDGAR query/queries failed — "
+            "results may be incomplete:",
+            file=sys.stderr,
+        )
+        for e in fetch_errors:
+            print(f"  - {e}", file=sys.stderr)
+        # A run that fetched nothing AND hit fetch errors is a silent
+        # missed-capture, not a genuinely empty window: exit non-zero so
+        # an unattended cron/launchd job surfaces it instead of looking
+        # clean.
+        if not plays:
+            print(
+                "ERROR: every result was empty and EDGAR fetches failed — "
+                "treating as a failed run (exit 3).",
+                file=sys.stderr,
+            )
+            return 3
 
     if not args.write:
         print("(dry run — pass --write to append to GUI_QUEUE)", file=sys.stderr)

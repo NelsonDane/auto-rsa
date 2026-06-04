@@ -359,6 +359,10 @@ def wellsfargo_transaction(wf_obj: Brokerage, order_obj: StockOrder, loop: async
         except TimeoutException:
             print("could not get to trade")
             kill_all_selenium_drivers(wf_obj)
+            # Without this, execution fell through to `range(accounts)`
+            # with `accounts` unbound (NameError) when navigation failed
+            # before it was assigned. Skip this login instead.
+            continue
 
         account_masks = wf_obj.get_account_numbers(key)
         # Use to keep track of an order to know whether to reset the trading screen
@@ -415,6 +419,10 @@ def wellsfargo_transaction(wf_obj: Brokerage, order_obj: StockOrder, loop: async
                 traceback.print_exc()
                 print("Could not change account")
                 kill_all_selenium_drivers(wf_obj)
+                # The driver is now dead; without this the code fell
+                # through and drove a killed browser. The login is
+                # unusable, so stop processing its accounts.
+                break
             for s in order_obj.get_stocks():
                 # C2 + C1-pre: account filter + ledger intent reservation.
                 # WF identifies the account by mask; we use that as the
@@ -427,156 +435,180 @@ def wellsfargo_transaction(wf_obj: Brokerage, order_obj: StockOrder, loop: async
                 )
                 if play is None:
                     continue
-                WebDriverWait(driver, 20).until(check_if_page_loaded)
-                # If an order fails need to sort of reset the tradings screen. Refresh does not work
-                if order_failed:
-                    trade = WebDriverWait(driver, 20).until(
-                        ec.element_to_be_clickable(
-                            (By.XPATH, "//*[@id='trademenu']/span[1]"),
-                        ),
+                # The entire WF browser order flow is wrapped so that ANY
+                # failure (a TimeoutException / NoSuchElementException /
+                # float() parse error in the steps below, or a raise
+                # inside the preview handler) still RESOLVES the reserved
+                # ledger row. Without this, an escape here left the play
+                # INTENDED forever, permanently and silently blocking
+                # every future retry of that (account, ticker, action).
+                try:
+                    WebDriverWait(driver, 20).until(check_if_page_loaded)
+                    # If an order fails need to sort of reset the tradings screen. Refresh does not work
+                    if order_failed:
+                        trade = WebDriverWait(driver, 20).until(
+                            ec.element_to_be_clickable(
+                                (By.XPATH, "//*[@id='trademenu']/span[1]"),
+                            ),
+                        )
+                        trade.click()
+                        trade_stock = WebDriverWait(driver, 20).until(
+                            ec.element_to_be_clickable(
+                                (By.XPATH, "//*[@id='linktradestocks']"),
+                            ),
+                        )
+                        trade_stock.click()
+                        dismiss_prompt = WebDriverWait(driver, 20).until(
+                            ec.element_to_be_clickable((By.ID, "btn-continue")),
+                        )
+                        dismiss_prompt.click()
+                    sleep(2)
+                    # idk why doing it through selenium doesnt work sometimes
+                    driver.execute_script('document.getElementById("BuySellBtn").click()')
+                    # Buy or Sell
+                    if order_obj.get_action().lower() == "buy":
+                        action = WebDriverWait(driver, 20).until(
+                            ec.element_to_be_clickable((By.LINK_TEXT, "Buy")),
+                        )
+                    elif order_obj.get_action().lower() == "sell":
+                        action = WebDriverWait(driver, 20).until(
+                            ec.element_to_be_clickable((By.LINK_TEXT, "Sell")),
+                        )
+                    else:
+                        print("no buy or sell set")
+                    action.click()
+
+                    review = WebDriverWait(driver, 20).until(
+                        ec.element_to_be_clickable((By.ID, "actionbtnContinue")),
                     )
-                    trade.click()
-                    trade_stock = WebDriverWait(driver, 20).until(
-                        ec.element_to_be_clickable(
-                            (By.XPATH, "//*[@id='linktradestocks']"),
-                        ),
+                    driver.execute_script("arguments[0].scrollIntoView(true);", review)
+                    sleep(2)
+                    ticker_box = WebDriverWait(driver, 20).until(
+                        ec.element_to_be_clickable((By.ID, "Symbol")),
                     )
-                    trade_stock.click()
-                    dismiss_prompt = WebDriverWait(driver, 20).until(
-                        ec.element_to_be_clickable((By.ID, "btn-continue")),
-                    )
-                    dismiss_prompt.click()
-                sleep(2)
-                # idk why doing it through selenium doesnt work sometimes
-                driver.execute_script('document.getElementById("BuySellBtn").click()')
-                # Buy or Sell
-                if order_obj.get_action().lower() == "buy":
-                    action = WebDriverWait(driver, 20).until(
-                        ec.element_to_be_clickable((By.LINK_TEXT, "Buy")),
-                    )
-                elif order_obj.get_action().lower() == "sell":
-                    action = WebDriverWait(driver, 20).until(
-                        ec.element_to_be_clickable((By.LINK_TEXT, "Sell")),
-                    )
-                else:
-                    print("no buy or sell set")
-                action.click()
 
-                review = WebDriverWait(driver, 20).until(
-                    ec.element_to_be_clickable((By.ID, "actionbtnContinue")),
-                )
-                driver.execute_script("arguments[0].scrollIntoView(true);", review)
-                sleep(2)
-                ticker_box = WebDriverWait(driver, 20).until(
-                    ec.element_to_be_clickable((By.ID, "Symbol")),
-                )
-
-                ticker_box.send_keys(s)
-                ticker_box.send_keys(Keys.ENTER)
-
-                # quantity
-                driver.execute_script(
-                    "document.querySelector('#OrderQuantity').value =" + str(int(order_obj.get_amount())),
-                )
-
-                # get price
-                WebDriverWait(driver, 20).until(
-                    ec.presence_of_element_located((By.CLASS_NAME, "qeval")),
-                )
-
-                price = float(driver.find_element(By.CLASS_NAME, "qeval").text)
-                price_cuttoff = 2
-                if order_obj.get_action().lower() == "buy" and price < price_cuttoff:
-                    price_type = "Limit"
-                    price += 0.01
-                elif order_obj.get_action().lower() == "sell" and price < price_cuttoff:
-                    price_type = "Limit"
-                    price -= 0.01
-                else:
-                    price_type = "Market"
-
-                # order type
-                driver.execute_script(
-                    "document.getElementById('OrderTypeBtnText').click()",
-                )
-
-                # limit price
-                order = driver.find_element(By.LINK_TEXT, price_type)
-                order.click()
-                if price_type == "Limit":
-                    ticker_box = driver.find_element(By.ID, "Price")
-                    ticker_box.send_keys(str(price))
+                    ticker_box.send_keys(s)
                     ticker_box.send_keys(Keys.ENTER)
 
-                    # timing
-                    driver.execute_script("document.getElementById('TIFBtn').click()")
-                    sleep(1)
-                    day = driver.find_element(By.LINK_TEXT, "Day")
-                    day.click()
+                    # quantity
+                    driver.execute_script(
+                        "document.querySelector('#OrderQuantity').value =" + str(int(order_obj.get_amount())),
+                    )
 
-                # preview
-                driver.execute_script("arguments[0].click();", review)
-                try:
-                    if not order_obj.get_dry():
-                        # submit
-                        submit = WebDriverWait(driver, 10).until(
+                    # get price
+                    WebDriverWait(driver, 20).until(
+                        ec.presence_of_element_located((By.CLASS_NAME, "qeval")),
+                    )
+
+                    price = float(driver.find_element(By.CLASS_NAME, "qeval").text)
+                    price_cuttoff = 2
+                    if order_obj.get_action().lower() == "buy" and price < price_cuttoff:
+                        price_type = "Limit"
+                        price += 0.01
+                    elif order_obj.get_action().lower() == "sell" and price < price_cuttoff:
+                        price_type = "Limit"
+                        price -= 0.01
+                    else:
+                        price_type = "Market"
+
+                    # order type
+                    driver.execute_script(
+                        "document.getElementById('OrderTypeBtnText').click()",
+                    )
+
+                    # limit price
+                    order = driver.find_element(By.LINK_TEXT, price_type)
+                    order.click()
+                    if price_type == "Limit":
+                        ticker_box = driver.find_element(By.ID, "Price")
+                        ticker_box.send_keys(str(price))
+                        ticker_box.send_keys(Keys.ENTER)
+
+                        # timing
+                        driver.execute_script("document.getElementById('TIFBtn').click()")
+                        sleep(1)
+                        day = driver.find_element(By.LINK_TEXT, "Day")
+                        day.click()
+
+                    # preview
+                    driver.execute_script("arguments[0].click();", review)
+                    try:
+                        if not order_obj.get_dry():
+                            # submit
+                            submit = WebDriverWait(driver, 10).until(
+                                ec.element_to_be_clickable(
+                                    (By.CSS_SELECTOR, ".btn-wfa-submit"),
+                                ),
+                            )
+                            driver.execute_script(
+                                "arguments[0].click();",
+                                submit,
+                            )  # Was getting visibility issues even though scrolling to it
+                            # Send confirmation
+                            print_and_discord(
+                                f"{key} {wf_obj.get_account_numbers(key)[account]}: {order_obj.get_action()} {order_obj.get_amount()} shares of {s}",
+                                loop,
+                            )
+                            # buy next
+                            buy_next = driver.find_element(
+                                By.CSS_SELECTOR,
+                                ".btn-wfa-primary",
+                            )
+                            driver.execute_script("arguments[0].click();", buy_next)
+                            order_failed = False
+                            complete_or_fail(
+                                play, order_obj=order_obj, success=True, detail="",
+                            )
+                        elif order_obj.get_dry():
+                            print_and_discord(
+                                f"DRY: {key} account {wf_obj.get_account_numbers(key)[account]}: {order_obj.get_action()} {order_obj.get_amount()} shares of {s}",
+                                loop,
+                            )
+                            order_failed = True
+                            complete_or_fail(
+                                play, order_obj=order_obj, success=True, detail="dry run",
+                            )
+                    except TimeoutException:
+                        error_text = driver.find_element(
+                            By.XPATH,
+                            "//div[@class='alert-msg-summary']//p[1]",
+                        ).text
+                        order_failed = True
+                        print_and_discord(
+                            f"{key} {wf_obj.get_account_numbers(key)[account]}: {order_obj.get_action()} {order_obj.get_amount()} shares of {s}. FAILED! \n{error_text}",
+                            loop,
+                        )
+                        complete_or_fail(
+                            play, order_obj=order_obj, success=False,
+                            detail=f"WF preview timeout: {error_text}",
+                        )
+                        # Cancel the trade
+                        cancel_button = WebDriverWait(driver, 3).until(
                             ec.element_to_be_clickable(
-                                (By.CSS_SELECTOR, ".btn-wfa-submit"),
+                                (By.CSS_SELECTOR, "#actionbtnCancel"),
                             ),
                         )
                         driver.execute_script(
                             "arguments[0].click();",
-                            submit,
-                        )  # Was getting visibility issues even though scrolling to it
-                        # Send confirmation
-                        print_and_discord(
-                            f"{key} {wf_obj.get_account_numbers(key)[account]}: {order_obj.get_action()} {order_obj.get_amount()} shares of {s}",
-                            loop,
-                        )
-                        # buy next
-                        buy_next = driver.find_element(
-                            By.CSS_SELECTOR,
-                            ".btn-wfa-primary",
-                        )
-                        driver.execute_script("arguments[0].click();", buy_next)
-                        order_failed = False
-                        complete_or_fail(
-                            play, order_obj=order_obj, success=True, detail="",
-                        )
-                    elif order_obj.get_dry():
-                        print_and_discord(
-                            f"DRY: {key} account {wf_obj.get_account_numbers(key)[account]}: {order_obj.get_action()} {order_obj.get_amount()} shares of {s}",
-                            loop,
-                        )
-                        order_failed = True
-                        complete_or_fail(
-                            play, order_obj=order_obj, success=True, detail="dry run",
-                        )
-                except TimeoutException:
-                    error_text = driver.find_element(
-                        By.XPATH,
-                        "//div[@class='alert-msg-summary']//p[1]",
-                    ).text
-                    order_failed = True
+                            cancel_button,
+                        )  # Must be clicked with js since it's out of view
+                        WebDriverWait(driver, 3).until(
+                            ec.element_to_be_clickable((By.CSS_SELECTOR, "#btn-continue")),
+                        ).click()
+                except Exception as exc:
+                    # Resolve the reserved play as FAILED (retryable) so a
+                    # mid-flow browser error can't leave a permanent
+                    # INTENDED lockout, and flag the screen dirty so the
+                    # next order resets the trade ticket.
+                    traceback.print_exc()
                     print_and_discord(
-                        f"{key} {wf_obj.get_account_numbers(key)[account]}: {order_obj.get_action()} {order_obj.get_amount()} shares of {s}. FAILED! \n{error_text}",
+                        f"{key} {account_masks[account]}: Error placing "
+                        f"{s}: {exc}",
                         loop,
                     )
+                    order_failed = True
                     complete_or_fail(
-                        play, order_obj=order_obj, success=False,
-                        detail=f"WF preview timeout: {error_text}",
+                        play, order_obj=order_obj, success=False, detail=str(exc),
                     )
-                    # Cancel the trade
-                    cancel_button = WebDriverWait(driver, 3).until(
-                        ec.element_to_be_clickable(
-                            (By.CSS_SELECTOR, "#actionbtnCancel"),
-                        ),
-                    )
-                    driver.execute_script(
-                        "arguments[0].click();",
-                        cancel_button,
-                    )  # Must be clicked with js since it's out of view
-                    WebDriverWait(driver, 3).until(
-                        ec.element_to_be_clickable((By.CSS_SELECTOR, "#btn-continue")),
-                    ).click()
+                    continue
         kill_all_selenium_drivers(wf_obj)
