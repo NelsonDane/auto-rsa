@@ -36,6 +36,7 @@ upstream. Verbose but surgical — anyone diffing this against
 from __future__ import annotations
 
 import contextlib
+import re
 
 _applied = False
 
@@ -83,30 +84,92 @@ def apply() -> None:  # noqa: C901, PLR0915
             # Enter the symbol
             self.page.get_by_label("Symbol", exact=True).click()  # type: ignore[attr-defined]
             self.page.get_by_label("Symbol", exact=True).fill(stock)  # type: ignore[attr-defined]
-            # PATCH (Issue 1): Dismiss Fidelity's symbol-search typeahead
-            # so the literal ticker is submitted on Enter. Without this,
-            # ICCM is silently autocompleted to ICCMX (the mutual fund).
-            # Escape is safe even when no dropdown is open.
+            # PATCH (Issue 1): Fidelity's symbol-search typeahead
+            # auto-resolves a typed prefix to the first dropdown
+            # option when Enter is pressed. Operator observed:
+            #   ICCM -> ICCMX  (mutual fund)
+            #   FEMY -> FEMYX  (mutual fund)
+            # Neither press("Escape") nor input_value verification
+            # alone catches it -- the input shows the typed text but
+            # Fidelity's backend has the auto-resolved security.
+            #
+            # Fix: explicitly look for a dropdown option whose
+            # primary symbol text EXACTLY matches what we typed,
+            # then click it. That binds the form to the requested
+            # security via Fidelity's own native event chain. Falls
+            # back to Escape+Enter only if no exact match is offered.
+            typed = stock.strip().upper()
+            exact_picked = False
             with contextlib.suppress(Exception):
-                self.page.keyboard.press("Escape")  # type: ignore[attr-defined]
-            self.page.get_by_label("Symbol", exact=True).press("Enter")  # type: ignore[attr-defined]
+                # Give the dropdown a moment to render.
+                self.page.wait_for_timeout(800)  # type: ignore[attr-defined]
+                # Prefer an option whose visible text STARTS with the
+                # typed symbol followed by whitespace or a separator.
+                # We use a CSS attribute predicate so a strict prefix
+                # FEMY does not match FEMYX (which would start with
+                # "FEMYX " not "FEMY ").
+                option = self.page.get_by_role(  # type: ignore[attr-defined]
+                    "option",
+                ).filter(
+                    has_text=re.compile(rf"^\s*{re.escape(typed)}\b"),
+                ).first
+                if option.is_visible(timeout=1500):
+                    option.click(timeout=2000)
+                    exact_picked = True
+            if not exact_picked:
+                # Dropdown didn't offer an exact match. Don't press
+                # Enter -- that would pick whatever's highlighted
+                # (commonly the typeahead's "closest" suggestion,
+                # i.e. the wrong ticker). Dismiss the dropdown and
+                # let the post-Enter verification below catch the
+                # mismatch.
+                with contextlib.suppress(Exception):
+                    self.page.keyboard.press("Escape")  # type: ignore[attr-defined]
+                self.page.get_by_label("Symbol", exact=True).press("Enter")  # type: ignore[attr-defined]
 
-            # PATCH (Issue 1, defense-in-depth): Verify the Symbol
-            # input's actual value matches what we typed. Substring
-            # checks aren't reliable because ICCM is a prefix of
-            # ICCMX — only the input's `value` attribute is
-            # authoritative.
+            # PATCH (Issue 1, defense-in-depth): Verify BOTH that the
+            # Symbol input shows the typed text AND that the quote
+            # panel resolved to the same symbol. The input alone
+            # isn't reliable when Fidelity's backend caches a
+            # different security than what's visible.
             self.page.locator("#quote-panel").wait_for(timeout=5000)  # type: ignore[attr-defined]
-            with contextlib.suppress(Exception):
+            input_value = ""
+            try:
                 input_value = self.page.get_by_label(  # type: ignore[attr-defined]
                     "Symbol", exact=True,
                 ).input_value(timeout=2000)
-                if (input_value or "").strip().upper() != stock.upper():
+            except Exception as exc:
+                # If we can't read the field, fail loudly -- silently
+                # proceeding is what let the wrong-ticker order
+                # through before.
+                return (
+                    False,
+                    f"Symbol field unreadable for account {account} "
+                    f"(cannot verify typed={stock.upper()!r}): {exc!r}",
+                )
+            if (input_value or "").strip().upper() != typed:
+                return (
+                    False,
+                    f"Symbol mismatch: typed {typed!r} but Symbol "
+                    f"field shows {input_value!r} (typeahead "
+                    "substituted?). Aborting this account.",
+                )
+
+            # Quote panel symbol check: ensure the security the page
+            # is showing is the one we typed, not a typeahead
+            # resolution. Look for the typed ticker as a whole word
+            # in the visible quote panel text.
+            with contextlib.suppress(Exception):
+                quote_text = self.page.locator(  # type: ignore[attr-defined]
+                    "#quote-panel",
+                ).inner_text(timeout=2000)
+                if not re.search(rf"\b{re.escape(typed)}\b", quote_text):
                     return (
                         False,
-                        f"Symbol mismatch: typed {stock.upper()!r} but "
-                        f"Symbol field shows {input_value!r} "
-                        f"(typeahead substituted?). Aborting this account.",
+                        f"Quote panel doesn't show {typed!r} "
+                        f"(panel text starts: {quote_text[:120]!r}). "
+                        f"Fidelity may have resolved {typed} to a "
+                        "different security; aborting this account.",
                     )
 
             last_price = self.page.query_selector(  # type: ignore[attr-defined]

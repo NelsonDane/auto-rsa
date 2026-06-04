@@ -71,28 +71,58 @@ def test_apply_tolerates_missing_upstream_package(monkeypatch, capsys):
     assert "not applied" in captured.out
 
 
-def test_symbol_field_dismisses_typeahead_before_enter(patched_transaction):
-    """The Issue-1 fix: Escape must be pressed BEFORE Enter so the
-    literal ticker (ICCM) is submitted instead of the autocomplete's
-    first suggestion (ICCMX)."""
+def test_symbol_field_clicks_exact_match_when_dropdown_offers_one(patched_transaction):
+    """The Issue-1 fix: when the typeahead dropdown contains an
+    option starting with the typed ticker followed by a word
+    boundary (i.e. an EXACT symbol match like 'ICCM CompanyName'
+    vs the auto-resolution 'ICCMX FundName'), click that option
+    rather than pressing Enter. Pressing Enter selects the
+    highlighted option, which is what got us ICCMX previously."""
     inst = patched_transaction()
     page = inst.page
-    # Symbol input reports back the literal ticker (mismatch guard
-    # is happy).
     page.get_by_label.return_value.input_value.return_value = "ICCM"
-    # Action menu visible immediately so the retry loop exits clean.
     page.get_by_role.return_value.is_visible.return_value = True
+    # Quote panel text must contain the typed ticker as a whole word.
+    page.locator.return_value.inner_text.return_value = "ICCM IceCure Medical $1.34"
 
     inst.transaction(
         stock="ICCM", quantity=1, action="buy",
         account="Z12345", dry=True,
     )
+    # Exact-match option should have been clicked at least once.
+    option_clicks = page.get_by_role.return_value.filter.return_value.first.click.call_args_list
+    assert len(option_clicks) >= 1, (
+        "Exact-match dropdown option should be clicked when offered"
+    )
 
+
+def test_symbol_field_falls_back_to_escape_enter_when_no_exact_match(patched_transaction):
+    """When the typeahead doesn't expose an exact symbol match
+    (option.is_visible returns False), we should NOT press Enter
+    on a potentially-highlighted wrong suggestion. Instead, press
+    Escape to dismiss the dropdown and press Enter on the input
+    so the literal text is submitted -- then the input_value /
+    quote panel checks below catch any backend substitution."""
+    inst = patched_transaction()
+    page = inst.page
+    page.get_by_label.return_value.input_value.return_value = "ICCM"
+    page.get_by_role.return_value.is_visible.return_value = True
+    page.locator.return_value.inner_text.return_value = "ICCM IceCure Medical $1.34"
+
+    # Make the exact-match option NOT visible -> fall back path.
+    page.get_by_role.return_value.filter.return_value.first.is_visible.return_value = False
+
+    inst.transaction(
+        stock="ICCM", quantity=1, action="buy",
+        account="Z12345", dry=True,
+    )
     escape_calls = [
         c for c in page.keyboard.press.call_args_list
         if c.args and c.args[0] == "Escape"
     ]
-    assert len(escape_calls) >= 1, "Escape should be pressed to dismiss typeahead"
+    assert len(escape_calls) >= 1, (
+        "Fallback path must press Escape when no exact match offered"
+    )
 
 
 def test_symbol_mismatch_guard_aborts_with_clear_message(patched_transaction):
