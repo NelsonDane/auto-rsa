@@ -241,6 +241,11 @@ def dspac_transaction(ds: Brokerage, order_obj: StockOrder, loop: asyncio.Abstra
                 try:
                     quantity = order_obj.get_amount()
                     is_dry_run = order_obj.get_dry()
+                    # Whether the broker actually accepted the order. Stays
+                    # False until an execute call reports Outcome=Success so
+                    # a rejected/failed order is never recorded as EXECUTED.
+                    order_ok = False
+                    message = ""
                     # Buy
                     if action == "buy":
                         # Validate the buy transaction
@@ -262,15 +267,21 @@ def dspac_transaction(ds: Brokerage, order_obj: StockOrder, loop: asyncio.Abstra
                             continue
                         # Proceed to execute the buy if not in dry run mode
                         if not is_dry_run:
+                            # execute_buy REQUIRES the prior validation
+                            # response; without it the library refuses to
+                            # place the order and returns Outcome=Failed.
                             buy_response = obj.execute_buy(
                                 symbol=s,
                                 amount=quantity,
                                 account_number=account,
                                 dry_run=is_dry_run,
+                                validation_response=validation_response,
                             )
                             message = buy_response["Message"]
+                            order_ok = buy_response.get("Outcome") == "Success"
                         else:
                             message = "Dry Run Success"
+                            order_ok = True
                     # Sell
                     elif action == "sell":
                         # Check stock holdings before attempting to sell
@@ -329,14 +340,20 @@ def dspac_transaction(ds: Brokerage, order_obj: StockOrder, loop: asyncio.Abstra
                                 dry_run=is_dry_run,
                             )
                             message = sell_response["Message"]
+                            order_ok = sell_response.get("Outcome") == "Success"
                         else:
                             message = "Dry Run Success"
+                            order_ok = True
                     print_and_discord(
                         f"{key}: {order_obj.get_action().capitalize()} {quantity} of {s} in {account}: {message}",
                         loop,
                     )
+                    # Record the real broker outcome: only an Outcome=Success
+                    # execute (or a dry run) marks the play EXECUTED. A
+                    # rejected order stays FAILED so a retry can re-attempt it
+                    # and holdings aren't misstated.
                     complete_or_fail(
-                        play, order_obj=order_obj, success=True, detail=message,
+                        play, order_obj=order_obj, success=order_ok, detail=message,
                     )
                 except Exception as e:
                     print_and_discord(f"{key} {account}: Error placing order: {e}", loop)

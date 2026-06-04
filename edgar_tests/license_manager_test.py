@@ -167,3 +167,28 @@ def test_can_add_broker_unlicensed_default():
     ok, reason = manager.can_add_broker(1)
     assert ok is False
     assert "Unlicensed" in reason
+
+
+def test_hardware_mismatch_in_fallback_surfaces_distinct_reason(monkeypatch):
+    """When the real machine UUID can't be read, a hardware mismatch is
+    reported as an actionable 'unreadable' transient, not a silent
+    'different machine' downgrade for a legit user on the same box."""
+    _install_token(fresh_payload(hardware_id="h_BOUNDMACHINE"))
+    # Real UUID unreadable -> hardware_id falls back AND using_fallback_id
+    # is True; the computed id won't match the bound one.
+    monkeypatch.setattr(fingerprint, "_platform_uuid", lambda: None)
+    fingerprint.reset_cache_for_tests()
+    summary = manager.status_summary()
+    assert summary["tier"] == "unlicensed"
+    assert summary["token_error"] == "hardware_id_unreadable"
+    assert "fallback" in summary["reason"].lower()
+
+
+def test_hardware_mismatch_not_in_fallback_is_different_machine(monkeypatch):
+    _install_token(fresh_payload(hardware_id="h_BOUNDMACHINE"))
+    # A real (non-fallback) UUID that hashes to a different id.
+    monkeypatch.setattr(fingerprint, "_platform_uuid", lambda: "REAL-OTHER-MACHINE")
+    fingerprint.reset_cache_for_tests()
+    summary = manager.status_summary()
+    assert summary["tier"] == "unlicensed"
+    assert summary["reason"] == "token bound to a different machine"

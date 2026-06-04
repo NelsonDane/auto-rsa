@@ -1227,7 +1227,14 @@ async def _sofi_buy(browser: Browser, symbol: str, quantity: float, discord_loop
                         browser, symbol, quantity, limit_price, account_id,
                         order_type="BUY", discord_loop=discord_loop,
                     )
-                if result and result["header"] == "Your order is placed.":  # Success
+                # Use .get(): a SoFi error response is a dict WITHOUT a
+                # "header" key, and result["header"] would raise KeyError.
+                # That KeyError escaped to the outer handler, which logged
+                # but never resolved the reserved ledger row — leaving it
+                # INTENDED forever (a permanent silent lockout for this
+                # play). .get() lets the failure fall through to the
+                # complete_or_fail(success=False) branch below.
+                if result and result.get("header") == "Your order is placed.":  # Success
                     print_and_discord(
                         f"Successfully bought {quantity} of {symbol} in account {mask_string(account_id)}",
                         discord_loop,
@@ -1341,7 +1348,11 @@ async def _sofi_sell(browser: Browser, symbol: str, quantity: float, discord_loo
                     browser, symbol, quantity, limit_price, account_id,
                     order_type="SELL", discord_loop=discord_loop,
                 )
-            if result and result["header"] == "Your order is placed.":  # Success
+            # .get() guards the same KeyError-on-error-response lockout as
+            # the buy path: an error dict has no "header", so the failure
+            # falls through to complete_or_fail(success=False) instead of
+            # raising past the reserved play and leaving it INTENDED.
+            if result and result.get("header") == "Your order is placed.":  # Success
                 print_and_discord(
                     f"Successfully sold {quantity} of {symbol} in account {mask_string(account_id)}",
                     discord_loop,

@@ -177,38 +177,53 @@ def firstrade_transaction(firstrade_o: Brokerage, order_obj: StockOrder, loop: a
                             )
                             msg = f"Error buying {quantity} of {s}"
                             raise Exception(msg)
+                        # The round-up share is captured the moment the
+                        # big-lot BUY fills. Record EXECUTED now so a retry
+                        # can NEVER re-buy the lot; the trim-sell below is
+                        # best-effort cleanup whose failure must not mark
+                        # the play FAILED (a retry would then re-buy,
+                        # compounding the position).
+                        complete_or_fail(
+                            play, order_obj=order_obj, success=True,
+                            detail=f"dance buy {quantity} filled",
+                        )
                         order_obj.set_amount(quantity - old_amount)
-                        # Rest before selling
-                        sleep(1)
-                        symbol_data = symbols.SymbolQuote(obj, account, s)
-                        price = symbol_data.last - 0.01
-                        ft_order = order.Order(obj)
-                        order_conf = ft_order.place_order(
-                            account=account,
-                            symbol=s,
-                            price_type=price_type,
-                            order_type=order.OrderType.SELL,
-                            quantity=int(order_obj.get_amount()),
-                            duration=order.Duration.DAY,
-                            price=price,
-                            dry_run=order_obj.get_dry(),
-                        )
-                        print(
-                            "The sell order verification produced the following messages: ",
-                        )
-                        pprint.pprint(order_conf)  # noqa: T203
-                        sell_success = not order_conf["error"]
-                        print_and_discord(
-                            (f"{key} account {print_account}: The sell order verification was successful" if sell_success else f"{key} account {print_account}: The sell order verification was unsuccessful"),
-                            loop,
-                        )
+                        sell_success = False
+                        try:
+                            # Rest before selling
+                            sleep(1)
+                            symbol_data = symbols.SymbolQuote(obj, account, s)
+                            price = symbol_data.last - 0.01
+                            ft_order = order.Order(obj)
+                            order_conf = ft_order.place_order(
+                                account=account,
+                                symbol=s,
+                                price_type=price_type,
+                                order_type=order.OrderType.SELL,
+                                quantity=int(order_obj.get_amount()),
+                                duration=order.Duration.DAY,
+                                price=price,
+                                dry_run=order_obj.get_dry(),
+                            )
+                            print(
+                                "The sell order verification produced the following messages: ",
+                            )
+                            pprint.pprint(order_conf)  # noqa: T203
+                            sell_success = not order_conf["error"]
+                        except Exception:  # trim-sell must not flip the ledger  # noqa: BLE001
+                            print(traceback.format_exc())
                         if not sell_success:
                             print_and_discord(
-                                f"{key} account {print_account}: The order verification produced the following messages: {order_conf}",
+                                f"{key} account {print_account}: WARNING — bought "
+                                f"{quantity} of {s} but the trim-sell of "
+                                f"{quantity - old_amount} FAILED; holding the full "
+                                f"lot. The round-up share is captured (ledger "
+                                f"EXECUTED) — manual trim needed.",
                                 loop,
                             )
-                            msg = f"Error selling {quantity - old_amount} of {s}"
-                            raise Exception(msg)
+                        # Play already resolved above; skip the else's
+                        # complete_or_fail. finally restores order_obj.
+                        continue
                     else:
                         # Normal buy/sell
                         ft_order = order.Order(obj)

@@ -189,11 +189,15 @@ class StockOrder:  # noqa: PLR0904
         """Validate that order object is properly configured."""
         # Check for required fields (doesn't apply to holdings)
         if not self.__holdings:
-            if self.__action is None:
-                msg = "Action must be set"
+            # These checks were previously `is None`, but the fields
+            # default to "" / 0.0 and are never None — so they never
+            # fired and a blank action or a 0-share amount sailed
+            # through. Check the actual invalid values instead.
+            if not self.__action:
+                msg = "Action must be set (buy or sell)"
                 raise ValueError(msg)
-            if self.__amount is None:
-                msg = "Amount must be set"
+            if self.__amount <= 0:
+                msg = "Amount must be a positive number of shares"
                 raise ValueError(msg)
             if len(self.__stock) == 0:
                 msg = "Stock must be set"

@@ -124,9 +124,14 @@ def _dollar_amount(ratio: str) -> float:
 
 def _split_key_for(signal: Signal) -> str:
     """Pick the right dedupe key for the signal's type."""
-    if signal.signal_type == SIGNAL_TYPE_SPIN_OFF:
+    # Normalize: callers/tests may pass a lower-case signal_type. Without
+    # this, a "spin_off" signal fell through to the round-up key, so the
+    # ledger's economic dedupe wouldn't recognize it and the same play
+    # could be bought twice (or wrongly deduped against a round-up).
+    st = (signal.signal_type or "").upper()
+    if st == SIGNAL_TYPE_SPIN_OFF:
         return spin_off_key(signal.ticker, signal.effective_date, signal.ratio)
-    if signal.signal_type == SIGNAL_TYPE_SPECIAL_DIV:
+    if st == SIGNAL_TYPE_SPECIAL_DIV:
         return special_dividend_key(
             signal.ticker, signal.effective_date, _dollar_amount(signal.ratio),
         )

@@ -84,3 +84,18 @@ def test_salt_race_o_excl_fallback(tmp_path, monkeypatch):
     monkeypatch.setattr(os, "open", _racing_open)
     salt = fingerprint._ensure_salt()
     assert salt == competing_salt
+
+
+def test_using_fallback_id_tracks_platform_uuid(monkeypatch):
+    """using_fallback_id() is True exactly when the real machine UUID
+    can't be read — the signal the license manager uses to avoid a
+    silent "different machine" downgrade."""
+    monkeypatch.setattr(fingerprint, "_platform_uuid", lambda: "REAL-UUID-123")
+    assert fingerprint.using_fallback_id() is False
+
+    monkeypatch.setattr(fingerprint, "_platform_uuid", lambda: None)
+    assert fingerprint.using_fallback_id() is True
+    # And hardware_id still returns a usable, stable fallback id.
+    fingerprint.reset_cache_for_tests()
+    hid = fingerprint.hardware_id()
+    assert hid.startswith("h_")

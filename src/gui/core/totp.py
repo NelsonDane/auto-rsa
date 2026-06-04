@@ -36,8 +36,15 @@ def normalize_totp_secret(value: str) -> tuple[str | None, str | None]:
         )
     norm = raw.replace(" ", "").replace("-", "").upper()
     try:
-        # Exactly what pyotp does at runtime - no extra padding.
-        base64.b32decode(norm, casefold=True)
+        # Match pyotp's runtime decode exactly: pyotp's OTP.byte_secret()
+        # pads the secret up to a multiple of 8 with "=" before
+        # b32decode. Decoding WITHOUT that padding rejects every valid
+        # secret whose length isn't a multiple of 8 (the common 20- and
+        # 26-char keys), so we'd reject keys pyotp happily accepts. Pad
+        # the same way, but keep storing/returning the un-padded ``norm``
+        # (pyotp re-pads at runtime).
+        padded = norm + "=" * (-len(norm) % 8)
+        base64.b32decode(padded, casefold=True)
     except (binascii.Error, ValueError):
         return None, (
             "Not a valid authenticator (base32) key. Use the manual-entry "

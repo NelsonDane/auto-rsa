@@ -1,3 +1,4 @@
+import contextlib
 import os
 import traceback
 import uuid
@@ -149,12 +150,28 @@ def public_transaction(pbo: Brokerage, order_obj: StockOrder, loop: AbstractEven
                             stop_price=None,
                             open_close_indicator=None,
                         )
-                        obj.place_order(order_request, account_id=account)
+                        new_order = obj.place_order(order_request, account_id=account)
+                        # Don't blindly record success on submission: the
+                        # SDK accepts the order then settles its status, so
+                        # a synchronously-REJECTED/CANCELLED order would
+                        # otherwise be logged as a fill. Best-effort status
+                        # read — if it can't be fetched, fall back to
+                        # treating the accepted submission as success.
+                        status = ""
+                        with contextlib.suppress(Exception):
+                            raw = new_order.get_status()
+                            status = str(getattr(raw, "value", raw) or "")
+                        rejected = status.upper() in {"REJECTED", "CANCELLED"}
                         print_and_discord(
-                            f"{order_obj.get_action()} {order_obj.get_amount()} of {s} in {print_account}: Success",
+                            f"{order_obj.get_action()} {order_obj.get_amount()} of {s} in {print_account}: "
+                            f"{'Rejected' if rejected else 'Success'}"
+                            f"{f' ({status})' if status else ''}",
                             loop,
                         )
-                        complete_or_fail(play, order_obj=order_obj, success=True, detail="")
+                        complete_or_fail(
+                            play, order_obj=order_obj,
+                            success=not rejected, detail=status,
+                        )
                     except Exception as e:
                         print_and_discord(f"{print_account}: Error placing order: {e}", loop)
                         traceback.print_exc()

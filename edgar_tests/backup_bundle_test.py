@@ -95,34 +95,47 @@ def test_bundle_format_starts_with_salt_then_header(tmp_path):
     assert b'"n"' in header and b'"r"' in header and b'"p"' in header
 
 
-def test_path_traversal_in_tarball_is_rejected(tmp_path, monkeypatch):
-    """Manually craft a tarball with a ../ entry; restore must refuse."""
-    import io
-    import tarfile
-
-    raw_tar = io.BytesIO()
-    with tarfile.open(fileobj=raw_tar, mode="w:gz") as tar:
-        # Synthesize a member whose name escapes the destination.
-        info = tarfile.TarInfo(name="../escapee")
-        payload = b"malicious"
-        info.size = len(payload)
-        tar.addfile(info, io.BytesIO(payload))
-
-    # Re-encrypt with the bundle's format so we can call restore.
+def _craft_bundle_with_member(member_name: str, payload: bytes = b"malicious") -> bytes:
+    """Encrypt a one-member tarball in the bundle format (for restore)."""
     import base64
+    import io
     import json
     import secrets
+    import tarfile
 
     from cryptography.fernet import Fernet
     from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
+
+    raw_tar = io.BytesIO()
+    with tarfile.open(fileobj=raw_tar, mode="w:gz") as tar:
+        info = tarfile.TarInfo(name=member_name)
+        info.size = len(payload)
+        tar.addfile(info, io.BytesIO(payload))
 
     salt = secrets.token_bytes(bundle._SALT_BYTES)
     kdf = bundle._KDF_PARAMS
     scrypt = Scrypt(salt=salt, length=bundle._KEY_LEN, **kdf)
     key = base64.urlsafe_b64encode(scrypt.derive(b"pw"))
     token = Fernet(key).encrypt(raw_tar.getvalue())
-    crafted = salt + json.dumps(kdf).encode() + b"\n" + token
+    return salt + json.dumps(kdf).encode() + b"\n" + token
 
+
+def test_path_traversal_in_tarball_is_rejected(tmp_path):
+    """A ../ entry that escapes the destination must refuse."""
+    crafted = _craft_bundle_with_member("../escapee")
     with pytest.raises(bundle.BackupError) as exc:
         bundle.restore_bundle("pw", crafted, tmp_path / "out")
     assert "path-traversing" in str(exc.value).lower()
+
+
+def test_sibling_prefix_escape_is_rejected(tmp_path):
+    """Regression: a sibling dir that merely shares the destination's
+    string prefix (``out-evil`` vs ``out``) used to pass the old
+    ``str.startswith`` guard and write outside the destination."""
+    dest = tmp_path / "out"
+    crafted = _craft_bundle_with_member("../out-evil/pwned")
+    with pytest.raises(bundle.BackupError) as exc:
+        bundle.restore_bundle("pw", crafted, dest)
+    assert "path-traversing" in str(exc.value).lower()
+    # And nothing was written to the sibling location.
+    assert not (tmp_path / "out-evil").exists()

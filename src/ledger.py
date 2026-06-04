@@ -297,6 +297,16 @@ def due_for_sell(today_iso: str) -> list[dict[str, object]]:
     tickers where an EXECUTED or INTENDED SELL already exists in
     the same (broker, account) — that's a sell-already-placed guard.
     """
+    # Parse dates instead of comparing ISO strings lexicographically: a
+    # non-ISO hold_until ("January 5, 2026", "1/5/2026", "2026-1-5")
+    # sorts wrong as a string and could surface a position as due before
+    # its real hold date — selling too early. Anything unparseable is
+    # skipped rather than risk an early sell.
+    from src.edgar.market_calendar import parse_effective_date  # noqa: PLC0415
+
+    today = parse_effective_date(today_iso)
+    if today is None:
+        return []
     with _LOCK, _connect() as conn:
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
@@ -305,14 +315,16 @@ def due_for_sell(today_iso: str) -> list[dict[str, object]]:
             WHERE action='buy'
               AND status=?
               AND hold_until != ''
-              AND hold_until <= ?
             """,
-            (STATUS_EXECUTED, today_iso),
+            (STATUS_EXECUTED,),
         ).fetchall()
         if not rows:
             return []
         out: list[dict[str, object]] = []
         for r in rows:
+            hold = parse_effective_date(r["hold_until"])
+            if hold is None or hold > today:
+                continue
             # Guard: any concurrent SELL for the same broker/account/ticker
             # blocks a duplicate auto-sell.
             sell_row = conn.execute(

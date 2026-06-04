@@ -123,8 +123,12 @@ def restore_bundle(
             if not member.isfile():
                 continue
             target = (dest_dir / member.name).resolve()
-            # Path-traversal guard.
-            if not str(target).startswith(str(dest_dir)):
+            # Path-traversal guard. Use real path containment, not a
+            # string prefix: ``str.startswith`` lets a sibling dir that
+            # merely shares the prefix (e.g. ``creds-evil/x`` vs
+            # ``creds``) escape the destination. An absolute or ``..``
+            # member name that resolves outside dest_dir is rejected here.
+            if dest_dir != target and dest_dir not in target.parents:
                 msg = (
                     f"Bundle contains a path-traversing entry "
                     f"({member.name!r}); refusing to restore."

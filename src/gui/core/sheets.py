@@ -123,6 +123,7 @@ def parse_values(values: list[list[object]]) -> list[Signal]:
         return str(row[i]).strip()
 
     out: list[Signal] = []
+    seen_keys: set[str] = set()
     for row in rows:
         if not row:
             continue
@@ -130,6 +131,12 @@ def parse_values(values: list[list[object]]) -> list[Signal]:
         key = cell(row, "KEY")
         if not ticker or not key:
             continue
+        # De-dupe by KEY (first row wins). Duplicate KEY rows otherwise
+        # both render ACTIONABLE; only the engine-side ledger guard
+        # stopped the second live order — surface one row, not two.
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
         out.append(
             Signal(
                 created_at=cell(row, "CREATED_AT"),

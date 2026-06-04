@@ -97,6 +97,34 @@ def test_due_for_sell_with_no_eligible_rows_returns_empty():
     assert due_for_sell(today_iso="2026-06-10") == []
 
 
+def test_due_for_sell_non_iso_future_date_not_sold_early():
+    """Regression: a non-ISO FUTURE hold_until that sorts before today
+    as a string ("1/1/2099" < "2026-...") must not be surfaced as due.
+    The old lexicographic SQL compare would have sold it ~73 years
+    early. Dates are now parsed and compared as real dates."""
+    p = Play(
+        key="NI-1", broker="fidelity", account="111",
+        ticker="FUTURE", action="buy",
+        signal_type="SPECIAL_DIV", hold_until="1/1/2099",
+    )
+    record_intent(p, qty=1)
+    mark_result(p, success=True, detail="")
+    assert due_for_sell(today_iso="2026-06-10") == []
+
+
+def test_due_for_sell_unparseable_hold_until_is_skipped():
+    """An unparseable hold_until is skipped rather than risk an early
+    or wrongly-ordered sell."""
+    p = Play(
+        key="NI-2", broker="fidelity", account="111",
+        ticker="GARBAGE", action="buy",
+        signal_type="SPECIAL_DIV", hold_until="whenever",
+    )
+    record_intent(p, qty=1)
+    mark_result(p, success=True, detail="")
+    assert due_for_sell(today_iso="2026-06-10") == []
+
+
 def test_signal_type_normalized_to_upper_on_write():
     """Defensive — the producer always emits uppercase, but a hand-
     crafted Play with mixed case should normalize so downstream

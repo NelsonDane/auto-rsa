@@ -69,6 +69,66 @@ def test_efts_search_failures_return_empty(monkeypatch):
     assert fetch.efts_search("q", "a", "b") == []
 
 
+def test_efts_search_records_transport_failures(monkeypatch):
+    # Regression: a fully-failed scrape must be distinguishable from an
+    # empty window so an unattended run doesn't silently miss every play.
+    monkeypatch.setattr(fetch.time, "sleep", lambda *_: None)
+    monkeypatch.setattr(
+        fetch.requests, "get", lambda *a, **k: _Resp(403, None, "denied"),
+    )
+    errors: list[str] = []
+    assert fetch.efts_search("q", "a", "b", errors=errors) == []
+    assert len(errors) == 1 and "403" in errors[0]
+
+    def boom(*_a, **_k):
+        raise requests.RequestException
+
+    monkeypatch.setattr(fetch.requests, "get", boom)
+    errors.clear()
+    assert fetch.efts_search("q", "a", "b", errors=errors) == []
+    assert len(errors) == 1 and "request failed" in errors[0]
+
+
+def test_efts_search_paginates_all_pages(monkeypatch):
+    # Regression: EFTS returns 10 hits/page; without pagination only the
+    # first page was seen and the rest were silently dropped.
+    monkeypatch.setattr(fetch.time, "sleep", lambda *_: None)
+
+    def _page(ids):
+        return {
+            "hits": {
+                "total": {"value": 25},
+                "hits": [
+                    {
+                        "_id": f"000000000{i}-26-{i:06d}:doc.htm",
+                        "_source": {
+                            "ciks": ["0000000123"],
+                            "display_names": [f"Co (TIC{i}) (CIK)"],
+                            "file_date": "2026-01-01",
+                            "file_type": "8-K",
+                        },
+                    }
+                    for i in ids
+                ],
+            },
+        }
+
+    pages = [_page(range(0, 10)), _page(range(10, 20)), _page(range(20, 25))]
+    calls = {"n": 0}
+
+    def get(*_a, **k):
+        # SEC advances via the "from" offset; serve the matching page.
+        frm = k["params"]["from"]
+        calls["n"] += 1
+        idx = frm // fetch._EFTS_PAGE
+        return _Resp(200, pages[idx] if idx < len(pages) else _page([]))
+
+    monkeypatch.setattr(fetch.requests, "get", get)
+    hits = fetch.efts_search("q", "a", "b")
+    assert len(hits) == 25
+    assert calls["n"] == 3  # stopped after the short final page
+
+
 def test_cik_to_ticker(monkeypatch):
     fetch.cik_to_ticker.cache_clear()
     monkeypatch.setattr(fetch.time, "sleep", lambda *_: None)

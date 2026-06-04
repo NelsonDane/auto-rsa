@@ -117,6 +117,18 @@ def _platform_uuid() -> str | None:
     return None
 
 
+def using_fallback_id() -> bool:
+    """True when the real machine UUID couldn't be read.
+
+    In that case :func:`hardware_id` returns a HOME/node-derived id that
+    differs from the machine-UUID-based one a token was bound to — so a
+    license check would read "different machine." Callers can use this
+    to surface an actionable "couldn't read hardware id" message instead
+    of silently downgrading a legit user on the same box.
+    """
+    return not _platform_uuid()
+
+
 @lru_cache(maxsize=1)
 def hardware_id() -> str:
     """Return the (cached) salted hardware fingerprint, ``h_…``."""

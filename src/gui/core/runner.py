@@ -50,6 +50,14 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 _RUN_LOCK = _PROJECT_ROOT / "creds" / "run.lock"
 _STALE_LOCK_SECONDS = 6 * 60 * 60  # a lock with no live engine, this old, is stale
 _DISCOVERY_FIELDS = 3  # <SENTINEL>broker\tparent\taccount
+# Redaction thresholds. The corruption risk is SHORT, PURELY-NUMERIC
+# secrets (a 4-6 digit PIN/code) which collide with digits inside
+# balances/totals/timestamps and silently rewrite the real-money audit
+# log. So: redact anything >= _REDACT_MIN_LEN, and shorter values only
+# when they contain a non-digit (an alphanumeric token is unambiguous);
+# never blind-replace a short all-numeric secret.
+_REDACT_MIN_LEN = 8
+_REDACT_ALNUM_MIN_LEN = 5
 
 
 class RunBusyError(RuntimeError):
@@ -100,9 +108,23 @@ class TradeRunner:
         self._fill_counts: dict[str, int] = {}
         self._lock = threading.Lock()
 
+    @staticmethod
+    def _redactable(secret: str) -> bool:
+        n = len(secret)
+        if n >= _REDACT_MIN_LEN:
+            return True
+        # Short value: only redact if it carries a non-digit (an
+        # alphanumeric token won't collide with numbers in the log).
+        return n >= _REDACT_ALNUM_MIN_LEN and not secret.isdigit()
+
     def _redact(self, text: str) -> str:
-        for secret in self._secrets:
-            text = text.replace(secret, "***")
+        # Longest first so a long secret isn't left half-masked by a
+        # shorter one that's a substring of it. Short all-numeric secrets
+        # are skipped so redaction can't rewrite unrelated numbers in the
+        # audit log.
+        for secret in sorted(self._secrets, key=len, reverse=True):
+            if self._redactable(secret):
+                text = text.replace(secret, "***")
         return text
 
     # --- state ---------------------------------------------------------
@@ -352,7 +374,15 @@ class TradeRunner:
         if pid is not None:
             # Live engine for that pid -> not stale.
             return not psutil.pid_exists(int(pid))
-        # No engine pid yet: only stale if very old (abandoned start).
+        # No engine pid recorded yet (the brief window between acquiring
+        # the lock and Popen+record). Anchor liveness to the GUI process
+        # that holds the lock: if it's gone, the start was abandoned and
+        # the lock is stale immediately — this closes the old hole where
+        # a crash in that window wedged ALL runs for _STALE_LOCK_SECONDS
+        # (6h). Fall back to the age check only if no owner pid is known.
+        owner = info.get("owner_pid")
+        if owner is not None:
+            return not psutil.pid_exists(int(owner))
         return (time.time() - float(info.get("created", 0))) > _STALE_LOCK_SECONDS
 
     def _acquire_run_lock(self) -> None:
@@ -370,14 +400,22 @@ class TradeRunner:
                 _RUN_LOCK.unlink()
             fd = os.open(_RUN_LOCK, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
         with os.fdopen(fd, "w") as fh:
-            json.dump({"engine_pid": None, "created": time.time()}, fh)
+            json.dump(
+                {"engine_pid": None, "owner_pid": os.getpid(), "created": time.time()},
+                fh,
+            )
 
     @staticmethod
     def _record_engine_pid(pid: int) -> None:
+        # Atomic tmp+replace (matching the vault) so a crash mid-write
+        # can't leave a truncated/corrupt lock file.
+        payload = json.dumps(
+            {"engine_pid": pid, "owner_pid": os.getpid(), "created": time.time()},
+        )
         with contextlib.suppress(OSError):
-            _RUN_LOCK.write_text(
-                json.dumps({"engine_pid": pid, "created": time.time()}),
-            )
+            tmp = _RUN_LOCK.with_suffix(_RUN_LOCK.suffix + ".tmp")
+            tmp.write_text(payload)
+            tmp.replace(_RUN_LOCK)
 
     @staticmethod
     def _release_run_lock() -> None:
@@ -416,8 +454,19 @@ class TradeRunner:
                     self.prompts.open(text)
                     answer = self.prompts.wait_answer()
                     if proc.stdin is not None:
-                        proc.stdin.write(answer + "\n")
-                        proc.stdin.flush()
+                        try:
+                            proc.stdin.write(answer + "\n")
+                            proc.stdin.flush()
+                        except (BrokenPipeError, OSError, ValueError):
+                            # The engine exited (e.g. login timed out) while
+                            # the user was entering the 2FA code. Don't turn
+                            # this benign race into a generic "pump error"
+                            # that ends the reader — log it and keep draining
+                            # whatever output remains.
+                            self.log.write(
+                                "(engine exited before the 2FA code was "
+                                "submitted)\n",
+                            )
                 elif raw.startswith(ACCOUNT_SENTINEL):
                     payload = raw[len(ACCOUNT_SENTINEL):].rstrip("\r\n")
                     parts = payload.split("\t", 2)

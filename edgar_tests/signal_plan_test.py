@@ -193,3 +193,18 @@ def test_round_up_still_actionable_with_only_round_up_enabled():
     assert item.signal_type == "ROUND_UP_REVERSE"
     # Round-ups never auto-sell (manual only).
     assert item.hold_until == ""
+
+
+def test_split_key_normalizes_lowercase_signal_type():
+    """Regression: a lower-case signal_type must select the SAME economic
+    dedupe key as its upper-case form. Before, _split_key_for compared
+    the raw field and a "spin_off" signal fell through to the round-up
+    key, defeating the ledger's cross-producer dedupe."""
+    from src.gui.core.signal_plan import _split_key_for
+
+    for st in ("SPIN_OFF", "SPECIAL_DIV", "ROUND_UP_REVERSE"):
+        up = _sig("ACME", "ROUND_UP", 0.9, signal_type=st,
+                  ratio="1-for-2", eff="June 1, 2026")
+        lo = _sig("ACME", "ROUND_UP", 0.9, signal_type=st.lower(),
+                  ratio="1-for-2", eff="June 1, 2026")
+        assert _split_key_for(up) == _split_key_for(lo) != "", st

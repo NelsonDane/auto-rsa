@@ -62,3 +62,13 @@ def test_row_without_ticker_or_key_is_skipped():
     no_key[_HEADER_ROW.index("KEY")] = ""
     sigs = parse_values([_HEADER_ROW, no_key])
     assert sigs == []
+
+
+def test_parse_values_dedupes_duplicate_keys():
+    """Two rows with the same KEY collapse to one Signal (first wins);
+    the GUI shouldn't render the same play twice — only the engine-side
+    ledger guard stopped the second live order."""
+    dup = list(_GOOD_ROW)  # same KEY "K-ACME"
+    sigs = parse_values([_HEADER_ROW, _GOOD_ROW, dup])
+    assert len(sigs) == 1
+    assert sigs[0].key == "K-ACME"

@@ -112,6 +112,7 @@ def discover(  # noqa: PLR0913
     enrich: bool = True,
     include_spin_off: bool = True,
     include_special_div: bool = True,
+    errors: list[str] | None = None,
 ) -> list[Play]:
     """Search EDGAR and return alert-worthy, de-duplicated plays.
 
@@ -120,6 +121,11 @@ def discover(  # noqa: PLR0913
     Each type has its own EFTS query/form set in fetch.py and its
     own dedupe key prefix so a reverse-split and a same-day
     spin-off for the same ticker never collide.
+
+    When an ``errors`` list is supplied, EFTS transport/HTTP failures
+    are appended to it so the caller can distinguish "no plays found"
+    from "the scrape failed and found nothing" (a missed-capture
+    silent failure on an unattended run).
     """
     today = datetime.now(UTC).date()
     start = (today - timedelta(days=window_days)).isoformat()
@@ -132,16 +138,17 @@ def discover(  # noqa: PLR0913
     plays.extend(_discover_reverse_splits(
         queries=queries, forms=forms, enrich=enrich,
         start=start, end=end, seen_acc=seen_acc, seen_econ=seen_econ,
+        errors=errors,
     ))
     if include_spin_off:
         plays.extend(_discover_spin_offs(
             enrich=enrich, start=start, end=end,
-            seen_acc=seen_acc, seen_econ=seen_econ,
+            seen_acc=seen_acc, seen_econ=seen_econ, errors=errors,
         ))
     if include_special_div:
         plays.extend(_discover_special_dividends(
             enrich=enrich, start=start, end=end,
-            seen_acc=seen_acc, seen_econ=seen_econ,
+            seen_acc=seen_acc, seen_econ=seen_econ, errors=errors,
         ))
     return plays
 
@@ -155,10 +162,11 @@ def _discover_reverse_splits(  # noqa: PLR0913
     end: str,
     seen_acc: set[str],
     seen_econ: set[str],
+    errors: list[str] | None = None,
 ) -> list[Play]:
     out: list[Play] = []
     for q in queries:
-        for hit in efts_search(q, start, end, forms):
+        for hit in efts_search(q, start, end, forms, errors=errors):
             if hit.accession in seen_acc:
                 continue
             seen_acc.add(hit.accession)
@@ -209,10 +217,11 @@ def _discover_spin_offs(
     end: str,
     seen_acc: set[str],
     seen_econ: set[str],
+    errors: list[str] | None = None,
 ) -> list[Play]:
     out: list[Play] = []
     for q in SPIN_OFF_QUERIES:
-        for hit in efts_search(q, start, end, SPIN_OFF_FORMS):
+        for hit in efts_search(q, start, end, SPIN_OFF_FORMS, errors=errors):
             if hit.accession in seen_acc:
                 continue
             seen_acc.add(hit.accession)
@@ -256,10 +265,11 @@ def _discover_special_dividends(
     end: str,
     seen_acc: set[str],
     seen_econ: set[str],
+    errors: list[str] | None = None,
 ) -> list[Play]:
     out: list[Play] = []
     for q in SPECIAL_DIV_QUERIES:
-        for hit in efts_search(q, start, end, SPECIAL_DIV_FORMS):
+        for hit in efts_search(q, start, end, SPECIAL_DIV_FORMS, errors=errors):
             if hit.accession in seen_acc:
                 continue
             seen_acc.add(hit.accession)

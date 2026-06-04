@@ -43,6 +43,47 @@ def test_round_up_variants():
         assert p.evidence
 
 
+def test_effective_date_normalization_round_trip():
+    from src.edgar.market_calendar import parse_effective_date
+
+    cases = {
+        # abbreviated month + trailing period used to lose the deadline
+        "the split is effective on Jan. 5, 2026": "2026-01-05",
+        # global ordinal strip used to eat the "st" in August -> "Augu"
+        "the split is effective on August 5, 2026": "2026-08-05",
+        # 4-letter "Sept" abbreviation
+        "the split becomes effective on Sept. 30, 2026": "2026-09-30",
+        # ordinal on the day number still stripped
+        "effective on January 5th, 2026": "2026-01-05",
+    }
+    for text, want in cases.items():
+        eff = parse_reverse_split(text).effective_date
+        assert parse_effective_date(eff or "") is not None, (text, eff)
+        assert parse_effective_date(eff or "").isoformat() == want, (text, eff)
+
+
+def test_bare_rounded_up_no_longer_false_positives():
+    # Regression: a bare "round(ed) up" with no fractional-share context
+    # used to classify as ROUND_UP @ 0.93 and trigger a real-money buy.
+    for txt in (
+        "the proceeds were rounded up for accounting purposes",
+        "the exercise price will be rounded up to the nearest cent",
+        "the board approved a 1-for-10 reverse stock split; amounts were "
+        "rounded up in the table above",
+    ):
+        assert parse_fractional_policy(txt).policy != "ROUND_UP", txt
+
+
+def test_round_down_with_stray_round_up_is_not_a_buy():
+    # A genuine round-DOWN filing that also says "rounded up" somewhere is
+    # contradictory; it must NOT be classified as a buyable ROUND_UP.
+    txt = (
+        "fractional shares will be rounded down to the nearest whole "
+        "share; in no event will any fractional share be rounded up."
+    )
+    assert parse_fractional_policy(txt).policy == "ROUND_DOWN"
+
+
 def test_cash_beats_round_up_ordering():
     # Both phrasings present -> CASH must win (the money-safety invariant).
     both = (
