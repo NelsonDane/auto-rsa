@@ -181,6 +181,11 @@ async def _tastytrade_async_execute(tt_o: Brokerage, order_obj: StockOrder, loop
                             new_order,
                             dry_run=order_obj.get_dry(),
                         )
+                        # Re-read the status from the RETRY response — the
+                        # old value still held "Rejected" from the first
+                        # attempt, so a successful limit retry was misreported
+                        # as a failure and a real fill was never acknowledged.
+                        order_status = placed_order.order.status.value
                         # Check order status
                         if order_status in {"Received", "Routed"}:
                             message = f"{key} {print_account}: {order_obj.get_action()} {order_obj.get_amount()} of {s} Order: {placed_order.order.id} Status: {order_status}"

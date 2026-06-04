@@ -38,7 +38,9 @@ def test_upload_round_trip(monkeypatch, _stub_auth):
         captured["timeout"] = timeout
         return _FakeResp(200, json_body={
             "id": "file-1", "name": "backup.bin",
-            "createdTime": "2026-06-01T00:00:00Z", "size": "12",
+            # size must match the 4-byte blob below; a mismatch is now
+            # treated as a truncated/corrupt upload.
+            "createdTime": "2026-06-01T00:00:00Z", "size": "4",
         })
 
     import requests
@@ -56,6 +58,24 @@ def test_upload_round_trip(monkeypatch, _stub_auth):
     assert b"FOLDER123" in captured["body"]
     assert b"backup-2026-06-01.bin" in captured["body"]
     assert b"\x00\x01\x02\x03" in captured["body"]
+
+
+def test_upload_size_mismatch_is_rejected(monkeypatch, _stub_auth):
+    """A 200 response whose stored size != the blob length is a
+    truncated/partial upload and must fail loudly, not be recorded as a
+    good (but corrupt) backup discovered only at restore time."""
+    import requests
+    monkeypatch.setattr(
+        requests, "post",
+        lambda *a, **k: _FakeResp(200, json_body={
+            "id": "f", "name": "b", "size": "999",  # blob is 4 bytes
+        }),
+    )
+    with pytest.raises(drive.DriveError) as exc:
+        drive.upload_to_drive(
+            sa_json="{}", folder_id="F", filename="x", blob=b"\x00\x01\x02\x03",
+        )
+    assert "size mismatch" in str(exc.value).lower()
 
 
 def test_upload_no_folder_id_fails_clearly(_stub_auth):

@@ -13,6 +13,7 @@ from __future__ import annotations
 import operator
 import time
 from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 import streamlit as st
@@ -1616,7 +1617,11 @@ def _tab_signals() -> None:  # noqa: C901, PLR0912, PLR0914, PLR0915
         st.info("No signals loaded yet — click Refresh.")
         return
 
-    today = datetime.now().date()  # noqa: DTZ005
+    # Use the NYSE/ET date, identical to plan_signals' "today". With the
+    # system-local date, a host west of ET (e.g. a PT Mac Mini) disagreed
+    # by a day between local and ET midnight, so a play still actionable
+    # in ET could be hidden here as "past" (or a just-past one lingered).
+    today = datetime.now(ZoneInfo("America/New_York")).date()
     past_signals: list[Signal] = []
     signals: list[Signal] = []
     for sig in all_signals:

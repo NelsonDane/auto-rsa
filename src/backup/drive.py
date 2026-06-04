@@ -110,10 +110,21 @@ def upload_to_drive(
         msg = f"Drive returned HTTP {resp.status_code}: {resp.text[:200]}"
         raise DriveError(msg)
     try:
-        return dict(resp.json())
+        meta = dict(resp.json())
     except ValueError as exc:
         msg = "Drive returned a non-JSON response."
         raise DriveError(msg) from exc
+    # Verify Drive stored the whole blob. A truncated/partial upload that
+    # still returns 200 would otherwise be recorded as a good backup and
+    # only revealed as corrupt at restore time — when it's too late.
+    reported = meta.get("size")
+    if reported is not None and str(reported) != str(len(blob)):
+        msg = (
+            f"Drive upload size mismatch: sent {len(blob)} bytes but Drive "
+            f"stored {reported}. Treating as a failed backup."
+        )
+        raise DriveError(msg)
+    return meta
 
 
 def list_backups(

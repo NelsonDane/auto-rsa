@@ -258,6 +258,40 @@ def test_runner_redaction():
     assert r._redact("user logged in SUPERSECRET tok123") == "user logged in *** ***"
 
 
+def test_runner_redaction_skips_short_numeric_secret():
+    """A short all-numeric secret (a 4-digit PIN) must NOT be redacted —
+    blind-replacing it corrupted unrelated numbers in the audit log
+    (e.g. a balance like $1234.00)."""
+    r = TradeRunner(Vault())
+    r._secrets = ["1234", "12345678"]  # PIN (skip) + account number (redact)
+    out = r._redact("Total: $1234.00 acct 12345678 bought 1234 shares")
+    assert "$1234.00" in out  # balance untouched (PIN not redacted)
+    assert "1234 shares" in out  # PIN occurrence untouched
+    assert "12345678" not in out  # long numeric secret still masked
+    assert out.count("***") == 1  # only the account number
+
+
+def test_runner_lock_not_stale_while_owner_alive(tmp_path, monkeypatch):
+    """A lock with no engine pid yet but a LIVE owner (GUI) process is
+    not stale — and a dead owner makes it stale immediately, closing the
+    6-hour wedge window."""
+    import os
+
+    monkeypatch.setattr(runner_mod, "_RUN_LOCK", tmp_path / "run.lock")
+    # Owner alive, no engine pid -> held (not stale).
+    (tmp_path / "run.lock").write_text(
+        json.dumps({"engine_pid": None, "owner_pid": os.getpid(),
+                    "created": 0}),  # created long ago; age check must NOT apply
+    )
+    assert runner_mod.TradeRunner._lock_is_stale() is False
+    # Owner gone -> stale immediately despite a recent created time.
+    (tmp_path / "run.lock").write_text(
+        json.dumps({"engine_pid": None, "owner_pid": 2_147_483_000,
+                    "created": time.time()}),
+    )
+    assert runner_mod.TradeRunner._lock_is_stale() is True
+
+
 def test_runner_popen_failure_sets_error(tmp_path, monkeypatch):
     monkeypatch.setattr(runner_mod, "_RUN_LOCK", tmp_path / "run.lock")
     v = Vault(tmp_path / "v.json")

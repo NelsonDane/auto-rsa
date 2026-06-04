@@ -202,7 +202,25 @@ _DATE_RES = (
     re.compile(r"effective[^.]{0,40}\b(\d{4}-\d{2}-\d{2})\b", _I),
     re.compile(r"effective[^.]{0,40}\b(\d{1,2}/\d{1,2}/\d{4})\b", _I),
 )
-_ORDINAL = re.compile(r"(st|nd|rd|th)", _I)
+# Ordinal suffix anchored to a day number ("5th" -> "5"). It MUST be
+# digit-anchored: a bare (st|nd|rd|th) also matches inside month names
+# ("August" -> "Augu"), which broke date parsing.
+_ORDINAL = re.compile(r"(\d)(?:st|nd|rd|th)\b", _I)
+
+
+def _normalize_date_str(raw: str) -> str:
+    """Clean a captured date so market_calendar can parse it.
+
+    Drops the period after an abbreviated month ("Jan." -> "Jan", which
+    ``%b`` needs) and strips ordinal suffixes from the day number
+    ("5th" -> "5"). Without the period strip the pre-split deadline was
+    silently lost ("—") for any "Jan./Feb./..." filing and the
+    split_key diverged from producers that normalize differently.
+    """
+    s = _ORDINAL.sub(r"\1", raw.replace(".", "")).strip()
+    # "Sept" is captured by _MONTH but strptime's %b wants "Sep"; the
+    # \b after keeps "September" (parsed via %B) untouched.
+    return re.sub(r"\bSept\b", "Sep", s, flags=_I)
 
 
 def parse_reverse_split(text: str) -> ReverseSplit:
@@ -220,7 +238,7 @@ def parse_reverse_split(text: str) -> ReverseSplit:
     for rx in _DATE_RES:
         m = rx.search(s)
         if m:
-            eff = _ORDINAL.sub("", m.group(1))
+            eff = _normalize_date_str(m.group(1))
             break
     reason = "Compliance" if _COMPLIANCE.search(s) else None
     return ReverseSplit(ratio, eff, reason)
