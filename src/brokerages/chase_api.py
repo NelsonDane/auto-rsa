@@ -433,6 +433,34 @@ def _verify_chase_response(
     return ""
 
 
+def _order_succeeded(messages: dict, *, dry: bool) -> bool:
+    """Decide whether the ledger should record an order as EXECUTED.
+
+    A truthy ORDER VALIDATION alone is NOT enough on a LIVE order:
+    the validation dict is populated before the irreversible execute
+    POST, so trusting it would mark an order EXECUTED even if the
+    execute response was empty or lacked an order identifier (a
+    Chase accept-but-no-fill). For live orders we require ORDER
+    CONFIRMATION to be a dict carrying an order identifier. Dry runs
+    legitimately have only ORDER VALIDATION and no execute, so a
+    truthy validation is sufficient there.
+    """
+    if dry:
+        return bool(messages.get("ORDER VALIDATION"))
+    confirmation = messages.get("ORDER CONFIRMATION")
+    if not isinstance(confirmation, dict):
+        return False
+    # Chase's buy/sell execute response carries the order id under
+    # one of these keys depending on endpoint/version. Any present
+    # non-empty value counts as a real fill acknowledgement.
+    id_keys = (
+        "orderIdentifier",
+        "orderId",
+        "financialInformationExchangeSystemOrderIdentifier",
+    )
+    return any(confirmation.get(k) for k in id_keys)
+
+
 def _execute_single_order(ch_session: session.ChaseSession, all_accounts: ch_account.AllAccount, order_obj: StockOrder, ticker: str, account: str, price_type: order.PriceType, limit_price: float, key: str, loop: asyncio.AbstractEventLoop | None) -> None:  # noqa: PLR0917
     """Execute a single order for one account."""
     target_account_id = get_account_id(all_accounts.account_connectors, account)
@@ -507,8 +535,8 @@ def _execute_single_order(ch_session: session.ChaseSession, all_accounts: ch_acc
     if mismatch:
         invalid = mismatch
         print_and_discord(f"{key} {account}: {mismatch}", loop)
-    success = not bool(invalid) and bool(
-        messages.get("ORDER CONFIRMATION") or messages.get("ORDER VALIDATION"),
+    success = not bool(invalid) and _order_succeeded(
+        messages, dry=order_obj.get_dry(),
     )
     detail = invalid or ""
     complete_or_fail(play, order_obj=order_obj, success=success, detail=detail)

@@ -42,6 +42,7 @@ happens).
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import datetime
 import os
 import time
@@ -59,13 +60,6 @@ _DIRECT_MARKER = "_rsa_chase_direct"
 _VALIDATE_TIMEOUT = 45
 _EXECUTE_TIMEOUT = 45
 _QUOTE_TIMEOUT = 20
-# How long browser.cookies.get_all() can take before we abort. The
-# underlying CDP Storage.getCookies call has been observed hanging
-# indefinitely on multi-account Chase sessions (operator trace Dec
-# 2025: '[chase-direct] T+ 0.00s quote start' followed by silence).
-# 30s is generous; CDP cookie fetches on a healthy session complete
-# in ~50ms.
-_COOKIES_TIMEOUT = 30
 # Quote GETs are idempotent and read-only — retrying is safe and
 # pulls intermittent transient stalls out of the hot path. Order
 # POSTs stay single-shot (retrying execute could double-fill).
@@ -126,33 +120,60 @@ def _log(label: str, t0: float, extra: str = "") -> None:
 
 
 async def _in_page_fetch(  # noqa: PLR0911
-    browser: object, url: str, *, label: str, t0: float,
+    page: object, url: str, *, label: str, t0: float,
     method: str = "GET", body: dict | None = None,
     timeout: float = 30,  # noqa: ASYNC109
 ) -> dict | None:
-    """Run ``fetch(url)`` inside the browser tab.
+    """Run ``fetch(url)`` inside the authenticated Chase tab.
 
-    Mirrors the SoFi pattern: bypass nodriver's CDP cookie extraction
-    (``Storage.getCookies`` hangs indefinitely on multi-account Chase
-    sessions) by running the HTTPS request from within the page
-    context. The browser's session jar (including HttpOnly cookies
-    and any anti-CSRF tokens) is forwarded automatically via
-    ``credentials: 'include'``.
+    Mirrors the SoFi pattern: bypass zendriver's CDP cookie
+    extraction (``Storage.getCookies`` hangs indefinitely on
+    multi-account Chase sessions) by running the HTTPS request from
+    within the page context. The browser's session jar (including
+    HttpOnly cookies) is forwarded automatically for a same-origin
+    request.
+
+    ``page`` MUST be the authenticated dashboard tab
+    (``self.session.page``) — it has to be on the ``secure.chase.com``
+    origin so the fetch is same-origin with the
+    ``secure.chase.com/svc/...`` API. We assert that origin before
+    firing: a cross-origin fetch (e.g. left on the ``secure05c``
+    login subdomain) would be CORS-rejected with the wrong cookie
+    context, so we fail fast with a clear log line instead.
 
     Returns the parsed JSON body of a 2xx response, or ``None`` on
-    any failure (timeout, network error, non-2xx, broken envelope).
-    Failures log the SoFi-style status/body diagnostic so the next
-    trace shows the real reason instead of a silent abort.
+    any failure (wrong origin, timeout, network error, non-2xx,
+    broken envelope). Failures log the status/body diagnostic so the
+    next trace shows the real reason instead of a silent abort.
     """
     import json as _json  # noqa: PLC0415
 
     _log(f"{label}: in-page fetch {method} {url}", t0, f"timeout={timeout}s")
-    tabs = list(getattr(browser, "tabs", []) or [])
-    if not tabs:
-        _log(f"{label}: no tabs available", t0)
+    if page is None:
+        _log(f"{label}: no page handle", t0)
         return None
-    page = tabs[-1]
 
+    # Origin guard: the fetch must run same-origin with the API or
+    # the cookies / CORS context are wrong. Best-effort — if we can't
+    # read the URL we proceed (the fetch result will still surface a
+    # clear failure).
+    with contextlib.suppress(Exception):
+        current_url = await asyncio.wait_for(
+            page.evaluate("window.location.href"), timeout=5,
+        )
+        cur = str(current_url or "")
+        if not cur.startswith("https://secure.chase.com/"):
+            _log(
+                f"{label}: WRONG ORIGIN for in-page fetch", t0,
+                f"tab is on {cur[:80]!r}, need secure.chase.com",
+            )
+            return None
+
+    # Headers mirror chase.urls.get_headers() for the values the
+    # browser does NOT auto-populate. origin / referer / user-agent
+    # are set automatically by the browser for a same-origin fetch,
+    # so we must NOT (and cannot) set them from JS. x-jpmc-channel is
+    # Chase-specific and REQUIRED — omitting it 4xx-rejects orders.
     body_js = _json.dumps(body) if body is not None else "null"
     js = (
         "(async () => {"
@@ -160,10 +181,10 @@ async def _in_page_fetch(  # noqa: PLR0911
         f"    method: {method!r},"
         "    credentials: 'include',"
         "    headers: {"
-        "      'accept': 'application/json',"
+        "      'accept': 'application/json, text/plain, */*',"
         "      'content-type': 'application/json',"
         "      'x-jpmc-csrf-token': 'NONE',"
-        "      'x-requested-with': 'XMLHttpRequest'"
+        "      'x-jpmc-channel': 'id=C30'"
         "    }"
         "  };"
         f"  const body = {body_js};"
@@ -269,12 +290,16 @@ def apply() -> None:  # noqa: C901, PLR0915
 
         # Cookies are no longer extracted (CDP Storage.getCookies
         # hangs on multi-account Chase sessions; operator trace Dec
-        # 2025). The HTTPS requests below run inside the browser tab
-        # via _in_page_fetch -- the session jar (including HttpOnly
-        # cookies) is forwarded automatically.
-        browser = getattr(self.session, "browser", None)  # type: ignore[attr-defined]
-        if browser is None:
-            order_messages["ORDER INVALID"] = "Chase: no browser handle on session"
+        # 2025). The HTTPS requests below run inside the AUTHENTICATED
+        # dashboard tab (self.session.page) via _in_page_fetch -- the
+        # session jar (including HttpOnly cookies) is forwarded
+        # automatically for the same-origin request. We use
+        # session.page (not browser.tabs[-1]) so we target the tab
+        # that's actually on secure.chase.com, not whatever tab
+        # happens to be last.
+        page = getattr(self.session, "page", None)  # type: ignore[attr-defined]
+        if page is None:
+            order_messages["ORDER INVALID"] = "Chase: no page handle on session"
             return order_messages
 
         payload: dict[str, object] = {
@@ -309,7 +334,7 @@ def apply() -> None:  # noqa: C901, PLR0915
         exchange_id = None
         try:
             val_data = await _in_page_fetch(
-                browser, validate_order(order_type=order_type),
+                page, validate_order(order_type=order_type),
                 label="validate", t0=t0,
                 method="POST", body=payload,
                 timeout=_validate_timeout(),
@@ -349,7 +374,7 @@ def apply() -> None:  # noqa: C901, PLR0915
                 "financialInformationExchangeSystemOrderIdentifier"
             ] = exchange_id
             exec_data = await _in_page_fetch(
-                browser, execute_order(order_type=order_type),
+                page, execute_order(order_type=order_type),
                 label="execute", t0=t0,
                 method="POST", body=exec_payload,
                 timeout=_execute_timeout(),
@@ -381,9 +406,9 @@ def apply() -> None:  # noqa: C901, PLR0915
                 "quote start", t0,
                 f"symbol={self.symbol}",  # type: ignore[attr-defined]
             )
-            browser = getattr(self.session, "browser", None)  # type: ignore[attr-defined]
-            if browser is None:
-                _log("quote no browser handle on session", t0)
+            page = getattr(self.session, "page", None)  # type: ignore[attr-defined]
+            if page is None:
+                _log("quote no page handle on session", t0)
                 return
             url = (
                 f"{quote_url()}?security-symbol-code={self.symbol}"  # type: ignore[attr-defined]
@@ -403,7 +428,7 @@ def apply() -> None:  # noqa: C901, PLR0915
                 )
                 try:
                     result = await _in_page_fetch(
-                        browser, url,
+                        page, url,
                         label=f"quote attempt {attempt}", t0=t0,
                         timeout=_quote_timeout(),
                     )
