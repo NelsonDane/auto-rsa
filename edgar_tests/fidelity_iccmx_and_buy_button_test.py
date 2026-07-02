@@ -97,20 +97,26 @@ def test_symbol_field_clicks_exact_match_when_dropdown_offers_one(patched_transa
 
 
 def test_symbol_field_falls_back_to_escape_enter_when_no_exact_match(patched_transaction):
-    """When the typeahead doesn't expose an exact symbol match
-    (option.is_visible returns False), we should NOT press Enter
-    on a potentially-highlighted wrong suggestion. Instead, press
-    Escape to dismiss the dropdown and press Enter on the input
-    so the literal text is submitted -- then the input_value /
-    quote panel checks below catch any backend substitution."""
+    """When no typeahead exact-match option becomes visible (every
+    candidate locator's wait_for times out), we must NOT press Enter
+    on a possibly-highlighted wrong suggestion blindly — we Escape to
+    dismiss the dropdown, then Enter the literal text; the input_value
+    guard and the downstream order-preview check then gate a bad
+    ticker."""
     inst = patched_transaction()
     page = inst.page
     page.get_by_label.return_value.input_value.return_value = "ICCM"
     page.get_by_role.return_value.is_visible.return_value = True
     page.locator.return_value.inner_text.return_value = "ICCM IceCure Medical $1.34"
 
-    # Make the exact-match option NOT visible -> fall back path.
-    page.get_by_role.return_value.filter.return_value.first.is_visible.return_value = False
+    # Make every exact-match candidate's wait_for(state=visible) time
+    # out -> exact_picked stays False -> fallback Escape+Enter path.
+    def _raise_wait(*_a, **_k):
+        msg = "not visible"
+        raise TimeoutError(msg)
+
+    page.get_by_role.return_value.filter.return_value.first.wait_for.side_effect = _raise_wait
+    page.locator.return_value.filter.return_value.first.wait_for.side_effect = _raise_wait
 
     inst.transaction(
         stock="ICCM", quantity=1, action="buy",

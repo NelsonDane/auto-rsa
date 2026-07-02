@@ -98,78 +98,82 @@ def apply() -> None:  # noqa: C901, PLR0915
             # then click it. That binds the form to the requested
             # security via Fidelity's own native event chain. Falls
             # back to Escape+Enter only if no exact match is offered.
+            # Prefer clicking the typeahead option whose visible text
+            # begins with the EXACT typed symbol followed by a word
+            # boundary — so FEMY matches "FEMY IceCure…" but not
+            # "FEMYX …". Clicking the option binds Fidelity's form to
+            # the right security via its own native event chain, which
+            # is more reliable than pressing Enter (Enter selects the
+            # highlighted suggestion, which is how FEMY became FEMYX).
+            #
+            # The option is best-effort: we use wait_for(state=visible)
+            # (which actually polls — Locator.is_visible() does NOT
+            # honor its timeout kwarg in Playwright and returns
+            # immediately) and try a few role/markup variants since the
+            # symbol suggestion list may not be role="option". If none
+            # matches in time we fall back to Enter, and the
+            # authoritative ORDER PREVIEW check below (the preview
+            # shows "Symbol<TICKER>" for exactly what will be
+            # submitted) is what actually guards against a wrong-ticker
+            # order — so a missed option click cannot cause a bad fill,
+            # only (at worst) a skipped account.
             typed = stock.strip().upper()
+            exact_re = re.compile(rf"^\s*{re.escape(typed)}\b")
             exact_picked = False
-            with contextlib.suppress(Exception):
-                # Give the dropdown a moment to render.
-                self.page.wait_for_timeout(800)  # type: ignore[attr-defined]
-                # Prefer an option whose visible text STARTS with the
-                # typed symbol followed by whitespace or a separator.
-                # We use a CSS attribute predicate so a strict prefix
-                # FEMY does not match FEMYX (which would start with
-                # "FEMYX " not "FEMY ").
-                option = self.page.get_by_role(  # type: ignore[attr-defined]
-                    "option",
-                ).filter(
-                    has_text=re.compile(rf"^\s*{re.escape(typed)}\b"),
-                ).first
-                if option.is_visible(timeout=1500):
-                    option.click(timeout=2000)
+            for locator in (
+                self.page.get_by_role("option").filter(has_text=exact_re),  # type: ignore[attr-defined]
+                self.page.locator("li[role='option']").filter(has_text=exact_re),  # type: ignore[attr-defined]
+                self.page.locator("[role='listbox'] li").filter(has_text=exact_re),  # type: ignore[attr-defined]
+            ):
+                try:
+                    opt = locator.first
+                    opt.wait_for(state="visible", timeout=2500)
+                    opt.click(timeout=2000)
                     exact_picked = True
+                    break
+                except Exception:  # noqa: BLE001, S112
+                    continue
             if not exact_picked:
-                # Dropdown didn't offer an exact match. Don't press
-                # Enter -- that would pick whatever's highlighted
-                # (commonly the typeahead's "closest" suggestion,
-                # i.e. the wrong ticker). Dismiss the dropdown and
-                # let the post-Enter verification below catch the
-                # mismatch.
+                # No exact option surfaced in time. Dismiss any
+                # dropdown and submit the literal text; the preview
+                # check downstream is the real guard.
                 with contextlib.suppress(Exception):
                     self.page.keyboard.press("Escape")  # type: ignore[attr-defined]
                 self.page.get_by_label("Symbol", exact=True).press("Enter")  # type: ignore[attr-defined]
 
-            # PATCH (Issue 1, defense-in-depth): Verify BOTH that the
-            # Symbol input shows the typed text AND that the quote
-            # panel resolved to the same symbol. The input alone
-            # isn't reliable when Fidelity's backend caches a
-            # different security than what's visible.
             self.page.locator("#quote-panel").wait_for(timeout=5000)  # type: ignore[attr-defined]
-            input_value = ""
-            try:
+
+            # Authoritative-when-readable: if the Symbol INPUT itself
+            # shows a different ticker than we typed, that's a clear
+            # substitution — abort. (A read failure is non-fatal: the
+            # ORDER PREVIEW check below still gates the actual order.)
+            with contextlib.suppress(Exception):
                 input_value = self.page.get_by_label(  # type: ignore[attr-defined]
                     "Symbol", exact=True,
                 ).input_value(timeout=2000)
-            except Exception as exc:
-                # If we can't read the field, fail loudly -- silently
-                # proceeding is what let the wrong-ticker order
-                # through before.
-                return (
-                    False,
-                    f"Symbol field unreadable for account {account} "
-                    f"(cannot verify typed={stock.upper()!r}): {exc!r}",
-                )
-            if (input_value or "").strip().upper() != typed:
-                return (
-                    False,
-                    f"Symbol mismatch: typed {typed!r} but Symbol "
-                    f"field shows {input_value!r} (typeahead "
-                    "substituted?). Aborting this account.",
-                )
+                if (input_value or "").strip().upper() != typed:
+                    return (
+                        False,
+                        f"Symbol mismatch: typed {typed!r} but Symbol "
+                        f"field shows {input_value!r} (typeahead "
+                        "substituted?). Aborting this account.",
+                    )
 
-            # Quote panel symbol check: ensure the security the page
-            # is showing is the one we typed, not a typeahead
-            # resolution. Look for the typed ticker as a whole word
-            # in the visible quote panel text.
+            # SOFT check only: log if the quote panel doesn't show the
+            # typed ticker as a whole word, but do NOT abort here — the
+            # panel can render the symbol in forms this regex misses
+            # (adjacent spans / no whitespace), which false-aborted
+            # tradeable tickers like FEMY. The ORDER PREVIEW's
+            # "Symbol<TICKER>" check (below) is the real gate.
             with contextlib.suppress(Exception):
                 quote_text = self.page.locator(  # type: ignore[attr-defined]
                     "#quote-panel",
                 ).inner_text(timeout=2000)
                 if not re.search(rf"\b{re.escape(typed)}\b", quote_text):
-                    return (
-                        False,
-                        f"Quote panel doesn't show {typed!r} "
-                        f"(panel text starts: {quote_text[:120]!r}). "
-                        f"Fidelity may have resolved {typed} to a "
-                        "different security; aborting this account.",
+                    print(
+                        f"Fidelity {account}: quote panel didn't clearly "
+                        f"show {typed!r} (exact_picked={exact_picked}); "
+                        "relying on the order-preview symbol check.",
                     )
 
             last_price = self.page.query_selector(  # type: ignore[attr-defined]
@@ -323,9 +327,17 @@ def apply() -> None:  # noqa: C901, PLR0915
                 self.page.get_by_role("button", name="Place order", exact=False).first.click()  # type: ignore[attr-defined]
                 try:
                     self.wait_for_loading_sign()  # type: ignore[attr-defined]
-                    self.page.get_by_text("Order received", exact=True).wait_for(  # type: ignore[attr-defined]
-                        timeout=10000, state="visible",
-                    )
+                    # Match the confirmation loosely: exact=True /
+                    # case-sensitive "Order received" would mark a
+                    # genuine fill as FAILED if Fidelity's wording or
+                    # casing differs even slightly — and a FAILED
+                    # ledger row is reset to retryable, so the next run
+                    # RE-SUBMITS an order that already executed
+                    # (double-buy). A case-insensitive substring is
+                    # the safer confirmation.
+                    self.page.get_by_text(  # type: ignore[attr-defined]
+                        re.compile(r"order\s+received", re.IGNORECASE),
+                    ).first.wait_for(timeout=10000, state="visible")
                     return (True, None)  # noqa: TRY300
                 except PlaywrightTimeoutError as toe:
                     return (False, f"Timed out waiting for 'Order received': {toe}")

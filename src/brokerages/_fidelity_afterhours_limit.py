@@ -127,11 +127,17 @@ def apply() -> None:
             dry = bool(_arg(args, kwargs, 4, "dry", default=True))
             explicit_limit = _arg(args, kwargs, 5, "limit_price", default=None)
 
-            # Only intervene for a plain market BUY while the market is
-            # closed; everything else runs upstream untouched.
+            # Intervene for a plain market BUY *or* SELL while the
+            # market is closed; everything else runs upstream
+            # untouched. Sells were previously unprotected, so an
+            # after-hours sell went out as a MARKET order (limit_price
+            # None) which Fidelity rejects outside RTH — "sell doesn't
+            # work" on any overnight/after-hours run.
+            # _marketable_limit already prices the sell side (last -
+            # tick), so both directions get a marketable limit.
             intervene = (
                 explicit_limit is None
-                and action.lower() == "buy"
+                and action.lower() in {"buy", "sell"}
                 and bool(stock)
                 and quantity is not None
                 and account is not None
