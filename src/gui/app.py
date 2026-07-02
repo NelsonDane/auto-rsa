@@ -973,8 +973,23 @@ def _render_live_confirm(runner: TradeRunner, vault: Vault, pending: dict) -> No
         "This runs across **every account** at each broker above.",
     )
     typed = st.text_input("Type EXECUTE (all caps) to confirm", key="live_confirm_text")
+    busy = runner.is_running()
+    if busy:
+        # The operator typed EXECUTE but the button is greyed because a
+        # run is still active. Say so explicitly (a silently-disabled
+        # button reads as "the tool won't let me proceed") and give a
+        # one-click way out.
+        st.warning(
+            "A run is still in progress, so the Confirm button is "
+            "disabled. Wait for it to finish, or cancel it in the "
+            "activity panel below, then confirm.",
+        )
+        if st.button("⛔ Cancel the in-progress run", key="live_confirm_cancel_run"):
+            runner.cancel()
+            time.sleep(0.5)
+            st.rerun()
     c1, c2 = st.columns(2)
-    confirm_disabled = typed.strip() != "EXECUTE" or runner.is_running()
+    confirm_disabled = typed.strip() != "EXECUTE" or busy
     if c1.button("Confirm LIVE order", type="primary", disabled=confirm_disabled):
         try:
             runner.start_trade(
@@ -1206,8 +1221,19 @@ def _render_signal_live_confirm(
     typed = st.text_input(
         "Type EXECUTE (all caps) to confirm", key="signal_live_confirm_text",
     )
+    busy = runner.is_running()
+    if busy:
+        st.warning(
+            "A run is still in progress, so the Confirm button is "
+            "disabled. Wait for it to finish, or cancel it below, "
+            "then confirm.",
+        )
+        if st.button("⛔ Cancel the in-progress run", key="signal_confirm_cancel_run"):
+            runner.cancel()
+            time.sleep(0.5)
+            st.rerun()
     c1, c2 = st.columns(2)
-    disabled = typed.strip() != "EXECUTE" or runner.is_running()
+    disabled = typed.strip() != "EXECUTE" or busy
     if c1.button("Confirm LIVE buy", type="primary", disabled=disabled):
         try:
             runner.start_signal_run(

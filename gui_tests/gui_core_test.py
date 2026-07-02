@@ -309,6 +309,72 @@ def test_runner_popen_failure_sets_error(tmp_path, monkeypatch):
     assert not (tmp_path / "run.lock").exists()  # lock released
 
 
+class _FakeExitedProc:
+    """A subprocess whose main has exited (poll != None) but whose
+    stdout pipe is still 'open' (a leaked browser child would hold it),
+    simulating the wedged-reader state."""
+
+    def __init__(self, returncode=0):
+        self.returncode = returncode
+        self.pid = 999_999_999  # a pid that won't exist
+        self.stdout_closed = False
+
+        class _Stdout:
+            def close(_self):  # noqa: N805
+                self.stdout_closed = True
+
+        self.stdout = _Stdout()
+
+    def poll(self):
+        return self.returncode  # non-None => engine has exited
+
+
+def test_reaper_recovers_wedged_running_status(tmp_path, monkeypatch):
+    """A RUNNING status whose engine has exited (but whose reader is
+    wedged on a leaked pipe) must self-heal to a terminal state so the
+    UI's Execute/Confirm buttons re-enable. Regression for 'the tool
+    won't let me proceed into live trading'."""
+    monkeypatch.setattr(runner_mod, "_RUN_LOCK", tmp_path / "run.lock")
+    (tmp_path / "run.lock").write_text(
+        json.dumps({"engine_pid": None, "owner_pid": 1, "created": time.time()}),
+    )
+    v = Vault(tmp_path / "v.json")
+    v.initialize("pw")
+    r = TradeRunner(v)
+    # Force the wedged state: status RUNNING, engine proc exited, no
+    # live reader thread.
+    r._status = RunStatus.RUNNING
+    r._proc = _FakeExitedProc(returncode=0)
+    r._thread = None
+
+    # is_running() must self-heal and report False.
+    assert r.is_running() is False
+    assert r.snapshot().status == RunStatus.FINISHED
+    assert not (tmp_path / "run.lock").exists()  # lock released
+    assert r._proc.stdout_closed  # reader nudged to unblock
+
+
+def test_reaper_leaves_live_run_alone(tmp_path, monkeypatch):
+    """A genuinely-alive engine (poll() is None) must NOT be reaped."""
+    monkeypatch.setattr(runner_mod, "_RUN_LOCK", tmp_path / "run.lock")
+    v = Vault(tmp_path / "v.json")
+    v.initialize("pw")
+    r = TradeRunner(v)
+
+    class _AliveProc:
+        pid = 999_999_998
+        stdout = None
+
+        def poll(self):
+            return None  # still running
+
+    r._status = RunStatus.RUNNING
+    r._proc = _AliveProc()
+    r._thread = None
+    assert r.is_running() is True
+    assert r.snapshot().status == RunStatus.RUNNING
+
+
 def test_runner_single_instance_lock(tmp_path, monkeypatch):
     lock = tmp_path / "run.lock"
     monkeypatch.setattr(runner_mod, "_RUN_LOCK", lock)

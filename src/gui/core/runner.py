@@ -130,12 +130,29 @@ class TradeRunner:
     # --- state ---------------------------------------------------------
 
     def is_running(self) -> bool:
-        """Whether the engine subprocess is currently active."""
+        """Whether the engine subprocess is currently active.
+
+        Self-heals first: a browser broker can leave a zombie browser
+        child that inherited the engine's stdout pipe, so the pump
+        reader never sees EOF, ``proc.wait()`` is never reached, and
+        the status is wedged on RUNNING forever — disabling every
+        Execute/Confirm button. :meth:`_reap_if_stuck` detects the
+        engine having actually exited and finalizes the run so the UI
+        unblocks.
+        """
+        self._reap_if_stuck()
         with self._lock:
             return self._status == RunStatus.RUNNING
 
     def snapshot(self) -> RunnerSnapshot:
-        """Non-blocking view of status + captured log."""
+        """Non-blocking view of status + captured log.
+
+        Reaps a stuck run first (see :meth:`_reap_if_stuck`) so the
+        auto-refreshing activity panel recovers a wedged RUNNING
+        status within one poll cycle, without needing the operator to
+        click anything.
+        """
+        self._reap_if_stuck()
         with self._lock:
             return RunnerSnapshot(
                 self._status,
@@ -422,23 +439,101 @@ class TradeRunner:
         with contextlib.suppress(OSError):
             _RUN_LOCK.unlink()
 
+    @staticmethod
+    def _kill_descendants(proc: subprocess.Popen) -> None:
+        """Kill any surviving child/grandchild processes of ``proc``.
+
+        Used both by cancel and the stuck-run reaper. Best-effort:
+        if the engine already exited its browser children may have
+        been re-parented (POSIX) and won't be found here — the
+        per-broker cleanups (e.g. chase profile scan) catch those on
+        the next run. This at least reaps the common still-attached
+        case.
+        """
+        with contextlib.suppress(psutil.Error, OSError):
+            parent = psutil.Process(proc.pid)
+            for child in parent.children(recursive=True):
+                with contextlib.suppress(psutil.Error):
+                    child.kill()
+
+    def _reap_if_stuck(self) -> None:
+        """Finalize a RUNNING status whose engine process has exited.
+
+        The pump reader blocks on ``for raw in proc.stdout``; if a
+        leaked browser child holds the pipe's write end open, the
+        reader never gets EOF and ``proc.wait()`` (which flips status
+        out of RUNNING) is never reached. Detect the engine main
+        having exited and finalize directly so the UI's disabled
+        buttons re-enable. Idempotent with the pump's own ``finally``.
+        """
+        with self._lock:
+            if self._status != RunStatus.RUNNING:
+                return
+            proc = self._proc
+            thread = self._thread
+        if proc is None or proc.poll() is None:
+            # No process, or the engine is genuinely still alive — a
+            # real run is in progress; leave it be.
+            return
+        # Engine exited but we're still RUNNING -> wedged reader.
+        self.log.write(
+            "\n--- engine process exited but the run was still marked "
+            "running (a leaked browser likely held the output pipe "
+            "open); auto-recovering so the UI unblocks ---\n",
+        )
+        self._kill_descendants(proc)
+        # Nudge the blocked reader to fall through to its finally by
+        # closing the pipe it's reading. Best-effort across platforms.
+        with contextlib.suppress(Exception):
+            if proc.stdout is not None:
+                proc.stdout.close()
+        # Don't depend on the (possibly permanently-wedged) reader:
+        # finalize here too. Both paths are guarded/idempotent.
+        if thread is None or not thread.is_alive():
+            self._release_run_lock()
+            code = proc.returncode
+            self._set_status(
+                RunStatus.FINISHED if code == 0 else RunStatus.ERROR,
+            )
+
     def cancel(self) -> None:
-        """Abort the current run: kill the engine and its browser tree."""
+        """Abort the current run: kill the engine and its browser tree.
+
+        Robust to the case where the engine *main* has already exited
+        but a leaked browser child is holding the stdout pipe open
+        (which wedges the reader on RUNNING): we kill descendants
+        regardless of ``proc.poll()``, close the pipe to unblock the
+        reader, and finalize the status directly if the reader can't
+        recover on its own.
+        """
         with self._lock:
             if self._status != RunStatus.RUNNING:
                 return
             self._cancelled = True
+            proc = self._proc
+            thread = self._thread
         # Unblock the reader if it is waiting on a 2FA answer.
         self.prompts.cancel()
-        proc = self._proc
-        if proc is not None and proc.poll() is None:
-            with contextlib.suppress(psutil.Error, OSError):
-                parent = psutil.Process(proc.pid)
-                for child in parent.children(recursive=True):
-                    with contextlib.suppress(psutil.Error):
-                        child.kill()
-                parent.kill()
+        if proc is not None:
+            # Kill leaked browser children even when the engine main
+            # has already exited (the old `proc.poll() is None` guard
+            # skipped this case, leaving the zombie — and the wedge).
+            self._kill_descendants(proc)
+            if proc.poll() is None:
+                with contextlib.suppress(psutil.Error, OSError):
+                    psutil.Process(proc.pid).kill()
+            with contextlib.suppress(Exception):
+                if proc.stdout is not None:
+                    proc.stdout.close()
         self.log.write("\n--- Run cancelled by user ---\n")
+        # If the engine already exited (reader may be wedged on a held
+        # pipe) or the reader thread is gone, finalize here so the UI
+        # unblocks immediately instead of waiting on a dead reader.
+        if (
+            proc is not None and proc.poll() is not None
+        ) or thread is None or not thread.is_alive():
+            self._release_run_lock()
+            self._set_status(RunStatus.CANCELLED)
 
     def _pump(self) -> None:  # noqa: C901, PLR0912
         proc = self._proc
