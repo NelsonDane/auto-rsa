@@ -737,22 +737,41 @@ def _render_broker_credentials(meta: BrokerMeta, vault: Vault, runner: TradeRunn
 # Broker picker shared by Trade + Holdings
 # --------------------------------------------------------------------------
 def _broker_picker(key_prefix: str) -> list[str]:
+    """Pick which configured brokers a run targets.
+
+    A single always-visible multiselect, pre-filled with every
+    configured broker (so "all selected" is the default and returns
+    the ``"all"`` sentinel downstream). This deliberately replaces
+    the old checkbox + conditionally-revealed multiselect: that
+    revealed the list only after a full-app rerun, and because a
+    checkbox toggle re-executes every tab body (and races the 2s
+    activity fragment), the list was slow to appear / sometimes
+    didn't show. An always-present widget updates in place with no
+    rerun-to-reveal.
+    """
     vault = _get_vault()
     configured = vault.configured_broker_keys()
     if not configured:
         st.warning("No brokers configured yet. Add credentials first.")
         return []
     name_by_key = {get_broker(k).display_name: k for k in configured}
-    use_all = st.checkbox(
-        "All configured brokers", value=True, key=f"{key_prefix}_all",
-    )
-    if use_all:
-        return ["all"]
+    all_names = list(name_by_key.keys())
     chosen = st.multiselect(
-        "Brokers",
-        options=list(name_by_key.keys()),
+        "Brokers to use",
+        options=all_names,
+        default=all_names,
         key=f"{key_prefix}_sel",
+        help="All selected (the default) = run every configured "
+        "broker. Deselect any to narrow the run.",
     )
+    if not chosen:
+        st.warning("Select at least one broker to run.")
+        return []
+    # Everything selected -> keep the "all" sentinel so downstream
+    # (confirm summary, engine env resolution) behaves exactly as the
+    # old 'All configured brokers' path did.
+    if set(chosen) == set(all_names):
+        return ["all"]
     return [name_by_key[n] for n in chosen]
 
 
