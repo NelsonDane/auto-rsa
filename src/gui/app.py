@@ -210,12 +210,14 @@ def _sidebar() -> None:  # noqa: C901, PLR0912, PLR0914, PLR0915
         value=settings.get("SORT_BROKERS", "true") == "true",
     )
     chase_direct = st.sidebar.checkbox(
-        "Chase: direct order mode (experimental)",
-        value=settings.get("RSA_CHASE_DIRECT_ORDER", "false") == "true",
-        help="Skip the browser page navigation that hangs Chase orders "
-        "on multi-account logins; POST directly to JPM's validate/execute "
-        "endpoints using the session cookies. Holdings/login are not "
-        "affected. Leave OFF until you've tested it on a single account.",
+        "Chase: direct order mode (recommended)",
+        value=settings.get("RSA_CHASE_DIRECT_ORDER", "true") == "true",
+        help="ON by default and recommended. POSTs orders directly to "
+        "JPM's validate/execute endpoints via an in-page fetch, skipping "
+        "the browser page navigation that HANGS Chase orders on "
+        "multi-account logins. Turning this OFF falls back to the "
+        "upstream path, which does not work reliably with multiple "
+        "accounts.",
     )
     # Phase 7: per-signal-type allow-list. Operator opts into each
     # new event class individually. The Python pipeline already

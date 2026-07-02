@@ -138,12 +138,25 @@ def test_live_success_requires_order_identifier():
     assert _order_succeeded(msgs, dry=False) is True
 
 
-def test_live_fail_when_confirmation_has_no_order_id():
+def test_live_accepts_2xx_body_without_recognized_id_key():
+    """A non-empty 2xx execute body with no recognized order-id key
+    (and no reject marker) is now ACCEPTED as a fill. Rationale: the
+    execute-response shape isn't confirmed against live Chase, and a
+    real fill under an unexpected id key recorded FAILED would cause
+    a double-buy on the next run -- the worse failure. Empty bodies
+    and explicit rejects still fail (see the tests below)."""
     msgs = {
         "ORDER VALIDATION": {"financialInformationExchangeSystemOrderIdentifier": "EX1"},
-        "ORDER CONFIRMATION": {"status": "ACCEPTED"},  # no id key
+        "ORDER CONFIRMATION": {"orderStatusCode": "ACCEPTED"},  # no id key
     }
-    assert _order_succeeded(msgs, dry=False) is False
+    assert _order_succeeded(msgs, dry=False) is True
+
+
+def test_live_fail_when_confirmation_has_explicit_reject():
+    """An explicit rejection echoed inside a 2xx execute body fails."""
+    for reject_key in ("tradeErrorMessages", "errors", "errorMessages"):
+        msgs = {"ORDER CONFIRMATION": {reject_key: ["rejected"]}}
+        assert _order_succeeded(msgs, dry=False) is False, reject_key
 
 
 def test_live_fail_when_confirmation_not_a_dict():

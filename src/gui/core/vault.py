@@ -40,7 +40,16 @@ _KEY_LEN = 32
 DEFAULT_SETTINGS: dict[str, str] = {
     "HEADLESS": "true",
     "SORT_BROKERS": "true",
-    "RSA_CHASE_DIRECT_ORDER": "false",
+    # Direct order mode is the SUPPORTED Chase order path: it POSTs
+    # validate/execute via an in-page fetch and skips the upstream
+    # browser navigation to the order page, which HANGS on a
+    # multi-account login (the "Choose an account" chooser never
+    # resolves — sells time out per account, buys freeze the quote
+    # step until the 600s watchdog). Default ON so Chase buy/sell
+    # works out of the box; the operator can still turn it off in the
+    # sidebar to fall back to the (known-broken-on-multi-account)
+    # upstream path.
+    "RSA_CHASE_DIRECT_ORDER": "true",
     # Phase 7: per-signal-type allow-list. Comma-separated subset of
     # ROUND_UP_REVERSE / SPIN_OFF / SPECIAL_DIV. Default is the
     # original reverse-split flow only — no behavior change until

@@ -436,29 +436,53 @@ def _verify_chase_response(
 def _order_succeeded(messages: dict, *, dry: bool) -> bool:
     """Decide whether the ledger should record an order as EXECUTED.
 
-    A truthy ORDER VALIDATION alone is NOT enough on a LIVE order:
-    the validation dict is populated before the irreversible execute
-    POST, so trusting it would mark an order EXECUTED even if the
-    execute response was empty or lacked an order identifier (a
-    Chase accept-but-no-fill). For live orders we require ORDER
-    CONFIRMATION to be a dict carrying an order identifier. Dry runs
-    legitimately have only ORDER VALIDATION and no execute, so a
-    truthy validation is sufficient there.
+    Dry runs legitimately have only ORDER VALIDATION and no execute,
+    so a truthy validation is sufficient there.
+
+    For LIVE orders: ORDER CONFIRMATION is set ONLY when the execute
+    POST returned HTTP 2xx with a JSON body (see
+    _chase_direct_order._direct_place_order_async — a non-2xx or a
+    transport failure leaves it "" and sets ORDER INVALID instead,
+    so success is already False upstream). A truthy ORDER VALIDATION
+    alone must NOT count: it's populated before the irreversible
+    execute, so trusting it would mark a never-executed order
+    EXECUTED.
+
+    We deliberately DON'T require a specific order-id key. The exact
+    execute-response shape isn't confirmed against live Chase, and
+    the previous strict id-key check risked the WORSE failure: a
+    real fill whose id lives under an unexpected key gets recorded
+    FAILED, then the next run re-submits (double-buy). A non-empty
+    ORDER CONFIRMATION dict (i.e. a 2xx execute with a body) that
+    carries no explicit reject/error marker is treated as a fill.
+    Empty/degenerate bodies and explicit rejects still fail.
     """
     if dry:
         return bool(messages.get("ORDER VALIDATION"))
     confirmation = messages.get("ORDER CONFIRMATION")
-    if not isinstance(confirmation, dict):
+    if not isinstance(confirmation, dict) or not confirmation:
         return False
-    # Chase's buy/sell execute response carries the order id under
-    # one of these keys depending on endpoint/version. Any present
-    # non-empty value counts as a real fill acknowledgement.
-    id_keys = (
+    # If Chase echoed an explicit rejection inside a 2xx body, fail.
+    for reject_key in ("tradeErrorMessages", "errors", "errorMessages"):
+        if confirmation.get(reject_key):
+            return False
+    # A recognized order-id key is the strongest signal; log which so
+    # the real response shape becomes known from the trace.
+    for id_key in (
         "orderIdentifier",
         "orderId",
         "financialInformationExchangeSystemOrderIdentifier",
+    ):
+        if confirmation.get(id_key):
+            return True
+    # No recognized id key, but a non-empty 2xx execute body with no
+    # reject marker -> accept (avoids the double-buy false-negative).
+    # Surface the keys so the real id field can be added above.
+    print(
+        "Chase execute 2xx with no recognized order-id key; "
+        f"accepting as filled. confirmation keys: {list(confirmation)[:12]}",
     )
-    return any(confirmation.get(k) for k in id_keys)
+    return True
 
 
 def _execute_single_order(ch_session: session.ChaseSession, all_accounts: ch_account.AllAccount, order_obj: StockOrder, ticker: str, account: str, price_type: order.PriceType, limit_price: float, key: str, loop: asyncio.AbstractEventLoop | None) -> None:  # noqa: PLR0917

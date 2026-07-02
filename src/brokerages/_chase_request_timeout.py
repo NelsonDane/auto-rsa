@@ -107,6 +107,27 @@ def apply() -> None:
             _bounded._rsa_order_bounded = True  # type: ignore[attr-defined]  # noqa: SLF001
             _co.Order._place_order_async = _bounded  # type: ignore[assignment]  # noqa: SLF001
 
+        # 3. Bound SymbolQuote.get_symbol_quote too. On a BUY the
+        #    upstream quote does `await self.session.page.get(order_page())`
+        #    (symbols.py) which hangs on a multi-account "Choose an
+        #    account" chooser exactly like the order nav — but nothing
+        #    bounded it, so a non-direct BUY froze the quote step until
+        #    the 600s per-broker watchdog. Wrap it so it fails fast
+        #    per-ticker (the caller's quote loop then degrades to
+        #    MARKET). No-op when direct mode already replaced this
+        #    method (its marker is checked so we don't double-bound).
+        orig_quote = _cs.SymbolQuote.get_symbol_quote
+        if not getattr(orig_quote, _ORDER_BOUNDED, False):
+
+            async def _bounded_quote(self: object, *args: object, **kwargs: object) -> object:
+                return await asyncio.wait_for(
+                    orig_quote(self, *args, **kwargs),  # type: ignore[misc]
+                    timeout=_order_timeout(),
+                )
+
+            _bounded_quote._rsa_order_bounded = True  # type: ignore[attr-defined]  # noqa: SLF001
+            _cs.SymbolQuote.get_symbol_quote = _bounded_quote  # type: ignore[assignment]
+
         _applied = True
         print("Chase: order timeout guards active (HTTP + coroutine)")
     except Exception as exc:
