@@ -11,6 +11,7 @@ dependencies = [
     "discord-py==2.7.1",
     "dspac-invest-api==0.1.4",
     "email-validator>=2.3.0",
+    "fastapi>=0.121.0",
     "fennel-invest-api==2.0.1",
     "fidelity-api==0.0.16",
     "firstrade==0.0.38",
@@ -26,6 +27,7 @@ dependencies = [
     "setuptools<83",
     "tastytrade==12.4.1",
     "typer>=0.20.0",
+    "uvicorn>=0.38.0",
     "vanguard-api==0.3.3",
     "zendriver>=0.15.4",
 ]

@@ -16,6 +16,19 @@ services:
             # WF device-trust cookies (exported from your own browser) live in
             # ./creds/wellsfargo-cookies.json and are injected by the bot.
             - ./creds:/app/creds
+        # Dispatch API (see DISPATCH_API_KEY in .env) accepts real trade orders,
+        # so it's reachable only from containers on this Docker network -- not
+        # published to the host. Other bots (a manual-command bot, a self-bot,
+        # a scraper) join this same named network and call
+        # http://auto-rsa:8000 with an X-API-Key header.
+        expose:
+            - "${DISPATCH_API_PORT:-8000}"
+        networks:
+            - dispatch
+
+networks:
+    dispatch:
+        name: auto-rsa-dispatch
 
 # watchtower intentionally removed from this compose file; run it from its own
 # compose file so it doesn't recreate/update this container during testing.

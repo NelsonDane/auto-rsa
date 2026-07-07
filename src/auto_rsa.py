@@ -13,6 +13,8 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import Any
 
+import uvicorn
+
 from src.helper_api import Brokerage, is_up_to_date
 
 # Filter out old playwright warning: temporary
@@ -69,6 +71,7 @@ try:
     from src.brokerages.webull_api import webull_holdings, webull_init, webull_transaction
     from src.brokerages.wellsfargo_api import wellsfargo_run
     from src.brokers import AllBrokersInfo, BrokerName
+    from src.dispatch_api import create_app
     from src.helper_api import StockOrder, ThreadHandler, print_and_discord
 except Exception as e:
     print(f"Error importing libraries: {e}")
@@ -322,6 +325,67 @@ def arg_parser(args: list[str]) -> StockOrder:  # noqa: C901, PLR0912
     return stock_order
 
 
+class _EmbeddedUvicornServer(uvicorn.Server):
+    """uvicorn.Server, but it doesn't install SIGINT/SIGTERM handlers.
+
+    discord.py already owns signal handling on this loop; letting uvicorn
+    install its own too means the two fight over the same signals.
+    """
+
+    def install_signal_handlers(self) -> None:
+        pass
+
+
+async def _run_bot_and_dispatch_api(
+    bot: "commands.Bot",
+    discord_token: str,
+    docker_mode: bool,  # noqa: FBT001
+    order_lock: asyncio.Lock,
+) -> None:
+    """Run the Discord bot and, if configured, the dispatch API concurrently.
+
+    Other containers (a manual-command bot, a self-bot watching a channel, a
+    scraper sourcing candidates) submit orders over the dispatch API; this
+    container is still the only one holding brokerage credentials/sessions.
+    """
+    tasks = [asyncio.create_task(bot.start(discord_token), name="discord-bot")]
+
+    api_key = os.getenv("DISPATCH_API_KEY")
+    server: uvicorn.Server | None = None
+    if api_key:
+        app = create_app(
+            bot=bot,
+            event_loop=asyncio.get_event_loop(),
+            docker_mode=docker_mode,
+            order_lock=order_lock,
+            api_key=api_key,
+        )
+        port = int(os.getenv("DISPATCH_API_PORT", "8000"))
+        config = uvicorn.Config(app, host="0.0.0.0", port=port, log_level="info")  # noqa: S104
+        server = _EmbeddedUvicornServer(config)
+        tasks.append(asyncio.create_task(server.serve(), name="dispatch-api"))
+        print(f"Dispatch API listening on :{port}")
+    else:
+        print("DISPATCH_API_KEY not set; dispatch API disabled (Discord bot only).")
+
+    done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+
+    # One task ending (crash, or a shutdown request) tears the other down too
+    # rather than leaving it running with no supervisor.
+    if server is not None:
+        server.should_exit = True
+    if not bot.is_closed():
+        await bot.close()
+    for task in pending:
+        task.cancel()
+    await asyncio.gather(*pending, return_exceptions=True)
+
+    for task in done:
+        exc = task.exception()
+        if exc is not None:
+            raise exc
+
+
 def main(args: list[str]) -> None:  # noqa: C901, PLR0912, PLR0915
     """Entrypoint for the CLI."""
     # Determine if ran from command line
@@ -396,6 +460,10 @@ def main(args: list[str]) -> None:  # noqa: C901, PLR0912, PLR0915
         # Discord bot command prefix
         bot = commands.Bot(command_prefix=custom_prefix, intents=intents)
         bot.remove_command("help")
+        # Shared chokepoint: both the `!rsa` command below and the dispatch
+        # API's /command route serialize through this, so two producers can't
+        # race a browser-automation broker's on-disk session/cookie state.
+        order_lock = asyncio.Lock()
         print()
         print("Discord bot is started...")
         print()
@@ -447,20 +515,9 @@ def main(args: list[str]) -> None:  # noqa: C901, PLR0912, PLR0915
             try:
                 # Validate order object
                 discord_order_obj.order_validate(pre_login=True)
-                # Get holdings or complete transaction
-                if discord_order_obj.get_holdings():
-                    # Run Holdings
-                    await bot.loop.run_in_executor(
-                        None,
-                        lambda: fun_run(
-                            discord_order_obj,
-                            bot,
-                            event_loop,
-                            docker_mode=docker_mode,
-                        ),
-                    )
-                else:
-                    # Run Transaction
+                # Get holdings or complete transaction (holdings vs. transaction
+                # is determined by discord_order_obj itself inside fun_run)
+                async with order_lock:
                     await bot.loop.run_in_executor(
                         None,
                         lambda: fun_run(
@@ -500,7 +557,7 @@ def main(args: list[str]) -> None:  # noqa: C901, PLR0912, PLR0915
             print("Type '!help' for a list of commands")
             await ctx.send("Type '!help' for a list of commands")
 
-        # Run Discord bot
-        bot.run(discord_token)
+        # Run Discord bot, plus the dispatch API alongside it if configured
+        asyncio.run(_run_bot_and_dispatch_api(bot, discord_token, docker_mode, order_lock))
         print("Discord bot is running...")
         print()
