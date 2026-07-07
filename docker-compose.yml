@@ -1,30 +1,21 @@
 services:
     auto-rsa:
         container_name: auto-rsa
-        image: docker.io/nelsondane/auto-rsa:latest # or change to other branch you want to use
-        # build: . # uncomment this line if you want to build the image locally with "docker compose up -d --build"
+        # tini as PID 1 reaps orphaned Chromium processes the browser leaves.
+        init: true
+        # Build from local source (picks up local code changes with `--build`).
+        build: .
+        # Later, to pull your fork's published image instead, comment out the
+        # `build: .` line above and point this at your registry image:
+        # image: ghcr.io/sgben521/auto-rsa:latest
         restart: unless-stopped
         env_file:
             - .env
         tty: true
         volumes:
+            # WF device-trust cookies (exported from your own browser) live in
+            # ./creds/wellsfargo-cookies.json and are injected by the bot.
             - ./creds:/app/creds
 
-    watchtower:
-        # Auto update the auto-rsa container every hour
-        # For more info see: https://containrrr.dev/watchtower/arguments/
-        image: containrrr/watchtower
-        container_name: watchtower
-        hostname: auto-rsa
-        environment:
-            - WATCHTOWER_CLEANUP=true
-            - WATCHTOWER_INCLUDE_STOPPED=true
-            - WATCHTOWER_POLL_INTERVAL=3600
-            # For more info on notifications see: https://containrrr.dev/watchtower/notifications/
-            # - WATCHTOWER_NOTIFICATIONS=shoutrrr
-            # - WATCHTOWER_NOTIFICATION_URL=discord://TOKEN@WEBHOOKID
-        command:
-            - auto-rsa
-        volumes:
-            - /var/run/docker.sock:/var/run/docker.sock
-        restart: unless-stopped
+# watchtower intentionally removed from this compose file; run it from its own
+# compose file so it doesn't recreate/update this container during testing.

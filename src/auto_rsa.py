@@ -11,13 +11,9 @@ import traceback
 import warnings
 from importlib.metadata import version
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-from src.helper_api import is_up_to_date
-
-if TYPE_CHECKING:
-    from src.helper_api import Brokerage
-
+from src.helper_api import Brokerage, is_up_to_date
 
 # Filter out old playwright warning: temporary
 warnings.filterwarnings(
@@ -71,7 +67,7 @@ try:
     from src.brokerages.tradier_api import tradier_holdings, tradier_init, tradier_transaction
     from src.brokerages.vanguard_api import vanguard_run
     from src.brokerages.webull_api import webull_holdings, webull_init, webull_transaction
-    from src.brokerages.wellsfargo_api import wellsfargo_holdings, wellsfargo_init, wellsfargo_transaction
+    from src.brokerages.wellsfargo_api import wellsfargo_run
     from src.brokers import AllBrokersInfo, BrokerName
     from src.helper_api import StockOrder, ThreadHandler, print_and_discord
 except Exception as e:
@@ -157,19 +153,25 @@ def fun_run(  # noqa: C901, PLR0912, PLR0915
                 case BrokerName.WEBULL:
                     success = webull_init()
                 case BrokerName.WELLS_FARGO:
-                    success = wellsfargo_init(
+                    th = ThreadHandler(
+                        wellsfargo_run,
+                        order_obj=order_obj,
                         bot_obj=bot_obj,
-                        docker_mode=docker_mode,
                         loop=loop,
+                        docker_mode=docker_mode,
                     )
             if th is not None:
                 # Start single run thread
                 th.start()
                 th.join()
-                _, err = th.get_result()
+                result, err = th.get_result()
                 if err is not None:
                     msg = f"Error in {broker}: Function did not complete successfully: {err}"
                     raise Exception(msg)
+                if order_obj.get_holdings() and isinstance(result, Brokerage):
+                    broker_total = sum(account["total"] for account in result.get_account_totals().values())
+                    print_and_discord(f"Total Value of {broker.title()} Accounts: ${format(broker_total, '0.2f')}", loop)
+                    total_value += broker_total
                 continue
             if success is None:
                 msg = f"Error in {broker}: Function did not complete successfully"
@@ -207,8 +209,6 @@ def fun_run(  # noqa: C901, PLR0912, PLR0915
                         tradier_holdings(logged_in_broker, loop)
                     case BrokerName.WEBULL:
                         webull_holdings(logged_in_broker, loop)
-                    case BrokerName.WELLS_FARGO:
-                        wellsfargo_holdings(logged_in_broker, loop)
                 # Track per-broker total so we can show accurate totals and still accumulate overall
                 broker_total = sum(account["total"] for account in order_obj.get_logged_in(broker).get_account_totals().values())
                 print_and_discord(f"Total Value of {broker.title()} Accounts: ${format(broker_total, '0.2f')}", loop)
@@ -239,8 +239,6 @@ def fun_run(  # noqa: C901, PLR0912, PLR0915
                         tradier_transaction(logged_in_broker, order_obj, loop)
                     case BrokerName.WEBULL:
                         webull_transaction(logged_in_broker, order_obj, loop)
-                    case BrokerName.WELLS_FARGO:
-                        wellsfargo_transaction(logged_in_broker, order_obj, loop)
                 print_and_discord(
                     f"All {broker.capitalize()} transactions complete",
                     loop,

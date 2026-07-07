@@ -27,6 +27,7 @@ dependencies = [
     "tastytrade==12.4.1",
     "typer>=0.20.0",
     "vanguard-api==0.3.3",
+    "zendriver>=0.15.4",
 ]
 
 [dependency-groups]

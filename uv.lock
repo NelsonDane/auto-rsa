@@ -237,6 +237,7 @@ dependencies = [
     { name = "tastytrade" },
     { name = "typer" },
     { name = "vanguard-api" },
+    { name = "zendriver" },
 ]
 
 [package.dev-dependencies]
@@ -271,6 +272,7 @@ requires-dist = [
     { name = "tastytrade", specifier = "==12.4.1" },
     { name = "typer", specifier = ">=0.20.0" },
     { name = "vanguard-api", specifier = "==0.3.3" },
+    { name = "zendriver", specifier = ">=0.15.4" },
 ]
 
 [package.metadata.requires-dev]
@@ -2124,7 +2126,7 @@ wheels = [
 
 [[package]]
 name = "zendriver"
-version = "0.15.2"
+version = "0.15.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "asyncio-atexit" },
@@ -2134,7 +2136,7 @@ dependencies = [
     { name = "mss" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/4c/57/047b2cb9e298f63b581d480f117ed728ba33e88c1210bafe4cde8968c224/zendriver-0.15.2.tar.gz", hash = "sha256:9dc13d6a578aae716e68577d6f5f073151a229aab4b3996ed773d6fce33b7d5a", size = 434463, upload-time = "2025-11-29T16:34:41.567Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/12/df/bd8dfb257bdcf85aa58007fcb07305713ab02f6e4c375b4802d5bb3f9a51/zendriver-0.15.4.tar.gz", hash = "sha256:8d1a7bc57b7aa6a0a4012a20dd43c616c6cd52e968f86efcef4587b266bf4d8f", size = 454185, upload-time = "2026-06-27T18:05:37.236Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ce/16/05634bf240089ed8ca0ce23ab62857320d9de05a3ff951ed0a35a7377377/zendriver-0.15.2-py3-none-any.whl", hash = "sha256:b011648d869a69e03b931da660f04136b2d74ff19b1584269ad6a00ce1111209", size = 356040, upload-time = "2025-11-29T16:34:39.569Z" },
+    { url = "https://files.pythonhosted.org/packages/d1/83/f53b99eecdeb587baa37821b765d70220960239a0879dd3d9de0e5818648/zendriver-0.15.4-py3-none-any.whl", hash = "sha256:8c03c4f068f65f9afc36bd53914180b89f712be647d67b7559e2cc61bfd23ca7", size = 373702, upload-time = "2026-06-27T18:05:35.666Z" },
 ]
