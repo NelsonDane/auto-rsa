@@ -17,7 +17,7 @@ dependencies = [
     "nodriver==0.47.0",
     "paho-mqtt>=2.1.0",
     "publicdotcom-py==0.1.10",
-    "pyotp==2.9.0",
+    "pyotp==2.10.0",
     "python-dotenv==1.2.2",
     "pytz>=2025.2",
     "requests==2.33.1",
