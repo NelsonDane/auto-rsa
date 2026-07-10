@@ -1997,6 +1997,24 @@ def main() -> None:
     runner = _get_runner()
     _activity_fragment(runner)
 
+    # A queued LIVE confirmation takes over the whole screen (above the
+    # tabs) instead of rendering inside the Trade/Signals tab body.
+    # st.tabs does NOT reliably keep the active tab across the st.rerun()
+    # that queues the confirmation, so an in-tab confirm screen could
+    # render on a tab the user is no longer looking at — which reads as
+    # "clicking Execute did nothing / never advanced to the confirm
+    # page". Real money: this gate must always be front-and-centre.
+    vault = _get_vault()
+    if vault.is_unlocked():
+        pending_live = st.session_state.get("pending_live")
+        pending_signal = st.session_state.get("pending_signal_live")
+        if pending_live:
+            _render_live_confirm(runner, vault, pending_live)
+            return
+        if pending_signal:
+            _render_signal_live_confirm(runner, vault, pending_signal)
+            return
+
     (tab_status, tab_creds, tab_signals, tab_trade,
      tab_ledger, tab_perf, tab_hold) = st.tabs(
         ["Status", "Credentials", "Signals", "Trade",
