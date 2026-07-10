@@ -32,6 +32,36 @@ from src.gui.core.vault import Vault, VaultError
 st.set_page_config(page_title="AutoRSA GUI", page_icon="📈", layout="wide")
 
 
+@st.cache_data
+def _build_marker() -> str:
+    """Short git build id (sha + commit date) of the running code.
+
+    Shown under the title so the operator can confirm at a glance which
+    version is actually running. A stale local clone that never pulled
+    the latest fix looks identical to a code bug otherwise — restarting
+    Streamlit does NOT pull new code, so 'I updated GitHub but nothing
+    changed' means the running checkout is behind. Best-effort; blank if
+    this isn't a git checkout.
+    """
+    import subprocess  # noqa: PLC0415
+
+    root = Path(__file__).resolve().parents[2]
+    try:
+        out = subprocess.check_output(  # noqa: S603
+            [
+                "git", "-C", str(root), "show", "-s",
+                "--format=%h · %cd", "--date=format:%Y-%m-%d %H:%M", "HEAD",
+            ],
+            text=True,
+            stderr=subprocess.DEVNULL,
+            timeout=3,
+        ).strip()
+    except Exception:  # noqa: BLE001
+        return ""
+    else:
+        return out
+
+
 # --------------------------------------------------------------------------
 # Session state
 # --------------------------------------------------------------------------
@@ -1992,6 +2022,9 @@ def main() -> None:
     """Render the full app."""
     _state()
     st.title("📈 AutoRSA — Local Trading GUI")
+    _marker = _build_marker()
+    if _marker:
+        st.caption(f"build {_marker}")
     _sidebar()
 
     runner = _get_runner()
