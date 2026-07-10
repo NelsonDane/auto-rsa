@@ -919,7 +919,19 @@ def _tab_trade() -> None:  # noqa: C901, PLR0914
             icon="⚠️",
         )
 
-    disabled = runner.is_running() or not broker_keys
+    # Surface WHY Execute is disabled so a click that "does nothing"
+    # isn't a black box. is_running() self-heals a wedged run first.
+    running = runner.is_running()
+    disabled = running or not broker_keys
+    if disabled:
+        if running:
+            st.info(
+                "Execute is disabled because a run is still in "
+                "progress. Cancel it in the activity panel below, then "
+                "try again.",
+            )
+        elif not broker_keys:
+            st.info("Execute is disabled: select at least one broker above.")
     if st.button("Execute", type="primary", disabled=disabled):
         tickers, invalid = normalize_and_validate(tickers_raw)
         if invalid:
@@ -974,14 +986,35 @@ def _fmt_limit(pending: dict) -> str:
     return f"${lp:.2f}" if lp is not None else "auto-derived by broker"
 
 
+def _broker_display(key: str) -> str:
+    """Broker display name that never raises on an unknown key."""
+    try:
+        return get_broker(key).display_name
+    except Exception:  # noqa: BLE001
+        return key
+
+
+def _execute_typed(typed: str) -> bool:
+    """Whether the confirmation text clears the typed-EXECUTE gate.
+
+    Case-insensitive on purpose: the friction that matters for the
+    real-money gate is typing the whole word EXECUTE deliberately, not
+    holding Shift. An operator who typed 'execute' or 'Execute' was
+    being silently blocked by an exact all-caps compare with no
+    feedback — a direct cause of 'I typed execute but the Confirm LIVE
+    order button is not selectable'.
+    """
+    return typed.strip().upper() == "EXECUTE"
+
+
 def _render_live_confirm(runner: TradeRunner, vault: Vault, pending: dict) -> None:
     """Real-money gate: show the exact order and require typing EXECUTE."""
     keys = pending["broker_keys"]
     if "all" in keys:
-        names = [get_broker(k).display_name for k in vault.configured_broker_keys()]
+        names = [_broker_display(k) for k in vault.configured_broker_keys()]
         broker_desc = f"ALL configured: {', '.join(names)}"
     else:
-        broker_desc = ", ".join(get_broker(k).display_name for k in keys)
+        broker_desc = ", ".join(_broker_display(k) for k in keys)
 
     st.error("⚠️ Confirm LIVE order — this places REAL orders with REAL money.", icon="⚠️")
     st.markdown(
@@ -993,7 +1026,7 @@ def _render_live_confirm(runner: TradeRunner, vault: Vault, pending: dict) -> No
         f"- **Brokers:** {broker_desc}\n\n"
         "This runs across **every account** at each broker above.",
     )
-    typed = st.text_input("Type EXECUTE (all caps) to confirm", key="live_confirm_text")
+    typed = st.text_input("Type EXECUTE to confirm", key="live_confirm_text")
     busy = runner.is_running()
     if busy:
         # The operator typed EXECUTE but the button is greyed because a
@@ -1009,8 +1042,11 @@ def _render_live_confirm(runner: TradeRunner, vault: Vault, pending: dict) -> No
             runner.cancel()
             time.sleep(0.5)
             st.rerun()
+    typed_ok = _execute_typed(typed)
+    if typed.strip() and not typed_ok:
+        st.caption("Type the word **EXECUTE** to enable the Confirm button.")
     c1, c2 = st.columns(2)
-    confirm_disabled = typed.strip() != "EXECUTE" or busy
+    confirm_disabled = not typed_ok or busy
     if c1.button("Confirm LIVE order", type="primary", disabled=confirm_disabled):
         try:
             runner.start_trade(
@@ -1240,7 +1276,7 @@ def _render_signal_live_confirm(
         f"- **KEY:** `{pending['key']}`",
     )
     typed = st.text_input(
-        "Type EXECUTE (all caps) to confirm", key="signal_live_confirm_text",
+        "Type EXECUTE to confirm", key="signal_live_confirm_text",
     )
     busy = runner.is_running()
     if busy:
@@ -1253,8 +1289,11 @@ def _render_signal_live_confirm(
             runner.cancel()
             time.sleep(0.5)
             st.rerun()
+    typed_ok = _execute_typed(typed)
+    if typed.strip() and not typed_ok:
+        st.caption("Type the word **EXECUTE** to enable the Confirm button.")
     c1, c2 = st.columns(2)
-    disabled = typed.strip() != "EXECUTE" or busy
+    disabled = not typed_ok or busy
     if c1.button("Confirm LIVE buy", type="primary", disabled=disabled):
         try:
             runner.start_signal_run(

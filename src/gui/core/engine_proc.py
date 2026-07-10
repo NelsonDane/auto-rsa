@@ -19,6 +19,7 @@ Invoked as:  python -u -m src.gui.core.engine_proc '<json-encoded args>'
 from __future__ import annotations
 
 import builtins
+import contextlib
 import json
 import os
 import sys
@@ -44,6 +45,37 @@ def _bridged_input(prompt: object = "") -> str:
     sys.stdout.flush()
     line = sys.stdin.readline()
     return line.rstrip("\r\n")
+
+
+def _reap_leftover_browsers() -> None:
+    """Kill any browser subprocesses still alive after the run finishes.
+
+    Browser brokers (Fidelity/Playwright, Chase/zendriver, SoFi/nodriver)
+    spawn browser processes that inherit this engine's stdout pipe. Each
+    broker closes its own browser inside ``fun_run``; but if a close
+    hangs or an error skips it, that browser keeps the pipe's write end
+    open after this engine exits. The parent's reader then never sees
+    EOF, ``proc.wait()`` is never reached, and the GUI status wedges on
+    RUNNING forever — disabling every Execute/Confirm button and making
+    a completed purchase look like it never finished.
+
+    ``fun_run`` has already returned by the time this runs, so every
+    broker is done and any surviving browser is a leak. Reaping them
+    here — from their real parent, before we exit and they get
+    re-parented beyond the GUI's reach — closes those pipe fds so the
+    parent finalizes cleanly, and stops a zombie browser from locking a
+    profile dir on the next run. Best-effort; never raises.
+    """
+    with contextlib.suppress(Exception):
+        sys.stdout.flush()
+    try:
+        import psutil  # noqa: PLC0415
+    except Exception:
+        return
+    with contextlib.suppress(Exception):
+        for child in psutil.Process().children(recursive=True):
+            with contextlib.suppress(Exception):
+                child.kill()
 
 
 def main() -> None:
@@ -83,7 +115,12 @@ def main() -> None:
         order.set_price(price)
     if time_in_force in {"day", "gtc"}:
         order.set_time(time_in_force)
-    fun_run(order)
+    try:
+        fun_run(order)
+    finally:
+        # Reap any browser a broker failed to close, so a leaked child
+        # can't hold the stdout pipe open and wedge the GUI on RUNNING.
+        _reap_leftover_browsers()
 
 
 if __name__ == "__main__":

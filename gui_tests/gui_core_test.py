@@ -342,10 +342,14 @@ def test_reaper_recovers_wedged_running_status(tmp_path, monkeypatch):
     v.initialize("pw")
     r = TradeRunner(v)
     # Force the wedged state: status RUNNING, engine proc exited, no
-    # live reader thread.
+    # live reader thread. Age the engine-exit marker past the grace
+    # period so recovery is immediate (the grace only exists to let a
+    # healthy pump's own finally win the sub-second race — see the
+    # dedicated grace test below).
     r._status = RunStatus.RUNNING
     r._proc = _FakeExitedProc(returncode=0)
     r._thread = None
+    r._engine_exit_seen = time.monotonic() - 10
 
     # is_running() must self-heal and report False.
     assert r.is_running() is False
@@ -373,6 +377,131 @@ def test_reaper_leaves_live_run_alone(tmp_path, monkeypatch):
     r._thread = None
     assert r.is_running() is True
     assert r.snapshot().status == RunStatus.RUNNING
+
+
+def test_reaper_recovers_even_when_reader_thread_alive(tmp_path, monkeypatch):
+    """The *real* wedge: the pump reader thread is ALIVE but blocked
+    forever on a leaked browser's pipe (closing it from another thread
+    does not interrupt a blocked read, and the browser may be
+    re-parented beyond our reach). Recovery must therefore NOT wait on
+    the reader — it must finalize on the engine having exited alone.
+
+    Regression for 'I typed EXECUTE but the Confirm LIVE order button is
+    not selectable' / 'Cancel does not let me place a new order': an
+    earlier reaper gated recovery on ``not thread.is_alive()`` and so
+    left the run wedged on RUNNING indefinitely, disabling every button.
+    """
+    monkeypatch.setattr(runner_mod, "_RUN_LOCK", tmp_path / "run.lock")
+    (tmp_path / "run.lock").write_text(
+        json.dumps({"engine_pid": None, "owner_pid": 1, "created": time.time()}),
+    )
+    v = Vault(tmp_path / "v.json")
+    v.initialize("pw")
+    r = TradeRunner(v)
+    monkeypatch.setattr(r, "_write_audit_log", lambda _s: None)
+    monkeypatch.setattr(r, "_notify", lambda _s: None)
+
+    blocked = threading.Event()  # never set -> the "reader" stays alive
+    reader = threading.Thread(target=blocked.wait, daemon=True)
+    reader.start()
+    try:
+        r._status = RunStatus.RUNNING
+        r._proc = _FakeExitedProc(returncode=0)
+        r._thread = reader
+        r._engine_exit_seen = time.monotonic() - 10  # past the grace
+        assert reader.is_alive()  # precondition: reader is wedged alive
+
+        # Must self-heal despite the still-alive reader thread.
+        assert r.is_running() is False
+        assert r.snapshot().status == RunStatus.FINISHED
+        assert not (tmp_path / "run.lock").exists()  # lock released
+        assert r._proc.stdout_closed  # reader nudged (best-effort)
+    finally:
+        blocked.set()
+
+
+def test_cancel_finalizes_when_reader_wedged(tmp_path, monkeypatch):
+    """Cancel must move a wedged run to CANCELLED immediately — even
+    when the engine already exited and the reader is stuck alive on a
+    leaked pipe — so the operator can always clear it and place a new
+    order without waiting on a dead reader."""
+    monkeypatch.setattr(runner_mod, "_RUN_LOCK", tmp_path / "run.lock")
+    (tmp_path / "run.lock").write_text(
+        json.dumps({"engine_pid": None, "owner_pid": 1, "created": time.time()}),
+    )
+    v = Vault(tmp_path / "v.json")
+    v.initialize("pw")
+    r = TradeRunner(v)
+    monkeypatch.setattr(r, "_write_audit_log", lambda _s: None)
+    monkeypatch.setattr(r, "_notify", lambda _s: None)
+
+    blocked = threading.Event()
+    reader = threading.Thread(target=blocked.wait, daemon=True)
+    reader.start()
+    try:
+        r._status = RunStatus.RUNNING
+        r._proc = _FakeExitedProc(returncode=0)
+        r._thread = reader
+
+        r.cancel()
+        assert r.snapshot().status == RunStatus.CANCELLED
+        assert not r.is_running()
+        assert not (tmp_path / "run.lock").exists()  # lock released
+    finally:
+        blocked.set()
+
+
+def test_reaper_grace_period_defers_then_recovers(tmp_path, monkeypatch):
+    """Within the grace period the reaper must NOT declare a wedge (a
+    healthy pump's own finally is about to finalize, and crying 'leaked
+    browser' on a clean run would be misleading); once the engine has
+    stayed exited-but-RUNNING past the grace it must recover."""
+    monkeypatch.setattr(runner_mod, "_RUN_LOCK", tmp_path / "run.lock")
+    (tmp_path / "run.lock").write_text(
+        json.dumps({"engine_pid": None, "owner_pid": 1, "created": time.time()}),
+    )
+    v = Vault(tmp_path / "v.json")
+    v.initialize("pw")
+    r = TradeRunner(v)
+    monkeypatch.setattr(r, "_write_audit_log", lambda _s: None)
+    monkeypatch.setattr(r, "_notify", lambda _s: None)
+
+    r._status = RunStatus.RUNNING
+    r._proc = _FakeExitedProc(returncode=0)
+    r._thread = None
+
+    # First observation: engine just seen exited -> defer, still RUNNING,
+    # and no misleading recovery message written.
+    assert r.is_running() is True
+    assert r._engine_exit_seen is not None
+    assert "auto-recovering" not in r.log.getvalue()
+
+    # Simulate the grace period elapsing, then it must recover.
+    r._engine_exit_seen -= runner_mod._REAP_GRACE_SECONDS + 0.5
+    assert r.is_running() is False
+    assert r.snapshot().status == RunStatus.FINISHED
+
+
+def test_finalize_guard_never_clobbers_a_newer_run(tmp_path, monkeypatch):
+    """A stale reader/reaper for an OLD proc must not clobber the status
+    of a NEWER run that already took over (``_start`` installs a fresh
+    proc). ``_finalize``'s proc-identity guard enforces this."""
+    monkeypatch.setattr(runner_mod, "_RUN_LOCK", tmp_path / "run.lock")
+    v = Vault(tmp_path / "v.json")
+    v.initialize("pw")
+    r = TradeRunner(v)
+
+    old_proc = _FakeExitedProc(returncode=0)
+    new_proc = _FakeExitedProc(returncode=0)
+    # Simulate: a newer run is active with new_proc, but a stale path
+    # tries to finalize the OLD proc.
+    r._status = RunStatus.RUNNING
+    r._proc = new_proc
+    assert r._finalize(old_proc, RunStatus.FINISHED) is False
+    assert r._status == RunStatus.RUNNING  # newer run untouched
+    # Finalizing the actual active proc works.
+    assert r._finalize(new_proc, RunStatus.FINISHED) is True
+    assert r._status == RunStatus.FINISHED
 
 
 def test_runner_single_instance_lock(tmp_path, monkeypatch):

@@ -50,6 +50,12 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 _RUN_LOCK = _PROJECT_ROOT / "creds" / "run.lock"
 _STALE_LOCK_SECONDS = 6 * 60 * 60  # a lock with no live engine, this old, is stale
 _DISCOVERY_FIELDS = 3  # <SENTINEL>broker\tparent\taccount
+# How long the engine may be exited while the run is still RUNNING before
+# the reaper declares the reader wedged. A healthy pump finalizes within
+# milliseconds of EOF, so this only needs to clear that; kept comfortably
+# above it so a snapshot landing mid-finally never cries "leaked browser"
+# on a clean run. Recovery of a genuine wedge lands within ~1 poll cycle.
+_REAP_GRACE_SECONDS = 1.5
 # Redaction thresholds. The corruption risk is SHORT, PURELY-NUMERIC
 # secrets (a 4-6 digit PIN/code) which collide with digits inside
 # balances/totals/timestamps and silently rewrite the real-money audit
@@ -106,6 +112,9 @@ class TradeRunner:
         self._progress: dict[str, str] = {}
         self._current_broker: str | None = None
         self._fill_counts: dict[str, int] = {}
+        # When the reaper first saw the engine exited while still RUNNING
+        # (monotonic seconds); used to grace-period the wedge decision.
+        self._engine_exit_seen: float | None = None
         self._lock = threading.Lock()
 
     @staticmethod
@@ -338,6 +347,16 @@ class TradeRunner:
             self._status = RunStatus.RUNNING
             self._description = description
             self._cancelled = False
+            # Null the proc here, under the same lock as the RUNNING
+            # flip. Otherwise _reap_if_stuck (called by the 2s activity
+            # fragment's snapshot()) could see RUNNING + the PREVIOUS
+            # run's dead proc during the Popen window below and wrongly
+            # reap a run that's still starting. With proc=None the
+            # reaper returns early until the real proc is recorded.
+            self._proc = None
+            # Fresh run: forget any prior run's engine-exit timestamp so
+            # the wedge grace period starts clean.
+            self._engine_exit_seen = None
         self.log.clear()
         with self._lock:
             self._progress = {}
@@ -456,26 +475,90 @@ class TradeRunner:
                 with contextlib.suppress(psutil.Error):
                     child.kill()
 
+    def _finalize(self, proc: subprocess.Popen | None, status: RunStatus) -> bool:
+        """Move a RUNNING run to a terminal ``status`` and drop its lock.
+
+        Guarded by process identity: the mutation only happens if
+        ``proc`` is *still* the active run's process and the run is
+        still RUNNING. That guard is what lets the wedged-reader reaper,
+        the cancel path, and the pump's own ``finally`` all race to
+        finalize the same run without a stale one ever clobbering a
+        *newer* run that already took over (``_start`` installs a fresh
+        proc). Returns whether this call performed the finalize, so the
+        caller can do the once-only audit/notify. Idempotent per proc.
+        """
+        if proc is None:
+            return False
+        with self._lock:
+            if self._status != RunStatus.RUNNING or self._proc is not proc:
+                return False
+            self._status = status
+        self._release_run_lock()
+        return True
+
+    def _post_finalize(self, status: RunStatus) -> None:
+        """Audit-log the finished run and fire the completion webhook.
+
+        The webhook is dispatched on a short daemon thread: the reaper
+        and cancel both run on Streamlit's UI thread, and a slow/hanging
+        webhook endpoint (``requests.post`` up to 10s) must never freeze
+        the UI. The audit log is a fast local write, so it stays inline.
+        """
+        self._write_audit_log(status)
+        threading.Thread(
+            target=self._notify, args=(status,), daemon=True,
+        ).start()
+
     def _reap_if_stuck(self) -> None:
         """Finalize a RUNNING status whose engine process has exited.
 
         The pump reader blocks on ``for raw in proc.stdout``; if a
         leaked browser child holds the pipe's write end open, the
         reader never gets EOF and ``proc.wait()`` (which flips status
-        out of RUNNING) is never reached. Detect the engine main
-        having exited and finalize directly so the UI's disabled
-        buttons re-enable. Idempotent with the pump's own ``finally``.
+        out of RUNNING) is never reached. Detect the engine main having
+        exited and finalize directly so the UI's disabled buttons
+        re-enable.
+
+        Crucially this does **not** wait for the reader thread to die
+        first. That thread can be blocked forever: killing the leaked
+        descendant can miss a re-parented browser, and closing the pipe
+        from another thread does not reliably interrupt a blocked
+        ``read()``. Gating recovery on ``not thread.is_alive()`` (as an
+        earlier version did) therefore left the run wedged on RUNNING
+        indefinitely — every Execute/Confirm button disabled and Cancel
+        unable to help. :meth:`_finalize`'s proc-identity guard makes
+        finalizing-without-the-reader safe: if the wedged reader ever
+        does wake up, its own ``_finalize`` is a no-op, and a newer run
+        is never clobbered.
+
+        A short grace period (:data:`_REAP_GRACE_SECONDS`) separates the
+        genuine wedge from the sub-second window where a *healthy* pump
+        has just seen EOF and is about to finalize on its own — without
+        it, a snapshot landing in that window would print a misleading
+        "leaked browser" recovery on a perfectly clean run.
         """
         with self._lock:
             if self._status != RunStatus.RUNNING:
+                self._engine_exit_seen = None
                 return
             proc = self._proc
-            thread = self._thread
         if proc is None or proc.poll() is None:
             # No process, or the engine is genuinely still alive — a
-            # real run is in progress; leave it be.
+            # real run is in progress; leave it be (and reset the timer).
+            with self._lock:
+                self._engine_exit_seen = None
             return
-        # Engine exited but we're still RUNNING -> wedged reader.
+        # Engine has exited but the run is still RUNNING. Give the pump's
+        # own finally the grace period to finalize cleanly first; only
+        # past it do we treat the still-alive reader as truly wedged.
+        now = time.monotonic()
+        with self._lock:
+            if self._engine_exit_seen is None:
+                self._engine_exit_seen = now
+            waited = now - self._engine_exit_seen
+        if waited < _REAP_GRACE_SECONDS:
+            return
+        # Engine exited and stayed unfinalized past the grace -> wedged.
         self.log.write(
             "\n--- engine process exited but the run was still marked "
             "running (a leaked browser likely held the output pipe "
@@ -483,18 +566,22 @@ class TradeRunner:
         )
         self._kill_descendants(proc)
         # Nudge the blocked reader to fall through to its finally by
-        # closing the pipe it's reading. Best-effort across platforms.
+        # closing the pipe it's reading. Best-effort across platforms —
+        # we finalize below regardless of whether this wakes it.
         with contextlib.suppress(Exception):
             if proc.stdout is not None:
                 proc.stdout.close()
-        # Don't depend on the (possibly permanently-wedged) reader:
-        # finalize here too. Both paths are guarded/idempotent.
-        if thread is None or not thread.is_alive():
-            self._release_run_lock()
-            code = proc.returncode
-            self._set_status(
-                RunStatus.FINISHED if code == 0 else RunStatus.ERROR,
-            )
+        with self._lock:
+            cancelled = self._cancelled
+        status = (
+            RunStatus.CANCELLED
+            if cancelled
+            else RunStatus.FINISHED
+            if proc.returncode == 0
+            else RunStatus.ERROR
+        )
+        if self._finalize(proc, status):
+            self._post_finalize(status)
 
     def cancel(self) -> None:
         """Abort the current run: kill the engine and its browser tree.
@@ -511,7 +598,6 @@ class TradeRunner:
                 return
             self._cancelled = True
             proc = self._proc
-            thread = self._thread
         # Unblock the reader if it is waiting on a 2FA answer.
         self.prompts.cancel()
         if proc is not None:
@@ -526,14 +612,14 @@ class TradeRunner:
                 if proc.stdout is not None:
                     proc.stdout.close()
         self.log.write("\n--- Run cancelled by user ---\n")
-        # If the engine already exited (reader may be wedged on a held
-        # pipe) or the reader thread is gone, finalize here so the UI
-        # unblocks immediately instead of waiting on a dead reader.
-        if (
-            proc is not None and proc.poll() is not None
-        ) or thread is None or not thread.is_alive():
-            self._release_run_lock()
-            self._set_status(RunStatus.CANCELLED)
+        # Finalize immediately so the UI unblocks on the very next
+        # rerun, instead of waiting on a reader thread that may be
+        # permanently wedged on a leaked browser's pipe. The
+        # proc-identity guard means we never clobber a newer run; if
+        # proc is None (a run still mid-start) we leave the _cancelled
+        # flag set for the pump/reaper to honor.
+        if self._finalize(proc, RunStatus.CANCELLED):
+            self._post_finalize(RunStatus.CANCELLED)
 
     def _pump(self) -> None:  # noqa: C901, PLR0912
         proc = self._proc
@@ -591,15 +677,22 @@ class TradeRunner:
                     )
             code = proc.wait()
             self.prompts.cancel()
-            self._release_run_lock()
             with self._lock:
-                if self._cancelled:
-                    self._status = RunStatus.CANCELLED
-                else:
-                    self._status = RunStatus.FINISHED if code == 0 else RunStatus.ERROR
-                final_status = self._status
-            self._write_audit_log(final_status)
-            self._notify(final_status)
+                cancelled = self._cancelled
+            status = (
+                RunStatus.CANCELLED
+                if cancelled
+                else RunStatus.FINISHED
+                if code == 0
+                else RunStatus.ERROR
+            )
+            # Finalize through the shared, proc-identity-guarded path so
+            # a reaper/cancel that already recovered this run (its reader
+            # was wedged) isn't double-finalized here. If _finalize
+            # returns False the run was already finalized elsewhere and
+            # its audit/notify already fired, so we skip ours.
+            if self._finalize(proc, status):
+                self._post_finalize(status)
 
     def _notify(self, status: RunStatus) -> None:
         """POST a one-line completion message to a configured webhook.
