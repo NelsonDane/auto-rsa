@@ -900,15 +900,27 @@ def _tab_trade() -> None:  # noqa: C901, PLR0914
         _render_live_confirm(runner, vault, pending)
         return
 
+    # Every widget here carries an explicit key. A keyless widget's
+    # persisted value is tied to Streamlit's auto-generated element id,
+    # which is not stable across all versions / rerun paths — and when
+    # the *dry-run* toggle silently reverts to its True default, Execute
+    # takes the dry branch and never reaches the LIVE confirm, which
+    # reads as "clicking Execute does nothing / won't advance". Stable
+    # keys pin the state deterministically.
     col1, col2, col3 = st.columns(3)
-    action = col1.selectbox("Action", ["buy", "sell"])
-    tickers_raw = col2.text_input("Stock symbol(s)", value="", help="Comma-separated")
-    amount = col3.number_input("Amount (shares)", min_value=0.0, value=1.0, step=1.0)
+    action = col1.selectbox("Action", ["buy", "sell"], key="trade_action")
+    tickers_raw = col2.text_input(
+        "Stock symbol(s)", value="", help="Comma-separated", key="trade_tickers",
+    )
+    amount = col3.number_input(
+        "Amount (shares)", min_value=0.0, value=1.0, step=1.0, key="trade_amount",
+    )
 
     col4, col5 = st.columns(2)
     price_type = col4.selectbox(
         "Order type",
         ["market", "limit"],
+        key="trade_price_type",
         help="Market is recommended. Brokers automatically fall back to a "
         "limit order (and use a limit for sub-$1 stocks) where the "
         "brokerage requires it — you don't need to force 'limit' for that.",
@@ -916,6 +928,7 @@ def _tab_trade() -> None:  # noqa: C901, PLR0914
     time_in_force = col5.selectbox(
         "Time in force",
         ["day", "gtc"],
+        key="trade_tif",
         help="GTC (good-till-cancelled) is useful for pre/post-market "
         "limit orders. Only brokers that support it will honor it.",
     )
@@ -928,6 +941,7 @@ def _tab_trade() -> None:  # noqa: C901, PLR0914
             value=None,
             step=0.01,
             format="%.2f",
+            key="trade_limit_price",
             help="Exact limit price sent to the broker. Required after "
             "hours (market orders are rejected then). Leave blank to let "
             "the broker derive one from its own quote where it can "
@@ -941,6 +955,7 @@ def _tab_trade() -> None:  # noqa: C901, PLR0914
     dry = st.toggle(
         "Dry run (no real orders)",
         value=True,
+        key="trade_dry_run",
         help="Leave ON to simulate. Turn OFF to place real trades.",
     )
     if not dry:
@@ -962,7 +977,13 @@ def _tab_trade() -> None:  # noqa: C901, PLR0914
             )
         elif not broker_keys:
             st.info("Execute is disabled: select at least one broker above.")
-    if st.button("Execute", type="primary", disabled=disabled):
+    # Label the button with the mode the app *actually* resolved, so the
+    # dry/live state can't be a silent mismatch with the toggle's visual:
+    # if you turned Dry-run OFF and the button still says "(dry run)",
+    # the toggle didn't register — an unambiguous signal instead of a
+    # confirm page that never appears.
+    exec_label = "▶ Execute (dry run)" if dry else "🔴 Execute LIVE order"
+    if st.button(exec_label, type="primary", disabled=disabled):
         tickers, invalid = normalize_and_validate(tickers_raw)
         if invalid:
             st.error(
