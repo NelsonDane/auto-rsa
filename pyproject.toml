@@ -20,7 +20,7 @@ dependencies = [
     "pyotp==2.10.0",
     "python-dotenv==1.2.2",
     "pytz>=2025.2",
-    "requests==2.33.1",
+    "requests==2.34.2",
     "schwab-api2>=0.3.0",
     "selenium-stealth==1.0.6",
     "setuptools<83",
