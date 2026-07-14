@@ -1132,7 +1132,17 @@ def _tab_holdings() -> None:
         return
 
     broker_keys = _broker_picker("hold")
-    disabled = runner.is_running() or not broker_keys
+    running = runner.is_running()
+    disabled = running or not broker_keys
+    if running:
+        st.info(
+            "A run is in progress — watch the **Activity** panel above for "
+            "live progress. If it stops on a broker asking for a login code, "
+            "answer it there; if it's wedged, use the Cancel button in that "
+            "panel, then try again.",
+        )
+    elif not broker_keys:
+        st.info("Select at least one broker above.")
     if st.button("Pull balances / holdings", type="primary", disabled=disabled):
         try:
             runner.start_holdings(broker_keys)
@@ -1140,6 +1150,11 @@ def _tab_holdings() -> None:
             st.error(str(exc))
         else:
             st.rerun()
+    st.caption(
+        "Balances & holdings stream into the **Activity** panel at the top "
+        "of the page (expand it) — not into this tab. A browser broker can "
+        "take a minute to log in.",
+    )
 
 
 # --------------------------------------------------------------------------
