@@ -952,38 +952,40 @@ def _tab_trade() -> None:  # noqa: C901, PLR0914
 
     broker_keys = _broker_picker("trade")
     _account_filter_editor(vault, broker_keys)
-    dry = st.toggle(
-        "Dry run (no real orders)",
-        value=True,
-        key="trade_dry_run",
-        help="Leave ON to simulate. Turn OFF to place real trades.",
-    )
-    if not dry:
-        st.error(
-            "LIVE mode: real orders will be placed with real money.",
-            icon="⚠️",
-        )
 
-    # Surface WHY Execute is disabled so a click that "does nothing"
-    # isn't a black box. is_running() self-heals a wedged run first.
+    # There is deliberately NO dry/live toggle. A toggle stores state,
+    # and that state kept silently desyncing from what the operator set:
+    # the widget's persisted value raced the activity panel's 2-second
+    # auto-refresh, so an "off" (LIVE) intermittently reverted to the
+    # True (dry) default — Execute then ran a dry simulation and never
+    # advanced to the live confirm. The mode now comes purely from WHICH
+    # button is pressed, so there is no stored state to desync: dry and
+    # live are two explicit, unmistakable buttons.
     running = runner.is_running()
     disabled = running or not broker_keys
-    if disabled:
-        if running:
-            st.info(
-                "Execute is disabled because a run is still in "
-                "progress. Cancel it in the activity panel below, then "
-                "try again.",
-            )
-        elif not broker_keys:
-            st.info("Execute is disabled: select at least one broker above.")
-    # Label the button with the mode the app *actually* resolved, so the
-    # dry/live state can't be a silent mismatch with the toggle's visual:
-    # if you turned Dry-run OFF and the button still says "(dry run)",
-    # the toggle didn't register — an unambiguous signal instead of a
-    # confirm page that never appears.
-    exec_label = "▶ Execute (dry run)" if dry else "🔴 Execute LIVE order"
-    if st.button(exec_label, type="primary", disabled=disabled):
+    if running:
+        st.info(
+            "A run is still in progress — cancel it in the activity panel "
+            "below, then try again.",
+        )
+    elif not broker_keys:
+        st.info("Select at least one broker above to enable the run buttons.")
+
+    c_dry, c_live = st.columns(2)
+    go_dry = c_dry.button(
+        "▶ Execute dry run",
+        disabled=disabled,
+        help="Simulate the run: logs in and validates but places NO real "
+        "orders.",
+    )
+    go_live = c_live.button(
+        "🔴 Execute LIVE order",
+        type="primary",
+        disabled=disabled,
+        help="Places REAL orders with REAL money. You confirm on the next "
+        "screen by typing EXECUTE.",
+    )
+    if go_dry or go_live:
         tickers, invalid = normalize_and_validate(tickers_raw)
         if invalid:
             st.error(
@@ -998,7 +1000,20 @@ def _tab_trade() -> None:  # noqa: C901, PLR0914
                 "can't be correct across different stocks. Use Market "
                 "for multiple symbols, or run them one at a time.",
             )
-        elif dry:
+        elif go_live:
+            # LIVE: don't execute yet — require an explicit typed
+            # confirmation showing exactly what will be sent.
+            st.session_state.pending_live = {
+                "action": action,
+                "amount": float(amount),
+                "tickers": tickers,
+                "broker_keys": broker_keys,
+                "price_type": price_type,
+                "time_in_force": time_in_force,
+                "limit_price": limit_price,
+            }
+            st.rerun()
+        else:
             try:
                 runner.start_trade(
                     action,
@@ -1014,19 +1029,6 @@ def _tab_trade() -> None:  # noqa: C901, PLR0914
                 st.error(str(exc))
             else:
                 st.rerun()
-        else:
-            # LIVE: don't execute yet — require an explicit typed
-            # confirmation showing exactly what will be sent.
-            st.session_state.pending_live = {
-                "action": action,
-                "amount": float(amount),
-                "tickers": tickers,
-                "broker_keys": broker_keys,
-                "price_type": price_type,
-                "time_in_force": time_in_force,
-                "limit_price": limit_price,
-            }
-            st.rerun()
 
 
 def _fmt_limit(pending: dict) -> str:
