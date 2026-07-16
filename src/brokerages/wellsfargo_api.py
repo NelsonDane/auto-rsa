@@ -20,6 +20,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.support.wait import WebDriverWait
 
+from src.brokerages._browser_profile_cleanup import kill_stale_profile_browsers
 from src.helper_api import Brokerage, StockOrder, check_if_page_loaded, complete_or_fail, get_local_timezone, get_otp_from_discord, get_selenium_driver, kill_all_selenium_drivers, print_all_holdings, print_and_discord, reserve_or_skip, type_slowly
 
 
@@ -61,6 +62,12 @@ def wellsfargo_init(bot_obj: Bot | None, *, docker_mode: bool = False, loop: asy
         return None
     accounts = os.environ["WELLSFARGO"].strip().split(",")
     wf_obj = Brokerage("WELLSFARGO")
+    # Free any leaked Chrome from a prior run that still holds this
+    # profile's SingletonLock. Without this, the new Chrome cannot open
+    # ./creds/wellsfargo_profile and the browser appears to "not open" at
+    # all. Done ONCE before the loop so it never kills a driver we just
+    # launched for an earlier account (all WF accounts share the profile).
+    kill_stale_profile_browsers("./creds", "wellsfargo_profile")
     for wells_account in accounts:
         index = accounts.index(wells_account) + 1
         name = f"WELLSFARGO {index}"
