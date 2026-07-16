@@ -42,20 +42,35 @@ def find_due_sells(today_iso: str | None = None) -> list[DueSell]:
     """
     today = today_iso or _today_nyse_iso()
     rows = due_for_sell(today_iso=today)
-    return [
-        DueSell(
-            broker=str(r["broker"]),
-            account=str(r["sub_account"]),
-            ticker=str(r["ticker"]),
-            qty=float(r["qty"]),
-            signal_type=str(r.get("signal_type", "ROUND_UP_REVERSE")),
-            hold_until=str(r.get("hold_until", "")),
-            buy_executed_at=str(r.get("updated_at", "")),
-            play_key=str(r["key"]),
-            split_key=str(r.get("split_key", "")),
+    out: list[DueSell] = []
+    for r in rows:
+        # Use .get on every field and skip a malformed row rather than
+        # letting one bad row (missing broker/ticker/qty/key) raise and
+        # hide the ENTIRE due-sell list — the operator would then miss
+        # every other position that really is due to sell.
+        try:
+            qty = float(r.get("qty") or 0)
+        except (TypeError, ValueError):
+            qty = 0.0
+        broker = str(r.get("broker") or "").strip()
+        ticker = str(r.get("ticker") or "").strip()
+        key = str(r.get("key") or "").strip()
+        if not broker or not ticker or not key or qty <= 0:
+            continue
+        out.append(
+            DueSell(
+                broker=broker,
+                account=str(r.get("sub_account", "")),
+                ticker=ticker,
+                qty=qty,
+                signal_type=str(r.get("signal_type", "ROUND_UP_REVERSE")),
+                hold_until=str(r.get("hold_until", "")),
+                buy_executed_at=str(r.get("updated_at", "")),
+                play_key=key,
+                split_key=str(r.get("split_key", "")),
+            ),
         )
-        for r in rows
-    ]
+    return out
 
 
 def summary_text(due: list[DueSell]) -> str:

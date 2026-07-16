@@ -10,6 +10,7 @@ Run with:  uv run streamlit run src/gui/app.py
 
 from __future__ import annotations
 
+import contextlib
 import operator
 import time
 from datetime import UTC, datetime, timedelta
@@ -20,6 +21,7 @@ import streamlit as st
 
 from src import ledger, outcomes, session_state
 from src.edgar.market_calendar import parse_effective_date
+from src.gui.core import diagnostics
 from src.gui.core.brokers_meta import SUPPORTED_BROKERS, BrokerMeta, get_broker
 from src.gui.core.results import group_by_broker
 from src.gui.core.runner import RunBusyError, RunStatus, TradeRunner
@@ -531,21 +533,37 @@ def _broker_sessions_panel() -> None:
         session_state.UNKNOWN: "❔",
     }
     if st.button("Re-scan sessions"):
-        session_state.audit(persist=True)
+        with st.spinner("Scanning broker sessions…"):
+            with contextlib.suppress(Exception):
+                session_state.audit(persist=True)
         st.rerun()
-    snapshot = session_state.load_last_audit()
-    if not snapshot:
-        snapshot = [
-            {
-                "broker": r.broker,
-                "artifact": r.artifact,
-                "health": r.health,
-                "reason": r.reason,
-                "age_days": r.age_days,
-                "last_order_at": r.last_order_at,
-            }
-            for r in session_state.audit(persist=True)
-        ]
+    # Read the last persisted snapshot only — a full audit() on every
+    # render opens creds/sessions.db under a lock (up to 30s stall if the
+    # scheduled producer is mid-write) and does a per-broker ledger scan.
+    # Wrap it so a lock timeout / DB error shows a friendly note instead
+    # of blanking the tab with a raw traceback. First-time (no snapshot):
+    # do a one-off audit, still guarded; otherwise prompt "Re-scan".
+    snapshot: list[dict] = []
+    try:
+        snapshot = session_state.load_last_audit()
+        if not snapshot:
+            snapshot = [
+                {
+                    "broker": r.broker,
+                    "artifact": r.artifact,
+                    "health": r.health,
+                    "reason": r.reason,
+                    "age_days": r.age_days,
+                    "last_order_at": r.last_order_at,
+                }
+                for r in session_state.audit(persist=True)
+            ]
+    except Exception as exc:  # noqa: BLE001
+        st.warning(
+            f"Could not read the session-health database ({exc}). "
+            "Click 'Re-scan sessions' to retry.",
+        )
+        return
     # Default to only the brokers you've actually configured, so unused
     # ones (firstrade/tastytrade/tornado/tradier/vanguard/...) don't
     # clutter the panel. Toggle to see everything.
@@ -1160,6 +1178,113 @@ def _tab_holdings() -> None:
 
 
 # --------------------------------------------------------------------------
+# Diagnostics tab: health checks, stuck-run recovery, run-log history
+# --------------------------------------------------------------------------
+def _tab_diagnostics() -> None:  # noqa: C901
+    """Health checks, stuck-run recovery, and recent run logs."""
+    vault = _get_vault()
+    runner = _get_runner()
+    st.subheader("Diagnostics — health & troubleshooting")
+
+    # ---- System health -------------------------------------------------
+    st.markdown("#### System health")
+    st.caption(
+        "Surfaces the things that make runs *silently* fail: a missing "
+        "broker dependency, a stuck run lock, a full disk, a locked vault.",
+    )
+    deep = st.checkbox(
+        "Also verify the engine imports (slower, ~10–90s) — catches a "
+        "missing broker dependency that would make every run die at startup",
+        value=False,
+        key="diag_deep",
+    )
+    if st.button("Run health check", type="primary", key="diag_run"):
+        checks = diagnostics.quick_health_checks(
+            vault_initialized=vault.is_initialized(),
+            vault_unlocked=vault.is_unlocked(),
+        )
+        if deep:
+            with st.spinner("Importing the engine (what a run does at startup)…"):
+                checks.append(diagnostics.check_engine_importable())
+        st.session_state["_health_checks"] = checks
+    checks = st.session_state.get("_health_checks")
+    if checks:
+        fails = sum(1 for c in checks if c.status == diagnostics.FAIL)
+        warns = sum(1 for c in checks if c.status == diagnostics.WARN)
+        if fails:
+            st.error(f"{fails} check(s) FAILED — see the table below.")
+        elif warns:
+            st.warning(f"{warns} warning(s) — review below.")
+        else:
+            st.success("All checks passed.")
+        st.dataframe(
+            [{"": c.icon, "Check": c.name, "Detail": c.detail} for c in checks],
+            hide_index=True,
+        )
+
+    st.divider()
+
+    # ---- Stuck-run recovery -------------------------------------------
+    st.markdown("#### Stuck-run recovery")
+    snap = runner.snapshot()
+    st.write(f"Current run status: **{snap.status.value}**")
+    lock = diagnostics.inspect_run_lock()
+    if lock is None:
+        st.caption("No run lock is held — a new run can start.")
+    elif lock["stale"]:
+        st.error(
+            "A run lock is held by a process that is no longer alive. This "
+            "blocks every new run, and clearing it is safe.",
+        )
+        if st.button("🧹 Clear stuck run & release lock", key="diag_clear"):
+            runner.cancel()
+            released = diagnostics.force_release_run_lock()
+            st.success("Cleared." if released else "Nothing to clear.")
+            time.sleep(0.5)
+            st.rerun()
+    else:
+        st.caption(
+            "A run lock is held by a live process — a run is in progress "
+            "(normal while running).",
+        )
+        if runner.is_running() and st.button(
+            "⛔ Cancel the running run", key="diag_cancel",
+        ):
+            runner.cancel()
+            time.sleep(0.5)
+            st.rerun()
+
+    st.divider()
+
+    # ---- Recent run logs ----------------------------------------------
+    st.markdown("#### Recent run logs")
+    st.caption(
+        "Every run's full output is saved here (also where balances and "
+        "order results land). Open the newest one to see what happened.",
+    )
+    logs = diagnostics.list_run_logs()
+    if not logs:
+        st.info("No run logs yet — they're written after each run.")
+        return
+    status_icon = {"finished": "✅", "error": "❌", "cancelled": "⚠️"}
+
+    def _log_label(i: int) -> str:
+        g = logs[i]
+        when = f"{g['when']:%Y-%m-%d %H:%M UTC}" if g["when"] else g["name"]
+        return f"{status_icon.get(g['status'], '•')} {when} — {g['status']}"
+
+    idx = st.selectbox(
+        "Pick a run", range(len(logs)), format_func=_log_label, key="diag_log_pick",
+    )
+    chosen = logs[idx]
+    content = diagnostics.read_run_log(chosen["path"], tail=500)
+    st.download_button(
+        "⬇ Download this log", content, file_name=chosen["name"], key="diag_dl",
+    )
+    st.code(content, language="text")
+
+
+# --------------------------------------------------------------------------
 # Persistent activity panel: status + 2FA prompt + live log
 #
 # Rendered on every page (above the tabs) so a login prompt or status
@@ -1193,10 +1318,14 @@ def _activity_fragment(runner: TradeRunner) -> None:  # noqa: C901, PLR0912, PLR
 
     # Already-terminal AND nothing changed since last render: skip the
     # body so the fragment stops redrawing (still polls cheaply).
+    # NB: prompt is a PromptSnapshot that's never None — the guard must
+    # test `not prompt.waiting`, else it never fires and a finished run's
+    # panel re-renders (and re-reads the error PNG/TXT from disk) every
+    # 2s forever.
     last_log_len = st.session_state.get("_last_log_len", -1)
     if (
         snap.status in terminal
-        and prompt is None
+        and not prompt.waiting
         and len(snap.log) == last_log_len
     ):
         return
@@ -1567,6 +1696,8 @@ def _ledger_status(key: str) -> tuple[str, dict[str, int]]:
         parts.append(f"✅ {counts[ledger.STATUS_EXECUTED]} done")
     if counts.get(ledger.STATUS_INTENDED):
         parts.append(f"⏳ {counts[ledger.STATUS_INTENDED]} in-flight")
+    if counts.get(ledger.STATUS_NEEDS_REVIEW):
+        parts.append(f"⚠️ {counts[ledger.STATUS_NEEDS_REVIEW]} needs review")
     if counts.get(ledger.STATUS_FAILED):
         parts.append(f"❌ {counts[ledger.STATUS_FAILED]} failed")
     return ", ".join(parts) if parts else "—", counts
@@ -1748,13 +1879,20 @@ def _tab_signals() -> None:  # noqa: C901, PLR0912, PLR0914, PLR0915
         return
 
     col_a, col_b = st.columns([1, 3])
-    if col_a.button("🔄 Refresh signals", type="primary"):
+    # Disable Refresh while a run is active: fetch_signals is a synchronous
+    # network call on this same script thread, so if Google stalls it would
+    # freeze the whole session — including an in-progress run's 2FA prompt
+    # and its Cancel button. The token refresh is time-bounded (sheets.py)
+    # and the fetch shows a spinner so the click isn't a black box.
+    fetch_busy = _get_runner().is_running()
+    if col_a.button("🔄 Refresh signals", type="primary", disabled=fetch_busy):
         try:
-            sigs = fetch_signals(
-                cfg["service_account_json"],
-                cfg["spreadsheet_id"],
-                cfg.get("worksheet", "GUI_QUEUE"),
-            )
+            with st.spinner("Fetching signals from Google Sheets…"):
+                sigs = fetch_signals(
+                    cfg["service_account_json"],
+                    cfg["spreadsheet_id"],
+                    cfg.get("worksheet", "GUI_QUEUE"),
+                )
         except SheetsError as exc:
             st.session_state.pop("signals", None)
             st.error(str(exc))
@@ -1762,6 +1900,8 @@ def _tab_signals() -> None:  # noqa: C901, PLR0912, PLR0914, PLR0915
             st.session_state["signals"] = sigs
             st.session_state["signals_at"] = datetime.now(UTC)
             st.success(f"Fetched {len(sigs)} signal(s).")
+    if fetch_busy:
+        col_a.caption("Refresh is paused while a run is in progress.")
 
     all_signals: list[Signal] = st.session_state.get("signals", [])
     fetched_at = st.session_state.get("signals_at")
@@ -2087,9 +2227,9 @@ def main() -> None:
             return
 
     (tab_status, tab_creds, tab_signals, tab_trade,
-     tab_ledger, tab_perf, tab_hold) = st.tabs(
+     tab_ledger, tab_perf, tab_hold, tab_diag) = st.tabs(
         ["Status", "Credentials", "Signals", "Trade",
-         "Ledger", "Performance", "Balances"],
+         "Ledger", "Performance", "Balances", "🩺 Diagnostics"],
     )
     with tab_status:
         _tab_status()
@@ -2105,6 +2245,8 @@ def main() -> None:
         _tab_performance()
     with tab_hold:
         _tab_holdings()
+    with tab_diag:
+        _tab_diagnostics()
 
 
 main()
