@@ -35,7 +35,14 @@ _LOCK = threading.Lock()
 STATUS_INTENDED = "INTENDED"
 STATUS_EXECUTED = "EXECUTED"
 STATUS_FAILED = "FAILED"
-_BLOCKING = (STATUS_INTENDED, STATUS_EXECUTED)
+# Ambiguous outcome: intent was already recorded (the order was being
+# placed) and then the session/browser broke, so we DON'T KNOW whether
+# the order reached the broker. Auto-retrying risks a double-buy, so this
+# is blocking like INTENDED/EXECUTED — a human must verify with the
+# broker and reset the row on the Ledger tab. (A missed buy beats a
+# double-buy for real money.)
+STATUS_NEEDS_REVIEW = "NEEDS_REVIEW"
+_BLOCKING = (STATUS_INTENDED, STATUS_EXECUTED, STATUS_NEEDS_REVIEW)
 
 
 class Play(NamedTuple):
@@ -258,15 +265,25 @@ def mark_result(play: Play, *, success: bool, detail: str = "") -> None:
     stock-unavailable/restricted/market-closed result is not a
     session/tool failure, only SESSION_ERROR is.
     """
-    from src.outcomes import classify_outcome  # noqa: PLC0415
+    from src.outcomes import SESSION_ERROR, classify_outcome  # noqa: PLC0415
 
     reason = classify_outcome(detail, success=success)
+    if success:
+        status = STATUS_EXECUTED
+    elif reason == SESSION_ERROR:
+        # Intent was recorded before the order was placed, so a session
+        # break here is ambiguous: the order may already be live. Do NOT
+        # mark it retryable FAILED (which record_intent would reset to
+        # INTENDED and re-buy) — flag it for human review instead.
+        status = STATUS_NEEDS_REVIEW
+    else:
+        status = STATUS_FAILED
     with _LOCK, _connect() as conn:
         conn.execute(
             "UPDATE executions SET status=?, detail=?, reason=?, updated_at=? "
             "WHERE key=? AND broker=? AND sub_account=? AND ticker=? AND action=?",
             (
-                STATUS_EXECUTED if success else STATUS_FAILED,
+                status,
                 detail[:500],
                 reason,
                 _now(),

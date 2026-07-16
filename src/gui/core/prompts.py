@@ -69,6 +69,14 @@ class PromptBus:
             if not self._waiting or prompt_id != self._prompt_id:
                 return False
             self._response = response
+            # Clear the waiting flag here (not only in wait_answer): the
+            # UI reads `waiting` to decide whether to show the prompt, and
+            # if the reader thread died between open() and wait_answer()
+            # it would never clear it — leaving a stale "Login action
+            # required" form on screen for a run that's already over.
+            # Also makes a Streamlit double-submit a no-op (second call
+            # sees waiting False -> returns False).
+            self._waiting = False
             self._event.set()
             return True
 
@@ -77,4 +85,7 @@ class PromptBus:
         with self._lock:
             if self._waiting:
                 self._response = ""
+                # Same reason as respond(): clear the flag so the prompt
+                # can't stay stuck on screen if the reader never resumes.
+                self._waiting = False
                 self._event.set()

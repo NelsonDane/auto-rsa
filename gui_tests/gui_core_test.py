@@ -504,18 +504,86 @@ def test_finalize_guard_never_clobbers_a_newer_run(tmp_path, monkeypatch):
     assert r._status == RunStatus.FINISHED
 
 
+def test_terminal_status_total_failure_is_error(tmp_path):
+    """Engine exits 0 even when every broker failed; a run where the
+    progress map shows failures and zero successes must be ERROR, not a
+    green FINISHED (which would fire a 'run finished' webhook)."""
+    v = Vault(tmp_path / "v.json")
+    v.initialize("pw")
+    r = TradeRunner(v)
+
+    # All brokers failed, engine exited 0 -> ERROR.
+    r._progress = {"fidelity": "failed", "chase": "failed"}
+    assert r._terminal_status(0, cancelled=False) == RunStatus.ERROR
+
+    # At least one success -> FINISHED (per-broker dots still show fails).
+    r._progress = {"fidelity": "failed", "bbae": "done"}
+    assert r._terminal_status(0, cancelled=False) == RunStatus.FINISHED
+
+    # done_no_fill counts as a clean run.
+    r._progress = {"bbae": "done_no_fill"}
+    assert r._terminal_status(0, cancelled=False) == RunStatus.FINISHED
+
+    # No progress emitted (e.g. holdings) -> trust the exit code.
+    r._progress = {}
+    assert r._terminal_status(0, cancelled=False) == RunStatus.FINISHED
+
+    # Non-zero exit -> ERROR; cancelled flag wins.
+    assert r._terminal_status(1, cancelled=False) == RunStatus.ERROR
+    assert r._terminal_status(0, cancelled=True) == RunStatus.CANCELLED
+
+
 def test_runner_single_instance_lock(tmp_path, monkeypatch):
     lock = tmp_path / "run.lock"
     monkeypatch.setattr(runner_mod, "_RUN_LOCK", lock)
-    # A live engine pid -> lock is held, not stale.
     import os
 
-    lock.write_text(json.dumps({"engine_pid": os.getpid(), "created": time.time()}))
     v = Vault(tmp_path / "v.json")
     v.initialize("pw")
+
+    # A live *engine* pid -> lock is held, not stale.
+    monkeypatch.setattr(
+        runner_mod.TradeRunner, "_engine_pid_state",
+        staticmethod(lambda _pid: "engine"),
+    )
+    lock.write_text(json.dumps({"engine_pid": os.getpid(), "created": time.time()}))
     with pytest.raises(RunBusyError):
         TradeRunner(v)._acquire_run_lock()
+
     # A dead pid -> stale -> reclaimable.
+    monkeypatch.setattr(
+        runner_mod.TradeRunner, "_engine_pid_state",
+        staticmethod(lambda _pid: "dead"),
+    )
     lock.write_text(json.dumps({"engine_pid": 999999999, "created": time.time()}))
     TradeRunner(v)._acquire_run_lock()
     assert lock.exists()
+
+
+def test_runner_lock_reclaimed_on_pid_reuse(tmp_path, monkeypatch):
+    """A recorded engine pid that is now a live NON-engine process (the OS
+    reused the pid after a crash) must be treated as stale, not wedge every
+    run forever. But an un-inspectable live pid stays held (never risk a
+    concurrent LIVE run)."""
+    lock = tmp_path / "run.lock"
+    monkeypatch.setattr(runner_mod, "_RUN_LOCK", lock)
+    v = Vault(tmp_path / "v.json")
+    v.initialize("pw")
+    lock.write_text(json.dumps({"engine_pid": 4242, "created": time.time()}))
+
+    # PID reused by an unrelated live process -> reclaimable.
+    monkeypatch.setattr(
+        runner_mod.TradeRunner, "_engine_pid_state",
+        staticmethod(lambda _pid: "other"),
+    )
+    TradeRunner(v)._acquire_run_lock()
+    assert lock.exists()
+
+    # Un-inspectable live pid + fresh lock -> conservatively held.
+    lock.write_text(json.dumps({"engine_pid": 4242, "created": time.time()}))
+    monkeypatch.setattr(
+        runner_mod.TradeRunner, "_engine_pid_state",
+        staticmethod(lambda _pid: "unknown"),
+    )
+    with pytest.raises(RunBusyError):
+        TradeRunner(v)._acquire_run_lock()

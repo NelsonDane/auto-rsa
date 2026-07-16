@@ -15,7 +15,14 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 from typing import NamedTuple
+
+# Hard cap on the OAuth token refresh. google-auth's default has no
+# explicit timeout, so a slow/unreachable token endpoint could block the
+# calling (Streamlit) thread for ~2 minutes — freezing the whole session,
+# including an in-progress run's 2FA prompt and Cancel button.
+_TOKEN_REFRESH_TIMEOUT = 20.0
 
 # GUI_QUEUE header as written by writeGuiQueue_ in the Apps Script.
 _HEADER = (
@@ -199,10 +206,33 @@ def fetch_signals(  # noqa: C901
         creds = service_account.Credentials.from_service_account_info(
             info, scopes=[_READONLY_SCOPE],
         )
-        creds.refresh(Request())
     except Exception as exc:
-        msg = f"Could not authenticate the service account: {exc}"
+        msg = f"Could not read the service-account key: {exc}"
         raise SheetsError(msg) from exc
+    # Bound the token refresh: run it on a daemon thread and give up after
+    # a hard timeout so a stalled Google token endpoint can't freeze the
+    # caller. (google-auth's own refresh has no reliable timeout.)
+    _refresh_err: list[Exception] = []
+
+    def _do_refresh() -> None:
+        try:
+            creds.refresh(Request())
+        except Exception as exc:  # noqa: BLE001
+            _refresh_err.append(exc)
+
+    t = threading.Thread(target=_do_refresh, daemon=True)
+    t.start()
+    t.join(_TOKEN_REFRESH_TIMEOUT)
+    if t.is_alive():
+        msg = (
+            f"Google token refresh did not respond within "
+            f"{_TOKEN_REFRESH_TIMEOUT:.0f}s — check network/DNS to "
+            "oauth2.googleapis.com and try again."
+        )
+        raise SheetsError(msg)
+    if _refresh_err:
+        msg = f"Could not authenticate the service account: {_refresh_err[0]}"
+        raise SheetsError(msg) from _refresh_err[0]
 
     rng = requests.utils.quote(worksheet or "GUI_QUEUE", safe="")
     url = (

@@ -363,18 +363,22 @@ class TradeRunner:
             self._fill_counts = {}
             self._current_broker = None
         env_keys = self._resolve_broker_keys(broker_keys)
-        # Capture secrets so they're scrubbed from the on-screen and
-        # persisted logs if a broker library ever echoes them.
-        self._secrets = self._vault.secret_values()
-        # Credentials go to the child's environment only. A per-account
-        # test passes a pre-built single-account env instead of the
-        # broker's full (all-accounts) value.
-        broker_env = env_override if env_override is not None else self._vault.build_env(env_keys)
-        # Per-signal idempotency keys (RSA_PLAY_KEY / RSA_PLAY_SPLIT_KEY)
-        # are layered last so a signal run is attributed and economically
-        # de-duplicated in the ledger. Empty for manual runs.
-        child_env = {**os.environ, **broker_env, **(extra_env or {})}
         try:
+            # Capture secrets so they're scrubbed from the on-screen and
+            # persisted logs if a broker library ever echoes them.
+            self._secrets = self._vault.secret_values()
+            # Credentials go to the child's environment only. A per-account
+            # test passes a pre-built single-account env instead of the
+            # broker's full (all-accounts) value.
+            broker_env = (
+                env_override
+                if env_override is not None
+                else self._vault.build_env(env_keys)
+            )
+            # Per-signal idempotency keys (RSA_PLAY_KEY / RSA_PLAY_SPLIT_KEY)
+            # are layered last so a signal run is attributed and
+            # economically de-duplicated in the ledger. Empty for manual.
+            child_env = {**os.environ, **broker_env, **(extra_env or {})}
             self._proc = subprocess.Popen(  # noqa: S603
                 [sys.executable, "-u", "-m", "src.gui.core.engine_proc", json.dumps(payload)],
                 stdin=subprocess.PIPE,
@@ -387,18 +391,61 @@ class TradeRunner:
                 cwd=str(_PROJECT_ROOT),
                 env=child_env,
             )
-        except (OSError, ValueError) as exc:
-            # Never leave the runner stuck on RUNNING if the process
-            # could not even be launched.
+        except Exception as exc:  # noqa: BLE001
+            # ANY failure building the child env or launching the engine
+            # (vault re-locked between click and start, a decrypt/KeyError,
+            # an OSError, a bad Popen) must NOT leave the runner wedged on
+            # RUNNING with the lock still held — that kills all trading
+            # until Streamlit restarts. Release and finalize to ERROR.
+            # (secret_values()/build_env() used to run outside this guard.)
             self.log.write(f"Failed to start engine process: {exc}\n")
             self._release_run_lock()
             self._set_status(RunStatus.ERROR)
             return
         self._record_engine_pid(self._proc.pid)
+        # If cancel() landed during the env-build / Popen window above
+        # (when _proc was still None, so cancel could only set the flag),
+        # honor it now: kill the just-launched engine instead of letting
+        # the LIVE order run to completion while the operator believes
+        # they cancelled.
+        with self._lock:
+            cancelled_during_start = self._cancelled
+            proc = self._proc
+        if cancelled_during_start and proc is not None:
+            self._kill_descendants(proc)
+            with contextlib.suppress(psutil.Error, OSError):
+                psutil.Process(proc.pid).kill()
+            with contextlib.suppress(Exception):
+                if proc.stdout is not None:
+                    proc.stdout.close()
+            self.log.write("\n--- Run cancelled during startup ---\n")
+            if self._finalize(proc, RunStatus.CANCELLED):
+                self._post_finalize(RunStatus.CANCELLED)
+            return
         self._thread = threading.Thread(target=self._pump, daemon=True)
         self._thread.start()
 
     # --- single-instance run lock -------------------------------------
+
+    @staticmethod
+    def _engine_pid_state(pid: object) -> str:
+        """Classify a recorded engine pid: engine | other | dead | unknown.
+
+        Guards against PID *reuse*: after a crash/reboot the recorded
+        ``engine_pid`` may have been recycled by the OS for an unrelated
+        process, which a bare ``pid_exists`` would call "alive" and wedge
+        every run forever. We inspect the cmdline to confirm it's really
+        an engine. "unknown" = the pid exists but we can't read it
+        (permissions) — the caller must stay conservative there so a
+        genuinely-live run is never treated as stale (double-submit).
+        """
+        try:
+            cmdline = " ".join(psutil.Process(int(pid)).cmdline())
+        except psutil.NoSuchProcess:
+            return "dead"
+        except (psutil.Error, OSError, ValueError):
+            return "unknown"
+        return "engine" if "engine_proc" in cmdline else "other"
 
     @staticmethod
     def _lock_is_stale() -> bool:
@@ -406,10 +453,17 @@ class TradeRunner:
             info = json.loads(_RUN_LOCK.read_text())
         except (OSError, ValueError):
             return True
+        aged_out = (time.time() - float(info.get("created", 0) or 0)) > _STALE_LOCK_SECONDS
         pid = info.get("engine_pid")
         if pid is not None:
-            # Live engine for that pid -> not stale.
-            return not psutil.pid_exists(int(pid))
+            state = TradeRunner._engine_pid_state(pid)
+            if state == "engine":
+                return False  # a real engine is alive -> genuine run
+            if state in {"dead", "other"}:
+                return True  # engine gone or its pid was reused -> reclaim
+            # "unknown": exists but uninspectable — don't risk clobbering a
+            # live run; only reclaim once it has aged out.
+            return aged_out
         # No engine pid recorded yet (the brief window between acquiring
         # the lock and Popen+record). Anchor liveness to the GUI process
         # that holds the lock: if it's gone, the start was abandoned and
@@ -419,7 +473,7 @@ class TradeRunner:
         owner = info.get("owner_pid")
         if owner is not None:
             return not psutil.pid_exists(int(owner))
-        return (time.time() - float(info.get("created", 0))) > _STALE_LOCK_SECONDS
+        return aged_out
 
     def _acquire_run_lock(self) -> None:
         _RUN_LOCK.parent.mkdir(parents=True, exist_ok=True)
@@ -509,6 +563,29 @@ class TradeRunner:
             target=self._notify, args=(status,), daemon=True,
         ).start()
 
+    def _terminal_status(self, code: int | None, *, cancelled: bool) -> RunStatus:
+        """Map an exit code + per-broker progress to a terminal status.
+
+        The engine exits 0 even when *every* broker failed — each
+        per-broker error is caught and the run continues — so a bare
+        ``code == 0`` would report a green FINISHED and fire a
+        "run finished" webhook for a run where nothing was bought. When
+        the progress map shows failures and not a single success, call it
+        ERROR so the top-line status and the completion webhook don't
+        misreport a total failure as success.
+        """
+        if cancelled:
+            return RunStatus.CANCELLED
+        if code != 0:
+            return RunStatus.ERROR
+        with self._lock:
+            states = list(self._progress.values())
+        any_failed = any(s == "failed" for s in states)
+        any_ok = any(s in {"done", "done_no_fill"} for s in states)
+        if states and any_failed and not any_ok:
+            return RunStatus.ERROR
+        return RunStatus.FINISHED
+
     def _reap_if_stuck(self) -> None:
         """Finalize a RUNNING status whose engine process has exited.
 
@@ -573,13 +650,7 @@ class TradeRunner:
                 proc.stdout.close()
         with self._lock:
             cancelled = self._cancelled
-        status = (
-            RunStatus.CANCELLED
-            if cancelled
-            else RunStatus.FINISHED
-            if proc.returncode == 0
-            else RunStatus.ERROR
-        )
+        status = self._terminal_status(proc.returncode, cancelled=cancelled)
         if self._finalize(proc, status):
             self._post_finalize(status)
 
@@ -679,13 +750,7 @@ class TradeRunner:
             self.prompts.cancel()
             with self._lock:
                 cancelled = self._cancelled
-            status = (
-                RunStatus.CANCELLED
-                if cancelled
-                else RunStatus.FINISHED
-                if code == 0
-                else RunStatus.ERROR
-            )
+            status = self._terminal_status(code, cancelled=cancelled)
             # Finalize through the shared, proc-identity-guarded path so
             # a reaper/cancel that already recovered this run (its reader
             # was wedged) isn't double-finalized here. If _finalize
@@ -708,9 +773,29 @@ class TradeRunner:
         url = (cfg.get("webhook_url") or "").strip()
         if not url:
             return
-        msg = f"AutoRSA run {status.value}: {self._description}"
+        msg = f"AutoRSA run {status.value}: {self._description}{self._broker_summary()}"
         with contextlib.suppress(Exception):
             requests.post(url, json={"content": msg}, timeout=10)
+
+    def _broker_summary(self) -> str:
+        """Per-broker pass/fail tail for the webhook, e.g. ' [2 ok, 1 failed]'.
+
+        So the completion webhook — read by an operator who may have
+        closed the tab — reflects what actually happened per broker, not
+        just the top-line status. Empty when the run emitted no progress.
+        """
+        with self._lock:
+            states = list(self._progress.values())
+        if not states:
+            return ""
+        ok = sum(1 for s in states if s in {"done", "done_no_fill"})
+        failed = sum(1 for s in states if s == "failed")
+        parts = []
+        if ok:
+            parts.append(f"{ok} ok")
+        if failed:
+            parts.append(f"{failed} failed")
+        return f" [{', '.join(parts)}]" if parts else ""
 
     def _write_audit_log(self, status: RunStatus) -> None:
         """Persist the run's full output for an audit trail (best-effort).
