@@ -290,6 +290,22 @@ def test_deselected_broker_drops_from_preflight_and_run(monkeypatch):
     )
 
 
+def test_parse_optional_price():
+    """Limit-price text parses safely: blank/invalid -> None (auto-derive),
+    a positive number -> that price. Replaces the nullable number_input
+    that could block form submission when left empty."""
+    from src.gui import app as app_mod
+
+    f = app_mod._parse_optional_price
+    assert f("") is None
+    assert f("   ") is None
+    assert f("abc") is None
+    assert f("0") is None
+    assert f("-5") is None
+    assert f("12.34") == 12.34
+    assert f("  7 ") == 7.0
+
+
 def test_beta_dry_button_starts_parallel(monkeypatch):
     at = AppTest.from_file(APP, default_timeout=45)
     at.session_state["vault"] = _vault()

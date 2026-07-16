@@ -1008,14 +1008,13 @@ def _tab_trade() -> None:  # noqa: C901, PLR0914
             help="GTC (good-till-cancelled) is useful for pre/post-market "
             "limit orders. Only brokers that support it will honor it.",
         )
-        # Always rendered (a form doesn't rerun while you edit, so it
-        # can't appear conditionally). Ignored for market orders.
-        limit_price = st.number_input(
+        # A TEXT field, not a nullable number_input: an empty
+        # number_input inside a form can make Streamlit's frontend refuse
+        # to submit the form at all (see _parse_optional_price). Blank =
+        # auto-derive; ignored for market orders.
+        limit_price_raw = st.text_input(
             "Limit price — used only for limit orders (blank = auto-derive)",
-            min_value=0.0,
-            value=None,
-            step=0.01,
-            format="%.2f",
+            value="",
             key="trade_limit_price",
             help="Exact limit price for a limit order; ignored for market "
             "orders. Limit orders require exactly one symbol.",
@@ -1060,7 +1059,7 @@ def _tab_trade() -> None:  # noqa: C901, PLR0914
         broker_keys=broker_keys,
         price_type=price_type,
         time_in_force=time_in_force,
-        limit_price=limit_price,
+        limit_price=_parse_optional_price(limit_price_raw),
         arm_clear_flag="_trade_arm_clear",
     )
 
@@ -1213,9 +1212,12 @@ def _tab_trade_beta() -> None:  # noqa: C901, PLR0914
             "Time in force", ["day", "gtc"], key="beta_tif",
             help="GTC is useful for pre/post-market limit orders.",
         )
-        limit_price = st.number_input(
+        # Text field, not a nullable number_input (see _tab_trade /
+        # _parse_optional_price): an empty number_input inside a form can
+        # block form submission entirely.
+        limit_price_raw = st.text_input(
             "Limit price — used only for limit orders (blank = auto-derive)",
-            min_value=0.0, value=None, step=0.01, format="%.2f",
+            value="",
             key="beta_limit_price",
             help="Exact limit price for a limit order; ignored for market "
             "orders. Limit orders require exactly one symbol.",
@@ -1261,7 +1263,7 @@ def _tab_trade_beta() -> None:  # noqa: C901, PLR0914
         broker_keys=broker_keys,
         price_type=price_type,
         time_in_force=time_in_force,
-        limit_price=limit_price,
+        limit_price=_parse_optional_price(limit_price_raw),
         arm_clear_flag="_beta_arm_clear",
         parallel=True,
         parallel_cap=int(cap),
@@ -1348,6 +1350,27 @@ def _execute_typed(typed: str) -> bool:
     order button is not selectable'.
     """
     return typed.strip().upper() == "EXECUTE"
+
+
+def _parse_optional_price(text: str) -> float | None:
+    """Parse the optional limit-price text field: blank/invalid -> None
+    (auto-derive), a positive number -> that price.
+
+    Deliberately a text_input rather than a nullable ``st.number_input``.
+    An empty ``st.number_input(value=None, min_value=...)`` inside a form
+    can make Streamlit's frontend treat the form as invalid and SILENTLY
+    refuse to submit — so a market order (which leaves this blank) could
+    not be placed at all: 'Execute does nothing'. A plain text field has
+    no such client-side validation gate.
+    """
+    text = (text or "").strip()
+    if not text:
+        return None
+    try:
+        value = float(text)
+    except ValueError:
+        return None
+    return value if value > 0 else None
 
 
 # --------------------------------------------------------------------------
