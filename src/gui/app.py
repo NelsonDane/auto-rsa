@@ -2595,25 +2595,47 @@ def _tab_ledger() -> None:
             st.rerun()
 
     st.divider()
-    hdr = st.columns([2, 1, 1, 1, 1, 2, 1])
-    for col, label in zip(
-        hdr,
-        ["KEY", "Broker", "Account", "Ticker", "Status", "Updated", ""],
-        strict=True,
-    ):
-        col.markdown(f"**{label}**")
-    for row in rows:
-        c = st.columns([2, 1, 1, 1, 1, 2, 1])
-        c[0].write(row.get("key"))
-        c[1].write(row.get("broker"))
-        c[2].write(f"••••{row.get('sub_account')}")
-        c[3].write(f"{row.get('ticker')} {row.get('action')}")
-        c[4].write(row.get("status"))
-        c[5].write(str(row.get("updated_at", ""))[:19])
-        if c[6].button("Reset", key=f"reset_{row.get('id')}"):
-            ledger.delete_row(int(row["id"]))
-            st.toast(f"Reset {row.get('ticker')} / {row.get('key')}")
-            st.rerun()
+    # Render the ledger as ONE dataframe. The previous version created a
+    # 7-column row + a Reset button for EVERY ledger row on every rerun;
+    # with a large ledger that was hundreds/thousands of widgets per
+    # render, taking several seconds — and because Streamlit renders every
+    # tab body on every interaction, that cost was paid on EVERY click,
+    # which froze the whole app (clicks queued behind a multi-second
+    # render). A dataframe renders any number of rows in milliseconds.
+    st.markdown(f"**{len(rows)} ledger row(s)** — newest first")
+    st.dataframe(
+        [
+            {
+                "KEY": row.get("key"),
+                "Broker": row.get("broker"),
+                "Account": f"••••{row.get('sub_account')}",
+                "Ticker": row.get("ticker"),
+                "Action": row.get("action"),
+                "Status": row.get("status"),
+                "Updated": str(row.get("updated_at", ""))[:19],
+            }
+            for row in rows
+        ],
+        width="stretch",
+        hide_index=True,
+    )
+    # Reset ONE play via a single selectbox + button (not a per-row button).
+    st.markdown("**Reset a play** so that exact play can run again")
+    id_by_label = {
+        f"{r.get('ticker')} {r.get('action')} · {r.get('broker')} "
+        f"••••{r.get('sub_account')} · {r.get('key')}  (id {r.get('id')})":
+            int(r["id"])
+        for r in rows
+        if r.get("id") is not None
+    }
+    pick = st.selectbox(
+        "Pick a row to reset", ["(none)", *id_by_label],
+        key="ledger_reset_pick",
+    )
+    if pick != "(none)" and st.button("♻ Reset selected row", key="ledger_reset_btn"):
+        ledger.delete_row(id_by_label[pick])
+        st.toast(f"Reset {pick}")
+        st.rerun()
 
 
 # --------------------------------------------------------------------------
