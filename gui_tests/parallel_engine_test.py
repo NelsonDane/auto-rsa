@@ -67,7 +67,7 @@ def fake_auto(monkeypatch):
     return fa
 
 
-def test_browser_sequential_then_api_concurrent(fake_auto, monkeypatch):
+def test_api_concurrent_first_then_browser_sequential(fake_auto, monkeypatch):
     calls = []
     lock = threading.Lock()
 
@@ -83,9 +83,12 @@ def test_browser_sequential_then_api_concurrent(fake_auto, monkeypatch):
     # Every broker ran, order validated exactly once.
     assert set(calls) == {"bbae", "fidelity", "dspac", "wellsfargo"}
     assert order.validated == 1
-    # Browser brokers (sequential) run before any API broker.
-    assert calls[0] in {"fidelity", "wellsfargo"}
-    assert calls[1] in {"fidelity", "wellsfargo"}
+    # API brokers (concurrent) run FIRST; browser brokers run LAST.
+    api_calls = [c for c in calls if c in {"bbae", "dspac"}]
+    browser_calls = [c for c in calls if c in {"fidelity", "wellsfargo"}]
+    assert calls[:2] == api_calls[:2] or set(calls[:2]) == {"bbae", "dspac"}
+    assert calls[-2:] == browser_calls  # browsers strictly after the API set
+    assert set(calls[-2:]) == {"fidelity", "wellsfargo"}
     # PLAN lists all brokers.
     assert ("PLAN", "bbae,fidelity,dspac,wellsfargo") in fake_auto.progress
 

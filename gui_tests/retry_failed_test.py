@@ -50,10 +50,12 @@ def test_retry_banner_shows_for_failed_brokers(monkeypatch):
         at.run()
         assert not at.exception, at.exception
         labels = [b.label for b in at.button]
-        assert any("Re-run only" in b for b in labels), labels
+        assert any("Re-run the 1 failed broker" in b for b in labels), labels
 
 
-def test_retry_dispatches_holdings_for_failed_only(monkeypatch):
+def test_retry_dry_starts_failed_only_directly(monkeypatch):
+    """A dry/holdings re-run needs no confirmation — one click starts it,
+    scoped to just the failed broker."""
     with tempfile.TemporaryDirectory() as d:
         r = _seed_failed_runner(Path(d), monkeypatch, {"kind": "holdings"})
         calls = []
@@ -61,33 +63,42 @@ def test_retry_dispatches_holdings_for_failed_only(monkeypatch):
         at = AppTest.from_file(APP, default_timeout=45)
         at.session_state["vault"] = r._vault
         at.session_state["runner"] = r
-        at.session_state["_retry_request"] = {
-            "brokers": ["bbae"], "spec": {"kind": "holdings"},
-        }
+        at.run()
+        [b for b in at.button if "Re-run the 1 failed" in (b.label or "")][0].click()
         at.run()
         assert not at.exception, at.exception
         assert calls == [["bbae"]]
 
 
-def test_retry_live_trade_routes_to_confirm(monkeypatch):
+def test_retry_live_requires_execute_then_fires(monkeypatch):
+    """A LIVE re-run uses the same same-page gate: an unconfirmed click is
+    blocked; typing EXECUTE and clicking fires it, scoped to the failed
+    broker only."""
     spec = {
         "kind": "trade", "action": "buy", "amount": 1.0, "tickers": ["VIVK"],
         "price_type": "market", "time_in_force": "day", "limit_price": None,
-        "dry": False,
+        "dry": False, "parallel": False, "parallel_cap": 0,
     }
     with tempfile.TemporaryDirectory() as d:
         r = _seed_failed_runner(Path(d), monkeypatch, spec)
+        calls = {}
+        r.start_trade = lambda *a, **k: calls.update(args=a, kwargs=k)  # type: ignore[method-assign]
         at = AppTest.from_file(APP, default_timeout=45)
         at.session_state["vault"] = r._vault
         at.session_state["runner"] = r
-        at.session_state["_retry_request"] = {
-            "brokers": ["bbae"], "spec": spec,
-        }
+        at.run()
+        live_btn = [
+            b for b in at.button if "Re-run 1 failed broker(s) LIVE" in (b.label or "")
+        ][0]
+        # Unconfirmed click -> blocked, nothing started.
+        live_btn.click()
+        at.run()
+        assert not calls, "unconfirmed LIVE re-run must not start"
+        assert any("NOT started" in (e.value or "") for e in at.error)
+        # Type EXECUTE, click -> fires, failed broker only.
+        at.text_input(key="retry_arm").set_value("EXECUTE")
+        [b for b in at.button if "Re-run 1 failed broker(s) LIVE" in (b.label or "")][0].click()
         at.run()
         assert not at.exception, at.exception
-        # A LIVE retry must land on the typed-EXECUTE confirm gate for the
-        # failed broker only — never fire silently.
-        assert at.session_state["pending_live"]["broker_keys"] == ["bbae"]
-        assert any(
-            "Confirm LIVE order" in (e.value or "") for e in at.error
-        )
+        assert calls["args"][3] == ["bbae"]  # broker_keys arg
+        assert calls["kwargs"]["dry"] is False

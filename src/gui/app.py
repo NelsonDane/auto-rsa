@@ -837,13 +837,19 @@ def _mask_label(mask: str) -> str:
     return f"••••{mask}"
 
 
-def _account_filter_editor(vault: Vault, broker_keys: list[str]) -> None:  # noqa: C901
+def _account_filter_editor(  # noqa: C901
+    vault: Vault, broker_keys: list[str], *, key_prefix: str = "trade",
+) -> None:
     """Global per-broker sub-account allow-list editor.
 
     Accounts appear once a Holdings or per-account Test run has
     discovered them. Every account checked = unrestricted (trades all),
     which is the default behavior. Buys only run in checked accounts;
     sells always reach every account.
+
+    ``key_prefix`` disambiguates the form/widget keys per caller: the
+    Trade and Signals tabs both render this editor every rerun, so a
+    shared key would collide (Streamlit rejects duplicate form keys).
     """
     shown = vault.configured_broker_keys() if "all" in broker_keys else broker_keys
     if not shown:
@@ -856,7 +862,7 @@ def _account_filter_editor(vault: Vault, broker_keys: list[str]) -> None:  # noq
         )
         current = vault.get_account_filter()
         any_discovered = False
-        with st.form("acct_filter_form"):
+        with st.form(f"{key_prefix}_acct_filter_form"):
             pending: dict[str, list[str]] = {}
             for bkey in shown:
                 groups = vault.get_discovered_accounts(bkey)
@@ -884,7 +890,7 @@ def _account_filter_editor(vault: Vault, broker_keys: list[str]) -> None:  # noq
                         options=p_masks,
                         default=default,
                         format_func=_mask_label,
-                        key=f"acctfilt_{bkey}_{parent}",
+                        key=f"acctfilt_{key_prefix}_{bkey}_{parent}",
                     )
                 pending[bkey] = chosen_all
             saved = st.form_submit_button("Save sub-account filter")
@@ -921,11 +927,6 @@ def _tab_trade() -> None:  # noqa: C901, PLR0914
     st.subheader("Execute Trade")
     if not vault.is_unlocked():
         st.warning("Unlock the vault in the sidebar first.")
-        return
-
-    pending = st.session_state.get("pending_live")
-    if pending:
-        _render_live_confirm(runner, vault, pending)
         return
 
     running = runner.is_running()
@@ -988,6 +989,7 @@ def _tab_trade() -> None:  # noqa: C901, PLR0914
         )
 
         broker_keys = _broker_picker("trade")
+        _render_preflight_warnings(broker_keys, vault)
 
         st.markdown(
             "**LIVE confirmation** — a LIVE run places real orders for "
@@ -1176,6 +1178,7 @@ def _tab_trade_beta() -> None:  # noqa: C901, PLR0914
             help="How many API brokers may run simultaneously. Lower it if "
             "a broker rate-limits; 6 is a safe default.",
         )
+        _render_preflight_warnings(broker_keys, vault)
 
         st.markdown(
             "**LIVE confirmation** — a LIVE parallel run places real "
@@ -1266,20 +1269,23 @@ def _render_parallel_summary(runner: TradeRunner) -> None:
     )
 
 
-def _fmt_limit(pending: dict) -> str:
-    """Human-readable limit price for the LIVE confirm summary."""
-    if pending["price_type"] != "limit":
-        return "n/a (market)"
-    lp = pending.get("limit_price")
-    return f"${lp:.2f}" if lp is not None else "auto-derived by broker"
-
-
 def _broker_display(key: str) -> str:
     """Broker display name that never raises on an unknown key."""
     try:
         return get_broker(key).display_name
     except Exception:  # noqa: BLE001
         return key
+
+
+def _render_preflight_warnings(broker_keys: list[str], vault: Vault) -> None:
+    """Show advisory pre-flight warnings (expired sessions, stale lock)."""
+    if not broker_keys:
+        return
+    resolved = (
+        vault.configured_broker_keys() if "all" in broker_keys else broker_keys
+    )
+    for w in preflight.preflight_for_run(resolved):
+        st.markdown(f"- {w.icon} {w.message}")
 
 
 def _fmt_elapsed(seconds: float) -> str:
@@ -1301,82 +1307,6 @@ def _execute_typed(typed: str) -> bool:
     order button is not selectable'.
     """
     return typed.strip().upper() == "EXECUTE"
-
-
-def _render_live_confirm(runner: TradeRunner, vault: Vault, pending: dict) -> None:
-    """Real-money gate: show the exact order and require typing EXECUTE."""
-    keys = pending["broker_keys"]
-    if "all" in keys:
-        names = [_broker_display(k) for k in vault.configured_broker_keys()]
-        broker_desc = f"ALL configured: {', '.join(names)}"
-    else:
-        broker_desc = ", ".join(_broker_display(k) for k in keys)
-
-    st.error("⚠️ Confirm LIVE order — this places REAL orders with REAL money.", icon="⚠️")
-    st.markdown(
-        f"- **Action:** {pending['action'].upper()}\n"
-        f"- **Amount:** {pending['amount']} share(s)\n"
-        f"- **Symbol(s):** {', '.join(pending['tickers'])}\n"
-        f"- **Order type:** {pending['price_type']} / {pending['time_in_force']}\n"
-        f"- **Limit price:** {_fmt_limit(pending)}\n"
-        f"- **Brokers:** {broker_desc}\n\n"
-        "This runs across **every account** at each broker above.",
-    )
-
-    # Pre-flight: warn (before EXECUTE is typed) about anything that will
-    # surprise the operator mid-run — an expired broker session that will
-    # prompt for 2FA, or a stale lock that will refuse the run. Advisory
-    # only: it never blocks the confirmation.
-    resolved = vault.configured_broker_keys() if "all" in keys else keys
-    warns = preflight.preflight_for_run(resolved)
-    if warns:
-        st.warning("Heads-up before you confirm this LIVE run:")
-        for w in warns:
-            st.markdown(f"- {w.icon} {w.message}")
-
-    typed = st.text_input("Type EXECUTE to confirm", key="live_confirm_text")
-    busy = runner.is_running()
-    if busy:
-        # The operator typed EXECUTE but the button is greyed because a
-        # run is still active. Say so explicitly (a silently-disabled
-        # button reads as "the tool won't let me proceed") and give a
-        # one-click way out.
-        st.warning(
-            "A run is still in progress, so the Confirm button is "
-            "disabled. Wait for it to finish, or cancel it in the "
-            "activity panel below, then confirm.",
-        )
-        if st.button("⛔ Cancel the in-progress run", key="live_confirm_cancel_run"):
-            runner.cancel()
-            time.sleep(0.5)
-            st.rerun()
-    typed_ok = _execute_typed(typed)
-    if typed.strip() and not typed_ok:
-        st.caption("Type the word **EXECUTE** to enable the Confirm button.")
-    c1, c2 = st.columns(2)
-    confirm_disabled = not typed_ok or busy
-    if c1.button("Confirm LIVE order", type="primary", disabled=confirm_disabled):
-        try:
-            runner.start_trade(
-                pending["action"],
-                pending["amount"],
-                pending["tickers"],
-                pending["broker_keys"],
-                dry=False,
-                price_type=pending["price_type"],
-                time_in_force=pending["time_in_force"],
-                limit_price=pending.get("limit_price"),
-                parallel=bool(pending.get("parallel")),
-                parallel_cap=int(pending.get("parallel_cap", 0) or 0),
-            )
-        except RunBusyError as exc:
-            st.error(str(exc))
-        else:
-            st.session_state.pending_live = None
-            st.rerun()
-    if c2.button("Cancel"):
-        st.session_state.pending_live = None
-        st.rerun()
 
 
 # --------------------------------------------------------------------------
@@ -1840,72 +1770,6 @@ def _activity_fragment_body(runner: TradeRunner) -> None:  # noqa: C901, PLR0912
             if txt.is_file():
                 with st.expander("Captured page text (2FA options / buttons)"):
                     st.code(txt.read_text(encoding="utf-8", errors="replace"), language="text")
-
-
-# --------------------------------------------------------------------------
-# Signal execution (M4 — close the loop: GUI_QUEUE -> ledger -> broker)
-# --------------------------------------------------------------------------
-def _render_signal_live_confirm(
-    runner: TradeRunner, vault: Vault, pending: dict,
-) -> None:
-    """Real-money gate for a signal buy — exactly 1 share, typed confirm."""
-    keys = pending["broker_keys"]
-    if "all" in keys:
-        names = [get_broker(k).display_name for k in vault.configured_broker_keys()]
-        broker_desc = f"ALL configured: {', '.join(names)}"
-    else:
-        broker_desc = ", ".join(get_broker(k).display_name for k in keys)
-
-    st.error(
-        "⚠️ Confirm LIVE signal buy — REAL money, exactly 1 share.",
-        icon="⚠️",
-    )
-    st.markdown(
-        f"- **Play:** {pending['ticker']} (reverse-split round-up)\n"
-        f"- **Amount:** 1 share (hard-capped)\n"
-        f"- **Brokers:** {broker_desc}\n"
-        f"- **Sub-accounts:** only those in the saved filter; the ledger "
-        f"skips any already executed for this play\n"
-        f"- **KEY:** `{pending['key']}`",
-    )
-    typed = st.text_input(
-        "Type EXECUTE to confirm", key="signal_live_confirm_text",
-    )
-    busy = runner.is_running()
-    if busy:
-        st.warning(
-            "A run is still in progress, so the Confirm button is "
-            "disabled. Wait for it to finish, or cancel it below, "
-            "then confirm.",
-        )
-        if st.button("⛔ Cancel the in-progress run", key="signal_confirm_cancel_run"):
-            runner.cancel()
-            time.sleep(0.5)
-            st.rerun()
-    typed_ok = _execute_typed(typed)
-    if typed.strip() and not typed_ok:
-        st.caption("Type the word **EXECUTE** to enable the Confirm button.")
-    c1, c2 = st.columns(2)
-    disabled = not typed_ok or busy
-    if c1.button("Confirm LIVE buy", type="primary", disabled=disabled):
-        try:
-            runner.start_signal_run(
-                ticker=pending["ticker"],
-                play_key=pending["key"],
-                split_key=pending["split_key"],
-                broker_keys=pending["broker_keys"],
-                dry=False,
-            )
-        except RunBusyError as exc:
-            st.error(str(exc))
-        else:
-            st.session_state.pending_signal_live = None
-            st.rerun()
-    if c2.button("Cancel"):
-        st.session_state.pending_signal_live = None
-        st.rerun()
-
-
 def _signal_execute_section(vault: Vault, signals: list[Signal]) -> None:
     """Plan actionable signals (per-type allow-list) and run one (DRY default)."""
     runner = _get_runner()
@@ -1957,39 +1821,65 @@ def _signal_execute_section(vault: Vault, signals: list[Signal]) -> None:
             f"(conf {p.confidence:.2f})": p
             for p in actionable
         }
-        choice = st.selectbox("Play to run", list(labels))
-        item = labels[choice]
-        broker_keys = _broker_picker("signal")
-        _account_filter_editor(vault, broker_keys)
-        dry = st.toggle(
-            "Dry run (no real orders)", value=True, key="signal_dry",
-            help="Leave ON to simulate. Turn OFF to place a real 1-share buy.",
-        )
-        if not dry:
-            st.error("LIVE mode: a real 1-share order will be placed.", icon="⚠️")
-        disabled = runner.is_running() or not broker_keys
-        if st.button("Execute play", type="primary", disabled=disabled):
-            if dry:
+        if st.session_state.pop("_signal_arm_clear", False):
+            st.session_state["signal_arm"] = ""
+        if runner.is_running():
+            st.info(
+                "A run is still in progress — watch / cancel it in the "
+                "activity panel above, then start the next one.",
+            )
+        # ONE ATOMIC FORM (same pattern as the Trade tab): the submit
+        # click delivers the play, brokers and the typed EXECUTE together,
+        # so nothing can be lost in flight and the run starts in that click.
+        with st.form("signal_form"):
+            choice = st.selectbox("Play to run", list(labels), key="signal_play")
+            broker_keys = _broker_picker("signal")
+            st.markdown(
+                "**LIVE confirmation** — a LIVE run places a REAL 1-share "
+                "buy of the selected play across the selected brokers. Dry "
+                "run needs no confirmation.",
+            )
+            arm_text = st.text_input(
+                "Type EXECUTE here to confirm a LIVE 1-share buy",
+                key="signal_arm",
+            )
+            c_dry, c_live = st.columns(2)
+            go_dry = c_dry.form_submit_button(
+                "▶ Execute play (dry run)",
+                help="Simulate: logs in and validates, places NO real order.",
+            )
+            go_live = c_live.form_submit_button(
+                "🔴 Execute play LIVE (1 share)",
+                type="primary",
+                help="Places a REAL 1-share buy in this same click "
+                "(requires EXECUTE typed above).",
+            )
+        _account_filter_editor(vault, broker_keys, key_prefix="signal")
+
+        item = labels.get(choice)
+        if (go_dry or go_live) and item is not None:
+            if go_live and not _execute_typed(arm_text):
+                st.error(
+                    "LIVE buy NOT started — type EXECUTE in the confirmation "
+                    "field, then click the red button again.",
+                )
+            elif not broker_keys:
+                st.error("Select at least one broker.")
+            else:
                 try:
                     runner.start_signal_run(
                         ticker=item.ticker,
                         play_key=item.key,
                         split_key=item.split_key,
                         broker_keys=broker_keys,
-                        dry=True,
+                        dry=not go_live,
                     )
-                except RunBusyError as exc:
+                except RuntimeError as exc:  # incl. RunBusyError
                     st.error(str(exc))
                 else:
+                    if go_live:
+                        st.session_state["_signal_arm_clear"] = True
                     st.rerun()
-            else:
-                st.session_state.pending_signal_live = {
-                    "ticker": item.ticker,
-                    "key": item.key,
-                    "split_key": item.split_key,
-                    "broker_keys": broker_keys,
-                }
-                st.rerun()
 
 
 # --------------------------------------------------------------------------
@@ -2231,11 +2121,6 @@ def _tab_signals() -> None:  # noqa: C901, PLR0912, PLR0914, PLR0915
     st.subheader("Reverse-Split Signals")
     if not vault.is_unlocked():
         st.warning("Unlock the vault in the sidebar first.")
-        return
-
-    pending = st.session_state.get("pending_signal_live")
-    if pending:
-        _render_signal_live_confirm(_get_runner(), vault, pending)
         return
 
     cfg = vault.get_sheets_config()
@@ -2592,66 +2477,46 @@ def _tab_ledger() -> None:
 # --------------------------------------------------------------------------
 # Main
 # --------------------------------------------------------------------------
-def _handle_retry_request(runner: TradeRunner) -> None:
-    """Process a queued 'retry failed brokers' request from the banner.
-
-    Holdings / dry retries start immediately; a LIVE retry is routed back
-    through the typed-EXECUTE confirm gate (by setting pending_live /
-    pending_signal_live) so re-running real orders always re-confirms.
-    """
-    retry = st.session_state.pop("_retry_request", None)
-    if not retry:
-        return
-    brokers = retry.get("brokers") or []
-    spec = retry.get("spec") or {}
+def _start_retry(
+    runner: TradeRunner, spec: dict, brokers: list[str], *, live: bool,
+) -> None:
+    """Re-run ``spec`` scoped to ``brokers``. Starts the run and reruns."""
     kind = spec.get("kind")
-    if not brokers or not kind:
-        return
     try:
         if kind == "holdings":
             runner.start_holdings(brokers)
-            st.rerun()
-        elif kind == "trade" and spec.get("dry"):
+        elif kind == "trade":
             runner.start_trade(
                 spec["action"], spec["amount"], spec["tickers"], brokers,
-                dry=True, price_type=spec["price_type"],
+                dry=not live, price_type=spec["price_type"],
                 time_in_force=spec["time_in_force"],
                 limit_price=spec["limit_price"],
                 parallel=bool(spec.get("parallel")),
                 parallel_cap=int(spec.get("parallel_cap", 0) or 0),
             )
-            st.rerun()
-        elif kind == "trade":
-            st.session_state.pending_live = {
-                "action": spec["action"],
-                "amount": spec["amount"],
-                "tickers": spec["tickers"],
-                "broker_keys": brokers,
-                "price_type": spec["price_type"],
-                "time_in_force": spec["time_in_force"],
-                "limit_price": spec["limit_price"],
-                "parallel": bool(spec.get("parallel")),
-                "parallel_cap": int(spec.get("parallel_cap", 0) or 0),
-            }
-        elif kind == "signal" and spec.get("dry"):
+        elif kind == "signal":
             runner.start_signal_run(
                 ticker=spec["ticker"], play_key=spec["play_key"],
-                split_key=spec["split_key"], broker_keys=brokers, dry=True,
+                split_key=spec["split_key"], broker_keys=brokers, dry=not live,
             )
-            st.rerun()
-        elif kind == "signal":
-            st.session_state.pending_signal_live = {
-                "ticker": spec["ticker"],
-                "key": spec["play_key"],
-                "split_key": spec["split_key"],
-                "broker_keys": brokers,
-            }
-    except RunBusyError as exc:
+        else:
+            return
+    except RuntimeError as exc:  # incl. RunBusyError
         st.error(str(exc))
+        return
+    if live:
+        st.session_state["_retry_arm_clear"] = True
+    st.rerun()
 
 
 def _maybe_render_retry_banner(runner: TradeRunner) -> None:
-    """Above the tabs: offer to re-run only the brokers that just failed."""
+    """Above the tabs: re-run only the failed brokers, in one click.
+
+    Same same-page gate as the trade form — a LIVE re-run is confirmed by
+    typing EXECUTE in an in-line form and fires on that submit; a dry /
+    holdings re-run needs no confirmation. No separate screen, no queued
+    session-state handoff.
+    """
     snap = runner.snapshot()
     if snap.status not in (RunStatus.FINISHED, RunStatus.ERROR):
         return
@@ -2661,17 +2526,40 @@ def _maybe_render_retry_banner(runner: TradeRunner) -> None:
     spec = runner.last_spec()
     if not spec:
         return
+    names = ", ".join(_broker_display(b) for b in failed)
+    st.warning(f"Last run: **{len(failed)}** broker(s) failed — {names}.")
+
     is_live = spec.get("kind") in {"trade", "signal"} and not spec.get("dry")
-    st.warning(
-        f"Last run: **{len(failed)}** broker(s) failed — "
-        f"{', '.join(_broker_display(b) for b in failed)}.",
-    )
-    label = f"🔁 Re-run only the {len(failed)} failed broker(s)"
-    if is_live:
-        label += " (LIVE — you'll reconfirm)"
-    if st.button(label, key="retry_failed_banner"):
-        st.session_state["_retry_request"] = {"brokers": failed, "spec": spec}
-        st.rerun()
+    if not is_live:
+        # Dry / holdings re-run — no confirmation needed.
+        if st.button(
+            f"🔁 Re-run the {len(failed)} failed broker(s)",
+            key="retry_failed_banner",
+        ):
+            _start_retry(runner, spec, failed, live=False)
+        return
+
+    # LIVE re-run — same-page EXECUTE gate, delivered atomically by submit.
+    if st.session_state.pop("_retry_arm_clear", False):
+        st.session_state["retry_arm"] = ""
+    with st.form("retry_form"):
+        st.markdown(
+            f"**Re-run failed brokers LIVE** — places REAL orders again on: "
+            f"{names}.",
+        )
+        arm = st.text_input(
+            "Type EXECUTE to confirm the LIVE re-run", key="retry_arm",
+        )
+        go = st.form_submit_button(
+            f"🔁 Re-run {len(failed)} failed broker(s) LIVE", type="primary",
+        )
+    if go:
+        if _execute_typed(arm):
+            _start_retry(runner, spec, failed, live=True)
+        else:
+            st.error(
+                "LIVE re-run NOT started — type EXECUTE, then click again.",
+            )
 
 
 def main() -> None:
@@ -2686,27 +2574,13 @@ def main() -> None:
     runner = _get_runner()
     _activity_fragment(runner)
 
-    # A queued LIVE confirmation takes over the whole screen (above the
-    # tabs) instead of rendering inside the Trade/Signals tab body.
-    # st.tabs does NOT reliably keep the active tab across the st.rerun()
-    # that queues the confirmation, so an in-tab confirm screen could
-    # render on a tab the user is no longer looking at — which reads as
-    # "clicking Execute did nothing / never advanced to the confirm
-    # page". Real money: this gate must always be front-and-centre.
+    # Every trade/signal path now confirms LIVE on its own page via an
+    # atomic form (type EXECUTE in-form, the order fires on that submit).
+    # There is no separate confirm SCREEN and no queued session-state
+    # handoff — those intermittently failed to land (widget updates lost
+    # to the idle auto-refresh), which repeatedly blocked live trading.
     vault = _get_vault()
     if vault.is_unlocked():
-        # A queued "re-run failed brokers" request may start a run directly
-        # (holdings/dry) or route a LIVE retry through the confirm gate by
-        # setting pending_live below.
-        _handle_retry_request(runner)
-        pending_live = st.session_state.get("pending_live")
-        pending_signal = st.session_state.get("pending_signal_live")
-        if pending_live:
-            _render_live_confirm(runner, vault, pending_live)
-            return
-        if pending_signal:
-            _render_signal_live_confirm(runner, vault, pending_signal)
-            return
         _maybe_render_retry_banner(runner)
 
     (tab_status, tab_creds, tab_signals, tab_trade, tab_beta,

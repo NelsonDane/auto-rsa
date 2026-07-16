@@ -273,27 +273,19 @@ def fun_run_parallel(
     # so per-broker copies can't inherit a mutation from an earlier broker.
     pristine = _thread_local_order(order_obj)
 
-    sequential = [bi for bi in brokers if _broker_key(bi) in _SEQUENTIAL_BROKERS]
     concurrent = [bi for bi in brokers if _broker_key(bi) not in _SEQUENTIAL_BROKERS]
+    sequential = [bi for bi in brokers if _broker_key(bi) in _SEQUENTIAL_BROKERS]
 
     results: list[tuple[bool, float]] = []
 
-    # Browser/interactive brokers: strictly one at a time.
     print(
-        f"\n[parallel] {len(concurrent)} API broker(s) will run concurrently; "
-        f"{len(sequential)} browser broker(s) run one-at-a-time.\n",
+        f"\n[parallel] {len(concurrent)} API broker(s) run concurrently FIRST, "
+        f"then {len(sequential)} browser broker(s) one-at-a-time.\n",
     )
-    for bi in sequential:
-        results.append(
-            run_broker(
-                bi, _thread_local_order(pristine), bot_obj, loop,
-                docker_mode=docker_mode,
-            ),
-        )
 
-    # API brokers: concurrent, bounded by `cap`. Each gets its OWN order
-    # copy so firstrade/webull's mid-order amount/action rewrites can't be
-    # read by a sibling broker sizing a real order.
+    # 1) API brokers first: concurrent, bounded by `cap`. Each gets its OWN
+    # order copy so firstrade/webull's mid-order amount/action rewrites
+    # can't be read by a sibling broker sizing a real order.
     if concurrent:
         limit = cap if cap and cap > 0 else len(concurrent)
         sem = threading.Semaphore(min(limit, len(concurrent)))
@@ -329,6 +321,16 @@ def fun_run_parallel(
                 a._emit_progress("FAIL", key)
                 out[key] = (True, 0.0)
         results.extend(out.get(_broker_key(bi), (True, 0.0)) for bi in concurrent)
+
+    # 2) Browser/interactive brokers last: strictly one at a time (after
+    # all the fast API work is done).
+    for bi in sequential:
+        results.append(
+            run_broker(
+                bi, _thread_local_order(pristine), bot_obj, loop,
+                docker_mode=docker_mode,
+            ),
+        )
 
     total_value = sum(bt for _failed, bt in results)
     if order_obj.get_holdings():  # type: ignore[attr-defined]
