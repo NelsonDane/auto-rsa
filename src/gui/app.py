@@ -1439,9 +1439,22 @@ def _manual_cash_editor(broker_keys: list[str]) -> None:
                     new[bk] = round(val, 2)
                 else:
                     new.pop(bk, None)
-        if st.button("Save cash balances", key="save_manual_cash"):
+        b_save, b_clear = st.columns(2)
+        if b_save.button("💾 Save cash balances", key="save_manual_cash"):
             manual_balances.save(new)
             st.success("Saved.")
+            st.rerun()
+        if manual and b_clear.button(
+            "🧹 Clear all saved cash", key="clear_manual_cash",
+            help="Remove every manually-entered cash figure (resets the "
+            "fields to blank / auto-derived).",
+        ):
+            manual_balances.clear()
+            # Drop the stored widget values too so the fields reset to 0.
+            for k in list(st.session_state.keys()):
+                if str(k).startswith("manual_cash_"):
+                    del st.session_state[k]
+            st.success("Cleared all saved cash.")
             st.rerun()
 
 

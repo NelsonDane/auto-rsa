@@ -163,3 +163,13 @@ def test_manual_balances_roundtrip(tmp_path, monkeypatch):
     assert mb.load() == {"bbae": 100.5, "sofi": 42.0}
     assert mb.get("BBAE") == 100.5
     assert mb.get("dspac") is None
+
+
+def test_manual_balances_clear(tmp_path, monkeypatch):
+    from src.gui.core import manual_balances as mb
+    monkeypatch.setattr(mb, "_PATH", tmp_path / "manual.json")
+    mb.save({"bbae": 100.0, "sofi": 50.0})
+    assert mb.load() == {"bbae": 100.0, "sofi": 50.0}
+    mb.clear()
+    assert mb.load() == {}
+    mb.clear()  # idempotent, no error when already gone

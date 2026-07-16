@@ -59,3 +59,9 @@ def save(balances: dict[str, float]) -> None:
 def get(broker_key: str) -> float | None:
     """Manually-entered cash for one broker, or None if unset."""
     return load().get(str(broker_key).lower())
+
+
+def clear() -> None:
+    """Delete all saved manual cash balances (best-effort)."""
+    with contextlib.suppress(OSError):
+        _PATH.unlink(missing_ok=True)
