@@ -23,6 +23,7 @@ import contextlib
 import json
 import os
 import sys
+import threading
 
 # Sentinels that cannot occur in normal broker output (NULs around a tag).
 PROMPT_SENTINEL = "\x00RSA_PROMPT\x00"
@@ -44,12 +45,26 @@ PROGRESS_SENTINEL = "\x00RSA_PROG\x00"
 HOLDINGS_SENTINEL = "\x00RSA_HOLD\x00"
 
 
+# Serializes interactive prompts. In a sequential run only one broker ever
+# asks for input at a time, so this is a no-op there. In a PARALLEL run
+# (Trade Beta) several brokers can hit a 2FA/OTP input() at once; without
+# this they would race on the single stdin channel and scramble each
+# other's prompt/answer. The lock makes exactly one prompt "open" at a
+# time — the operator answers them one after another.
+_INPUT_LOCK = threading.Lock()
+
+
 def _bridged_input(prompt: object = "") -> str:
-    """Forward an interactive prompt to the parent and read the answer."""
-    sys.stdout.write(f"{PROMPT_SENTINEL}{prompt}\n")
-    sys.stdout.flush()
-    line = sys.stdin.readline()
-    return line.rstrip("\r\n")
+    """Forward an interactive prompt to the parent and read the answer.
+
+    Thread-safe: concurrent brokers (parallel runs) queue on ``_INPUT_LOCK``
+    so their 2FA prompts don't interleave on the shared stdin.
+    """
+    with _INPUT_LOCK:
+        sys.stdout.write(f"{PROMPT_SENTINEL}{prompt}\n")
+        sys.stdout.flush()
+        line = sys.stdin.readline()
+        return line.rstrip("\r\n")
 
 
 def _reap_leftover_browsers() -> None:
@@ -98,11 +113,15 @@ def main() -> None:
     # sentinels (kept out of CLI/Docker output).
     os.environ["RSA_GUI_ENGINE"] = "1"
     payload = json.loads(sys.argv[1]) if len(sys.argv) > 1 else []
+    parallel = False
+    parallel_cap = 0
     if isinstance(payload, dict):
         args: list[str] = payload.get("args", [])
         price = payload.get("price")
         time_in_force = payload.get("time")
         limit_price = payload.get("limit_price")
+        parallel = bool(payload.get("parallel"))
+        parallel_cap = int(payload.get("parallel_cap", 0) or 0)
     else:
         args = payload
         price = time_in_force = limit_price = None
@@ -121,7 +140,14 @@ def main() -> None:
     if time_in_force in {"day", "gtc"}:
         order.set_time(time_in_force)
     try:
-        fun_run(order)
+        if parallel:
+            # Trade Beta: separate parallel driver; the sequential fun_run
+            # path is left completely untouched.
+            from src.auto_rsa_parallel import fun_run_parallel  # noqa: PLC0415
+
+            fun_run_parallel(order, cap=parallel_cap or None)
+        else:
+            fun_run(order)
     finally:
         # Reap any browser a broker failed to close, so a leaked child
         # can't hold the stdout pipe open and wedge the GUI on RUNNING.

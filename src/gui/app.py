@@ -1059,6 +1059,159 @@ def _tab_trade() -> None:  # noqa: C901, PLR0914
                 st.rerun()
 
 
+# --------------------------------------------------------------------------
+# Trade Beta tab — same trade, but brokers run in PARALLEL (opt-in beta).
+# A deliberate clone of _tab_trade so the working Trade tab is untouched.
+# --------------------------------------------------------------------------
+def _tab_trade_beta() -> None:  # noqa: C901, PLR0914
+    vault = _get_vault()
+    runner = _get_runner()
+    st.subheader("Execute Trade — ⚡ Parallel (Beta)")
+    st.info(
+        "**Beta.** Same order as the Trade tab, but your **API brokers run "
+        "at the same time** (Wells Fargo and any browser broker still run "
+        "one-at-a-time for safety). The working Trade tab is unchanged. "
+        "Test with a **dry run** first — this places the same REAL orders "
+        "on a live run.",
+        icon="⚡",
+    )
+    if not vault.is_unlocked():
+        st.warning("Unlock the vault in the sidebar first.")
+        return
+
+    col1, col2, col3 = st.columns(3)
+    action = col1.selectbox("Action", ["buy", "sell"], key="beta_action")
+    tickers_raw = col2.text_input(
+        "Stock symbol(s)", value="", help="Comma-separated", key="beta_tickers",
+    )
+    amount = col3.number_input(
+        "Amount (shares)", min_value=0.0, value=1.0, step=1.0, key="beta_amount",
+    )
+
+    col4, col5 = st.columns(2)
+    price_type = col4.selectbox(
+        "Order type", ["market", "limit"], key="beta_price_type",
+        help="Market is recommended; brokers fall back to a limit where "
+        "required.",
+    )
+    time_in_force = col5.selectbox(
+        "Time in force", ["day", "gtc"], key="beta_tif",
+        help="GTC is useful for pre/post-market limit orders.",
+    )
+
+    limit_price: float | None = None
+    if price_type == "limit":
+        limit_price = st.number_input(
+            "Limit price (leave blank to auto-derive)",
+            min_value=0.0, value=None, step=0.01, format="%.2f",
+            key="beta_limit_price",
+            help="Exact limit price. Limit orders require exactly one symbol.",
+        )
+
+    broker_keys = _broker_picker("beta")
+    st.caption(
+        "The per-account sub-account filter is a shared setting — edit it on "
+        "the **Trade** tab; it applies here too.",
+    )
+
+    cap = st.slider(
+        "Max brokers at once (concurrency cap)",
+        min_value=1, max_value=12, value=6, key="beta_cap",
+        help="How many API brokers may run simultaneously. Lower it if a "
+        "broker rate-limits; 6 is a safe default.",
+    )
+
+    running = runner.is_running()
+    disabled = running or not broker_keys
+    if running:
+        st.info(
+            "A run is still in progress — cancel it in the activity panel "
+            "below, then try again.",
+        )
+    elif not broker_keys:
+        st.info("Select at least one broker above to enable the run buttons.")
+
+    c_dry, c_live = st.columns(2)
+    go_dry = c_dry.button(
+        "▶ Execute dry run (parallel)", disabled=disabled, key="beta_go_dry",
+        help="Simulate the parallel run: logs in and validates, NO real orders.",
+    )
+    go_live = c_live.button(
+        "🔴 Execute LIVE order (parallel)", type="primary", disabled=disabled,
+        key="beta_go_live",
+        help="Places REAL orders with REAL money, brokers in parallel. You "
+        "confirm on the next screen by typing EXECUTE.",
+    )
+    if go_dry or go_live:
+        tickers, invalid = normalize_and_validate(tickers_raw)
+        if invalid:
+            st.error(f"Invalid symbol(s): {', '.join(invalid)}")
+        elif not tickers:
+            st.error("Enter at least one stock symbol.")
+        elif price_type == "limit" and len(tickers) != 1:
+            st.error("Limit orders require exactly one symbol.")
+        elif go_live:
+            st.session_state.pending_live = {
+                "action": action,
+                "amount": float(amount),
+                "tickers": tickers,
+                "broker_keys": broker_keys,
+                "price_type": price_type,
+                "time_in_force": time_in_force,
+                "limit_price": limit_price,
+                "parallel": True,
+                "parallel_cap": int(cap),
+            }
+            st.rerun()
+        else:
+            try:
+                runner.start_trade(
+                    action, float(amount), tickers, broker_keys, dry=True,
+                    price_type=price_type, time_in_force=time_in_force,
+                    limit_price=limit_price, parallel=True, parallel_cap=int(cap),
+                )
+            except RunBusyError as exc:
+                st.error(str(exc))
+            else:
+                st.rerun()
+
+    _render_parallel_summary(runner)
+
+
+def _render_parallel_summary(runner: TradeRunner) -> None:
+    """After a parallel run, show per-broker durations + wall-clock saved."""
+    spec = runner.last_spec()
+    if not spec or not spec.get("parallel"):
+        return
+    snap = runner.snapshot()
+    if snap.status not in (RunStatus.FINISHED, RunStatus.ERROR):
+        return
+    timings = [(b, s, e) for b, s, e in snap.timings]
+    if not timings:
+        return
+    st.divider()
+    st.markdown("#### Parallel run summary")
+    durations = [e for _b, _s, e in timings]
+    wall = max(durations) if durations else 0.0
+    serial = sum(durations)
+    saved = max(0.0, serial - wall)
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Parallel wall-clock", _fmt_elapsed(wall))
+    c2.metric("Sequential would be ~", _fmt_elapsed(serial))
+    c3.metric("Time saved ~", _fmt_elapsed(saved))
+    st.dataframe(
+        [
+            {"Broker": b, "Status": s, "Duration": _fmt_elapsed(e)}
+            for b, s, e in timings
+        ],
+        hide_index=True,
+    )
+    st.caption(
+        "Estimated — 'sequential' assumes the same per-broker durations run "
+        "back-to-back. Browser brokers still run one-at-a-time.",
+    )
+
+
 def _fmt_limit(pending: dict) -> str:
     """Human-readable limit price for the LIVE confirm summary."""
     if pending["price_type"] != "limit":
@@ -1159,6 +1312,8 @@ def _render_live_confirm(runner: TradeRunner, vault: Vault, pending: dict) -> No
                 price_type=pending["price_type"],
                 time_in_force=pending["time_in_force"],
                 limit_price=pending.get("limit_price"),
+                parallel=bool(pending.get("parallel")),
+                parallel_cap=int(pending.get("parallel_cap", 0) or 0),
             )
         except RunBusyError as exc:
             st.error(str(exc))
@@ -2402,6 +2557,8 @@ def _handle_retry_request(runner: TradeRunner) -> None:
                 dry=True, price_type=spec["price_type"],
                 time_in_force=spec["time_in_force"],
                 limit_price=spec["limit_price"],
+                parallel=bool(spec.get("parallel")),
+                parallel_cap=int(spec.get("parallel_cap", 0) or 0),
             )
             st.rerun()
         elif kind == "trade":
@@ -2413,6 +2570,8 @@ def _handle_retry_request(runner: TradeRunner) -> None:
                 "price_type": spec["price_type"],
                 "time_in_force": spec["time_in_force"],
                 "limit_price": spec["limit_price"],
+                "parallel": bool(spec.get("parallel")),
+                "parallel_cap": int(spec.get("parallel_cap", 0) or 0),
             }
         elif kind == "signal" and spec.get("dry"):
             runner.start_signal_run(
@@ -2490,9 +2649,9 @@ def main() -> None:
             return
         _maybe_render_retry_banner(runner)
 
-    (tab_status, tab_creds, tab_signals, tab_trade,
+    (tab_status, tab_creds, tab_signals, tab_trade, tab_beta,
      tab_ledger, tab_perf, tab_hold, tab_diag) = st.tabs(
-        ["Status", "Credentials", "Signals", "Trade",
+        ["Status", "Credentials", "Signals", "Trade", "⚡ Trade Beta",
          "Ledger", "Performance", "Balances", "🩺 Diagnostics"],
     )
     with tab_status:
@@ -2503,6 +2662,8 @@ def main() -> None:
         _tab_signals()
     with tab_trade:
         _tab_trade()
+    with tab_beta:
+        _tab_trade_beta()
     with tab_ledger:
         _tab_ledger()
     with tab_perf:

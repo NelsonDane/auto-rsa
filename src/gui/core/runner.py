@@ -294,6 +294,8 @@ class TradeRunner:
         price_type: str = "market",
         time_in_force: str = "day",
         limit_price: float | None = None,
+        parallel: bool = False,
+        parallel_cap: int = 0,
     ) -> None:
         """Execute a buy/sell.
 
@@ -304,6 +306,11 @@ class TradeRunner:
         Brokers that read these honor them; the rest keep their own
         automatic market->limit / sub-$1 fallback. ``dry=True`` is a
         no-op run.
+
+        ``parallel=True`` (Trade Beta) routes the engine to the separate
+        parallel driver — API brokers run concurrently (bounded by
+        ``parallel_cap``; 0 = all), browser brokers sequentially. The
+        sequential path is unchanged when parallel is False.
         """
         self._last_spec = {
             "kind": "trade",
@@ -314,6 +321,8 @@ class TradeRunner:
             "time_in_force": time_in_force,
             "limit_price": limit_price,
             "dry": dry,
+            "parallel": parallel,
+            "parallel_cap": parallel_cap,
         }
         args = [
             action,
@@ -327,6 +336,8 @@ class TradeRunner:
             "price": price_type,
             "time": time_in_force,
             "limit_price": limit_price,
+            "parallel": parallel,
+            "parallel_cap": parallel_cap,
         }
         mode = "DRY" if dry else "LIVE"
         price_desc = price_type
