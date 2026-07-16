@@ -290,6 +290,29 @@ def test_deselected_broker_drops_from_preflight_and_run(monkeypatch):
     )
 
 
+def test_in_form_broker_selection_delivered_on_submit(monkeypatch):
+    """The broker picker lives INSIDE the form now, so its selection rides
+    atomically on the Execute click. Regression for 'chips show but the
+    server sees no brokers': a narrowed selection must reach start_trade on
+    the same submit, with no intermediate rerun to lose the change."""
+    at = AppTest.from_file(APP, default_timeout=45)
+    v = _vault()  # configures bbae + dspac
+    r = TradeRunner(v)
+    calls = {}
+    r.start_trade = lambda *a, **k: calls.update(args=a, kwargs=k)  # type: ignore[method-assign]
+    at.session_state["vault"] = v
+    at.session_state["runner"] = r
+    at.run()
+    at.multiselect(key="trade_sel").set_value(["BBAE"])  # narrow inside form
+    at.text_input(key="trade_tickers").set_value("CIIT")
+    at.text_input(key="trade_arm").set_value("EXECUTE")
+    _btn(at, "🔴 Execute LIVE order").click()
+    at.run()
+    assert not at.exception, at.exception
+    assert calls, "the in-form selection must reach start_trade on submit"
+    assert calls["args"][3] == ["bbae"], calls["args"]
+
+
 def test_parse_optional_price():
     """Limit-price text parses safely: blank/invalid -> None (auto-derive),
     a positive number -> that price. Replaces the nullable number_input

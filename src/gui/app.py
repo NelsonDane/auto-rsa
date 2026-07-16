@@ -828,17 +828,20 @@ def _broker_picker(key_prefix: str) -> list[str]:
     if sel_key not in st.session_state:
         st.session_state[sel_key] = all_names
     else:
-        # Drop any stored names no longer offered (a broker's creds were
-        # removed) so the widget never carries a stale/invalid option.
-        st.session_state[sel_key] = [
-            n for n in st.session_state[sel_key] if n in all_names
-        ]
+        # Prune stored names no longer offered (a broker's creds were
+        # removed). Write ONLY when something actually changed — writing a
+        # widget's key on every rerun is an anti-pattern that can fight the
+        # widget's own state.
+        pruned = [n for n in st.session_state[sel_key] if n in all_names]
+        if pruned != list(st.session_state[sel_key]):
+            st.session_state[sel_key] = pruned
     chosen = st.multiselect(
         "Brokers to use",
         options=all_names,
         key=sel_key,
-        help="All selected (the default) = run every configured "
-        "broker. Deselect any to narrow the run.",
+        help="All selected = run every configured broker. Deselect any to "
+        "narrow the run. This selection is submitted WITH the Execute "
+        "click, so it always matches what you see.",
     )
     if not chosen:
         st.warning("Select at least one broker to run.")
@@ -849,6 +852,29 @@ def _broker_picker(key_prefix: str) -> list[str]:
     if set(chosen) == set(all_names):
         return ["all"]
     return [name_by_key[n] for n in chosen]
+
+
+def _committed_broker_keys(key_prefix: str, vault: Vault) -> list[str]:
+    """The broker selection as last committed to session_state, resolved to
+    broker keys — used only for the advisory pre-flight rendered ABOVE the
+    atomic form.
+
+    The picker itself now lives INSIDE the form (its value is delivered
+    with the Execute click, immune to dropped multiselect change-messages).
+    The live widget value therefore isn't known until submit, so the
+    pre-flight reads the last-committed selection instead. It lags a
+    submit; that's fine for an advisory heads-up.
+    """
+    if not vault.is_unlocked():
+        return []
+    configured = vault.configured_broker_keys()
+    if not configured:
+        return []
+    names = st.session_state.get(f"{key_prefix}_sel")
+    if names is None:
+        return configured  # first render: defaults to all configured
+    name_by_key = {get_broker(k).display_name: k for k in configured}
+    return [name_by_key[n] for n in names if n in name_by_key]
 
 
 def _mask_label(mask: str) -> str:
@@ -973,14 +999,17 @@ def _tab_trade() -> None:  # noqa: C901, PLR0914
     ):
         st.session_state["trade_sel"] = []
         st.rerun()
-    # Broker picker + pre-flight live OUTSIDE the form so the selection is
-    # WYSIWYG: a form doesn't commit a widget change until submit, which
-    # let the pre-flight (and the run) reflect a STALE broker set — e.g. it
-    # warned about a broker you'd already deselected. Out here the picker
-    # updates immediately and the run uses exactly what's shown.
-    broker_keys = _broker_picker("trade")
-    _render_preflight_warnings(broker_keys, vault)
+    # Pre-flight reflects the LAST-COMMITTED selection (the live picker is
+    # inside the form below; its value isn't known until submit).
+    _render_preflight_warnings(_committed_broker_keys("trade", vault), vault)
     with st.form("trade_form"):
+        # Broker picker INSIDE the form. Widgets inside a form send NOTHING
+        # on change — the selection rides atomically on the Execute click.
+        # This is the fix for 'chips show but the server sees no brokers':
+        # a dropped multiselect change-message can no longer leave the run
+        # with an empty selection (which made Execute silently bail with
+        # 'Select at least one broker').
+        broker_keys = _broker_picker("trade")
         col1, col2, col3 = st.columns(3)
         action = col1.selectbox("Action", ["buy", "sell"], key="trade_action")
         tickers_raw = col2.text_input(
@@ -1180,17 +1209,19 @@ def _tab_trade_beta() -> None:  # noqa: C901, PLR0914
     ):
         st.session_state["beta_sel"] = []
         st.rerun()
-    # Broker picker + cap + pre-flight OUTSIDE the form (WYSIWYG — see
-    # _tab_trade). The run uses exactly the brokers shown here.
-    broker_keys = _broker_picker("beta")
-    cap = st.slider(
-        "Max brokers at once (concurrency cap)",
-        min_value=1, max_value=12, value=6, key="beta_cap",
-        help="How many API brokers may run simultaneously. Lower it if "
-        "a broker rate-limits; 6 is a safe default.",
-    )
-    _render_preflight_warnings(broker_keys, vault)
+    # Pre-flight reflects the last-committed selection (picker is inside
+    # the form below — see _tab_trade).
+    _render_preflight_warnings(_committed_broker_keys("beta", vault), vault)
     with st.form("beta_form"):
+        # Picker + cap INSIDE the form so both ride atomically on the
+        # Execute click (immune to dropped widget change-messages).
+        broker_keys = _broker_picker("beta")
+        cap = st.slider(
+            "Max brokers at once (concurrency cap)",
+            min_value=1, max_value=12, value=6, key="beta_cap",
+            help="How many API brokers may run simultaneously. Lower it if "
+            "a broker rate-limits; 6 is a safe default.",
+        )
         col1, col2, col3 = st.columns(3)
         action = col1.selectbox("Action", ["buy", "sell"], key="beta_action")
         tickers_raw = col2.text_input(
