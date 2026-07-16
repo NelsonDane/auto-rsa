@@ -2377,6 +2377,84 @@ def _tab_ledger() -> None:
 # --------------------------------------------------------------------------
 # Main
 # --------------------------------------------------------------------------
+def _handle_retry_request(runner: TradeRunner) -> None:
+    """Process a queued 'retry failed brokers' request from the banner.
+
+    Holdings / dry retries start immediately; a LIVE retry is routed back
+    through the typed-EXECUTE confirm gate (by setting pending_live /
+    pending_signal_live) so re-running real orders always re-confirms.
+    """
+    retry = st.session_state.pop("_retry_request", None)
+    if not retry:
+        return
+    brokers = retry.get("brokers") or []
+    spec = retry.get("spec") or {}
+    kind = spec.get("kind")
+    if not brokers or not kind:
+        return
+    try:
+        if kind == "holdings":
+            runner.start_holdings(brokers)
+            st.rerun()
+        elif kind == "trade" and spec.get("dry"):
+            runner.start_trade(
+                spec["action"], spec["amount"], spec["tickers"], brokers,
+                dry=True, price_type=spec["price_type"],
+                time_in_force=spec["time_in_force"],
+                limit_price=spec["limit_price"],
+            )
+            st.rerun()
+        elif kind == "trade":
+            st.session_state.pending_live = {
+                "action": spec["action"],
+                "amount": spec["amount"],
+                "tickers": spec["tickers"],
+                "broker_keys": brokers,
+                "price_type": spec["price_type"],
+                "time_in_force": spec["time_in_force"],
+                "limit_price": spec["limit_price"],
+            }
+        elif kind == "signal" and spec.get("dry"):
+            runner.start_signal_run(
+                ticker=spec["ticker"], play_key=spec["play_key"],
+                split_key=spec["split_key"], broker_keys=brokers, dry=True,
+            )
+            st.rerun()
+        elif kind == "signal":
+            st.session_state.pending_signal_live = {
+                "ticker": spec["ticker"],
+                "key": spec["play_key"],
+                "split_key": spec["split_key"],
+                "broker_keys": brokers,
+            }
+    except RunBusyError as exc:
+        st.error(str(exc))
+
+
+def _maybe_render_retry_banner(runner: TradeRunner) -> None:
+    """Above the tabs: offer to re-run only the brokers that just failed."""
+    snap = runner.snapshot()
+    if snap.status not in (RunStatus.FINISHED, RunStatus.ERROR):
+        return
+    failed = [b for b, s in snap.progress if s == "failed"]
+    if not failed:
+        return
+    spec = runner.last_spec()
+    if not spec:
+        return
+    is_live = spec.get("kind") in {"trade", "signal"} and not spec.get("dry")
+    st.warning(
+        f"Last run: **{len(failed)}** broker(s) failed — "
+        f"{', '.join(_broker_display(b) for b in failed)}.",
+    )
+    label = f"🔁 Re-run only the {len(failed)} failed broker(s)"
+    if is_live:
+        label += " (LIVE — you'll reconfirm)"
+    if st.button(label, key="retry_failed_banner"):
+        st.session_state["_retry_request"] = {"brokers": failed, "spec": spec}
+        st.rerun()
+
+
 def main() -> None:
     """Render the full app."""
     _state()
@@ -2398,6 +2476,10 @@ def main() -> None:
     # page". Real money: this gate must always be front-and-centre.
     vault = _get_vault()
     if vault.is_unlocked():
+        # A queued "re-run failed brokers" request may start a run directly
+        # (holdings/dry) or route a LIVE retry through the confirm gate by
+        # setting pending_live below.
+        _handle_retry_request(runner)
         pending_live = st.session_state.get("pending_live")
         pending_signal = st.session_state.get("pending_signal_live")
         if pending_live:
@@ -2406,6 +2488,7 @@ def main() -> None:
         if pending_signal:
             _render_signal_live_confirm(runner, vault, pending_signal)
             return
+        _maybe_render_retry_banner(runner)
 
     (tab_status, tab_creds, tab_signals, tab_trade,
      tab_ledger, tab_perf, tab_hold, tab_diag) = st.tabs(

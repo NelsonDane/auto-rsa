@@ -125,6 +125,9 @@ class TradeRunner:
         # broker -> {"start": monotonic, "end": monotonic|None}. Insertion
         # order is START order, so the timeline renders top-to-bottom.
         self._broker_timings: dict[str, dict[str, float | None]] = {}
+        # Recipe of the most recent run, so the UI can re-run only the
+        # brokers that failed without the operator re-entering everything.
+        self._last_spec: dict | None = None
         # When the reaper first saw the engine exited while still RUNNING
         # (monotonic seconds); used to grace-period the wedge decision.
         self._engine_exit_seen: float | None = None
@@ -255,8 +258,13 @@ class TradeRunner:
 
     # --- public operations --------------------------------------------
 
+    def last_spec(self) -> dict | None:
+        """The most recent run's recipe (for 'retry failed'), or None."""
+        return dict(self._last_spec) if self._last_spec else None
+
     def start_holdings(self, broker_keys: list[str]) -> None:
         """Pull balances/holdings for the given brokers (or ['all'])."""
+        self._last_spec = {"kind": "holdings"}
         args = ["holdings", self._brokers_arg(broker_keys)]
         self._start(args, broker_keys, f"Holdings: {', '.join(broker_keys)}")
 
@@ -297,6 +305,16 @@ class TradeRunner:
         automatic market->limit / sub-$1 fallback. ``dry=True`` is a
         no-op run.
         """
+        self._last_spec = {
+            "kind": "trade",
+            "action": action,
+            "amount": amount,
+            "tickers": list(tickers),
+            "price_type": price_type,
+            "time_in_force": time_in_force,
+            "limit_price": limit_price,
+            "dry": dry,
+        }
         args = [
             action,
             str(amount),
@@ -337,6 +355,13 @@ class TradeRunner:
         so the ledger attributes the run and blocks the same real split
         bought via another feed.
         """
+        self._last_spec = {
+            "kind": "signal",
+            "ticker": ticker,
+            "play_key": play_key,
+            "split_key": split_key,
+            "dry": dry,
+        }
         args = [
             "buy",
             "1",
