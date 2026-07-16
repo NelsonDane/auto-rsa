@@ -1118,32 +1118,53 @@ def _run_trade_submit(  # noqa: PLR0913
     """
     if not (go_dry or go_live):
         return
+    # DIAGNOSTIC breadcrumb — records exactly what this submit received and
+    # where it ended up, rendered at the top of the page by
+    # _render_submit_debug. This exists to END the "Execute does nothing,
+    # no error" guessing: after a click, the real reason is on screen.
+    dbg: dict[str, object] = {
+        "tab": "beta" if parallel else "trade",
+        "clicked": "LIVE" if go_live else "DRY",
+        "brokers_received": list(broker_keys),
+        "tickers_raw": tickers_raw,
+        "arm_typed": (arm_text or "").strip(),
+        "arm_ok": _execute_typed(arm_text),
+        "outcome": "reached handler",
+    }
+    st.session_state["_submit_debug"] = dbg
+
     if go_live and not _execute_typed(arm_text):
+        dbg["outcome"] = "BLOCKED: EXECUTE not typed in the confirm field"
         st.error(
             "LIVE order NOT started — type EXECUTE in the confirmation "
             "field, then click the red button again.",
         )
         return
     if not broker_keys:
+        dbg["outcome"] = "BLOCKED: no brokers reached the server"
         st.error("Select at least one broker.")
         return
     tickers, invalid = normalize_and_validate(tickers_raw)
     if invalid:
+        dbg["outcome"] = f"BLOCKED: invalid symbol(s) {invalid}"
         st.error(
             "Invalid symbol(s) — fix before running so a broker login "
             f"isn't wasted: {', '.join(invalid)}",
         )
         return
     if not tickers:
+        dbg["outcome"] = "BLOCKED: no stock symbol entered"
         st.error("Enter at least one stock symbol.")
         return
     if price_type == "limit" and len(tickers) != 1:
+        dbg["outcome"] = "BLOCKED: limit order needs exactly one symbol"
         st.error(
             "Limit orders require exactly one symbol — one price can't be "
             "correct across different stocks. Use Market for multiple "
             "symbols, or run them one at a time.",
         )
         return
+    dbg["tickers_parsed"] = tickers
     try:
         runner.start_trade(
             action,
@@ -1158,8 +1179,13 @@ def _run_trade_submit(  # noqa: PLR0913
             parallel_cap=parallel_cap,
         )
     except RuntimeError as exc:  # incl. RunBusyError
+        dbg["outcome"] = f"BLOCKED: start_trade raised: {exc}"
         st.error(str(exc))
+    except Exception as exc:  # noqa: BLE001 - surface ANY start failure
+        dbg["outcome"] = f"BLOCKED: unexpected error: {exc!r}"
+        st.error(f"Run failed to start: {exc}")
     else:
+        dbg["outcome"] = "STARTED ✅"
         if go_live:
             # Disarm so the confirmation can't stay armed for a later,
             # unintended click.
@@ -2693,6 +2719,27 @@ def _kill_orphan_engine(pid: object) -> None:
         psutil.Process(int(pid)).kill()
 
 
+def _render_submit_debug() -> None:
+    """Show what the LAST Execute/dry-run click actually did, server-side.
+
+    Ends the 'Execute does nothing, no error' guessing: the submit handler
+    records the values it received and the exact branch it took; this
+    surfaces that at the top of the page so the real reason is visible.
+    """
+    dbg = st.session_state.get("_submit_debug")
+    if not dbg:
+        return
+    outcome = str(dbg.get("outcome", ""))
+    ok = outcome.startswith("STARTED")
+    box = st.success if ok else st.warning
+    box(f"🔬 Last Execute attempt → **{outcome}**")
+    with st.expander("Execute diagnostic details", expanded=not ok):
+        st.json(dbg)
+        if st.button("Clear diagnostic", key="clear_submit_debug"):
+            del st.session_state["_submit_debug"]
+            st.rerun()
+
+
 def _render_lock_recovery_banner(runner: TradeRunner) -> None:
     """Proactively surface a run-lock that is silently blocking new runs.
 
@@ -2770,6 +2817,8 @@ def main() -> None:
         # it here (top of page) with one-click recovery so a stuck lock
         # can't masquerade as "Execute does nothing".
         _render_lock_recovery_banner(runner)
+        # What the last Execute/dry click actually did, server-side.
+        _render_submit_debug()
         _maybe_render_retry_banner(runner)
 
     (tab_status, tab_creds, tab_signals, tab_trade, tab_beta,
