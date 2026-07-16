@@ -1510,6 +1510,22 @@ def _render_holdings_dashboard(vault: Vault) -> None:
             f"{b} {str(t)[:16].replace('T', ' ')}"
             for b, t in sorted(captured.items())))
 
+    # A snapshot captured BEFORE this cash feature has no account-total
+    # rows, so every broker's cash derives to $0. Detect that and prompt a
+    # re-pull rather than leave the operator thinking cash is broken.
+    has_account_totals = any(
+        str(p.get("stock", "")).upper() == holdings_store.ACCOUNT_TOTAL_MARKER
+        for p in positions
+    )
+    if not has_account_totals:
+        st.info(
+            "💡 This snapshot was captured before cash tracking, so cash "
+            "shows $0. Click **Pull balances / holdings** again to capture "
+            "each account's total — cash is then derived automatically "
+            "(account total − position value).",
+            icon="💡",
+        )
+
     _manual_cash_editor(configured or list(captured_keys))
 
     st.markdown("### By broker")
