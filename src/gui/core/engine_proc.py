@@ -37,6 +37,11 @@ ACCOUNT_SENTINEL = "\x00RSA_ACCT\x00"
 #   <PROGRESS_SENTINEL>START\t<broker>
 #   <PROGRESS_SENTINEL>DONE\t<broker>   or   FAIL\t<broker>
 PROGRESS_SENTINEL = "\x00RSA_PROG\x00"
+# One structured position per line during a holdings pull, so the GUI can
+# render a real holdings table and reconcile it against the ledger.
+# Format: ``<HOLDINGS_SENTINEL><broker>\t<parent>\t<account>\t<stock>\t
+# <quantity>\t<price>\t<total>`` (7 tab-separated fields).
+HOLDINGS_SENTINEL = "\x00RSA_HOLD\x00"
 
 
 def _bridged_input(prompt: object = "") -> str:

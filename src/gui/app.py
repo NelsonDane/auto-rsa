@@ -21,7 +21,7 @@ import streamlit as st
 
 from src import ledger, outcomes, session_state
 from src.edgar.market_calendar import parse_effective_date
-from src.gui.core import diagnostics, preflight
+from src.gui.core import diagnostics, holdings as holdings_store, preflight
 from src.gui.core.brokers_meta import SUPPORTED_BROKERS, BrokerMeta, get_broker
 from src.gui.core.results import group_by_broker
 from src.gui.core.runner import (
@@ -1196,10 +1196,76 @@ def _tab_holdings() -> None:
         else:
             st.rerun()
     st.caption(
-        "Balances & holdings stream into the **Activity** panel at the top "
-        "of the page (expand it) — not into this tab. A browser broker can "
-        "take a minute to log in.",
+        "Live progress streams into the **Activity** panel at the top of the "
+        "page; the captured portfolio is saved and shown below. A browser "
+        "broker can take a minute to log in.",
     )
+    _render_holdings_dashboard()
+
+
+def _render_holdings_dashboard() -> None:
+    """Render the last-captured structured holdings as a portfolio table."""
+    snap = holdings_store.load_snapshot()
+    positions = snap.get("positions", [])
+    if not positions:
+        st.divider()
+        st.info(
+            "No holdings captured yet. Click **Pull balances / holdings** "
+            "above — the portfolio will appear here (and the live log in the "
+            "Activity panel).",
+        )
+        return
+
+    st.divider()
+    agg = holdings_store.aggregate_by_ticker(positions)
+    total_value = sum(r["value"] for r in agg)
+    c1, c2 = st.columns(2)
+    c1.metric("Captured portfolio value", f"${total_value:,.2f}")
+    c2.metric("Distinct tickers", str(len(agg)))
+
+    st.markdown("**Portfolio by ticker** (summed across every account)")
+    st.dataframe(
+        [
+            {
+                "Ticker": r["stock"],
+                "Shares": r["quantity"],
+                "Value": f"${r['value']:,.2f}",
+                "Brokers": r["brokers"],
+            }
+            for r in agg
+        ],
+        hide_index=True,
+    )
+
+    captured = snap.get("captured_at", {})
+    if captured:
+        st.caption(
+            "Captured: "
+            + " · ".join(
+                f"{b} {str(t)[:16].replace('T', ' ')}"
+                for b, t in sorted(captured.items())
+            ),
+        )
+
+    with st.expander("By account (detailed)"):
+        st.dataframe(
+            [
+                {
+                    "Broker": p.get("broker", ""),
+                    "Account": p.get("account", ""),
+                    "Ticker": p.get("stock", ""),
+                    "Shares": p.get("quantity", 0),
+                    "Price": f"${float(p.get('price', 0) or 0):,.2f}",
+                    "Value": f"${float(p.get('total', 0) or 0):,.2f}",
+                }
+                for p in positions
+            ],
+            hide_index=True,
+        )
+
+    if st.button("Clear captured holdings", key="clear_holdings"):
+        holdings_store.clear_snapshot()
+        st.rerun()
 
 
 # --------------------------------------------------------------------------

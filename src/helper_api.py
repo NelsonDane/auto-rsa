@@ -903,6 +903,45 @@ def _emit_discovered_account(
         print(f"(account discovery skipped for {broker_key}: {exc})")
 
 
+def _emit_holding(
+    broker_name: str,
+    parent: object,
+    account: object,
+    stock: str,
+    quantity: float,
+    price: float,
+    total: float,
+) -> None:
+    r"""Emit one structured position line for the GUI to capture.
+
+    Only active inside the GUI engine subprocess (RSA_GUI_ENGINE=1) so
+    CLI/Docker output stays clean. Lets the GUI build a real holdings
+    table and reconcile positions against the execution ledger. Format:
+    ``<SENTINEL><broker>\t<parent>\t<account>\t<stock>\t<qty>\t<price>\t<total>``.
+    Best-effort — a formatting error never breaks the holdings printout.
+    """
+    if os.getenv("RSA_GUI_ENGINE") != "1":
+        return
+    broker_key = re.sub(r"\W", "", str(broker_name)).lower()
+    stock_clean = str(stock).replace("\t", " ").replace("\n", " ").strip()
+    if not broker_key or not stock_clean:
+        return
+
+    def _clean(v: object) -> str:
+        return str(v).replace("\t", " ").replace("\n", " ").strip()
+
+    try:
+        from src.gui.core.engine_proc import HOLDINGS_SENTINEL  # noqa: PLC0415
+
+        print(
+            f"{HOLDINGS_SENTINEL}{broker_key}\t{_clean(parent)}\t"
+            f"{_clean(account)}\t{stock_clean}\t{float(quantity)}\t"
+            f"{float(price)}\t{float(total)}",
+        )
+    except Exception as exc:  # holdings capture is best-effort
+        print(f"(holdings capture skipped for {broker_key}: {exc})")
+
+
 def print_all_holdings(
     broker_obj: Brokerage,
     loop: asyncio.AbstractEventLoop | None = None,
@@ -938,6 +977,10 @@ def print_all_holdings(
                     price = holdings[stock]["price"]
                     total = holdings[stock]["total"]
                     print_string += f"{stock}: {quantity} @ ${format(price, '0.2f')} = ${format(total, '0.2f')}\n"
+                    _emit_holding(
+                        broker_obj.get_name(), key, account,
+                        stock, quantity, price, total,
+                    )
             print_string += f"Total: ${format(broker_obj.get_account_totals(key, account), '0.2f')}\n"
             print(print_string)
             # If somehow longer than 1024, chop and add ...

@@ -34,8 +34,10 @@ from typing import TYPE_CHECKING
 import psutil
 import requests
 
+from src.gui.core import holdings as holdings_store
 from src.gui.core.engine_proc import (
     ACCOUNT_SENTINEL,
+    HOLDINGS_SENTINEL,
     PROGRESS_SENTINEL,
     PROMPT_SENTINEL,
 )
@@ -742,6 +744,7 @@ class TradeRunner:
             self._set_status(RunStatus.ERROR)
             return
         discovered: dict[str, list[tuple[str, str]]] = {}
+        captured_holdings: list[dict] = []
         try:
             for raw in proc.stdout:
                 if raw.startswith(PROMPT_SENTINEL):
@@ -775,6 +778,11 @@ class TradeRunner:
                         "\r\n",
                     ).partition("\t")
                     self._apply_progress(kind, value)
+                elif raw.startswith(HOLDINGS_SENTINEL):
+                    payload = raw[len(HOLDINGS_SENTINEL):].rstrip("\r\n")
+                    parsed = holdings_store.parse_line(payload)
+                    if parsed is not None:
+                        captured_holdings.append(parsed)
                 else:
                     self.log.write(self._redact(raw))
                     self._count_if_fill(raw)
@@ -788,6 +796,21 @@ class TradeRunner:
                 except Exception as exc:
                     self.log.write(
                         f"\n(could not store discovered accounts: {exc})\n",
+                    )
+            # Persist the structured holdings snapshot for the Balances
+            # dashboard + reconciliation (merged per broker; a no-op when
+            # this run captured none, so a trade run never wipes it).
+            if captured_holdings:
+                try:
+                    holdings_store.save_positions(
+                        captured_holdings,
+                        captured_at=datetime.datetime.now(
+                            datetime.UTC,
+                        ).isoformat(timespec="seconds"),
+                    )
+                except Exception as exc:
+                    self.log.write(
+                        f"\n(could not store holdings snapshot: {exc})\n",
                     )
             code = proc.wait()
             self.prompts.cancel()
