@@ -1,0 +1,29 @@
+# Streamlit runtime config for the AutoRSA GUI.
+#
+# WHY THIS FILE EXISTS — the "Clear/Execute does nothing" bug.
+# The GUI is a local, single-operator tool, but it is frequently viewed
+# through a reverse proxy / port-forward: the code environment's web
+# preview (the Deploy/Stop chrome), an SSH tunnel, a container port map,
+# etc. Streamlit's DEFAULT XSRF + CORS protection SILENTLY REJECTS widget
+# messages when the request origin doesn't survive that proxy. The page
+# renders fine over plain HTTP, and client-side things (switching tabs,
+# typing into a box) still appear to work — but a button click or a form
+# submit, which carries an XSRF token over the websocket, never reaches
+# the server. The result is exactly the reported symptom: clicking
+# "Clear brokers" or "Execute LIVE order" does nothing, no error, no run.
+#
+# Disabling both is Streamlit's documented remedy for running behind a
+# proxy. It is safe for this app: it binds to the operator's own machine
+# or their private preview, and every real action is additionally gated
+# by the encrypted vault plus the typed-EXECUTE confirmation. If you run
+# the GUI directly on localhost with no proxy, these settings are a
+# harmless no-op (localhost is already same-origin).
+[server]
+enableCORS = false
+enableXsrfProtection = false
+# Some proxies don't negotiate per-message-deflate; leaving compression
+# off avoids a websocket that connects then goes silent.
+enableWebsocketCompression = false
+
+[browser]
+gatherUsageStats = false
