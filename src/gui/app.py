@@ -955,6 +955,13 @@ def _tab_trade() -> None:  # noqa: C901, PLR0914
     ):
         st.session_state["trade_sel"] = []
         st.rerun()
+    # Broker picker + pre-flight live OUTSIDE the form so the selection is
+    # WYSIWYG: a form doesn't commit a widget change until submit, which
+    # let the pre-flight (and the run) reflect a STALE broker set — e.g. it
+    # warned about a broker you'd already deselected. Out here the picker
+    # updates immediately and the run uses exactly what's shown.
+    broker_keys = _broker_picker("trade")
+    _render_preflight_warnings(broker_keys, vault)
     with st.form("trade_form"):
         col1, col2, col3 = st.columns(3)
         action = col1.selectbox("Action", ["buy", "sell"], key="trade_action")
@@ -996,13 +1003,10 @@ def _tab_trade() -> None:  # noqa: C901, PLR0914
             "orders. Limit orders require exactly one symbol.",
         )
 
-        broker_keys = _broker_picker("trade")
-        _render_preflight_warnings(broker_keys, vault)
-
         st.markdown(
             "**LIVE confirmation** — a LIVE run places real orders for "
             "exactly what's entered above, across **every account** at "
-            "each selected broker. Dry run needs no confirmation.",
+            "the broker(s) selected above. Dry run needs no confirmation.",
         )
         arm_text = st.text_input(
             "Type EXECUTE here to confirm a LIVE run",
@@ -1155,6 +1159,16 @@ def _tab_trade_beta() -> None:  # noqa: C901, PLR0914
     ):
         st.session_state["beta_sel"] = []
         st.rerun()
+    # Broker picker + cap + pre-flight OUTSIDE the form (WYSIWYG — see
+    # _tab_trade). The run uses exactly the brokers shown here.
+    broker_keys = _broker_picker("beta")
+    cap = st.slider(
+        "Max brokers at once (concurrency cap)",
+        min_value=1, max_value=12, value=6, key="beta_cap",
+        help="How many API brokers may run simultaneously. Lower it if "
+        "a broker rate-limits; 6 is a safe default.",
+    )
+    _render_preflight_warnings(broker_keys, vault)
     with st.form("beta_form"):
         col1, col2, col3 = st.columns(3)
         action = col1.selectbox("Action", ["buy", "sell"], key="beta_action")
@@ -1185,19 +1199,10 @@ def _tab_trade_beta() -> None:  # noqa: C901, PLR0914
             "orders. Limit orders require exactly one symbol.",
         )
 
-        broker_keys = _broker_picker("beta")
-        cap = st.slider(
-            "Max brokers at once (concurrency cap)",
-            min_value=1, max_value=12, value=6, key="beta_cap",
-            help="How many API brokers may run simultaneously. Lower it if "
-            "a broker rate-limits; 6 is a safe default.",
-        )
-        _render_preflight_warnings(broker_keys, vault)
-
         st.markdown(
             "**LIVE confirmation** — a LIVE parallel run places real "
             "orders for exactly what's entered above, across **every "
-            "account** at each selected broker. Dry run needs no "
+            "account** at the broker(s) selected above. Dry run needs no "
             "confirmation.",
         )
         arm_text = st.text_input(
