@@ -20,6 +20,19 @@ from pathlib import Path
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 HOLDINGS_PATH = _PROJECT_ROOT / "creds" / "holdings_snapshot.json"
 _FIELDS = 7
+# Synthetic "stock" the engine emits carrying an account's TOTAL value, so
+# the GUI can derive cash = total - sum(position values). Filtered out of
+# the ticker table; consumed by the per-account/per-broker cash view.
+ACCOUNT_TOTAL_MARKER = "__ACCOUNT_TOTAL__"
+
+
+def _is_account_total(p: dict) -> bool:
+    return str(p.get("stock", "")).upper() == ACCOUNT_TOTAL_MARKER
+
+
+def real_positions(positions: list[dict]) -> list[dict]:
+    """Positions minus the synthetic account-total marker rows."""
+    return [p for p in positions if not _is_account_total(p)]
 
 
 def _empty() -> dict:
@@ -117,7 +130,7 @@ def aggregate_by_ticker(positions: list[dict]) -> list[dict]:
     descending (largest positions first).
     """
     agg: dict[str, dict] = {}
-    for p in positions:
+    for p in real_positions(positions):
         stock = str(p.get("stock", "")).upper()
         if not stock:
             continue
@@ -141,3 +154,94 @@ def aggregate_by_ticker(positions: list[dict]) -> list[dict]:
     ]
     out.sort(key=lambda r: r["value"], reverse=True)
     return out
+
+
+def _f(v: object) -> float:
+    try:
+        return float(v or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def aggregate_by_broker(positions: list[dict]) -> list[dict]:
+    """Group holdings into per-broker sections with derived cash.
+
+    For each broker returns::
+
+        {broker, cash, stocks_value, total, accounts: [
+            {parent, account, cash, stocks_value, total, holdings: [...]},
+        ]}
+
+    ``stocks_value`` = sum of position values; ``total`` = sum of the
+    account totals the engine emitted; ``cash`` = total - stocks_value
+    (never negative). Accounts and brokers are sorted by total value desc.
+    """
+    # (broker, parent, account) -> {stocks_value, total, holdings}
+    accounts: dict[tuple, dict] = {}
+
+    def _acct(p: dict) -> dict:
+        keyt = (p.get("broker", ""), p.get("parent", ""), p.get("account", ""))
+        return accounts.setdefault(
+            keyt, {"stocks_value": 0.0, "total": None, "holdings": []},
+        )
+
+    for p in positions:
+        entry = _acct(p)
+        if _is_account_total(p):
+            entry["total"] = _f(p.get("total"))
+            continue
+        val = _f(p.get("total"))
+        entry["stocks_value"] += val
+        entry["holdings"].append(
+            {
+                "stock": str(p.get("stock", "")).upper(),
+                "quantity": round(_f(p.get("quantity")), 4),
+                "price": round(_f(p.get("price")), 2),
+                "value": round(val, 2),
+            },
+        )
+
+    by_broker: dict[str, dict] = {}
+    for (broker, parent, account), e in accounts.items():
+        stocks_value = round(e["stocks_value"], 2)
+        # If the broker never emitted an account total, fall back to the
+        # stocks value (cash unknown -> 0) so figures still add up.
+        total = round(e["total"] if e["total"] is not None else stocks_value, 2)
+        cash = round(max(0.0, total - stocks_value), 2)
+        b = by_broker.setdefault(
+            broker, {"broker": broker, "cash": 0.0, "stocks_value": 0.0,
+                     "total": 0.0, "accounts": []},
+        )
+        b["cash"] = round(b["cash"] + cash, 2)
+        b["stocks_value"] = round(b["stocks_value"] + stocks_value, 2)
+        b["total"] = round(b["total"] + total, 2)
+        b["accounts"].append(
+            {
+                "parent": parent,
+                "account": account,
+                "cash": cash,
+                "stocks_value": stocks_value,
+                "total": total,
+                "holdings": sorted(
+                    e["holdings"], key=lambda h: h["value"], reverse=True,
+                ),
+            },
+        )
+
+    out = list(by_broker.values())
+    for b in out:
+        b["accounts"].sort(key=lambda a: a["total"], reverse=True)
+    out.sort(key=lambda b: b["total"], reverse=True)
+    return out
+
+
+def totals(positions: list[dict]) -> dict:
+    """Portfolio-wide ``{cash, stocks_value, total}`` (cash derived)."""
+    brokers = aggregate_by_broker(positions)
+    cash = round(sum(b["cash"] for b in brokers), 2)
+    stocks_value = round(sum(b["stocks_value"] for b in brokers), 2)
+    return {
+        "cash": cash,
+        "stocks_value": stocks_value,
+        "total": round(cash + stocks_value, 2),
+    }

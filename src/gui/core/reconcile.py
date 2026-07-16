@@ -25,6 +25,7 @@ import datetime
 from typing import NamedTuple
 
 from src import ledger
+from src.gui.core import holdings as holdings_store
 
 # Verdicts, ordered worst-first for display.
 MISSING = "missing"
@@ -103,7 +104,9 @@ def reconcile(
     for p in positions:
         broker = str(p.get("broker", "")).lower()
         stock = str(p.get("stock", "")).upper()
-        if broker and stock:
+        # Skip the synthetic account-total marker rows — they carry cash,
+        # not a real position, and must not count as a held stock.
+        if broker and stock and stock != holdings_store.ACCOUNT_TOTAL_MARKER:
             held.setdefault(broker, set()).add(stock)
 
     findings: list[Finding] = []

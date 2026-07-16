@@ -115,3 +115,39 @@ def test_pump_captures_holdings_sentinels(tmp_path, monkeypatch):
     r._pump()
     snap = h.load_snapshot()
     assert sorted(p["stock"] for p in snap["positions"]) == ["AAPL", "MSFT"]
+
+
+def test_cash_derived_and_grouped_by_broker():
+    """cash = account total - position values; grouped per broker/account,
+    and the account-total marker never shows up as a held ticker."""
+    positions = [
+        # BBAE account 123: $300 AAPL + $400 MSFT = $700 stocks; total $1000
+        h.parse_line("bbae\tBBAE 1\t123\tAAPL\t2.0\t150.0\t300.0"),
+        h.parse_line("bbae\tBBAE 1\t123\tMSFT\t1\t400\t400"),
+        h.parse_line("bbae\tBBAE 1\t123\t__ACCOUNT_TOTAL__\t1\t1000\t1000"),
+        # DSPAC account 9: cash only, total $50, no positions.
+        h.parse_line("dspac\tDSPAC 1\t9\t__ACCOUNT_TOTAL__\t1\t50\t50"),
+    ]
+    # Ticker table excludes the marker.
+    tickers = {r["stock"] for r in h.aggregate_by_ticker(positions)}
+    assert tickers == {"AAPL", "MSFT"}
+
+    tot = h.totals(positions)
+    assert tot["stocks_value"] == 700.0
+    assert tot["cash"] == 350.0  # (1000-700) + 50
+    assert tot["total"] == 1050.0
+
+    by_broker = {b["broker"]: b for b in h.aggregate_by_broker(positions)}
+    assert by_broker["bbae"]["cash"] == 300.0
+    assert by_broker["bbae"]["stocks_value"] == 700.0
+    assert by_broker["dspac"]["cash"] == 50.0
+    assert by_broker["dspac"]["accounts"][0]["holdings"] == []
+
+
+def test_cash_never_negative_without_account_total():
+    """No account-total emitted -> total falls back to stocks value, cash 0
+    (never a spurious negative)."""
+    positions = [h.parse_line("public\tP\t1\tAAPL\t1\t100\t100")]
+    tot = h.totals(positions)
+    assert tot["stocks_value"] == 100.0
+    assert tot["cash"] == 0.0

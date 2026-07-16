@@ -1404,10 +1404,11 @@ def _tab_holdings() -> None:
 
 
 def _render_holdings_dashboard() -> None:
-    """Render the last-captured structured holdings as a portfolio table."""
+    """Render captured holdings: cash vs stocks up top, a section per
+    broker (each account's cash + positions), then a by-ticker roll-up."""
     snap = holdings_store.load_snapshot()
     positions = snap.get("positions", [])
-    if not positions:
+    if not holdings_store.real_positions(positions):
         st.divider()
         st.info(
             "No holdings captured yet. Click **Pull balances / holdings** "
@@ -1417,24 +1418,19 @@ def _render_holdings_dashboard() -> None:
         return
 
     st.divider()
+    tot = holdings_store.totals(positions)
+    by_broker = holdings_store.aggregate_by_broker(positions)
     agg = holdings_store.aggregate_by_ticker(positions)
-    total_value = sum(r["value"] for r in agg)
-    c1, c2 = st.columns(2)
-    c1.metric("Captured portfolio value", f"${total_value:,.2f}")
-    c2.metric("Distinct tickers", str(len(agg)))
 
-    st.markdown("**Portfolio by ticker** (summed across every account)")
-    st.dataframe(
-        [
-            {
-                "Ticker": r["stock"],
-                "Shares": r["quantity"],
-                "Value": f"${r['value']:,.2f}",
-                "Brokers": r["brokers"],
-            }
-            for r in agg
-        ],
-        hide_index=True,
+    # Cash vs stocks at a glance — the split the operator asked for.
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("💵 Cash", f"${tot['cash']:,.2f}")
+    c2.metric("📈 Stocks", f"${tot['stocks_value']:,.2f}")
+    c3.metric("Total value", f"${tot['total']:,.2f}")
+    c4.metric("Distinct tickers", str(len(agg)))
+    st.caption(
+        "Cash is derived per account as its reported total minus the value "
+        "of its positions — treat it as cash / settled-funds equivalent.",
     )
 
     captured = snap.get("captured_at", {})
@@ -1447,21 +1443,49 @@ def _render_holdings_dashboard() -> None:
             ),
         )
 
-    with st.expander("By account (detailed)"):
-        st.dataframe(
-            [
-                {
-                    "Broker": p.get("broker", ""),
-                    "Account": p.get("account", ""),
-                    "Ticker": p.get("stock", ""),
-                    "Shares": p.get("quantity", 0),
-                    "Price": f"${float(p.get('price', 0) or 0):,.2f}",
-                    "Value": f"${float(p.get('total', 0) or 0):,.2f}",
-                }
-                for p in positions
-            ],
-            hide_index=True,
+    st.markdown("### By broker")
+    for b in by_broker:
+        header = (
+            f"{b['broker'].upper()} — ${b['total']:,.2f} total · "
+            f"💵 ${b['cash']:,.2f} cash · 📈 ${b['stocks_value']:,.2f} stocks"
         )
+        with st.expander(header, expanded=len(by_broker) <= 3):  # noqa: PLR2004
+            for a in b["accounts"]:
+                label = a["account"] or a["parent"] or "account"
+                st.markdown(
+                    f"**{label}** — ${a['total']:,.2f} total · "
+                    f"💵 ${a['cash']:,.2f} cash · "
+                    f"📈 ${a['stocks_value']:,.2f} stocks",
+                )
+                if a["holdings"]:
+                    st.dataframe(
+                        [
+                            {
+                                "Ticker": h["stock"],
+                                "Shares": h["quantity"],
+                                "Price": f"${h['price']:,.2f}",
+                                "Value": f"${h['value']:,.2f}",
+                            }
+                            for h in a["holdings"]
+                        ],
+                        hide_index=True,
+                    )
+                else:
+                    st.caption("No stock positions — cash only.")
+
+    st.markdown("### By ticker (summed across every account)")
+    st.dataframe(
+        [
+            {
+                "Ticker": r["stock"],
+                "Shares": r["quantity"],
+                "Value": f"${r['value']:,.2f}",
+                "Brokers": r["brokers"],
+            }
+            for r in agg
+        ],
+        hide_index=True,
+    )
 
     if st.button("Clear captured holdings", key="clear_holdings"):
         holdings_store.clear_snapshot()

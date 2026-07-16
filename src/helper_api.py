@@ -988,7 +988,17 @@ def print_all_holdings(
                         broker_obj.get_name(), key, account,
                         stock, quantity, price, total,
                     )
-            print_string += f"Total: ${format(broker_obj.get_account_totals(key, account), '0.2f')}\n"
+            account_total = float(broker_obj.get_account_totals(key, account) or 0)
+            print_string += f"Total: ${format(account_total, '0.2f')}\n"
+            # Emit the account total too, so the GUI can derive cash
+            # (cash = account total - sum of position values) and show a
+            # per-account cash figure. A synthetic stock marker keeps the
+            # sentinel format unchanged; the GUI filters it from the ticker
+            # table. Best-effort, GUI-engine only.
+            _emit_holding(
+                broker_obj.get_name(), key, account,
+                "__ACCOUNT_TOTAL__", 1, account_total, account_total,
+            )
             print(print_string)
             # If somehow longer than 1024, chop and add ...
             max_length = 1024
