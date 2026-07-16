@@ -136,6 +136,72 @@ def test_trade_tab_live_confirmed_fires_in_one_submit(monkeypatch):
     assert at.session_state["trade_arm"] == ""  # cleared after firing
 
 
+def test_trade_fires_with_actionable_signals_loaded(monkeypatch):
+    """Regression: with actionable signals loaded, the Signals tab AND the
+    Trade tab both render the sub-account filter every rerun. When they
+    shared a fixed st.form key, the second one threw during render —
+    BEFORE the Trade submit handler ran — so a live trade (a sell in the
+    field report) silently did nothing. Per-tab form keys must keep both
+    forms alive AND let the Trade submit reach start_trade."""
+    import types
+
+    from src.gui import app as app_mod
+    from src.gui.core import signal_plan as sp_mod
+    from src.gui.core.sheets import Signal
+
+    d = Path(tempfile.mkdtemp())
+    v = Vault(d / "v.json")
+    v.initialize("pw")
+    v.set_broker("bbae", [{"username": "u", "password": "p"}])
+    v.set_sheets_config('{"x": 1}', "sheet123", "GUI_QUEUE")
+    sig = Signal(
+        created_at="", ticker="FOMO", action="buy", ratio="1-40",
+        effective_date="2099-01-01", presplit_deadline="", fractional_policy="",
+        confidence="0.9", source="", key="SIG:1", status="",
+    )
+    item = types.SimpleNamespace(
+        decision=app_mod.DECISION_ACTIONABLE, ticker="FOMO", ratio="1-40",
+        effective_date="2099-01-01", confidence=0.9, key="SIG:1",
+        split_key="X", fractional_policy="ROUND_UP", reason="",
+    )
+    monkeypatch.setattr(sp_mod, "plan_signals", lambda *a, **k: [item])
+    monkeypatch.setattr(app_mod, "plan_signals", lambda *a, **k: [item])
+
+    r = TradeRunner(v)
+    calls = {}
+    r.start_trade = lambda *a, **k: calls.update(args=a, kwargs=k)  # type: ignore[method-assign]
+    at = AppTest.from_file(APP, default_timeout=45)
+    at.session_state["vault"] = v
+    at.session_state["runner"] = r
+    at.session_state["signals"] = [sig]
+    at.run()
+    assert not at.exception, at.exception  # no duplicate-form crash
+
+    at.selectbox(key="trade_action").set_value("sell")
+    at.text_input(key="trade_tickers").set_value("QNCX")
+    at.text_input(key="trade_arm").set_value("EXECUTE")
+    _btn(at, "🔴 Execute LIVE order").click()
+    at.run()
+    assert not at.exception, at.exception
+    assert calls, "the sell must reach start_trade even with signals loaded"
+    assert calls["args"][0] == "sell"
+    assert calls["kwargs"]["dry"] is False
+
+
+def test_clear_brokers_button(monkeypatch):
+    """The clear-brokers button empties the selection so a fresh set can
+    be picked."""
+    at = AppTest.from_file(APP, default_timeout=45)
+    at.session_state["vault"] = _vault()
+    at.run()
+    # Default = all configured selected.
+    assert "trade_sel" in at.session_state
+    assert at.session_state["trade_sel"], "brokers selected by default"
+    [b for b in at.button if "Clear brokers" in (b.label or "")][0].click()
+    at.run()
+    assert at.session_state["trade_sel"] == []
+
+
 def test_beta_dry_button_starts_parallel(monkeypatch):
     at = AppTest.from_file(APP, default_timeout=45)
     at.session_state["vault"] = _vault()

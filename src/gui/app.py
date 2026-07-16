@@ -947,6 +947,14 @@ def _tab_trade() -> None:  # noqa: C901, PLR0914
     # left to lose, and the order fires in the same click.
     if st.session_state.pop("_trade_arm_clear", False):
         st.session_state["trade_arm"] = ""
+    # Clear-brokers lives OUTSIDE the form (a form can't hold a normal
+    # button); it empties the multiselect before the form re-renders.
+    if st.button(
+        "🧹 Clear brokers", key="trade_clear_brokers",
+        help="Deselect all brokers so you can pick a fresh set for this trade.",
+    ):
+        st.session_state["trade_sel"] = []
+        st.rerun()
     with st.form("trade_form"):
         col1, col2, col3 = st.columns(3)
         action = col1.selectbox("Action", ["buy", "sell"], key="trade_action")
@@ -1141,6 +1149,12 @@ def _tab_trade_beta() -> None:  # noqa: C901, PLR0914
     # so no individual widget update can be silently lost.
     if st.session_state.pop("_beta_arm_clear", False):
         st.session_state["beta_arm"] = ""
+    if st.button(
+        "🧹 Clear brokers", key="beta_clear_brokers",
+        help="Deselect all brokers so you can pick a fresh set for this trade.",
+    ):
+        st.session_state["beta_sel"] = []
+        st.rerun()
     with st.form("beta_form"):
         col1, col2, col3 = st.columns(3)
         action = col1.selectbox("Action", ["buy", "sell"], key="beta_action")
