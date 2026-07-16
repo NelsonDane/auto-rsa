@@ -151,3 +151,15 @@ def test_cash_never_negative_without_account_total():
     tot = h.totals(positions)
     assert tot["stocks_value"] == 100.0
     assert tot["cash"] == 0.0
+
+
+def test_manual_balances_roundtrip(tmp_path, monkeypatch):
+    from src.gui.core import manual_balances as mb
+    monkeypatch.setattr(mb, "_PATH", tmp_path / "manual.json")
+    assert mb.load() == {}
+    assert mb.get("bbae") is None
+    # zero / blank entries are dropped; positive ones persist (keys lowered)
+    mb.save({"BBAE": 100.5, "dspac": 0, "sofi": 42})
+    assert mb.load() == {"bbae": 100.5, "sofi": 42.0}
+    assert mb.get("BBAE") == 100.5
+    assert mb.get("dspac") is None

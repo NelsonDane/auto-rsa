@@ -24,6 +24,7 @@ from src.edgar.market_calendar import parse_effective_date
 from src.gui.core import (
     diagnostics,
     holdings as holdings_store,
+    manual_balances,
     preflight,
     reconcile,
     watchdog,
@@ -1401,61 +1402,120 @@ def _tab_holdings() -> None:
         "page; the captured portfolio is saved and shown below. A browser "
         "broker can take a minute to log in.",
     )
-    _render_holdings_dashboard()
+    _render_holdings_dashboard(vault)
 
 
-def _render_holdings_dashboard() -> None:
-    """Render captured holdings: cash vs stocks up top, a section per
-    broker (each account's cash + positions), then a by-ticker roll-up."""
+def _broker_display(bk: str) -> str:
+    with contextlib.suppress(Exception):
+        return get_broker(bk).display_name
+    return str(bk).upper()
+
+
+def _manual_cash_editor(broker_keys: list[str]) -> None:
+    """Record cash per broker (persisted). Overrides the unreliable derived
+    cash and covers brokers that can't be auto-pulled (browser brokers)."""
+    manual = manual_balances.load()
+    keys = list(dict.fromkeys([bk.lower() for bk in broker_keys] + list(manual)))
+    if not keys:
+        return
+    with st.expander("💵 Enter cash balances manually (optional)"):
+        st.caption(
+            "Most brokers report only their position total, and browser "
+            "brokers can't always be auto-pulled — enter each broker's cash "
+            "here for an accurate total. Saved locally, shown with a **\\***, "
+            "and counted in the cash total. Blank / 0 = use the auto-derived "
+            "value. **Update these whenever your cash changes.**",
+        )
+        new: dict[str, float] = dict(manual)
+        cols = st.columns(3)
+        for i, bk in enumerate(sorted(keys)):
+            with cols[i % 3]:
+                val = st.number_input(
+                    _broker_display(bk), min_value=0.0,
+                    value=float(manual.get(bk, 0.0)),
+                    step=1.0, format="%.2f", key=f"manual_cash_{bk}",
+                )
+                if val > 0:
+                    new[bk] = round(val, 2)
+                else:
+                    new.pop(bk, None)
+        if st.button("Save cash balances", key="save_manual_cash"):
+            manual_balances.save(new)
+            st.success("Saved.")
+            st.rerun()
+
+
+def _render_holdings_dashboard(vault: Vault) -> None:
+    """Captured holdings: cash vs stocks up top, a section per broker
+    (accounts + positions), a manual-cash editor, the brokers that weren't
+    captured, and a by-ticker roll-up."""
     snap = holdings_store.load_snapshot()
     positions = snap.get("positions", [])
-    if not holdings_store.real_positions(positions):
+    by_broker = holdings_store.aggregate_by_broker(positions)
+    manual = manual_balances.load()
+    configured = vault.configured_broker_keys() if vault.is_unlocked() else []
+    captured_keys = {b["broker"].lower() for b in by_broker}
+
+    if not holdings_store.real_positions(positions) and not manual:
         st.divider()
         st.info(
             "No holdings captured yet. Click **Pull balances / holdings** "
-            "above — the portfolio will appear here (and the live log in the "
-            "Activity panel).",
+            "above, or record cash manually below.",
         )
+        _manual_cash_editor(configured or list(captured_keys))
         return
 
     st.divider()
-    tot = holdings_store.totals(positions)
-    by_broker = holdings_store.aggregate_by_broker(positions)
     agg = holdings_store.aggregate_by_ticker(positions)
+    stocks_total = round(sum(b["stocks_value"] for b in by_broker), 2)
 
-    # Cash vs stocks at a glance — the split the operator asked for.
+    def _cash(bk: str, derived: float) -> tuple[float, bool]:
+        """Effective cash + whether it's a manual figure. Manual overrides
+        derived (which is ~0 for brokers that report only positions)."""
+        m = manual.get(bk.lower())
+        return (m, True) if m is not None else (derived, False)
+
+    cash_total = sum(_cash(b["broker"], b["cash"])[0] for b in by_broker)
+    cash_total += sum(c for bk, c in manual.items() if bk not in captured_keys)
+    cash_total = round(cash_total, 2)
+
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("💵 Cash", f"${tot['cash']:,.2f}")
-    c2.metric("📈 Stocks", f"${tot['stocks_value']:,.2f}")
-    c3.metric("Total value", f"${tot['total']:,.2f}")
+    c1.metric("💵 Cash", f"${cash_total:,.2f}")
+    c2.metric("📈 Stocks", f"${stocks_total:,.2f}")
+    c3.metric("Total value", f"${cash_total + stocks_total:,.2f}")
     c4.metric("Distinct tickers", str(len(agg)))
     st.caption(
-        "Cash is derived per account as its reported total minus the value "
-        "of its positions — treat it as cash / settled-funds equivalent.",
+        "**Cash** uses your manually-entered figure where set (marked "
+        "**\\***); otherwise it's derived as account total minus position "
+        "value, which reads $0 for brokers that report only their positions. "
+        "Enter cash below for accurate numbers.",
     )
 
     captured = snap.get("captured_at", {})
     if captured:
-        st.caption(
-            "Captured: "
-            + " · ".join(
-                f"{b} {str(t)[:16].replace('T', ' ')}"
-                for b, t in sorted(captured.items())
-            ),
-        )
+        st.caption("Captured: " + " · ".join(
+            f"{b} {str(t)[:16].replace('T', ' ')}"
+            for b, t in sorted(captured.items())))
+
+    _manual_cash_editor(configured or list(captured_keys))
 
     st.markdown("### By broker")
     for b in by_broker:
+        cash, is_manual = _cash(b["broker"], b["cash"])
+        cash_str = (
+            f"${cash:,.2f}{'*' if is_manual else ''}"
+            if (cash > 0 or is_manual) else "—"
+        )
         header = (
-            f"{b['broker'].upper()} — ${b['total']:,.2f} total · "
-            f"💵 ${b['cash']:,.2f} cash · 📈 ${b['stocks_value']:,.2f} stocks"
+            f"{b['broker'].upper()} — 💵 {cash_str} cash · "
+            f"📈 ${b['stocks_value']:,.2f} stocks"
         )
         with st.expander(header, expanded=len(by_broker) <= 3):  # noqa: PLR2004
             for a in b["accounts"]:
                 label = a["account"] or a["parent"] or "account"
+                acct_cash = f"${a['cash']:,.2f}" if a["cash"] > 0 else "—"
                 st.markdown(
-                    f"**{label}** — ${a['total']:,.2f} total · "
-                    f"💵 ${a['cash']:,.2f} cash · "
+                    f"**{label}** — 💵 {acct_cash} cash · "
                     f"📈 ${a['stocks_value']:,.2f} stocks",
                 )
                 if a["holdings"]:
@@ -1473,6 +1533,32 @@ def _render_holdings_dashboard() -> None:
                     )
                 else:
                     st.caption("No stock positions — cash only.")
+
+    # Configured brokers that returned nothing on the last pull — surfaced
+    # so they aren't silently invisible (browser brokers need 2FA; others
+    # may have errored or hold nothing).
+    missing = [bk for bk in configured if bk.lower() not in captured_keys]
+    if missing:
+        st.markdown("### Not captured on the last pull")
+        st.caption(
+            "Browser brokers (Chase / Fidelity / SoFi / Wells Fargo) need an "
+            "interactive 2FA login; others may have errored or hold nothing. "
+            "Pull again with them selected, or record cash manually above "
+            "(shown with **\\***).",
+        )
+        st.dataframe(
+            [
+                {
+                    "Broker": _broker_display(bk),
+                    "Cash (manual)": (
+                        f"${manual[bk.lower()]:,.2f}*"
+                        if bk.lower() in manual else "—"
+                    ),
+                }
+                for bk in missing
+            ],
+            hide_index=True,
+        )
 
     st.markdown("### By ticker (summed across every account)")
     st.dataframe(
