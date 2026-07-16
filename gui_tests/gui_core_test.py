@@ -358,6 +358,30 @@ def test_reaper_recovers_wedged_running_status(tmp_path, monkeypatch):
     assert r._proc.stdout_closed  # reader nudged to unblock
 
 
+def test_reaper_clears_pending_prompt(tmp_path, monkeypatch):
+    """A reaped wedged run must cancel any pending 2FA prompt. A stuck
+    ``waiting=True`` keeps the activity panel's ``active`` flag True, so it
+    keeps auto-polling even at idle — and that idle poll silently drops
+    in-flight widget updates (a deselect / Clear / Execute click that
+    'does nothing'). The pump's own finally normally cancels the prompt,
+    but for a truly wedged reader it never runs, so the reaper must."""
+    monkeypatch.setattr(runner_mod, "_RUN_LOCK", tmp_path / "run.lock")
+    (tmp_path / "run.lock").write_text(
+        json.dumps({"engine_pid": None, "owner_pid": 1, "created": time.time()}),
+    )
+    v = Vault(tmp_path / "v.json")
+    v.initialize("pw")
+    r = TradeRunner(v)
+    r.prompts.open("Enter SoFi 2FA code")
+    assert r.prompts.snapshot().waiting is True
+    r._status = RunStatus.RUNNING
+    r._proc = _FakeExitedProc(returncode=0)
+    r._thread = None
+    r._engine_exit_seen = time.monotonic() - 10  # past the grace
+    assert r.is_running() is False  # reaped to terminal
+    assert r.prompts.snapshot().waiting is False  # pending prompt cleared
+
+
 def test_reaper_leaves_live_run_alone(tmp_path, monkeypatch):
     """A genuinely-alive engine (poll() is None) must NOT be reaped."""
     monkeypatch.setattr(runner_mod, "_RUN_LOCK", tmp_path / "run.lock")

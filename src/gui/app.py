@@ -814,11 +814,29 @@ def _broker_picker(key_prefix: str) -> list[str]:
         return []
     name_by_key = {get_broker(k).display_name: k for k in configured}
     all_names = list(name_by_key.keys())
+    sel_key = f"{key_prefix}_sel"
+    # Seed the selection ONCE via session_state instead of passing
+    # `default=`. Passing BOTH default= AND writing session_state[key]
+    # (the 🧹 Clear-brokers button, and Streamlit's own cross-rerun
+    # persistence) trips Streamlit's "created with a default value but
+    # also had its value set via the Session State API" conflict. On some
+    # Streamlit/browser builds that desyncs the widget: a deselection or
+    # Clear silently doesn't stick, so a broker you removed (e.g. sofi)
+    # stays in the run set — its pre-flight warning persists and the run
+    # targets brokers you didn't pick. Seeding through session_state and
+    # dropping `default=` removes the conflict entirely.
+    if sel_key not in st.session_state:
+        st.session_state[sel_key] = all_names
+    else:
+        # Drop any stored names no longer offered (a broker's creds were
+        # removed) so the widget never carries a stale/invalid option.
+        st.session_state[sel_key] = [
+            n for n in st.session_state[sel_key] if n in all_names
+        ]
     chosen = st.multiselect(
         "Brokers to use",
         options=all_names,
-        default=all_names,
-        key=f"{key_prefix}_sel",
+        key=sel_key,
         help="All selected (the default) = run every configured "
         "broker. Deselect any to narrow the run.",
     )

@@ -723,6 +723,13 @@ class TradeRunner:
             "open); auto-recovering so the UI unblocks ---\n",
         )
         self._kill_descendants(proc)
+        # Clear any pending 2FA prompt from the wedged run. The pump's
+        # finally (which normally does this) may never run for a truly
+        # wedged reader, and a stuck `waiting=True` keeps the activity
+        # panel's `active` flag True forever -> it auto-polls even at idle,
+        # and that idle poll is what silently drops in-flight widget
+        # updates (a deselect / Clear / Execute click that "does nothing").
+        self.prompts.cancel()
         # Nudge the blocked reader to fall through to its finally by
         # closing the pipe it's reading. Best-effort across platforms —
         # we finalize below regardless of whether this wakes it.

@@ -255,6 +255,41 @@ def test_no_lock_banner_when_lock_absent(monkeypatch):
     ), "no lock -> no recovery banner"
 
 
+def test_deselected_broker_drops_from_preflight_and_run(monkeypatch):
+    """Deselecting a broker must remove it from the run set AND its
+    pre-flight warning. Regression for the desync where the broker
+    multiselect passed both default= and had its value set via session
+    state — on some builds a removed broker (e.g. sofi) silently stuck
+    around, kept warning, and stayed in the run. Seeding via session_state
+    with no default= fixes it."""
+    from src.gui import app as app_mod
+
+    received: list[list[str]] = []
+    monkeypatch.setattr(
+        app_mod.preflight, "preflight_for_run",
+        lambda bks: received.append(list(bks)) or [],
+    )
+    d = Path(tempfile.mkdtemp())
+    v = Vault(d / "v.json")
+    v.initialize("pw")
+    v.set_broker("bbae", [{"username": "u", "password": "p"}])
+    v.set_broker("dspac", [{"username": "u", "password": "p"}])
+    v.set_broker("sofi", [{"username": "u", "password": "p"}])
+    at = AppTest.from_file(APP, default_timeout=45)
+    at.session_state["vault"] = v
+    at.run()
+    # Both tabs share _broker_picker; deselect sofi on each.
+    at.session_state["trade_sel"] = ["BBAE", "DSPAC"]
+    at.session_state["beta_sel"] = ["BBAE", "DSPAC"]
+    received.clear()
+    at.run()
+    assert not at.exception, at.exception
+    assert received, "preflight should have been evaluated"
+    assert not any("sofi" in c for c in received), (
+        "a deselected broker must not reach the pre-flight or the run set"
+    )
+
+
 def test_beta_dry_button_starts_parallel(monkeypatch):
     at = AppTest.from_file(APP, default_timeout=45)
     at.session_state["vault"] = _vault()
