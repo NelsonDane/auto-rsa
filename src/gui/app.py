@@ -21,7 +21,12 @@ import streamlit as st
 
 from src import ledger, outcomes, session_state
 from src.edgar.market_calendar import parse_effective_date
-from src.gui.core import diagnostics, holdings as holdings_store, preflight
+from src.gui.core import (
+    diagnostics,
+    holdings as holdings_store,
+    preflight,
+    reconcile,
+)
 from src.gui.core.brokers_meta import SUPPORTED_BROKERS, BrokerMeta, get_broker
 from src.gui.core.results import group_by_broker
 from src.gui.core.runner import (
@@ -1268,6 +1273,65 @@ def _render_holdings_dashboard() -> None:
         st.rerun()
 
 
+def _render_reconciliation() -> None:
+    """Cross-check the ledger's buys against the captured holdings."""
+    st.markdown("#### Order reconciliation — did the buys actually land?")
+    st.caption(
+        "Cross-checks what the ledger says was bought against what the "
+        "brokers actually hold. Pull holdings on the Balances tab first so "
+        "the snapshot is fresh.",
+    )
+    snap = holdings_store.load_snapshot()
+    positions = snap.get("positions", [])
+    if not positions:
+        st.info(
+            "No holdings captured yet — pull holdings on the Balances tab, "
+            "then reconcile.",
+        )
+        return
+    try:
+        rows = ledger.list_executions()
+    except Exception as exc:  # noqa: BLE001
+        st.error(f"Could not read the ledger: {exc}")
+        return
+
+    findings = reconcile.reconcile(rows, positions, snap.get("captured_at", {}))
+    if not findings:
+        st.success("No EXECUTED / needs-review buys to reconcile.")
+        return
+
+    summary = reconcile.summarize(findings)
+    missing = summary.get(reconcile.MISSING, 0)
+    review_missed = summary.get(reconcile.REVIEW_MISSED, 0)
+    if missing:
+        st.error(
+            f"🔴 {missing} order(s) reported EXECUTED but the share is NOT in "
+            "the account — a possible silent failure. Verify at the broker.",
+        )
+    if review_missed:
+        st.warning(
+            f"🟠 {review_missed} ambiguous order(s) likely did NOT go "
+            "through (share not held).",
+        )
+    if not missing and not review_missed:
+        st.success("No silent failures detected in the captured brokers.")
+
+    st.dataframe(
+        [
+            {
+                "": f.icon,
+                "Verdict": f.label,
+                "Broker": f.broker,
+                "Ticker": f.ticker,
+                "Ledger": f.status,
+                "Note": f.note,
+            }
+            for f in findings
+        ],
+        hide_index=True,
+    )
+
+
 # --------------------------------------------------------------------------
 # Diagnostics tab: health checks, stuck-run recovery, run-log history
 # --------------------------------------------------------------------------
@@ -1344,6 +1408,11 @@ def _tab_diagnostics() -> None:  # noqa: C901
             runner.cancel()
             time.sleep(0.5)
             st.rerun()
+
+    st.divider()
+
+    # ---- Order reconciliation -----------------------------------------
+    _render_reconciliation()
 
     st.divider()
 
