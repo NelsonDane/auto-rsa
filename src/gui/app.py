@@ -928,147 +928,183 @@ def _tab_trade() -> None:  # noqa: C901, PLR0914
         _render_live_confirm(runner, vault, pending)
         return
 
-    # Every widget here carries an explicit key. A keyless widget's
-    # persisted value is tied to Streamlit's auto-generated element id,
-    # which is not stable across all versions / rerun paths — and when
-    # the *dry-run* toggle silently reverts to its True default, Execute
-    # takes the dry branch and never reaches the LIVE confirm, which
-    # reads as "clicking Execute does nothing / won't advance". Stable
-    # keys pin the state deterministically.
-    col1, col2, col3 = st.columns(3)
-    action = col1.selectbox("Action", ["buy", "sell"], key="trade_action")
-    tickers_raw = col2.text_input(
-        "Stock symbol(s)", value="", help="Comma-separated", key="trade_tickers",
-    )
-    amount = col3.number_input(
-        "Amount (shares)", min_value=0.0, value=1.0, step=1.0, key="trade_amount",
-    )
+    running = runner.is_running()
+    if running:
+        st.info(
+            "A run is still in progress — watch / cancel it in the "
+            "activity panel above, then start the next one.",
+        )
 
-    col4, col5 = st.columns(2)
-    price_type = col4.selectbox(
-        "Order type",
-        ["market", "limit"],
-        key="trade_price_type",
-        help="Market is recommended. Brokers automatically fall back to a "
-        "limit order (and use a limit for sub-$1 stocks) where the "
-        "brokerage requires it — you don't need to force 'limit' for that.",
-    )
-    time_in_force = col5.selectbox(
-        "Time in force",
-        ["day", "gtc"],
-        key="trade_tif",
-        help="GTC (good-till-cancelled) is useful for pre/post-market "
-        "limit orders. Only brokers that support it will honor it.",
-    )
+    # ONE ATOMIC FORM. Every prior failure ("toggle showed OFF but read
+    # ON", "typed EXECUTE but the button stayed locked") was the same
+    # thing: an individual widget's update silently never reached the
+    # server (the 2s activity auto-refresh can collide with in-flight
+    # widget messages). A form is Streamlit's atomic primitive: NOTHING
+    # syncs while the operator types, and the submit click delivers ALL
+    # field values together in one message — the server acts on exactly
+    # what was on screen at click time. There is no intermediate state
+    # left to lose, and the order fires in the same click.
+    if st.session_state.pop("_trade_arm_clear", False):
+        st.session_state["trade_arm"] = ""
+    with st.form("trade_form"):
+        col1, col2, col3 = st.columns(3)
+        action = col1.selectbox("Action", ["buy", "sell"], key="trade_action")
+        tickers_raw = col2.text_input(
+            "Stock symbol(s)", value="", help="Comma-separated",
+            key="trade_tickers",
+        )
+        amount = col3.number_input(
+            "Amount (shares)", min_value=0.0, value=1.0, step=1.0,
+            key="trade_amount",
+        )
 
-    limit_price: float | None = None
-    if price_type == "limit":
+        col4, col5 = st.columns(2)
+        price_type = col4.selectbox(
+            "Order type",
+            ["market", "limit"],
+            key="trade_price_type",
+            help="Market is recommended. Brokers automatically fall back "
+            "to a limit order (and use a limit for sub-$1 stocks) where "
+            "the brokerage requires it.",
+        )
+        time_in_force = col5.selectbox(
+            "Time in force",
+            ["day", "gtc"],
+            key="trade_tif",
+            help="GTC (good-till-cancelled) is useful for pre/post-market "
+            "limit orders. Only brokers that support it will honor it.",
+        )
+        # Always rendered (a form doesn't rerun while you edit, so it
+        # can't appear conditionally). Ignored for market orders.
         limit_price = st.number_input(
-            "Limit price (leave blank to auto-derive)",
+            "Limit price — used only for limit orders (blank = auto-derive)",
             min_value=0.0,
             value=None,
             step=0.01,
             format="%.2f",
             key="trade_limit_price",
-            help="Exact limit price sent to the broker. Required after "
-            "hours (market orders are rejected then). Leave blank to let "
-            "the broker derive one from its own quote where it can "
-            "(sub-$1 / extended-hours); blank does NOT work in dead "
-            "overnight/weekend windows. Limit orders require exactly one "
-            "symbol.",
+            help="Exact limit price for a limit order; ignored for market "
+            "orders. Limit orders require exactly one symbol.",
         )
 
-    broker_keys = _broker_picker("trade")
+        broker_keys = _broker_picker("trade")
+
+        st.markdown(
+            "**LIVE confirmation** — a LIVE run places real orders for "
+            "exactly what's entered above, across **every account** at "
+            "each selected broker. Dry run needs no confirmation.",
+        )
+        arm_text = st.text_input(
+            "Type EXECUTE here to confirm a LIVE run",
+            key="trade_arm",
+        )
+        # NOT disabled while running: the main body only repaints on full
+        # reruns, so a disabled-while-running button would stay greyed
+        # after the run ends (until some other interaction) — reading as
+        # "the button doesn't work". The busy case is guarded server-side
+        # (start_trade raises "already in progress", shown as an error).
+        c_dry, c_live = st.columns(2)
+        go_dry = c_dry.form_submit_button(
+            "▶ Execute dry run",
+            help="Simulate: logs in and validates, places NO real orders.",
+        )
+        go_live = c_live.form_submit_button(
+            "🔴 Execute LIVE order",
+            type="primary",
+            help="Places REAL orders in this same click (requires EXECUTE "
+            "typed above). Everything you entered is sent together with "
+            "this click.",
+        )
+
     _account_filter_editor(vault, broker_keys)
+    _run_trade_submit(
+        runner,
+        go_dry=go_dry,
+        go_live=go_live,
+        arm_text=arm_text,
+        action=action,
+        amount=amount,
+        tickers_raw=tickers_raw,
+        broker_keys=broker_keys,
+        price_type=price_type,
+        time_in_force=time_in_force,
+        limit_price=limit_price,
+        arm_clear_flag="_trade_arm_clear",
+    )
 
-    # There is deliberately NO dry/live toggle. A toggle stores state,
-    # and that state kept silently desyncing from what the operator set:
-    # the widget's persisted value raced the activity panel's 2-second
-    # auto-refresh, so an "off" (LIVE) intermittently reverted to the
-    # True (dry) default — Execute then ran a dry simulation and never
-    # advanced to the live confirm. The mode now comes purely from WHICH
-    # button is pressed, so there is no stored state to desync: dry and
-    # live are two explicit, unmistakable buttons.
-    running = runner.is_running()
-    disabled = running or not broker_keys
-    if running:
-        st.info(
-            "A run is still in progress — cancel it in the activity panel "
-            "below, then try again.",
-        )
-    elif not broker_keys:
-        st.info("Select at least one broker above to enable the run buttons.")
 
-    # Same-page LIVE gate: type EXECUTE below to unlock the red button;
-    # the click itself places the order — no separate confirm screen.
-    tickers_preview = tickers_raw.strip().upper() or "(enter symbols above)"
-    if broker_keys:
-        broker_names = (
-            "ALL configured brokers"
-            if "all" in broker_keys
-            else ", ".join(_broker_display(k) for k in broker_keys)
+def _run_trade_submit(  # noqa: PLR0913
+    runner: TradeRunner,
+    *,
+    go_dry: bool,
+    go_live: bool,
+    arm_text: str,
+    action: str,
+    amount: float,
+    tickers_raw: str,
+    broker_keys: list[str],
+    price_type: str,
+    time_in_force: str,
+    limit_price: float | None,
+    arm_clear_flag: str,
+    parallel: bool = False,
+    parallel_cap: int = 0,
+) -> None:
+    """Shared submit handler for the Trade / Trade Beta forms.
+
+    Runs on the same script run as the form submit, with every value
+    delivered atomically by the click. LIVE requires EXECUTE in
+    ``arm_text`` (checked server-side); dry needs no confirmation.
+    """
+    if not (go_dry or go_live):
+        return
+    if go_live and not _execute_typed(arm_text):
+        st.error(
+            "LIVE order NOT started — type EXECUTE in the confirmation "
+            "field, then click the red button again.",
         )
+        return
+    if not broker_keys:
+        st.error("Select at least one broker.")
+        return
+    tickers, invalid = normalize_and_validate(tickers_raw)
+    if invalid:
+        st.error(
+            "Invalid symbol(s) — fix before running so a broker login "
+            f"isn't wasted: {', '.join(invalid)}",
+        )
+        return
+    if not tickers:
+        st.error("Enter at least one stock symbol.")
+        return
+    if price_type == "limit" and len(tickers) != 1:
+        st.error(
+            "Limit orders require exactly one symbol — one price can't be "
+            "correct across different stocks. Use Market for multiple "
+            "symbols, or run them one at a time.",
+        )
+        return
+    try:
+        runner.start_trade(
+            action,
+            float(amount),
+            tickers,
+            broker_keys,
+            dry=not go_live,
+            price_type=price_type,
+            time_in_force=time_in_force,
+            limit_price=limit_price,
+            parallel=parallel,
+            parallel_cap=parallel_cap,
+        )
+    except RuntimeError as exc:  # incl. RunBusyError
+        st.error(str(exc))
     else:
-        broker_names = "(select brokers above)"
-    summary = (
-        f"**A LIVE run would place:** {action.upper()} {amount:g} share(s) "
-        f"of {tickers_preview} [{price_type}/{time_in_force}] → "
-        f"{broker_names} — across **every account** at each broker."
-    )
-    armed = _live_arm_gate("trade", summary, broker_keys, vault)
-
-    c_dry, c_live = st.columns(2)
-    go_dry = c_dry.button(
-        "▶ Execute dry run",
-        disabled=disabled,
-        help="Simulate the run: logs in and validates but places NO real "
-        "orders.",
-    )
-    go_live = c_live.button(
-        "🔴 Execute LIVE order",
-        type="primary",
-        disabled=disabled or not armed,
-        help="Locked until you type EXECUTE above. Places REAL orders in "
-        "this same click — there is no extra screen.",
-    )
-    if go_live and not armed:
-        # Server-side guard: the disabled flag is only a frontend hint.
-        st.error("Type EXECUTE above to arm the LIVE button first.")
-    elif go_dry or go_live:
-        tickers, invalid = normalize_and_validate(tickers_raw)
-        if invalid:
-            st.error(
-                "Invalid symbol(s) — fix before running so a broker login "
-                f"isn't wasted: {', '.join(invalid)}",
-            )
-        elif not tickers:
-            st.error("Enter at least one stock symbol.")
-        elif price_type == "limit" and len(tickers) != 1:
-            st.error(
-                "Limit orders require exactly one symbol — one price "
-                "can't be correct across different stocks. Use Market "
-                "for multiple symbols, or run them one at a time.",
-            )
-        else:
-            try:
-                runner.start_trade(
-                    action,
-                    float(amount),
-                    tickers,
-                    broker_keys,
-                    dry=not go_live,
-                    price_type=price_type,
-                    time_in_force=time_in_force,
-                    limit_price=limit_price,
-                )
-            except RuntimeError as exc:  # incl. RunBusyError
-                st.error(str(exc))
-            else:
-                if go_live:
-                    # Disarm so the gate can't stay armed for a later,
-                    # unintended click.
-                    st.session_state["_trade_arm_clear"] = True
-                st.rerun()
+        if go_live:
+            # Disarm so the confirmation can't stay armed for a later,
+            # unintended click.
+            st.session_state[arm_clear_flag] = True
+        st.rerun()
 
 
 # --------------------------------------------------------------------------
@@ -1091,114 +1127,101 @@ def _tab_trade_beta() -> None:  # noqa: C901, PLR0914
         st.warning("Unlock the vault in the sidebar first.")
         return
 
-    col1, col2, col3 = st.columns(3)
-    action = col1.selectbox("Action", ["buy", "sell"], key="beta_action")
-    tickers_raw = col2.text_input(
-        "Stock symbol(s)", value="", help="Comma-separated", key="beta_tickers",
-    )
-    amount = col3.number_input(
-        "Amount (shares)", min_value=0.0, value=1.0, step=1.0, key="beta_amount",
-    )
-
-    col4, col5 = st.columns(2)
-    price_type = col4.selectbox(
-        "Order type", ["market", "limit"], key="beta_price_type",
-        help="Market is recommended; brokers fall back to a limit where "
-        "required.",
-    )
-    time_in_force = col5.selectbox(
-        "Time in force", ["day", "gtc"], key="beta_tif",
-        help="GTC is useful for pre/post-market limit orders.",
-    )
-
-    limit_price: float | None = None
-    if price_type == "limit":
-        limit_price = st.number_input(
-            "Limit price (leave blank to auto-derive)",
-            min_value=0.0, value=None, step=0.01, format="%.2f",
-            key="beta_limit_price",
-            help="Exact limit price. Limit orders require exactly one symbol.",
-        )
-
-    broker_keys = _broker_picker("beta")
-    st.caption(
-        "The per-account sub-account filter is a shared setting — edit it on "
-        "the **Trade** tab; it applies here too.",
-    )
-
-    cap = st.slider(
-        "Max brokers at once (concurrency cap)",
-        min_value=1, max_value=12, value=6, key="beta_cap",
-        help="How many API brokers may run simultaneously. Lower it if a "
-        "broker rate-limits; 6 is a safe default.",
-    )
-
     running = runner.is_running()
-    disabled = running or not broker_keys
     if running:
         st.info(
-            "A run is still in progress — cancel it in the activity panel "
-            "below, then try again.",
+            "A run is still in progress — watch / cancel it in the "
+            "activity panel above, then start the next one.",
         )
-    elif not broker_keys:
-        st.info("Select at least one broker above to enable the run buttons.")
 
-    # Same-page LIVE gate (see _live_arm_gate) — no separate confirm screen.
-    tickers_preview = tickers_raw.strip().upper() or "(enter symbols above)"
-    if broker_keys:
-        broker_names = (
-            "ALL configured brokers"
-            if "all" in broker_keys
-            else ", ".join(_broker_display(k) for k in broker_keys)
+    # ONE ATOMIC FORM — see _tab_trade for why: the submit click delivers
+    # every field (including the typed EXECUTE) together in one message,
+    # so no individual widget update can be silently lost.
+    if st.session_state.pop("_beta_arm_clear", False):
+        st.session_state["beta_arm"] = ""
+    with st.form("beta_form"):
+        col1, col2, col3 = st.columns(3)
+        action = col1.selectbox("Action", ["buy", "sell"], key="beta_action")
+        tickers_raw = col2.text_input(
+            "Stock symbol(s)", value="", help="Comma-separated",
+            key="beta_tickers",
         )
-    else:
-        broker_names = "(select brokers above)"
-    summary = (
-        f"**A LIVE parallel run would place:** {action.upper()} {amount:g} "
-        f"share(s) of {tickers_preview} [{price_type}/{time_in_force}] → "
-        f"{broker_names} — across **every account**, API brokers running "
-        f"up to {int(cap)} at once."
-    )
-    armed = _live_arm_gate("beta", summary, broker_keys, vault)
+        amount = col3.number_input(
+            "Amount (shares)", min_value=0.0, value=1.0, step=1.0,
+            key="beta_amount",
+        )
 
-    c_dry, c_live = st.columns(2)
-    go_dry = c_dry.button(
-        "▶ Execute dry run (parallel)", disabled=disabled, key="beta_go_dry",
-        help="Simulate the parallel run: logs in and validates, NO real orders.",
+        col4, col5 = st.columns(2)
+        price_type = col4.selectbox(
+            "Order type", ["market", "limit"], key="beta_price_type",
+            help="Market is recommended; brokers fall back to a limit "
+            "where required.",
+        )
+        time_in_force = col5.selectbox(
+            "Time in force", ["day", "gtc"], key="beta_tif",
+            help="GTC is useful for pre/post-market limit orders.",
+        )
+        limit_price = st.number_input(
+            "Limit price — used only for limit orders (blank = auto-derive)",
+            min_value=0.0, value=None, step=0.01, format="%.2f",
+            key="beta_limit_price",
+            help="Exact limit price for a limit order; ignored for market "
+            "orders. Limit orders require exactly one symbol.",
+        )
+
+        broker_keys = _broker_picker("beta")
+        cap = st.slider(
+            "Max brokers at once (concurrency cap)",
+            min_value=1, max_value=12, value=6, key="beta_cap",
+            help="How many API brokers may run simultaneously. Lower it if "
+            "a broker rate-limits; 6 is a safe default.",
+        )
+
+        st.markdown(
+            "**LIVE confirmation** — a LIVE parallel run places real "
+            "orders for exactly what's entered above, across **every "
+            "account** at each selected broker. Dry run needs no "
+            "confirmation.",
+        )
+        arm_text = st.text_input(
+            "Type EXECUTE here to confirm a LIVE run",
+            key="beta_arm",
+        )
+        # Not disabled while running — see _tab_trade: a stale disabled
+        # state outlives the run; the busy case is guarded server-side.
+        c_dry, c_live = st.columns(2)
+        go_dry = c_dry.form_submit_button(
+            "▶ Execute dry run (parallel)",
+            help="Simulate the parallel run: logs in and validates, NO "
+            "real orders.",
+        )
+        go_live = c_live.form_submit_button(
+            "🔴 Execute LIVE order (parallel)",
+            type="primary",
+            help="Places REAL orders (in parallel) in this same click "
+            "(requires EXECUTE typed above).",
+        )
+
+    st.caption(
+        "The per-account sub-account filter is a shared setting — edit it "
+        "on the **Trade** tab; it applies here too.",
     )
-    go_live = c_live.button(
-        "🔴 Execute LIVE order (parallel)", type="primary",
-        disabled=disabled or not armed,
-        key="beta_go_live",
-        help="Locked until you type EXECUTE above. Places REAL orders (in "
-        "parallel) in this same click — there is no extra screen.",
+    _run_trade_submit(
+        runner,
+        go_dry=go_dry,
+        go_live=go_live,
+        arm_text=arm_text,
+        action=action,
+        amount=amount,
+        tickers_raw=tickers_raw,
+        broker_keys=broker_keys,
+        price_type=price_type,
+        time_in_force=time_in_force,
+        limit_price=limit_price,
+        arm_clear_flag="_beta_arm_clear",
+        parallel=True,
+        parallel_cap=int(cap),
     )
-    if go_live and not armed:
-        # Server-side guard: the disabled flag is only a frontend hint.
-        st.error("Type EXECUTE above to arm the LIVE button first.")
-    elif go_dry or go_live:
-        tickers, invalid = normalize_and_validate(tickers_raw)
-        if invalid:
-            st.error(f"Invalid symbol(s): {', '.join(invalid)}")
-        elif not tickers:
-            st.error("Enter at least one stock symbol.")
-        elif price_type == "limit" and len(tickers) != 1:
-            st.error("Limit orders require exactly one symbol.")
-        else:
-            try:
-                runner.start_trade(
-                    action, float(amount), tickers, broker_keys,
-                    dry=not go_live,
-                    price_type=price_type, time_in_force=time_in_force,
-                    limit_price=limit_price, parallel=True,
-                    parallel_cap=int(cap),
-                )
-            except RuntimeError as exc:  # incl. RunBusyError
-                st.error(str(exc))
-            else:
-                if go_live:
-                    st.session_state["_beta_arm_clear"] = True
-                st.rerun()
 
     _render_parallel_summary(runner)
 
@@ -1278,55 +1301,6 @@ def _execute_typed(typed: str) -> bool:
     order button is not selectable'.
     """
     return typed.strip().upper() == "EXECUTE"
-
-
-def _live_arm_gate(
-    key_prefix: str,
-    summary: str,
-    broker_keys: list[str],
-    vault: Vault,
-) -> bool:
-    """Same-page typed-EXECUTE gate for the LIVE button. Returns armed.
-
-    Replaces the separate confirm SCREEN for manual trades. The old flow
-    queued a confirmation via session-state + st.rerun(); that navigation
-    intermittently never landed for the operator (fragment-rerun races /
-    tab-focus loss), so clicking LIVE looked like it did nothing — live
-    trading blocked. Arming happens right here on the form and the red
-    button places the order in the SAME click: no second screen, no
-    rerun handoff, nothing to get lost.
-    """
-    st.divider()
-    st.markdown(summary)
-    # Consume the disarm flag BEFORE the widget instantiates (a widget's
-    # session value can't be changed after instantiation). Set on a
-    # successful LIVE start so the gate doesn't stay armed for a later,
-    # unintended click.
-    if st.session_state.pop(f"_{key_prefix}_arm_clear", False):
-        st.session_state[f"{key_prefix}_arm"] = ""
-    arm_text = st.text_input(
-        "Type EXECUTE to arm the LIVE button",
-        key=f"{key_prefix}_arm",
-        help="Same-page confirmation — there is no separate screen. The "
-        "red LIVE button stays locked until this field says EXECUTE.",
-    )
-    armed = _execute_typed(arm_text)
-    if armed and broker_keys:
-        # Pre-flight heads-up now that the operator is about to fire.
-        resolved = (
-            vault.configured_broker_keys()
-            if "all" in broker_keys
-            else broker_keys
-        )
-        for w in preflight.preflight_for_run(resolved):
-            st.markdown(f"- {w.icon} {w.message}")
-        st.warning(
-            "Armed — the red button now places REAL orders with REAL money.",
-            icon="🔴",
-        )
-    elif arm_text.strip():
-        st.caption("Type the word **EXECUTE** to arm the LIVE button.")
-    return armed
 
 
 def _render_live_confirm(runner: TradeRunner, vault: Vault, pending: dict) -> None:
@@ -1685,17 +1659,31 @@ def _tab_diagnostics() -> None:  # noqa: C901
 # Rendered on every page (above the tabs) so a login prompt or status
 # output is always visible no matter which tab triggered the run.
 # --------------------------------------------------------------------------
-@st.fragment(run_every=2)
-def _activity_fragment(runner: TradeRunner) -> None:  # noqa: C901, PLR0912, PLR0914, PLR0915
-    """Auto-refreshing activity panel (only this fragment reruns).
+def _activity_fragment(runner: TradeRunner) -> None:
+    """Render the activity panel; auto-poll ONLY while something is live.
 
-    Replaces the old whole-app busy-poll, so the rest of the UI stays
-    responsive and the Cancel button works during a run.
+    The 2-second timer runs only while a run is active or a login prompt
+    is waiting. When the app is idle there are ZERO background reruns —
+    a constant idle poll can collide with in-flight widget updates in
+    some browsers and silently drop them (the "toggle showed OFF but
+    read ON" / "typed EXECUTE but nothing armed" class of failure), so
+    the timer must not tick while the operator is composing an order.
+    The interval is re-evaluated every full script run: starting a run
+    is itself a full rerun (turns polling on), and any interaction after
+    a run finishes turns it back off.
+    """
+    active = runner.is_running() or runner.prompts.snapshot().waiting
+    st.fragment(_activity_fragment_body, run_every=2 if active else None)(
+        runner,
+    )
 
-    Polling continues for the session lifetime (Streamlit's run_every
-    is a decorator-level constant), but once a run reaches a terminal
-    state we render once and then short-circuit subsequent rerenders
-    so the UI doesn't redraw the same final state every 2 seconds.
+
+def _activity_fragment_body(runner: TradeRunner) -> None:  # noqa: C901, PLR0912, PLR0914, PLR0915
+    """Body of the activity panel (wrapped as a fragment above).
+
+    Once a run reaches a terminal state we render once and then
+    short-circuit subsequent rerenders so the UI doesn't redraw the same
+    final state every poll.
     """
     snap = runner.snapshot()
     prompt = runner.prompts.snapshot()
@@ -1711,20 +1699,12 @@ def _activity_fragment(runner: TradeRunner) -> None:  # noqa: C901, PLR0912, PLR
         st.toast(f"Run {snap.status.value}: {snap.description}", icon=icon)
     st.session_state["_last_status"] = snap.status
 
-    # Already-terminal AND nothing changed since last render: skip the
-    # body so the fragment stops redrawing (still polls cheaply).
-    # NB: prompt is a PromptSnapshot that's never None — the guard must
-    # test `not prompt.waiting`, else it never fires and a finished run's
-    # panel re-renders (and re-reads the error PNG/TXT from disk) every
-    # 2s forever.
-    last_log_len = st.session_state.get("_last_log_len", -1)
-    if (
-        snap.status in terminal
-        and not prompt.waiting
-        and len(snap.log) == last_log_len
-    ):
-        return
-    st.session_state["_last_log_len"] = len(snap.log)
+    # NOTE: no early-return "short-circuit" here. A fragment rerun that
+    # renders nothing CLEARS the fragment's previous content — an early
+    # return made the whole activity panel (final status, log, download)
+    # vanish 2 seconds after a run finished. Redrawing the final state is
+    # cheap, and the conditional run_every above stops the polling
+    # entirely on the next full rerun anyway.
 
     status_label = {
         RunStatus.IDLE: "Idle",

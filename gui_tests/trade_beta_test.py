@@ -17,6 +17,13 @@ from src.gui.core.vault import Vault
 APP = str(Path(__file__).resolve().parents[1] / "src/gui/app.py")
 
 
+def _btn(at, label):
+    """Find a (form submit) button by exact label."""
+    hits = [b for b in at.button if (b.label or "") == label]
+    assert hits, f"button {label!r} not found in {[b.label for b in at.button]}"
+    return hits[0]
+
+
 def test_start_trade_records_parallel(tmp_path, monkeypatch):
     monkeypatch.setattr(runner_mod, "_RUN_LOCK", tmp_path / "run.lock")
     v = Vault(tmp_path / "v.json")
@@ -60,9 +67,9 @@ def test_beta_tab_renders():
     )
 
 
-def test_beta_live_unarmed_click_is_blocked(monkeypatch):
-    """Server-side guard: clicking LIVE without typing EXECUTE must not
-    place anything (the disabled flag is only a frontend hint)."""
+def test_beta_live_unconfirmed_click_is_blocked(monkeypatch):
+    """Clicking LIVE without EXECUTE typed must not place anything —
+    checked server-side on the atomic form submit."""
     at = AppTest.from_file(APP, default_timeout=45)
     v = _vault()
     r = TradeRunner(v)
@@ -72,18 +79,20 @@ def test_beta_live_unarmed_click_is_blocked(monkeypatch):
     at.session_state["runner"] = r
     at.run()
     at.text_input(key="beta_tickers").set_value("VIVK")
-    at.run()
-    at.button(key="beta_go_live").click()
+    _btn(at, "🔴 Execute LIVE order (parallel)").click()
     at.run()
     assert not at.exception, at.exception
-    assert not calls, "unarmed LIVE click must not start a trade"
-    assert any("arm the LIVE button" in (e.value or "") for e in at.error)
+    assert not calls, "unconfirmed LIVE click must not start a trade"
+    assert any(
+        "type EXECUTE in the confirmation" in (e.value or "") for e in at.error
+    )
 
 
-def test_beta_live_armed_fires_same_page_parallel(monkeypatch):
-    """Same-page gate: type EXECUTE to arm, then the LIVE click itself
-    starts the parallel trade — no separate confirm screen, no rerun
-    handoff (the failure mode that blocked live trading)."""
+def test_beta_live_confirmed_fires_in_one_submit(monkeypatch):
+    """The atomic form: ticker + EXECUTE text + LIVE click delivered in
+    ONE submit — the trade starts in that same run. This is the fix for
+    'I typed EXECUTE but the button never triggered the workflow': no
+    intermediate widget sync is needed anymore."""
     at = AppTest.from_file(APP, default_timeout=45)
     v = _vault()
     r = TradeRunner(v)
@@ -92,22 +101,22 @@ def test_beta_live_armed_fires_same_page_parallel(monkeypatch):
     at.session_state["vault"] = v
     at.session_state["runner"] = r
     at.run()
+    # Set everything and click in ONE submit — no intermediate at.run().
     at.text_input(key="beta_tickers").set_value("VIVK")
     at.text_input(key="beta_arm").set_value("execute")  # case-insensitive
-    at.run()
-    at.button(key="beta_go_live").click()
+    _btn(at, "🔴 Execute LIVE order (parallel)").click()
     at.run()
     assert not at.exception, at.exception
     assert calls["kwargs"]["dry"] is False
     assert calls["kwargs"]["parallel"] is True
     assert calls["kwargs"]["parallel_cap"] == 6  # slider default
     assert calls["args"][2] == ["VIVK"]
-    # Gate disarms after a successful LIVE start.
+    # Confirmation clears after a successful LIVE start.
     assert at.session_state["beta_arm"] == ""
 
 
-def test_trade_tab_live_armed_fires_same_page(monkeypatch):
-    """The plain Trade tab uses the same same-page gate (sequential)."""
+def test_trade_tab_live_confirmed_fires_in_one_submit(monkeypatch):
+    """The plain Trade tab uses the same atomic form (sequential)."""
     at = AppTest.from_file(APP, default_timeout=45)
     v = _vault()
     r = TradeRunner(v)
@@ -118,16 +127,13 @@ def test_trade_tab_live_armed_fires_same_page(monkeypatch):
     at.run()
     at.text_input(key="trade_tickers").set_value("CIIT")
     at.text_input(key="trade_arm").set_value("EXECUTE")
-    at.run()
-    live = [b for b in at.button if (b.label or "") == "🔴 Execute LIVE order"]
-    assert live, [b.label for b in at.button]
-    live[0].click()
+    _btn(at, "🔴 Execute LIVE order").click()
     at.run()
     assert not at.exception, at.exception
     assert calls["kwargs"]["dry"] is False
-    assert "parallel" not in calls["kwargs"] or not calls["kwargs"]["parallel"]
+    assert not calls["kwargs"].get("parallel")
     assert calls["args"][2] == ["CIIT"]
-    assert at.session_state["trade_arm"] == ""  # disarmed after firing
+    assert at.session_state["trade_arm"] == ""  # cleared after firing
 
 
 def test_beta_dry_button_starts_parallel(monkeypatch):
@@ -140,8 +146,7 @@ def test_beta_dry_button_starts_parallel(monkeypatch):
     at.session_state["runner"] = r
     at.run()
     at.text_input(key="beta_tickers").set_value("VIVK")
-    at.run()
-    at.button(key="beta_go_dry").click()
+    _btn(at, "▶ Execute dry run (parallel)").click()
     at.run()
     assert not at.exception, at.exception
     assert calls["kwargs"]["parallel"] is True
