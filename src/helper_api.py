@@ -9,6 +9,7 @@ import json
 import operator
 import os
 import re
+import sys
 import textwrap
 import traceback
 from collections.abc import Callable
@@ -898,7 +899,10 @@ def _emit_discovered_account(
     try:
         from src.gui.core.engine_proc import ACCOUNT_SENTINEL  # noqa: PLC0415
 
-        print(f"{ACCOUNT_SENTINEL}{broker_key}\t{parent_clean}\t{acct}")
+        # Single atomic write (see _emit_progress) so a concurrent broker
+        # in a parallel run can't split this sentinel line.
+        sys.stdout.write(f"{ACCOUNT_SENTINEL}{broker_key}\t{parent_clean}\t{acct}\n")
+        sys.stdout.flush()
     except Exception as exc:  # discovery is best-effort
         print(f"(account discovery skipped for {broker_key}: {exc})")
 
@@ -933,11 +937,14 @@ def _emit_holding(
     try:
         from src.gui.core.engine_proc import HOLDINGS_SENTINEL  # noqa: PLC0415
 
-        print(
+        # Single atomic write (see _emit_progress) so a concurrent broker
+        # in a parallel run can't split this sentinel line.
+        sys.stdout.write(
             f"{HOLDINGS_SENTINEL}{broker_key}\t{_clean(parent)}\t"
             f"{_clean(account)}\t{stock_clean}\t{float(quantity)}\t"
-            f"{float(price)}\t{float(total)}",
+            f"{float(price)}\t{float(total)}\n",
         )
+        sys.stdout.flush()
     except Exception as exc:  # holdings capture is best-effort
         print(f"(holdings capture skipped for {broker_key}: {exc})")
 

@@ -90,6 +90,25 @@ def test_browser_sequential_then_api_concurrent(fake_auto, monkeypatch):
     assert ("PLAN", "bbae,fidelity,dspac,wellsfargo") in fake_auto.progress
 
 
+def test_each_broker_gets_its_own_order_copy(fake_auto, monkeypatch):
+    # CRITICAL race fix: concurrent brokers must NOT share one StockOrder
+    # (firstrade/webull rewrite amount/action mid-order). Every broker must
+    # receive a distinct copy, and never the caller's original object.
+    orders = []
+    lock = threading.Lock()
+
+    def _rb(bi, order, *a, **k):
+        with lock:
+            orders.append(id(order))
+        return (False, 0.0)
+
+    monkeypatch.setattr(par, "run_broker", _rb)
+    order = _Order(["bbae", "dspac", "fidelity"])
+    par.fun_run_parallel(order, cap=3)
+    assert len(set(orders)) == 3  # all distinct
+    assert id(order) not in orders  # never the shared original
+
+
 def test_totals_summed_for_holdings(fake_auto, monkeypatch):
     monkeypatch.setattr(par, "run_broker", lambda bi, o, *a, **k: (False, 50.0))
     order = _Order(["bbae", "dspac", "public"], holdings=True)

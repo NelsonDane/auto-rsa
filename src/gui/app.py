@@ -1179,12 +1179,14 @@ def _tab_trade_beta() -> None:  # noqa: C901, PLR0914
 
 
 def _render_parallel_summary(runner: TradeRunner) -> None:
-    """After a parallel run, show per-broker durations + wall-clock saved."""
+    """After a parallel run, show per-broker durations + rough time saved."""
     spec = runner.last_spec()
     if not spec or not spec.get("parallel"):
         return
     snap = runner.snapshot()
-    if snap.status not in (RunStatus.FINISHED, RunStatus.ERROR):
+    if snap.status not in (
+        RunStatus.FINISHED, RunStatus.ERROR, RunStatus.CANCELLED,
+    ):
         return
     timings = [(b, s, e) for b, s, e in snap.timings]
     if not timings:
@@ -1192,13 +1194,13 @@ def _render_parallel_summary(runner: TradeRunner) -> None:
     st.divider()
     st.markdown("#### Parallel run summary")
     durations = [e for _b, _s, e in timings]
-    wall = max(durations) if durations else 0.0
+    longest = max(durations) if durations else 0.0
     serial = sum(durations)
-    saved = max(0.0, serial - wall)
+    saved = max(0.0, serial - longest)
     c1, c2, c3 = st.columns(3)
-    c1.metric("Parallel wall-clock", _fmt_elapsed(wall))
-    c2.metric("Sequential would be ~", _fmt_elapsed(serial))
-    c3.metric("Time saved ~", _fmt_elapsed(saved))
+    c1.metric("Longest single broker", _fmt_elapsed(longest))
+    c2.metric("Sum of all brokers", _fmt_elapsed(serial))
+    c3.metric("Rough time saved", f"≤ {_fmt_elapsed(saved)}")
     st.dataframe(
         [
             {"Broker": b, "Status": s, "Duration": _fmt_elapsed(e)}
@@ -1207,8 +1209,12 @@ def _render_parallel_summary(runner: TradeRunner) -> None:
         hide_index=True,
     )
     st.caption(
-        "Estimated — 'sequential' assumes the same per-broker durations run "
-        "back-to-back. Browser brokers still run one-at-a-time.",
+        "Rough estimate. Real wall-clock is between the two — API brokers "
+        "run in waves of the concurrency cap and browser brokers run "
+        "one-at-a-time, so it's longer than the single longest broker. "
+        "Sequential would be ≈ the sum. In a parallel run the green/yellow "
+        "per-broker dots in the Activity panel are approximate; each "
+        "broker's ✅ ran / ❌ failed is accurate.",
     )
 
 

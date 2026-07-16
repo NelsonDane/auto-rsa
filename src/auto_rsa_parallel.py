@@ -15,12 +15,16 @@ Design (see the Trade Beta decisions):
   in engine_proc, so even a concurrent API broker that prompts can't
   scramble the shared stdin — prompts are answered one at a time.
 
-Thread-safety of the shared ``StockOrder``: the sequential fun_run calls
-``order_validate`` per broker, which MUTATES shared lists (de_dupe /
-alphabetize / remove notbrokers) — unsafe to run concurrently. So we
-validate ONCE up front here and :func:`run_broker` does not re-validate;
-the only remaining shared writes are per-broker ``set_logged_in`` (a
-distinct key per broker, GIL-atomic).
+Thread-safety of the ``StockOrder``: the sequential fun_run mutates a
+single shared order — ``order_validate`` rewrites shared lists, and some
+brokers (notably firstrade and webull) temporarily rewrite the order's
+``amount``/``action``/``price`` mid-order and restore them in a
+``finally``. Sequentially that's safe; concurrently it is NOT — another
+broker reads those same fields to size its live order and could see the
+transient wrong value and place a wrong-size/wrong-side REAL order. So
+each concurrent broker gets its OWN order (:func:`_thread_local_order`, a
+shallow copy that isolates the scalar reassignments per thread), and the
+order is validated ONCE up front (never per-broker in parallel).
 
 BETA CAVEAT: the underlying broker libraries were written for sequential
 use and may hold module-level session globals; running two *different*
@@ -31,6 +35,7 @@ not been proven across every broker. Validate in your own environment
 
 from __future__ import annotations
 
+import copy
 import threading
 import traceback
 from typing import TYPE_CHECKING
@@ -58,6 +63,23 @@ def _auto():
 
 def _broker_key(broker_info: object) -> str:
     return str(broker_info.name).lower()  # type: ignore[attr-defined]
+
+
+def _thread_local_order(order_obj: object) -> object:
+    """Return a per-thread copy of the StockOrder for one broker.
+
+    CRITICAL for real money: concurrent brokers must NOT share one order.
+    firstrade/webull temporarily rewrite ``amount``/``action``/``price``
+    on the order mid-place (a lot-size "dance") and restore them in a
+    ``finally``; every other broker reads those same fields to size its
+    live order. On a shared order a concurrent broker can read the
+    transient value (e.g. amount 100, action "sell") and place a
+    wrong-size / wrong-side REAL order. A shallow copy isolates those
+    scalar reassignments — each ``set_amount``/``set_action`` writes the
+    copy's own attribute, not the shared one. We do NOT deepcopy: the
+    order's logged-in map holds live broker/session objects.
+    """
+    return copy.copy(order_obj)
 
 
 def run_broker(
@@ -247,6 +269,10 @@ def fun_run_parallel(
             a._emit_progress("FAIL", _broker_key(bi))
         return
 
+    # Pristine snapshot of the CLEAN order, taken before any broker runs,
+    # so per-broker copies can't inherit a mutation from an earlier broker.
+    pristine = _thread_local_order(order_obj)
+
     sequential = [bi for bi in brokers if _broker_key(bi) in _SEQUENTIAL_BROKERS]
     concurrent = [bi for bi in brokers if _broker_key(bi) not in _SEQUENTIAL_BROKERS]
 
@@ -259,10 +285,15 @@ def fun_run_parallel(
     )
     for bi in sequential:
         results.append(
-            run_broker(bi, order_obj, bot_obj, loop, docker_mode=docker_mode),
+            run_broker(
+                bi, _thread_local_order(pristine), bot_obj, loop,
+                docker_mode=docker_mode,
+            ),
         )
 
-    # API brokers: concurrent, bounded by `cap`.
+    # API brokers: concurrent, bounded by `cap`. Each gets its OWN order
+    # copy so firstrade/webull's mid-order amount/action rewrites can't be
+    # read by a sibling broker sizing a real order.
     if concurrent:
         limit = cap if cap and cap > 0 else len(concurrent)
         sem = threading.Semaphore(min(limit, len(concurrent)))
@@ -272,7 +303,8 @@ def fun_run_parallel(
         def _worker(broker_info: object) -> None:
             with sem:
                 out[_broker_key(broker_info)] = run_broker(
-                    broker_info, order_obj, bot_obj, loop, docker_mode=docker_mode,
+                    broker_info, _thread_local_order(pristine), bot_obj, loop,
+                    docker_mode=docker_mode,
                 )
 
         for bi in concurrent:
@@ -283,9 +315,17 @@ def fun_run_parallel(
             t.join(timeout=a._broker_timeout() + _JOIN_GRACE_SECONDS)
             key = _broker_key(bi)
             if t.is_alive() and key not in out:
-                # A concurrent broker overran its watchdog; report it failed
-                # and move on (the daemon thread dies with the process).
-                print(f"Error in {key}: overran the parallel watchdog — abandoned.")
+                # A concurrent broker overran its watchdog. Its order may
+                # still be in flight, so this is AMBIGUOUS, not a clean
+                # fail: say so loudly and mark FAIL (red) so the operator
+                # verifies with reconciliation. The daemon thread dies with
+                # the process; the ledger row (INTENDED/EXECUTED) still
+                # blocks any double-buy on a retry.
+                print(
+                    f"⚠️ {key}: overran the parallel watchdog — abandoned. Its "
+                    "order may still be in flight; VERIFY with 'Order "
+                    "reconciliation' (Diagnostics) before assuming it failed.",
+                )
                 a._emit_progress("FAIL", key)
                 out[key] = (True, 0.0)
         results.extend(out.get(_broker_key(bi), (True, 0.0)) for bi in concurrent)

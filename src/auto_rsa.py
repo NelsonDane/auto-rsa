@@ -108,7 +108,13 @@ def _emit_progress(kind: str, value: str) -> None:
     try:
         from src.gui.core.engine_proc import PROGRESS_SENTINEL  # noqa: PLC0415
 
-        print(f"{PROGRESS_SENTINEL}{kind}\t{value}")
+        # Single write incl. the newline (not print(), which writes the
+        # text and "\n" separately) so a concurrent broker thread in a
+        # parallel run can't interleave and split this sentinel line —
+        # the short line stays atomic on the pipe (< PIPE_BUF). No-op
+        # difference for the single-threaded sequential path.
+        sys.stdout.write(f"{PROGRESS_SENTINEL}{kind}\t{value}\n")
+        sys.stdout.flush()
     except Exception as exc:  # progress is best-effort
         print(f"(progress emit skipped: {exc})")
 
