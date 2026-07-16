@@ -132,14 +132,21 @@ def fun_run(  # noqa: C901, PLR0912, PLR0915
     So for example, fennel init -> fennel_init()
     """
     total_value = 0
-    _emit_progress(
-        "PLAN",
-        ",".join(
-            bi.name.lower()
-            for bi in order_obj.get_brokers()
-            if bi not in order_obj.get_notbrokers()
-        ),
-    )
+    planned = [
+        bi.name.lower()
+        for bi in order_obj.get_brokers()
+        if bi not in order_obj.get_notbrokers()
+    ]
+    _emit_progress("PLAN", ",".join(planned))
+    # Plain-text plan so the GUI/console log shows exactly which brokers
+    # this run will touch. Without it, a run that (for any reason) resolved
+    # to fewer brokers than the operator selected looks like a silent
+    # no-op: they see one broker work and can't tell the others were never
+    # in the list vs. ran-and-failed. This line makes the scope explicit.
+    if planned:
+        print(f"Running {len(planned)} broker(s): {', '.join(planned)}")
+    else:
+        print("No brokers to run — the resolved broker list is empty.")
     for broker_info in order_obj.get_brokers():
         if broker_info in order_obj.get_notbrokers():
             continue

@@ -1118,6 +1118,10 @@ def _run_trade_submit(  # noqa: PLR0913
             # Disarm so the confirmation can't stay armed for a later,
             # unintended click.
             st.session_state[arm_clear_flag] = True
+        # Immediate, unmistakable feedback that the click registered — the
+        # activity panel shows a "run started" toast on the next render so
+        # a slow cold start isn't mistaken for "Execute did nothing".
+        st.session_state["_run_just_started"] = True
         st.rerun()
 
 
@@ -1647,6 +1651,25 @@ def _activity_fragment_body(runner: TradeRunner) -> None:  # noqa: C901, PLR0912
         }[snap.status]
         st.toast(f"Run {snap.status.value}: {snap.description}", icon=icon)
     st.session_state["_last_status"] = snap.status
+
+    # One-shot "run started" toast so clicking Execute gives unmistakable
+    # feedback even before the engine's first line arrives. A cold start
+    # (imports + broker login) can take 10-15s, during which the log is
+    # legitimately empty — this confirms the click registered so the
+    # operator doesn't assume it did nothing and re-submit (a real
+    # double-order risk).
+    if st.session_state.pop("_run_just_started", False):
+        st.toast("🚀 Run started — watch the Activity panel here.", icon="🚀")
+
+    # Always-available manual refresh. The 2-second auto-poll (the
+    # fragment's run_every) can be unreliable on some browsers/OSes — the
+    # panel can sit on "(no output yet)" while the engine is in fact
+    # streaming. This button force-reruns so the operator can ALWAYS pull
+    # the current status + log on demand, independent of the timer. It is
+    # a deliberate click, so it never collides with in-flight widget
+    # updates the way a constant idle poll would.
+    if st.button("🔄 Refresh status", key="activity_refresh"):
+        st.rerun()
 
     # NOTE: no early-return "short-circuit" here. A fragment rerun that
     # renders nothing CLEARS the fragment's previous content — an early

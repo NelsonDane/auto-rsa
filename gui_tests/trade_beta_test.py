@@ -202,6 +202,20 @@ def test_clear_brokers_button(monkeypatch):
     assert at.session_state["trade_sel"] == []
 
 
+def test_activity_panel_has_manual_refresh():
+    """The activity panel must always expose a manual refresh button so the
+    operator can pull the latest run status/log on demand even when the 2s
+    auto-poll is unreliable on their browser/OS (the 'sits on (no output
+    yet) while the engine is actually running' failure)."""
+    at = AppTest.from_file(APP, default_timeout=45)
+    at.session_state["vault"] = _vault()
+    at.run()
+    assert not at.exception, at.exception
+    assert any(
+        "Refresh status" in (b.label or "") for b in at.button
+    ), "activity panel must expose a manual '🔄 Refresh status' button"
+
+
 def test_beta_dry_button_starts_parallel(monkeypatch):
     at = AppTest.from_file(APP, default_timeout=45)
     at.session_state["vault"] = _vault()
