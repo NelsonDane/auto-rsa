@@ -2604,6 +2604,77 @@ def _maybe_render_retry_banner(runner: TradeRunner) -> None:
             )
 
 
+def _kill_orphan_engine(pid: object) -> None:
+    """Kill an orphaned engine process — but ONLY if it really is an
+    AutoRSA engine (guards against PID reuse handing us an unrelated
+    process). Best-effort; never raises.
+    """
+    if pid is None:
+        return
+    # "engine" iff the pid is alive AND its command line is the engine
+    # module — the same reuse-safe check the run-lock staleness logic uses.
+    if TradeRunner._engine_pid_state(pid) != "engine":  # noqa: SLF001
+        return
+    with contextlib.suppress(Exception):
+        import psutil  # noqa: PLC0415
+
+        psutil.Process(int(pid)).kill()
+
+
+def _render_lock_recovery_banner(runner: TradeRunner) -> None:
+    """Proactively surface a run-lock that is silently blocking new runs.
+
+    The single-instance lock lives in ``creds/run.lock``. If a previous
+    run's engine was orphaned — the GUI window was closed while a run (esp.
+    a hung browser broker) was still going, so the engine subprocess kept
+    running — the lock stays held, and because it lives on disk it survives
+    GUI restarts. Every new Execute then raises "already in progress", but
+    that error renders far down the tab where the operator never sees it:
+    the exact "I click Execute and nothing happens, even after restarting"
+    failure.
+
+    Show it at the TOP of the page whenever a lock is held but THIS session
+    is not running a tracked engine, with one-click recovery.
+    """
+    if runner.is_running():
+        return  # this session owns an active run — the lock is expected
+    lock = diagnostics.inspect_run_lock()
+    if lock is None:
+        return  # no lock held — nothing is blocking a new run
+    engine_pid = lock.get("engine_pid")
+    if lock["stale"]:
+        st.error(
+            "🔒 A leftover run-lock is blocking new runs — the process that "
+            "held it is no longer alive, so clearing it is safe. Until it's "
+            "cleared, clicking **Execute** does nothing.",
+            icon="🔒",
+        )
+    else:
+        st.warning(
+            "🔒 A run-lock is held by another process "
+            f"(engine PID {engine_pid}). New runs are blocked. If a run is "
+            "active in another browser tab, let it finish. If a previous run "
+            "was orphaned (its window was closed while it was still going), "
+            "release the lock below to unblock trading.",
+            icon="🔒",
+        )
+    if st.button(
+        "🔓 Release run-lock and unblock trading", key="lock_recover",
+        type="primary",
+    ):
+        # Stop an orphaned engine still holding the lock BEFORE dropping the
+        # file, so a fresh run can't race a zombie into a double order.
+        _kill_orphan_engine(engine_pid)
+        released = diagnostics.force_release_run_lock()
+        st.success(
+            "Run-lock released — you can start a run now."
+            if released
+            else "No lock file to remove.",
+        )
+        time.sleep(0.4)
+        st.rerun()
+
+
 def main() -> None:
     """Render the full app."""
     _state()
@@ -2623,6 +2694,10 @@ def main() -> None:
     # to the idle auto-refresh), which repeatedly blocked live trading.
     vault = _get_vault()
     if vault.is_unlocked():
+        # A held/orphaned run-lock silently blocks every new run; surface
+        # it here (top of page) with one-click recovery so a stuck lock
+        # can't masquerade as "Execute does nothing".
+        _render_lock_recovery_banner(runner)
         _maybe_render_retry_banner(runner)
 
     (tab_status, tab_creds, tab_signals, tab_trade, tab_beta,

@@ -216,6 +216,45 @@ def test_activity_panel_has_manual_refresh():
     ), "activity panel must expose a manual '🔄 Refresh status' button"
 
 
+def test_lock_recovery_banner_shows_for_held_lock(monkeypatch):
+    """A held run-lock with no active run in THIS session surfaces a
+    recovery banner + release button at the top of the page — so an
+    orphaned lock (e.g. a previous run whose window was closed while it was
+    still going) can't silently block every Execute with an error the
+    operator never scrolls to."""
+    from src.gui.core import diagnostics as diag_mod
+
+    monkeypatch.setattr(
+        diag_mod, "inspect_run_lock",
+        lambda: {
+            "engine_pid": 424242, "owner_pid": None, "created": 0.0,
+            "engine_alive": False, "owner_alive": False, "stale": True,
+        },
+    )
+    at = AppTest.from_file(APP, default_timeout=45)
+    at.session_state["vault"] = _vault()
+    at.run()
+    assert not at.exception, at.exception
+    assert any(
+        "Release run-lock" in (b.label or "") for b in at.button
+    ), "a held lock must surface a release button at the top of the page"
+    assert any("leftover run-lock" in (e.value or "") for e in at.error)
+
+
+def test_no_lock_banner_when_lock_absent(monkeypatch):
+    """No lock held -> no recovery banner (it must not nag when idle)."""
+    from src.gui.core import diagnostics as diag_mod
+
+    monkeypatch.setattr(diag_mod, "inspect_run_lock", lambda: None)
+    at = AppTest.from_file(APP, default_timeout=45)
+    at.session_state["vault"] = _vault()
+    at.run()
+    assert not at.exception, at.exception
+    assert not any(
+        "Release run-lock" in (b.label or "") for b in at.button
+    ), "no lock -> no recovery banner"
+
+
 def test_beta_dry_button_starts_parallel(monkeypatch):
     at = AppTest.from_file(APP, default_timeout=45)
     at.session_state["vault"] = _vault()
