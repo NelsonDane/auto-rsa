@@ -56,6 +56,10 @@ _DISCOVERY_FIELDS = 3  # <SENTINEL>broker\tparent\taccount
 # above it so a snapshot landing mid-finally never cries "leaked browser"
 # on a clean run. Recovery of a genuine wedge lands within ~1 poll cycle.
 _REAP_GRACE_SECONDS = 1.5
+# A broker that has been "running" this long without finishing is almost
+# certainly waiting on a login/2FA prompt the operator hasn't answered, or
+# is hung — surface a hint so a stalled run isn't a silent spinner.
+STUCK_BROKER_SECONDS = 90.0
 # Redaction thresholds. The corruption risk is SHORT, PURELY-NUMERIC
 # secrets (a 4-6 digit PIN/code) which collide with digits inside
 # balances/totals/timestamps and silently rewrite the real-money audit
@@ -93,6 +97,10 @@ class RunnerSnapshot:
     # stock unavailable on every account). Empty for runs that emit
     # no progress.
     progress: tuple[tuple[str, str], ...] = ()
+    # Per-broker timing, START-ordered: (broker, state, elapsed_seconds).
+    # elapsed runs live for a still-"running" broker and freezes at the
+    # DONE/FAIL time otherwise. Drives the run timeline + stuck-broker hint.
+    timings: tuple[tuple[str, str, float], ...] = ()
 
 
 class TradeRunner:
@@ -112,6 +120,9 @@ class TradeRunner:
         self._progress: dict[str, str] = {}
         self._current_broker: str | None = None
         self._fill_counts: dict[str, int] = {}
+        # broker -> {"start": monotonic, "end": monotonic|None}. Insertion
+        # order is START order, so the timeline renders top-to-bottom.
+        self._broker_timings: dict[str, dict[str, float | None]] = {}
         # When the reaper first saw the engine exited while still RUNNING
         # (monotonic seconds); used to grace-period the wedge decision.
         self._engine_exit_seen: float | None = None
@@ -168,6 +179,7 @@ class TradeRunner:
                 self._description,
                 self.log.getvalue(),
                 tuple(self._progress.items()),
+                self._compute_timings(),
             )
 
     def _count_if_fill(self, line: str) -> None:
@@ -190,10 +202,15 @@ class TradeRunner:
                 }
                 self._fill_counts = {}
                 self._current_broker = None
+                self._broker_timings = {}
             elif kind == "START":
                 self._progress[value] = "running"
                 self._fill_counts[value] = 0
                 self._current_broker = value
+                self._broker_timings[value] = {
+                    "start": time.monotonic(),
+                    "end": None,
+                }
             elif kind == "DONE":
                 # Green only if the broker actually placed an order;
                 # otherwise yellow (session was fine but no fills).
@@ -203,10 +220,36 @@ class TradeRunner:
                 )
                 if self._current_broker == value:
                     self._current_broker = None
+                self._stamp_broker_end(value)
             elif kind == "FAIL":
                 self._progress[value] = "failed"
                 if self._current_broker == value:
                     self._current_broker = None
+                self._stamp_broker_end(value)
+
+    def _stamp_broker_end(self, broker: str) -> None:
+        """Freeze a broker's elapsed timer at its DONE/FAIL moment.
+
+        Caller holds ``self._lock``. No-op if the broker never emitted a
+        START (defensive against out-of-order sentinels).
+        """
+        timing = self._broker_timings.get(broker)
+        if timing is not None and timing.get("end") is None:
+            timing["end"] = time.monotonic()
+
+    def _compute_timings(self) -> tuple[tuple[str, str, float], ...]:
+        """Build the (broker, state, elapsed) timeline. Caller holds the lock."""
+        now = time.monotonic()
+        out: list[tuple[str, str, float]] = []
+        for broker, t in self._broker_timings.items():
+            start = t.get("start")
+            if start is None:
+                continue
+            end = t.get("end")
+            elapsed = (end if end is not None else now) - start
+            state = self._progress.get(broker, "pending")
+            out.append((broker, state, round(elapsed, 1)))
+        return tuple(out)
 
     # --- public operations --------------------------------------------
 

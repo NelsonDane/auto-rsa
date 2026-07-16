@@ -24,7 +24,12 @@ from src.edgar.market_calendar import parse_effective_date
 from src.gui.core import diagnostics, preflight
 from src.gui.core.brokers_meta import SUPPORTED_BROKERS, BrokerMeta, get_broker
 from src.gui.core.results import group_by_broker
-from src.gui.core.runner import RunBusyError, RunStatus, TradeRunner
+from src.gui.core.runner import (
+    STUCK_BROKER_SECONDS,
+    RunBusyError,
+    RunStatus,
+    TradeRunner,
+)
 from src.gui.core.sheets import SheetsError, Signal, fetch_signals
 from src.gui.core.signal_plan import DECISION_ACTIONABLE, PlanItem, plan_signals
 from src.gui.core.tickers import normalize_and_validate
@@ -1065,6 +1070,14 @@ def _broker_display(key: str) -> str:
         return key
 
 
+def _fmt_elapsed(seconds: float) -> str:
+    """Human-friendly elapsed time for the run timeline: '45s', '2m05s'."""
+    seconds = max(0.0, float(seconds))
+    if seconds < 60:  # noqa: PLR2004
+        return f"{seconds:.0f}s"
+    return f"{int(seconds // 60)}m{int(seconds % 60):02d}s"
+
+
 def _execute_typed(typed: str) -> bool:
     """Whether the confirmation text clears the typed-EXECUTE gate.
 
@@ -1385,6 +1398,7 @@ def _activity_fragment(runner: TradeRunner) -> None:  # noqa: C901, PLR0912, PLR
 
     if snap.progress:
         states = dict(snap.progress)
+        elapsed_by = {b: e for b, _s, e in snap.timings}
         total = len(states)
         finished = sum(
             1 for s in states.values()
@@ -1403,9 +1417,29 @@ def _activity_fragment(runner: TradeRunner) -> None:  # noqa: C901, PLR0912, PLR
             finished / total if total else 0.0,
             text=f"Brokers: {finished}/{total} complete{cur}",
         )
+        # Per-broker timeline with live elapsed times (a stalled broker
+        # shows a growing clock instead of a silent spinner).
         st.markdown(
-            " ".join(f"{pdot.get(s, '•')} {b}" for b, s in states.items()),
+            "  ".join(
+                f"{pdot.get(s, '•')} {b}"
+                + (
+                    f" · {_fmt_elapsed(elapsed_by[b])}"
+                    if b in elapsed_by and s != "pending"
+                    else ""
+                )
+                for b, s in states.items()
+            ),
         )
+        # Stuck-broker hint: a broker that's been "running" too long is
+        # almost always waiting on a login/2FA prompt or is hung.
+        for b, s, e in snap.timings:
+            if s == "running" and e >= STUCK_BROKER_SECONDS:
+                st.warning(
+                    f"⏱ **{b}** has been running for {_fmt_elapsed(e)} without "
+                    "finishing — it's most likely waiting for a login / 2FA "
+                    "code (answer it above) or is stuck. Use **⛔ Cancel run** "
+                    "above if it won't progress.",
+                )
         st.caption(
             "✅ at least one order placed · 🟡 broker ran clean but no "
             "orders went through (stock unavailable here?) · ❌ broker "
