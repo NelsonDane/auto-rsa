@@ -21,7 +21,7 @@ import streamlit as st
 
 from src import ledger, outcomes, session_state
 from src.edgar.market_calendar import parse_effective_date
-from src.gui.core import diagnostics
+from src.gui.core import diagnostics, preflight
 from src.gui.core.brokers_meta import SUPPORTED_BROKERS, BrokerMeta, get_broker
 from src.gui.core.results import group_by_broker
 from src.gui.core.runner import RunBusyError, RunStatus, TradeRunner
@@ -1097,6 +1097,18 @@ def _render_live_confirm(runner: TradeRunner, vault: Vault, pending: dict) -> No
         f"- **Brokers:** {broker_desc}\n\n"
         "This runs across **every account** at each broker above.",
     )
+
+    # Pre-flight: warn (before EXECUTE is typed) about anything that will
+    # surprise the operator mid-run — an expired broker session that will
+    # prompt for 2FA, or a stale lock that will refuse the run. Advisory
+    # only: it never blocks the confirmation.
+    resolved = vault.configured_broker_keys() if "all" in keys else keys
+    warns = preflight.preflight_for_run(resolved)
+    if warns:
+        st.warning("Heads-up before you confirm this LIVE run:")
+        for w in warns:
+            st.markdown(f"- {w.icon} {w.message}")
+
     typed = st.text_input("Type EXECUTE to confirm", key="live_confirm_text")
     busy = runner.is_running()
     if busy:
