@@ -854,29 +854,6 @@ def _broker_picker(key_prefix: str) -> list[str]:
     return [name_by_key[n] for n in chosen]
 
 
-def _committed_broker_keys(key_prefix: str, vault: Vault) -> list[str]:
-    """The broker selection as last committed to session_state, resolved to
-    broker keys — used only for the advisory pre-flight rendered ABOVE the
-    atomic form.
-
-    The picker itself now lives INSIDE the form (its value is delivered
-    with the Execute click, immune to dropped multiselect change-messages).
-    The live widget value therefore isn't known until submit, so the
-    pre-flight reads the last-committed selection instead. It lags a
-    submit; that's fine for an advisory heads-up.
-    """
-    if not vault.is_unlocked():
-        return []
-    configured = vault.configured_broker_keys()
-    if not configured:
-        return []
-    names = st.session_state.get(f"{key_prefix}_sel")
-    if names is None:
-        return configured  # first render: defaults to all configured
-    name_by_key = {get_broker(k).display_name: k for k in configured}
-    return [name_by_key[n] for n in names if n in name_by_key]
-
-
 def _mask_label(mask: str) -> str:
     return f"••••{mask}"
 
@@ -991,91 +968,66 @@ def _tab_trade() -> None:  # noqa: C901, PLR0914
     # left to lose, and the order fires in the same click.
     if st.session_state.pop("_trade_arm_clear", False):
         st.session_state["trade_arm"] = ""
-    # Clear-brokers lives OUTSIDE the form (a form can't hold a normal
-    # button); it empties the multiselect before the form re-renders.
+    # NO st.form here. st.form submissions do not reliably reach the server
+    # in this deployment (plain st.button clicks DO — the sidebar Unlock
+    # button, Clear, Refresh all work). A form_submit_button click was
+    # handled client-side but never registered server-side, so Execute did
+    # nothing. So the panel uses bare, keyed widgets (their values persist
+    # in session_state and are current when a button is clicked) plus plain
+    # st.button controls — the exact pattern the working Unlock uses.
     if st.button(
         "🧹 Clear brokers", key="trade_clear_brokers",
         help="Deselect all brokers so you can pick a fresh set for this trade.",
     ):
         st.session_state["trade_sel"] = []
         st.rerun()
-    # Pre-flight reflects the LAST-COMMITTED selection (the live picker is
-    # inside the form below; its value isn't known until submit).
-    _render_preflight_warnings(_committed_broker_keys("trade", vault), vault)
-    with st.form("trade_form"):
-        # Broker picker INSIDE the form. Widgets inside a form send NOTHING
-        # on change — the selection rides atomically on the Execute click.
-        # This is the fix for 'chips show but the server sees no brokers':
-        # a dropped multiselect change-message can no longer leave the run
-        # with an empty selection (which made Execute silently bail with
-        # 'Select at least one broker').
-        broker_keys = _broker_picker("trade")
-        col1, col2, col3 = st.columns(3)
-        action = col1.selectbox("Action", ["buy", "sell"], key="trade_action")
-        tickers_raw = col2.text_input(
-            "Stock symbol(s)", value="", help="Comma-separated",
-            key="trade_tickers",
-        )
-        amount = col3.number_input(
-            "Amount (shares)", min_value=0.0, value=1.0, step=1.0,
-            key="trade_amount",
-        )
-
-        col4, col5 = st.columns(2)
-        price_type = col4.selectbox(
-            "Order type",
-            ["market", "limit"],
-            key="trade_price_type",
-            help="Market is recommended. Brokers automatically fall back "
-            "to a limit order (and use a limit for sub-$1 stocks) where "
-            "the brokerage requires it.",
-        )
-        time_in_force = col5.selectbox(
-            "Time in force",
-            ["day", "gtc"],
-            key="trade_tif",
-            help="GTC (good-till-cancelled) is useful for pre/post-market "
-            "limit orders. Only brokers that support it will honor it.",
-        )
-        # A TEXT field, not a nullable number_input: an empty
-        # number_input inside a form can make Streamlit's frontend refuse
-        # to submit the form at all (see _parse_optional_price). Blank =
-        # auto-derive; ignored for market orders.
-        limit_price_raw = st.text_input(
-            "Limit price — used only for limit orders (blank = auto-derive)",
-            value="",
-            key="trade_limit_price",
-            help="Exact limit price for a limit order; ignored for market "
-            "orders. Limit orders require exactly one symbol.",
-        )
-
-        st.markdown(
-            "**LIVE confirmation** — a LIVE run places real orders for "
-            "exactly what's entered above, across **every account** at "
-            "the broker(s) selected above. Dry run needs no confirmation.",
-        )
-        arm_text = st.text_input(
-            "Type EXECUTE here to confirm a LIVE run",
-            key="trade_arm",
-        )
-        # NOT disabled while running: the main body only repaints on full
-        # reruns, so a disabled-while-running button would stay greyed
-        # after the run ends (until some other interaction) — reading as
-        # "the button doesn't work". The busy case is guarded server-side
-        # (start_trade raises "already in progress", shown as an error).
-        c_dry, c_live = st.columns(2)
-        go_dry = c_dry.form_submit_button(
-            "▶ Execute dry run",
-            help="Simulate: logs in and validates, places NO real orders.",
-        )
-        go_live = c_live.form_submit_button(
-            "🔴 Execute LIVE order",
-            type="primary",
-            help="Places REAL orders in this same click (requires EXECUTE "
-            "typed above). Everything you entered is sent together with "
-            "this click.",
-        )
-
+    broker_keys = _broker_picker("trade")
+    _render_preflight_warnings(broker_keys, vault)
+    col1, col2, col3 = st.columns(3)
+    action = col1.selectbox("Action", ["buy", "sell"], key="trade_action")
+    tickers_raw = col2.text_input(
+        "Stock symbol(s)", value="", help="Comma-separated",
+        key="trade_tickers",
+    )
+    amount = col3.number_input(
+        "Amount (shares)", min_value=0.0, value=1.0, step=1.0,
+        key="trade_amount",
+    )
+    col4, col5 = st.columns(2)
+    price_type = col4.selectbox(
+        "Order type", ["market", "limit"], key="trade_price_type",
+        help="Market is recommended. Brokers automatically fall back to a "
+        "limit order (and use a limit for sub-$1 stocks) where the "
+        "brokerage requires it.",
+    )
+    time_in_force = col5.selectbox(
+        "Time in force", ["day", "gtc"], key="trade_tif",
+        help="GTC (good-till-cancelled) is useful for pre/post-market "
+        "limit orders. Only brokers that support it will honor it.",
+    )
+    limit_price_raw = st.text_input(
+        "Limit price — used only for limit orders (blank = auto-derive)",
+        value="", key="trade_limit_price",
+        help="Exact limit price for a limit order; ignored for market "
+        "orders. Limit orders require exactly one symbol.",
+    )
+    st.markdown(
+        "**LIVE confirmation** — a LIVE run places real orders for exactly "
+        "what's entered above, across **every account** at the broker(s) "
+        "selected above. Dry run needs no confirmation.",
+    )
+    arm_text = st.text_input(
+        "Type EXECUTE here to confirm a LIVE run", key="trade_arm",
+    )
+    c_dry, c_live = st.columns(2)
+    go_dry = c_dry.button(
+        "▶ Execute dry run", key="trade_go_dry",
+        help="Simulate: logs in and validates, places NO real orders.",
+    )
+    go_live = c_live.button(
+        "🔴 Execute LIVE order", key="trade_go_live", type="primary",
+        help="Places REAL orders (requires EXECUTE typed above).",
+    )
     _account_filter_editor(vault, broker_keys)
     _run_trade_submit(
         runner,
@@ -1224,9 +1176,8 @@ def _tab_trade_beta() -> None:  # noqa: C901, PLR0914
             "activity panel above, then start the next one.",
         )
 
-    # ONE ATOMIC FORM — see _tab_trade for why: the submit click delivers
-    # every field (including the typed EXECUTE) together in one message,
-    # so no individual widget update can be silently lost.
+    # NO st.form — see _tab_trade: form submissions don't reach the server
+    # in this deployment; bare keyed widgets + plain st.button do.
     if st.session_state.pop("_beta_arm_clear", False):
         st.session_state["beta_arm"] = ""
     if st.button(
@@ -1235,75 +1186,59 @@ def _tab_trade_beta() -> None:  # noqa: C901, PLR0914
     ):
         st.session_state["beta_sel"] = []
         st.rerun()
-    # Pre-flight reflects the last-committed selection (picker is inside
-    # the form below — see _tab_trade).
-    _render_preflight_warnings(_committed_broker_keys("beta", vault), vault)
-    with st.form("beta_form"):
-        # Picker + cap INSIDE the form so both ride atomically on the
-        # Execute click (immune to dropped widget change-messages).
-        broker_keys = _broker_picker("beta")
-        cap = st.slider(
-            "Max brokers at once (concurrency cap)",
-            min_value=1, max_value=12, value=6, key="beta_cap",
-            help="How many API brokers may run simultaneously. Lower it if "
-            "a broker rate-limits; 6 is a safe default.",
-        )
-        col1, col2, col3 = st.columns(3)
-        action = col1.selectbox("Action", ["buy", "sell"], key="beta_action")
-        tickers_raw = col2.text_input(
-            "Stock symbol(s)", value="", help="Comma-separated",
-            key="beta_tickers",
-        )
-        amount = col3.number_input(
-            "Amount (shares)", min_value=0.0, value=1.0, step=1.0,
-            key="beta_amount",
-        )
-
-        col4, col5 = st.columns(2)
-        price_type = col4.selectbox(
-            "Order type", ["market", "limit"], key="beta_price_type",
-            help="Market is recommended; brokers fall back to a limit "
-            "where required.",
-        )
-        time_in_force = col5.selectbox(
-            "Time in force", ["day", "gtc"], key="beta_tif",
-            help="GTC is useful for pre/post-market limit orders.",
-        )
-        # Text field, not a nullable number_input (see _tab_trade /
-        # _parse_optional_price): an empty number_input inside a form can
-        # block form submission entirely.
-        limit_price_raw = st.text_input(
-            "Limit price — used only for limit orders (blank = auto-derive)",
-            value="",
-            key="beta_limit_price",
-            help="Exact limit price for a limit order; ignored for market "
-            "orders. Limit orders require exactly one symbol.",
-        )
-
-        st.markdown(
-            "**LIVE confirmation** — a LIVE parallel run places real "
-            "orders for exactly what's entered above, across **every "
-            "account** at the broker(s) selected above. Dry run needs no "
-            "confirmation.",
-        )
-        arm_text = st.text_input(
-            "Type EXECUTE here to confirm a LIVE run",
-            key="beta_arm",
-        )
-        # Not disabled while running — see _tab_trade: a stale disabled
-        # state outlives the run; the busy case is guarded server-side.
-        c_dry, c_live = st.columns(2)
-        go_dry = c_dry.form_submit_button(
-            "▶ Execute dry run (parallel)",
-            help="Simulate the parallel run: logs in and validates, NO "
-            "real orders.",
-        )
-        go_live = c_live.form_submit_button(
-            "🔴 Execute LIVE order (parallel)",
-            type="primary",
-            help="Places REAL orders (in parallel) in this same click "
-            "(requires EXECUTE typed above).",
-        )
+    broker_keys = _broker_picker("beta")
+    _render_preflight_warnings(broker_keys, vault)
+    cap = st.slider(
+        "Max brokers at once (concurrency cap)",
+        min_value=1, max_value=12, value=6, key="beta_cap",
+        help="How many API brokers may run simultaneously. Lower it if "
+        "a broker rate-limits; 6 is a safe default.",
+    )
+    col1, col2, col3 = st.columns(3)
+    action = col1.selectbox("Action", ["buy", "sell"], key="beta_action")
+    tickers_raw = col2.text_input(
+        "Stock symbol(s)", value="", help="Comma-separated",
+        key="beta_tickers",
+    )
+    amount = col3.number_input(
+        "Amount (shares)", min_value=0.0, value=1.0, step=1.0,
+        key="beta_amount",
+    )
+    col4, col5 = st.columns(2)
+    price_type = col4.selectbox(
+        "Order type", ["market", "limit"], key="beta_price_type",
+        help="Market is recommended; brokers fall back to a limit "
+        "where required.",
+    )
+    time_in_force = col5.selectbox(
+        "Time in force", ["day", "gtc"], key="beta_tif",
+        help="GTC is useful for pre/post-market limit orders.",
+    )
+    limit_price_raw = st.text_input(
+        "Limit price — used only for limit orders (blank = auto-derive)",
+        value="", key="beta_limit_price",
+        help="Exact limit price for a limit order; ignored for market "
+        "orders. Limit orders require exactly one symbol.",
+    )
+    st.markdown(
+        "**LIVE confirmation** — a LIVE parallel run places real orders "
+        "for exactly what's entered above, across **every account** at the "
+        "broker(s) selected above. Dry run needs no confirmation.",
+    )
+    arm_text = st.text_input(
+        "Type EXECUTE here to confirm a LIVE run", key="beta_arm",
+    )
+    c_dry, c_live = st.columns(2)
+    go_dry = c_dry.button(
+        "▶ Execute dry run (parallel)", key="beta_go_dry",
+        help="Simulate the parallel run: logs in and validates, NO real "
+        "orders.",
+    )
+    go_live = c_live.button(
+        "🔴 Execute LIVE order (parallel)", key="beta_go_live",
+        type="primary",
+        help="Places REAL orders (in parallel; requires EXECUTE typed).",
+    )
 
     st.caption(
         "The per-account sub-account filter is a shared setting — edit it "
