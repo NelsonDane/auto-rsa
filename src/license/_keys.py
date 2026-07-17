@@ -43,9 +43,9 @@ from __future__ import annotations
 
 # Production Ed25519 public key, base64-encoded raw 32 bytes.
 # EMPTY by default — verifier returns False until this is filled in.
-PUBLIC_KEY_B64: str = ""
+PUBLIC_KEY_B64: str = "KUrOISB4NH8EBY0wLsWGWlhHlUHpCIXEYrRi1PgU7dE="
 
 # Cloudflare Worker activation endpoint. Filled in once the worker
 # is deployed (Phase 3 of the build). Currently a placeholder; the
 # client module returns a clear error if used while empty.
-ACTIVATION_URL: str = ""
+ACTIVATION_URL: str = "https://rsa-license.ralanleder.workers.dev"
