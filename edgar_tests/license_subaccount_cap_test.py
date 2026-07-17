@@ -72,16 +72,28 @@ def test_no_cap_allows_all(monkeypatch):
         assert _reserve("robinhood", acct, o) is not None
 
 
-def test_tier_subaccount_caps_are_conservative():
-    """unlicensed + friend tiers cap at 1 account/broker; pro tiers are
-    uncapped. Locks the fix for the lapsed-offline-friend hole."""
+def test_friend_tiers_cap_at_one_pro_uncapped():
     from src.license.tiers import SUBACCOUNT_CAPS
 
-    assert SUBACCOUNT_CAPS["unlicensed"] == 1  # NOT None
     assert SUBACCOUNT_CAPS["friend_lite"] == 1
     assert SUBACCOUNT_CAPS["friend_main"] == 1
     assert SUBACCOUNT_CAPS["operator"] is None
     assert SUBACCOUNT_CAPS["advanced"] is None
+    # Pro "try it" state stays uncapped (no per-account cap surprise).
+    assert SUBACCOUNT_CAPS["unlicensed"] is None
+
+
+def test_unlicensed_capped_only_in_friend_build(monkeypatch):
+    """The lapsed-friend hole is closed in a friend build, without changing
+    pro behavior: manager.subaccount_cap() tightens unlicensed to 1 only
+    when REQUIRE_LICENSE_TO_TRADE is set."""
+    from src.license import _keys, manager
+
+    monkeypatch.setattr(manager, "current_tier", lambda: "unlicensed")
+    monkeypatch.setattr(_keys, "REQUIRE_LICENSE_TO_TRADE", False, raising=False)
+    assert manager.subaccount_cap() is None  # pro: unchanged
+    monkeypatch.setattr(_keys, "REQUIRE_LICENSE_TO_TRADE", True, raising=False)
+    assert manager.subaccount_cap() == 1  # friend build: capped
 
 
 def test_dedup_skip_releases_the_slot(monkeypatch):

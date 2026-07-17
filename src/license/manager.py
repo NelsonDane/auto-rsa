@@ -209,13 +209,25 @@ def subaccount_cap() -> int | None:
 
     The Friend tiers cap this at 1 (no multi-account fan-out). Reads
     ``current_tier()`` so the operator bypass (→ operator) and every
-    grace/expiry rule apply automatically. ``unlicensed`` is also capped
-    at 1 (see SUBACCOUNT_CAPS): a lapsed Friend token falls back to
-    ``unlicensed``, and since the trading gate fails open when offline,
-    leaving this uncapped would let a friend with no valid license trade
-    every account. Bypass (→ operator) stays uncapped.
+    grace/expiry rule apply automatically.
+
+    In a FRIEND build (``REQUIRE_LICENSE_TO_TRADE``), an ``unlicensed``
+    fallback is tightened to 1: a lapsed friend token drops to
+    ``unlicensed`` and the trading gate fails open when offline, so
+    leaving it uncapped would let a friend with no valid license trade
+    every account. The pro build leaves ``unlicensed`` uncapped (its
+    "try one broker" state is unchanged); bypass (→ operator) is always
+    uncapped.
     """
-    return SUBACCOUNT_CAPS.get(current_tier())
+    tier = current_tier()
+    cap = SUBACCOUNT_CAPS.get(tier)
+    if (
+        cap is None
+        and tier == "unlicensed"
+        and getattr(_keys, "REQUIRE_LICENSE_TO_TRADE", False)
+    ):
+        return 1
+    return cap
 
 
 def can_add_broker(current_count: int) -> tuple[bool, str | None]:

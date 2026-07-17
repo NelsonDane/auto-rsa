@@ -43,14 +43,11 @@ TIER_CAPS: dict[Tier, int | None] = {
 # How many accounts WITHIN each broker may trade per run. ``None`` =
 # unlimited (the pro tiers keep multi-account fan-out). Friend tiers = 1.
 #
-# ``unlicensed`` is capped at 1 (conservative), NOT None: a Friend build
-# whose token has lapsed beyond grace falls back to ``unlicensed``, and if
-# it's also offline the trading gate (client.pre_trade_block) fails open —
-# so if this were None, a friend with no valid license could trade every
-# account of every broker. Capping unlicensed to 1 closes that window; the
-# operator is unaffected (bypass → operator → None).
+# ``unlicensed`` is None here (pro "try it" state is unchanged), but
+# manager.subaccount_cap() tightens it to 1 in a FRIEND build so a lapsed
+# offline friend can't trade uncapped — see there.
 SUBACCOUNT_CAPS: dict[Tier, int | None] = {
-    "unlicensed": 1,
+    "unlicensed": None,
     "basic": None,
     "advanced": None,
     "operator": None,
