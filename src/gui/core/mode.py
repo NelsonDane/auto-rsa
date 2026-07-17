@@ -54,8 +54,25 @@ def _build_default() -> bool:
         return False
 
 
+def _friend_build() -> bool:
+    try:
+        from src.license import _keys  # noqa: PLC0415
+
+        return bool(getattr(_keys, "REQUIRE_LICENSE_TO_TRADE", False))
+    except Exception:
+        return False
+
+
 def simple_mode() -> bool:
-    """Whether Simple Mode is in effect. Env overrides sentinel overrides build."""
+    """Whether Simple Mode is in effect. Env overrides sentinel overrides build.
+
+    SECURITY (finding SEC-3): a friend build is ALWAYS Simple Mode — the
+    ``RSA_SIMPLE_MODE``/flag downgrade is honored only in the pro build.
+    Otherwise a friend could set ``RSA_SIMPLE_MODE=0`` to un-hide the
+    advanced UI, including the license-bypass toggle.
+    """
+    if _friend_build():
+        return True
     env = _env_state()
     if env is not None:
         return env

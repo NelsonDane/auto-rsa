@@ -48,3 +48,13 @@ def test_env_beats_sentinel(monkeypatch):
     mode.set_simple_mode(enabled=True)  # sentinel says on
     monkeypatch.setenv("RSA_SIMPLE_MODE", "0")  # env says off
     assert mode.simple_mode() is False
+
+
+def test_friend_build_forces_simple_mode(monkeypatch):
+    # SEC-3: a friend build ignores the RSA_SIMPLE_MODE=0 downgrade so the
+    # advanced UI / bypass toggle can't be re-exposed.
+    monkeypatch.setattr("src.license._keys.REQUIRE_LICENSE_TO_TRADE", True, raising=False)
+    monkeypatch.setenv("RSA_SIMPLE_MODE", "0")
+    assert mode.simple_mode() is True
+    mode.set_simple_mode(enabled=False)
+    assert mode.simple_mode() is True  # flag-off also ignored in friend build
