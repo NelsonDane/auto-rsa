@@ -29,6 +29,7 @@ from src.gui.core import (
     reconcile,
     watchdog,
 )
+from src.gui.core import wizard
 from src.gui.core.friendly_errors import friendly_summary
 from src.gui.core.mode import simple_mode
 from src.gui.core.brokers_meta import SUPPORTED_BROKERS, BrokerMeta, get_broker
@@ -3120,6 +3121,169 @@ def _render_lock_recovery_banner(runner: TradeRunner) -> None:
         st.rerun()
 
 
+def _should_show_wizard() -> bool:
+    """First-run wizard shows on the friend build until setup is finished."""
+    return simple_mode() and not wizard.setup_complete()
+
+
+def _wizard_step() -> int:
+    return int(st.session_state.get("wizard_step", 0))
+
+
+def _wizard_goto(step: int) -> None:
+    st.session_state["wizard_step"] = step
+    st.rerun()
+
+
+def _wizard_welcome() -> None:
+    st.markdown(
+        "This app places the **same order across your brokers** for you.\n\n"
+        "Three quick steps: set a password to protect your logins, activate "
+        "your license, and connect one broker. Takes about a minute.",
+    )
+    if st.button("Get started", type="primary", key="wiz_start"):
+        _wizard_goto(1)
+
+
+def _wizard_vault(vault: Vault) -> None:
+    st.markdown("**Step 1 of 3 — Protect your logins**")
+    if vault.is_unlocked():
+        st.success("Your vault is ready.")
+        if st.button("Next", type="primary", key="wiz_vault_next"):
+            _wizard_goto(2)
+        return
+    if not vault.is_initialized():
+        st.caption(
+            "Choose a master password. It encrypts your broker logins on THIS "
+            "computer — we never see it.",
+        )
+        pw1 = st.text_input("New master password", type="password", key="wiz_pw1")
+        pw2 = st.text_input("Confirm password", type="password", key="wiz_pw2")
+        if st.button("Create", type="primary", key="wiz_vault_create"):
+            if not pw1 or pw1 != pw2:
+                st.error("Passwords must match and not be empty.")
+            else:
+                try:
+                    vault.initialize(pw1)
+                except VaultError as exc:
+                    st.error(str(exc))
+                else:
+                    _wizard_goto(2)
+    else:
+        st.caption("Enter your master password to unlock.")
+        pw = st.text_input("Master password", type="password", key="wiz_unlock_pw")
+        if st.button("Unlock", type="primary", key="wiz_vault_unlock"):
+            try:
+                vault.unlock(pw)
+            except VaultError as exc:
+                st.error(str(exc))
+            else:
+                _wizard_goto(2)
+
+
+def _wizard_license() -> None:
+    st.markdown("**Step 2 of 3 — Activate your license**")
+    from src.license import client as lic  # noqa: PLC0415
+    from src.license import status_summary  # noqa: PLC0415
+
+    info = status_summary()
+    reason = str(info.get("reason", ""))
+    licensed = (
+        info.get("license_id") == "BYPASS"
+        or reason in ("valid token", "in grace window")
+    )
+    if licensed:
+        st.success(f"License active — {info['tier_label']}.")
+        if st.button("Next", type="primary", key="wiz_lic_next"):
+            _wizard_goto(3)
+        return
+    if not lic.server_url():
+        st.info("No license server is set up for this build — you can continue.")
+        if st.button("Next", type="primary", key="wiz_lic_nosrv"):
+            _wizard_goto(3)
+        return
+    st.caption("Paste the license key the admin sent you.")
+    st.text_input(
+        "License key", key="wiz_lic_key", placeholder="rsa-XXXX-XXXX-XXXX",
+        label_visibility="collapsed",
+    )
+    c1, c2 = st.columns(2)
+    if c1.button("Activate", type="primary", key="wiz_lic_activate"):
+        ok, msg = lic.activate(st.session_state.get("wiz_lic_key", ""))
+        if ok:
+            st.success(msg)
+            st.rerun()
+        else:
+            st.error(msg)
+    if c2.button("Skip for now", key="wiz_lic_skip"):
+        _wizard_goto(3)
+
+
+def _wizard_broker(vault: Vault) -> None:
+    st.markdown("**Step 3 of 3 — Connect a broker**")
+    st.caption("Pick one to start. You can add more later in Credentials.")
+    api = [m for m in SUPPORTED_BROKERS if not m.browser_based]
+    names = {m.display_name: m for m in api}
+    choice = st.selectbox("Broker", list(names), key="wiz_broker_pick")
+    meta = names[choice]
+    values: dict[str, str] = {}
+    for spec in meta.fields:
+        values[spec.key] = st.text_input(
+            spec.label,
+            type="password" if spec.secret else "default",
+            key=f"wiz_field_{meta.key}_{spec.key}",
+            help=spec.help or None,
+        )
+    c1, c2 = st.columns(2)
+    if c1.button("Save & finish", type="primary", key="wiz_broker_save"):
+        acct = {k: v for k, v in values.items() if (v or "").strip()}
+        if not acct:
+            st.error("Enter your login details first.")
+        else:
+            try:
+                vault.set_broker(meta.key, [acct])
+            except VaultError as exc:
+                st.error(str(exc))
+            else:
+                _wizard_goto(4)
+    if c2.button("Skip — add later", key="wiz_broker_skip"):
+        _wizard_goto(4)
+
+
+def _wizard_finish() -> None:
+    st.markdown("**You're all set! 🎉**")
+    st.caption(
+        "Add more brokers any time in the Credentials section, and place "
+        "trades in the Trade section.",
+    )
+    if st.button("Finish", type="primary", key="wiz_finish"):
+        wizard.mark_setup_complete()
+        st.session_state.pop("wizard_step", None)
+        st.rerun()
+
+
+def _render_setup_wizard(vault: Vault) -> None:
+    """The first-run guided setup for the friend build."""
+    st.subheader("Welcome — let's get you set up")
+    step = _wizard_step()
+    st.progress(min(step, 4) / 4)
+    if step <= 0:
+        _wizard_welcome()
+    elif step == 1:
+        _wizard_vault(vault)
+    elif step == 2:
+        _wizard_license()
+    elif step == 3:
+        _wizard_broker(vault)
+    else:
+        _wizard_finish()
+    st.divider()
+    if st.button("Skip setup — I'll finish later", key="wiz_skip_all"):
+        wizard.mark_setup_complete()
+        st.session_state.pop("wizard_step", None)
+        st.rerun()
+
+
 def main() -> None:
     """Render the full app."""
     _state()
@@ -3136,6 +3300,15 @@ def main() -> None:
     _marker = _build_marker()
     if _marker:
         st.caption(f"build {_marker}")
+
+    # First-run wizard (friend build): take over the screen until the
+    # friend finishes (or skips) setup — no sidebar, no sections.
+    if _should_show_wizard():
+        watchdog.mark("setup wizard")
+        _render_setup_wizard(_get_vault())
+        watchdog.end_run()
+        watchdog.disarm()
+        return
 
     watchdog.mark("sidebar")
     _sidebar()

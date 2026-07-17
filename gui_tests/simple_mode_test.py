@@ -10,6 +10,7 @@ os.environ["RSA_LICENSE_BYPASS"] = "1"
 
 from streamlit.testing.v1 import AppTest
 
+from src.gui.core import wizard
 from src.gui.core.runner import TradeRunner
 from src.gui.core.vault import Vault
 from src.license import client as lic
@@ -19,6 +20,8 @@ APP = str(Path(__file__).resolve().parents[1] / "src/gui/app.py")
 
 def _app(monkeypatch, *, simple: bool):
     monkeypatch.setenv("RSA_SIMPLE_MODE", "1" if simple else "0")
+    # These tests exercise the normal UI, not the first-run wizard.
+    monkeypatch.setattr(wizard, "setup_complete", lambda: True)
     # License tab (if rendered) must not hit the network.
     monkeypatch.setattr(
         lic, "killswitch_status",
