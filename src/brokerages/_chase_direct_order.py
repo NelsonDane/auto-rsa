@@ -97,6 +97,43 @@ def _needs_limit_order(errs: object) -> bool:
     return "r02105" in text or "limit price at this time" in text
 
 
+def _afterhours_limit_enabled() -> bool:
+    """Auto-convert a Chase MARKET order rejected after-hours into a
+    marketable LIMIT. Default ON; set RSA_CHASE_AFTERHOURS_LIMIT=0 to off."""
+    return os.getenv("RSA_CHASE_AFTERHOURS_LIMIT", "1").strip().lower() in {
+        "1", "true", "yes", "on",
+    }
+
+
+def _qf(q: dict, key: str) -> float:
+    try:
+        return float(q.get(key, 0) or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _marketable_limit(order_type: str, ask: float, bid: float, last: float) -> float:
+    """A marketable limit price for a market->limit fallback.
+
+    BUY fills at the ask, SELL at the bid (i.e. essentially the market
+    price). Guarded so a wild/stale after-hours quote can't overpay: the
+    price is clamped to within ±10% of the last trade.
+    """
+    if str(order_type).upper() == "BUY":
+        base = ask if ask > 0 else last
+        if base <= 0:
+            return 0.0
+        if last > 0:
+            base = min(base, last * 1.10)  # never overpay on a stale ask
+    else:  # SELL
+        base = bid if bid > 0 else last
+        if base <= 0:
+            return 0.0
+        if last > 0:
+            base = max(base, last * 0.90)  # never dump below a stale bid
+    return round(base, 2) if base >= 1 else round(base, 4)
+
+
 def _classify_chase_exc(exc: BaseException) -> str:
     """Map a Chase POST exception to one of the project's reason codes.
 
@@ -357,19 +394,70 @@ def apply() -> None:  # noqa: C901, PLR0915
                 )
                 return order_messages
             errs = val_data.get("tradeErrorMessages", []) if isinstance(val_data, dict) else []
+            # Chase rejects MARKET orders outside regular market hours
+            # (R02105A). If enabled (default on), re-price and retry as a
+            # marketable LIMIT — ask for BUY / bid for SELL, clamped to ±10%
+            # of last — so the order can still go through after-hours.
+            if (
+                errs and price_type == "MARKET"
+                and _needs_limit_order(errs) and _afterhours_limit_enabled()
+            ):
+                ask = bid = last = 0.0
+                with contextlib.suppress(Exception):
+                    q = await _in_page_fetch(
+                        page,
+                        f"{quote_url()}?security-symbol-code={symbol}"
+                        "&security-validate-indicator=true"
+                        "&dollar-based-trading-include-indicator=true",
+                        label="limit-requote", t0=t0, timeout=_quote_timeout(),
+                    )
+                    if isinstance(q, dict):
+                        ask, bid, last = (
+                            _qf(q, "askPriceAmount"),
+                            _qf(q, "bidPriceAmount"),
+                            _qf(q, "lastTradePriceAmount"),
+                        )
+                lim = _marketable_limit(order_type, ask, bid, last)
+                if lim > 0:
+                    _log(
+                        "market->limit retry", t0,
+                        f"limit={lim} ask={ask} bid={bid} last={last}",
+                    )
+                    print(
+                        f"Chase: market order rejected after-hours — retrying "
+                        f"as LIMIT @ ${lim} for {order_type} {symbol}.",
+                    )
+                    payload["orderTypeCode"] = "LIMIT"
+                    payload["limitPriceAmount"] = lim
+                    payload["marketPriceAmount"] = lim
+                    if payload.get("timeInForceCode") not in {
+                        "DAY", "GOOD_TILL_CANCELLED",
+                    }:
+                        payload["timeInForceCode"] = "DAY"
+                    price_type = "LIMIT"
+                    val_data = await _in_page_fetch(
+                        page, validate_order(order_type=order_type),
+                        label="validate (limit retry)", t0=t0,
+                        method="POST", body=payload,
+                        timeout=_validate_timeout(),
+                    )
+                    if val_data is None:
+                        order_messages["ORDER INVALID"] = (
+                            "Limit-retry validation failed (in-page fetch "
+                            "returned None)."
+                        )
+                        return order_messages
+                    errs = val_data.get("tradeErrorMessages", []) if isinstance(val_data, dict) else []
+                else:
+                    _log("market->limit: no usable quote price", t0)
             if errs:
-                if price_type == "MARKET" and _needs_limit_order(errs):
-                    # Chase only accepts LIMIT orders outside regular market
-                    # hours. Make the fix actionable instead of an opaque
-                    # broker code — the operator can re-run as a limit order
-                    # or wait for the open.
-                    _log("market rejected: Chase wants LIMIT (after-hours)", t0)
+                if _needs_limit_order(errs):
+                    _log("Chase still requires LIMIT after retry", t0)
                     errs = [
                         *(errs if isinstance(errs, list) else [errs]),
                         "AUTO-RSA: Chase only accepts LIMIT orders outside "
-                        "market hours (9:30 AM-4:00 PM ET). On the Trade tab "
-                        "set Order type = Limit with a limit price, or run "
-                        "during market hours.",
+                        "market hours (9:30 AM-4:00 PM ET). Set Order type = "
+                        "Limit with a limit price, or run during market hours.",
                     ]
                 order_messages["ORDER INVALID"] = errs
                 return order_messages

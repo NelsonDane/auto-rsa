@@ -50,6 +50,12 @@ DEFAULT_SETTINGS: dict[str, str] = {
     # sidebar to fall back to the (known-broken-on-multi-account)
     # upstream path.
     "RSA_CHASE_DIRECT_ORDER": "true",
+    # Chase rejects MARKET orders outside market hours ("only accepting
+    # limit orders", R02105A). Default ON: auto-retry as a marketable LIMIT
+    # (ask for buy / bid for sell, clamped to ±10% of last) so an
+    # after-hours Chase order still goes through. Turn off to have the run
+    # just report the rejection instead.
+    "RSA_CHASE_AFTERHOURS_LIMIT": "true",
     # Phase 7: per-signal-type allow-list. Comma-separated subset of
     # ROUND_UP_REVERSE / SPIN_OFF / SPECIAL_DIV. Default is the
     # original reverse-split flow only — no behavior change until

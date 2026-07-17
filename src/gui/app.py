@@ -263,6 +263,15 @@ def _sidebar() -> None:  # noqa: C901, PLR0912, PLR0914, PLR0915
         "upstream path, which does not work reliably with multiple "
         "accounts.",
     )
+    chase_ah_limit = st.sidebar.checkbox(
+        "Chase: auto-limit after-hours",
+        value=settings.get("RSA_CHASE_AFTERHOURS_LIMIT", "true") == "true",
+        help="ON by default. Outside market hours Chase rejects MARKET "
+        "orders ('only accepting limit orders'). With this on, such an "
+        "order is auto-retried as a marketable LIMIT — the ask for a buy / "
+        "bid for a sell, clamped to ±10% of the last trade. Turn OFF to "
+        "just report the rejection and place nothing.",
+    )
     # Phase 7: per-signal-type allow-list. Operator opts into each
     # new event class individually. The Python pipeline already
     # detects them (Phase 5); these checkboxes control whether
@@ -300,10 +309,14 @@ def _sidebar() -> None:  # noqa: C901, PLR0912, PLR0914, PLR0915
         "HEADLESS": "true" if headless else "false",
         "SORT_BROKERS": "true" if sort_brokers else "false",
         "RSA_CHASE_DIRECT_ORDER": "true" if chase_direct else "false",
+        "RSA_CHASE_AFTERHOURS_LIMIT": "true" if chase_ah_limit else "false",
         "RSA_SIGNAL_TYPES_ENABLED": ",".join(new_enabled) or "ROUND_UP_REVERSE",
     }
-    if new_settings != settings:
-        vault.set_settings(new_settings)
+    # Merge (not replace) so keys the sidebar doesn't manage — e.g. a saved
+    # sub-account filter — are preserved on save.
+    merged = {**settings, **new_settings}
+    if merged != settings:
+        vault.set_settings(merged)
 
     st.sidebar.divider()
     with st.sidebar.expander("Notifications"):

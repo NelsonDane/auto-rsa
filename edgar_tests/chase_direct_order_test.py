@@ -535,3 +535,38 @@ def test_direct_path_classified_exception_visible_in_order_invalid(monkeypatch):
     invalid = out["ORDER INVALID"]
     assert "Validation Exception" in invalid
     assert "SESSION_ERROR" in invalid
+
+
+def test_needs_limit_order_detection():
+    from src.brokerages._chase_direct_order import _needs_limit_order
+    assert _needs_limit_order(
+        ["We are only accepting orders with a limit price at this time (R02105A)"],
+    )
+    assert _needs_limit_order("something R02105A something")
+    assert not _needs_limit_order(["Insufficient buying power"])
+    assert not _needs_limit_order([])
+
+
+def test_marketable_limit_prices():
+    from src.brokerages._chase_direct_order import _marketable_limit
+    # BUY fills at the ask when it's sane
+    assert _marketable_limit("BUY", 12.05, 11.95, 12.02) == 12.05
+    # a wild/stale ask is clamped to +10% of last (never overpay)
+    assert _marketable_limit("BUY", 99.0, 0.0, 12.02) == round(12.02 * 1.10, 2)
+    # SELL fills at the bid; a stale low bid is floored at -10% of last
+    assert _marketable_limit("SELL", 12.05, 11.95, 12.02) == 11.95
+    assert _marketable_limit("SELL", 0.0, 1.0, 12.02) == round(12.02 * 0.90, 2)
+    # sub-$1 keeps 4-dp precision
+    assert _marketable_limit("BUY", 0.32, 0.30, 0.31) == 0.32
+    # no quote at all -> 0 (refuse to place a blind order)
+    assert _marketable_limit("BUY", 0.0, 0.0, 0.0) == 0.0
+
+
+def test_afterhours_limit_toggle(monkeypatch):
+    from src.brokerages import _chase_direct_order as d
+    monkeypatch.delenv("RSA_CHASE_AFTERHOURS_LIMIT", raising=False)
+    assert d._afterhours_limit_enabled() is True  # default on
+    monkeypatch.setenv("RSA_CHASE_AFTERHOURS_LIMIT", "0")
+    assert d._afterhours_limit_enabled() is False
+    monkeypatch.setenv("RSA_CHASE_AFTERHOURS_LIMIT", "false")
+    assert d._afterhours_limit_enabled() is False
