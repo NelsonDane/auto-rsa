@@ -1,7 +1,9 @@
 import asyncio
+import contextlib
 import datetime
 import os
 import pathlib
+import re
 import shutil
 import sys
 import traceback
@@ -18,6 +20,7 @@ from discord.ext.commands import Bot
 from dotenv import load_dotenv
 from nodriver.core.browser import Browser, tab
 
+from src.brokerages._browser_profile_cleanup import kill_stale_profile_browsers
 from src.helper_api import Brokerage, StockOrder, complete_or_fail, get_local_timezone, get_otp_from_discord, mask_string, print_all_holdings, print_and_discord, reserve_or_skip
 
 load_dotenv()
@@ -192,6 +195,19 @@ def sofi_run(order_obj: StockOrder, command: tuple[str, str] | None = None, bot_
             index = accounts.index(account) + 1
             name = f"SoFi {index}"
             cookie_filename = f"{COOKIES_PATH}/{name}.pkl"
+            # PERSISTENT Chrome profile per account. Previously SoFi ran in a
+            # nodriver TEMP profile that was deleted after every run, so the
+            # "remember this device" cookie never survived — every run did a
+            # full fresh login, which triggers SoFi's "Verify you are human"
+            # CAPTCHA / rate-limiting. A persistent user_data_dir keeps the
+            # session (Chrome's own cookie store), so later runs skip 2FA and
+            # the CAPTCHA. Also removes the reliance on cookies.save(), which
+            # hangs (CDP). Free a leaked Chrome holding the profile lock first
+            # (same guard Wells Fargo uses), or the new browser can't open it.
+            profile_marker = f"sofi_profile_{re.sub(r'[^A-Za-z0-9]', '_', name)}"
+            profile_dir = str(pathlib.Path(COOKIES_PATH) / profile_marker)
+            pathlib.Path(profile_dir).mkdir(parents=True, exist_ok=True)
+            kill_stale_profile_browsers(COOKIES_PATH, profile_marker)
             browser_args = [
                 "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
             ]
@@ -201,6 +217,7 @@ def sofi_run(order_obj: StockOrder, command: tuple[str, str] | None = None, bot_
             start_kwargs: dict[str, object] = {
                 "browser_args": browser_args,
                 "headless": headless,
+                "user_data_dir": profile_dir,
             }
             chrome_path = _find_system_chrome()
             if chrome_path:
@@ -234,22 +251,13 @@ def sofi_run(order_obj: StockOrder, command: tuple[str, str] | None = None, bot_
         # window open and prevented the run from reporting
         # completion. Wrap both in asyncio.wait_for so a hang in
         # either step times out cleanly instead of freezing.
-        if browser and cookie_filename:
-            try:
-                sofi_loop.run_until_complete(
-                    asyncio.wait_for(
-                        _save_cookies_to_pkl(browser, cookie_filename),
-                        timeout=10,
-                    ),
-                )
-            except TimeoutError:
-                print("SoFi: cookies.save() timed out (CDP hang); skipping.")
-            except Exception as e:
-                print(f"SoFi: cookies.save() failed: {e}")
-            # browser.stop() is synchronous in nodriver; if it ever
-            # hangs we can't easily wait_for it, but it usually
-            # completes instantly. Wrapped in try/except so any
-            # teardown error doesn't mask the run's actual outcome.
+        if browser:
+            # The session now persists in the on-disk Chrome profile
+            # (user_data_dir), so we no longer pickle cookies here — that
+            # call hung on CDP Storage.getCookies and cost ~10s per run for
+            # nothing. Just close the browser cleanly. browser.stop() is
+            # synchronous; wrap it so a teardown error can't mask the run's
+            # actual outcome.
             try:
                 browser.stop()
                 print("SoFi: browser closed.")
@@ -392,26 +400,31 @@ def sofi_init(  # noqa: PLR0917
         )
         _sofi_log("cookies result", t0, f"loaded={cookies_loaded}")
 
-        if cookies_loaded:
-            sofi_loop.run_until_complete(
-                _nav_with_timeout(
-                    lambda: page.get("https://www.sofi.com/wealth/app/"),
-                    label="wealth/app/ nav (cookies path)", t0=t0,
-                ),
-            )
-            sofi_loop.run_until_complete(browser.sleep(5))
+        # Whether the session came from the pkl OR (now the primary path)
+        # the persistent Chrome profile, we may already be authenticated.
+        # Check BEFORE attempting a fresh login — a fresh login is what
+        # triggers SoFi's "Verify you are human" CAPTCHA, so skipping it
+        # when the profile still holds the session is the whole point.
+        sofi_loop.run_until_complete(
+            _nav_with_timeout(
+                lambda: page.get("https://www.sofi.com/wealth/app/"),
+                label="wealth/app/ session check", t0=t0,
+            ),
+        )
+        sofi_loop.run_until_complete(browser.sleep(5))
+        with contextlib.suppress(Exception):
             sofi_loop.run_until_complete(page.select("body"))
-            current_url = sofi_loop.run_until_complete(
-                get_current_url(page, discord_loop),
-            )
-            _sofi_log("post-cookies url", t0, repr(current_url))
-
-            if current_url and "overview" in current_url:
-                sofi_loop.run_until_complete(
-                    _save_cookies_to_pkl(browser, cookie_filename),
-                )
-                _sofi_log("done via cookies", t0)
-                return sofi_obj
+        current_url = sofi_loop.run_until_complete(
+            get_current_url(page, discord_loop),
+        )
+        _sofi_log("session-check url", t0, repr(current_url))
+        if current_url and (
+            "overview" in current_url or "member-home" in current_url
+        ):
+            _sofi_log("already authenticated (persistent profile) — skip login", t0)
+            sofi_obj.set_logged_in_object(name, browser)
+            _sofi_log("init complete", t0)
+            return sofi_obj
 
         _sofi_log("starting fresh login", t0)
         # Proceed with login if cookies are invalid or expired
