@@ -259,6 +259,24 @@ def pre_trade_block(*, require_license: bool) -> tuple[bool, str]:
     revoke is the hard backstop and bites the next time the friend is
     online. A valid ``/refresh`` also silently rotates the token.
     """
+    # SECURITY (finding SEC-5): in a friend build, verify the on-disk token
+    # LOCALLY first — signature + hardware binding + expiry, no network.
+    # An expired/tampered/foreign token drops to "unlicensed", so this
+    # fails CLOSED even offline (the old code loaded the token unverified
+    # and relied entirely on the server round-trip, so an expired/tampered
+    # token sailed through the gate when offline).
+    if require_license:
+        from src.license import current_tier  # noqa: PLC0415
+
+        # NOTE: don't clear the token here — a transient hardware-id read
+        # failure can make a valid token read "unlicensed" for one run; only
+        # a definitive server 410 (below) clears it.
+        if current_tier() == "unlicensed":
+            return True, (
+                "No valid license (it may have expired). Activate your key "
+                "in the License section. No orders were placed."
+            )
+
     url = server_url()
     if not url:
         return False, ""  # unconfigured -> can't enforce; fail open

@@ -67,11 +67,22 @@ try {
         --include-package-data=altair `
         --include-package-data=pandas `
         --include-package-data=pyarrow `
+        --include-distribution-metadata=auto_rsa_bot `
         --include-data-files="src/gui/app.py=src/gui/app.py" `
         --include-module=src.gui.core.engine_proc `
         --nofollow-import-to="pytest" `
         --nofollow-import-to="*.tests" `
         "launcher.py"
+
+    # NOTE: the engine imports the browser brokers (Chase/Fidelity/SoFi/
+    # Wells Fargo/Vanguard) at startup. If any of their libs reads package
+    # data / a driver manifest at import and it wasn't bundled, the engine
+    # dies for ALL brokers. If the smoke test (BUILD.md §3) shows an engine
+    # ImportError, add the offending lib here and rebuild, e.g.:
+    #   --include-package-data=playwright --include-package-data=patchright `
+    #   --include-package-data=nodriver --include-package-data=selenium `
+    #   --include-package-data=selenium_stealth
+    # (Browser *binaries* are a separate first-run fetch — see BUILD.md §5.3.)
     if ($LASTEXITCODE -ne 0) { throw "Nuitka failed ($LASTEXITCODE)" }
 }
 finally { Pop-Location }

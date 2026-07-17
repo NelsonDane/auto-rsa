@@ -55,8 +55,7 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: deskto
 ; Offer to launch after install (no elevation).
 Filename: "{app}\{#AppExeName}"; Description: "Launch {#AppName}"; Flags: nowait postinstall skipifsilent
 
-[UninstallDelete]
 ; Preserve the user's encrypted vault, license token, ledger, and logs
-; across uninstall/reinstall — never delete creds\.
-Type: filesandordirs; Name: "{app}\_internal"
-; (creds\ is intentionally NOT listed here, so it survives.)
+; across uninstall/reinstall: creds\ is intentionally NOT listed in any
+; [UninstallDelete], so Inno leaves it in place. (Nuitka --standalone has
+; no PyInstaller-style _internal\ folder, so nothing to special-case here.)
