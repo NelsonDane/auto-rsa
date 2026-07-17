@@ -9,20 +9,35 @@ import time
 from src.gui.core import diagnostics as d
 
 
-def test_engine_import_check_skips_subprocess_when_frozen(monkeypatch):
-    # In a frozen build `sys.executable -c "…"` would boot a second server;
-    # the check must short-circuit to OK without spawning anything.
-    called = {"n": 0}
+def test_engine_import_check_frozen_does_real_import_no_subprocess(monkeypatch):
+    # Frozen build: must NOT spawn a subprocess (would boot a 2nd server),
+    # but must do a REAL in-process import (a false green would hide a
+    # broken engine). Here we simulate a clean import.
+    import importlib
 
-    def _spy(*_a, **_k):
-        called["n"] += 1
+    def _no_subprocess(*_a, **_k):
         raise AssertionError("subprocess must not run in a frozen build")
 
-    monkeypatch.setattr(d.subprocess, "run", _spy)
+    monkeypatch.setattr(d.subprocess, "run", _no_subprocess)
     monkeypatch.setenv("AUTORSA_FROZEN", "1")
+    monkeypatch.setattr(importlib, "import_module", lambda _name: None)
     hc = d.check_engine_importable()
     assert hc.status == d.OK
-    assert called["n"] == 0
+
+
+def test_engine_import_check_frozen_reports_real_failure(monkeypatch):
+    # If the bundled engine can't import (missing metadata / vendored lib /
+    # browser data), the frozen check must FAIL, not falsely report OK.
+    import importlib
+
+    def _boom(_name):
+        raise ImportError("no module named 'chase'")
+
+    monkeypatch.setenv("AUTORSA_FROZEN", "1")
+    monkeypatch.setattr(importlib, "import_module", _boom)
+    hc = d.check_engine_importable()
+    assert hc.status == d.FAIL
+    assert "die at startup" in hc.detail
 
 
 def test_quick_checks_report_vault_states():

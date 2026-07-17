@@ -176,14 +176,25 @@ def check_engine_importable(timeout: float = 90.0) -> HealthCheck:
     """
     # In a packaged (frozen) build sys.executable is AutoRSA.exe, and the
     # launcher only multiplexes on `--engine` — `AutoRSA.exe -c "…"` would
-    # fall through and boot a SECOND Streamlit server (bogus WARN/FAIL +
-    # a rogue process). The engine is bundled and already imported to
-    # start the app, so report OK without spawning anything.
+    # fall through and boot a SECOND Streamlit server. So we can't spawn a
+    # subprocess — but we must still ACTUALLY test the import (asserting OK
+    # would hide a broken engine: missing package metadata, a vendored lib
+    # that didn't ship, browser package data, etc.). Import in-process; the
+    # modules are bundled into this same binary already.
     if os.getenv("AUTORSA_FROZEN") == "1" or getattr(sys, "frozen", False):
+        import importlib  # noqa: PLC0415
+
+        try:
+            importlib.import_module("src.auto_rsa")
+        except Exception as exc:  # noqa: BLE001
+            return HealthCheck(
+                "Engine import",
+                FAIL,
+                f"the engine fails to import in the packaged build — every run "
+                f"will die at startup: {exc}",
+            )
         return HealthCheck(
-            "Engine import",
-            OK,
-            "packaged build — engine modules are bundled and import at startup.",
+            "Engine import", OK, "engine modules import cleanly (packaged).",
         )
     try:
         proc = subprocess.run(  # noqa: S603

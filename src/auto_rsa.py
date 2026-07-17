@@ -4,7 +4,6 @@
 
 # Import libraries
 import asyncio
-import importlib.util
 import os
 import sys
 import traceback
@@ -30,20 +29,32 @@ warnings.filterwarnings(
     category=SyntaxWarning,
 )
 
-# Point "robin_stocks" to the actual inner folder. Workaround until package update
-vendor_root = Path(__file__).resolve().parent / "vendors" / "robin_stocks" / "robin_stocks"
-spec = importlib.util.spec_from_file_location("robin_stocks", vendor_root / "__init__.py")
-if spec is not None:
-    robin_stocks = importlib.util.module_from_spec(spec)
-    sys.modules["robin_stocks"] = robin_stocks
-    if spec.loader is not None:
-        spec.loader.exec_module(robin_stocks)
+# Alias the vendored robin_stocks so a bare `import robin_stocks` (which the
+# vendored library does internally) resolves to the inner package.
+# IMPORTANT: import the COMPILED package, not a file-path load — the
+# previous spec_from_file_location(vendors/.../__init__.py) needed the .py to
+# exist on disk, which it does NOT in a Nuitka one-click build (the submodule
+# is compiled into the binary, not shipped as source), so the engine died at
+# import on every run. robinhood_api already imports this same package.
+try:
+    import src.vendors.robin_stocks.robin_stocks as _robin_stocks
+
+    sys.modules.setdefault("robin_stocks", _robin_stocks)
+    robin_stocks = _robin_stocks
+except ImportError:
+    # Vendored submodule absent (a dev checkout without submodules). Not
+    # fatal here: robinhood_api imports it directly and fails loudly there
+    # if Robinhood is actually used; every other broker is unaffected.
+    pass
 
 # Print Startup Info
 print(f"Python version: {sys.version}")
 print(f"Platform: {sys.platform}")
 print(f"Current Directory: {Path.cwd()}")
-CURRENT_RSA_VERSION = version("auto_rsa_bot")
+try:
+    CURRENT_RSA_VERSION = version("auto_rsa_bot")
+except Exception:  # noqa: BLE001 -- PackageNotFoundError in a frozen build; degrade
+    CURRENT_RSA_VERSION = "0.0.0"
 # Check to see if directory contains .env file
 print(f"Directory Contains .env File: {Path('.env').exists()}")
 print(f"RSA Version: {CURRENT_RSA_VERSION}")

@@ -37,7 +37,13 @@ DISCORD_CHANNEL = os.getenv("DISCORD_CHANNEL", "")
 DISCORD_MESSAGES_URL = f"https://discord.com/api/v10/channels/{DISCORD_CHANNEL}/messages"
 HEADLESS = os.getenv("HEADLESS", "true").lower() != "false"
 SORT_BROKERS = os.getenv("SORT_BROKERS", "true").lower() != "false"
-CURRENT_RSA_VERSION = version("auto_rsa_bot")
+# Guard the metadata read: a Nuitka one-click build may not ship the
+# auto_rsa_bot .dist-info, and an unguarded version() would raise
+# PackageNotFoundError at engine import -> every run dies. Fall back.
+try:
+    CURRENT_RSA_VERSION = version("auto_rsa_bot")
+except Exception:  # noqa: BLE001 -- PackageNotFoundError et al.; degrade, don't crash
+    CURRENT_RSA_VERSION = "0.0.0"
 
 
 class EmbedFieldType(TypedDict):
