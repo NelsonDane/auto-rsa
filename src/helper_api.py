@@ -737,18 +737,23 @@ def reserve_or_skip(  # noqa: PLR0913
     subacct_cap = _subaccount_cap_for_run()
     slot_taken = False
     if subacct_cap is not None:
+        over_cap = False
         with _SUBACCT_LOCK:
             used = _SUBACCT_USED.get(bkey, 0)
             if used >= subacct_cap:
-                print_and_discord(
-                    f"{label}: skipped {ticker} — this license allows "
-                    f"{subacct_cap} account per broker; not trading additional "
-                    f"{broker_key} accounts this run.",
-                    loop,
-                )
-                return None
-            _SUBACCT_USED[bkey] = used + 1
-            slot_taken = True
+                over_cap = True
+            else:
+                _SUBACCT_USED[bkey] = used + 1
+                slot_taken = True
+        # Log OUTSIDE the lock (print_and_discord may do I/O).
+        if over_cap:
+            print_and_discord(
+                f"{label}: skipped {ticker} — this license allows "
+                f"{subacct_cap} account per broker; not trading additional "
+                f"{broker_key} accounts this run.",
+                loop,
+            )
+            return None
     # A MANUAL trade is scoped to the CURRENT DAY so the double-buy guard
     # only stops an accidental same-day re-run — it does NOT lock a ticker
     # forever. You can buy the same stock again on another day (or after a

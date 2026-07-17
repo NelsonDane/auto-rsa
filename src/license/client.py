@@ -130,7 +130,10 @@ def activate(license_key: str) -> tuple[bool, str]:
     if resp.status_code != 200:
         return False, f"Activation failed (HTTP {resp.status_code})."
 
-    token = resp.json()
+    try:
+        token = resp.json()
+    except ValueError:
+        return False, "Activation response was not valid."
     # Trust the SIGNATURE, not the server.
     if not verify.verify_token(token, _keys.PUBLIC_KEY_B64):
         return False, "Activation response failed its signature check."
@@ -166,7 +169,10 @@ def refresh_now() -> tuple[bool, str]:
         return False, _safe_msg(resp) or "Refresh is paused by the operator."
     if resp.status_code != 200:
         return False, f"Refresh failed (HTTP {resp.status_code})."
-    new = resp.json()
+    try:
+        new = resp.json()
+    except ValueError:
+        return False, "Refresh response was not valid."
     if verify.verify_token(new, _keys.PUBLIC_KEY_B64) and _hardware_matches(new):
         token_store.save(_strip(new))
         return True, "License refreshed."
@@ -215,8 +221,9 @@ def killswitch_status() -> dict[str, Any]:
                     "min_app_version": str(data.get("min_app_version", "")),
                     "reachable": True,
                 }
-        except requests.RequestException:
+        except (requests.RequestException, ValueError):
             pass  # FAIL-OPEN: active stays False, reachable stays False
+            # (ValueError = a 200 with a body we couldn't parse.)
 
     _kill_cache["ts"] = now
     _kill_cache["value"] = result
@@ -267,7 +274,13 @@ def pre_trade_block(*, require_license: bool) -> tuple[bool, str]:
         except requests.RequestException:
             return False, ""  # offline -> fail open (grace)
         if resp.status_code == 200:
-            new = resp.json()
+            # 200 = valid, not killed, not revoked -> allow. Rotate the
+            # token when the body parses; a garbage 200 still allows (200
+            # is not a block signal) rather than raising.
+            try:
+                new = resp.json()
+            except ValueError:
+                return False, ""
             if verify.verify_token(new, _keys.PUBLIC_KEY_B64) and _hardware_matches(new):
                 token_store.save(_strip(new))
             return False, ""
