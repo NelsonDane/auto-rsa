@@ -12,5 +12,7 @@ test*
 *venv/
 *workspace
 *.zip
-build/
+# Ignore build OUTPUTS but keep the build scripts (build/windows/) tracked.
+build/out/
+build/stage/
 *egg-info/
