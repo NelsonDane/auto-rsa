@@ -182,11 +182,20 @@ export const ADMIN_UI_HTML = `<!doctype html>
           "<td>" + (r.hardware_id ? "yes" : "—") + "</td>" +
           "<td>" + esc(r.notes) + "</td>" +
           '<td class="mono">' + esc((r.expires_at || "").slice(0, 10)) + "</td>" +
-          "<td>" + (revoked ? "" : '<button class="ghost revoke" data-id="' + esc(r.license_id) + '">Revoke</button>') + "</td>" +
+          "<td>" + (revoked ? "" :
+            (r.hardware_id ? '<button class="ghost unbind" data-id="' + esc(r.license_id) + '">Unbind</button> ' : "") +
+            '<button class="ghost revoke" data-id="' + esc(r.license_id) + '">Revoke</button>') + "</td>" +
           "</tr>";
       });
       h += "</tbody></table>";
       $("listResult").innerHTML = h;
+      Array.prototype.forEach.call(document.querySelectorAll(".unbind"), function(btn){
+        btn.addEventListener("click", function(){
+          if (!confirm("Unbind this license from its current machine? The friend can then activate the same key on a new computer.")) return;
+          api("POST", "/admin/rebind", { license_id: btn.getAttribute("data-id") }).then(loadList)
+            .catch(function(e){ alert(e.message); });
+        });
+      });
       Array.prototype.forEach.call(document.querySelectorAll(".revoke"), function(btn){
         btn.addEventListener("click", function(){
           if (!confirm("Revoke this license? The friend stops trading on their next check.")) return;

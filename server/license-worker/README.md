@@ -54,8 +54,9 @@ browser — tick "Remember on this device" to persist it locally), then:
   Lite, Operator, Advanced, Basic), add an optional note (who it's for) and an
   optional expiry, and click **Generate**. The key appears with a Copy button —
   hand it to your friend, who pastes it into the app's **License** section.
-- **Existing licenses**: list them, see which are bound to a machine, and
-  **Revoke** any one.
+- **Existing licenses**: list them, see which are bound to a machine,
+  **Unbind** one (so the friend can re-activate the same key on a new
+  computer), and **Revoke** any one.
 - **Kill switch**: turn the emergency stop on/off (optionally only for builds
   at or below a version).
 
