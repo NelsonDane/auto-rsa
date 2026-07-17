@@ -17,6 +17,11 @@ from edgar_tests.license_test_helpers import (
 @pytest.fixture(autouse=True)
 def _isolated_creds(monkeypatch, tmp_path):
     """Redirect token + salt I/O into a tmp dir so tests don't touch the real vault."""
+    # These tests assert tier/cap behavior with the license gate ACTIVE. Pin
+    # the operator bypass OFF so a module-level RSA_LICENSE_BYPASS=1 leaked by
+    # a gui test collected in the same pytest process can't silently disable
+    # the gate under test (test-isolation guard).
+    monkeypatch.delenv("RSA_LICENSE_BYPASS", raising=False)
     token_path = tmp_path / "creds" / "license.token"
     token_path.parent.mkdir(parents=True, exist_ok=True)
     monkeypatch.setattr(token_store, "_TOKEN_PATH", token_path)

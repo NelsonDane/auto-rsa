@@ -40,6 +40,23 @@ def test_engine_import_check_frozen_reports_real_failure(monkeypatch):
     assert "die at startup" in hc.detail
 
 
+def test_engine_import_check_frozen_catches_systemexit(monkeypatch):
+    # src.auto_rsa calls sys.exit(1) if ANY broker library fails to import.
+    # That raises SystemExit — a BaseException that `except Exception` does NOT
+    # catch — so without catching it the frozen check would propagate and kill
+    # the Streamlit GUI process instead of REPORTING the broken engine (INST-5).
+    import importlib
+
+    def _sys_exit(_name):
+        raise SystemExit(1)
+
+    monkeypatch.setenv("AUTORSA_FROZEN", "1")
+    monkeypatch.setattr(importlib, "import_module", _sys_exit)
+    hc = d.check_engine_importable()  # must NOT raise
+    assert hc.status == d.FAIL
+    assert "die at startup" in hc.detail
+
+
 def test_quick_checks_report_vault_states():
     checks = d.quick_health_checks(vault_initialized=False, vault_unlocked=False)
     names = {c.name: c for c in checks}

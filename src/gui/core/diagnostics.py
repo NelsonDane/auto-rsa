@@ -186,7 +186,14 @@ def check_engine_importable(timeout: float = 90.0) -> HealthCheck:
 
         try:
             importlib.import_module("src.auto_rsa")
-        except Exception as exc:  # noqa: BLE001
+        except (Exception, SystemExit) as exc:  # noqa: BLE001
+            # src.auto_rsa calls sys.exit(1) if ANY broker library fails to
+            # import (auto_rsa.py's broker-import block) — that's SystemExit, a
+            # BaseException that `except Exception` would NOT catch, so without
+            # SystemExit here the diagnostic meant to REPORT a broken engine
+            # would instead propagate and kill the Streamlit GUI process. (This
+            # is exactly the missing-bundled-lib case this check exists to
+            # detect.) KeyboardInterrupt still propagates.
             return HealthCheck(
                 "Engine import",
                 FAIL,

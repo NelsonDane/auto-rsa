@@ -111,3 +111,42 @@ def test_multi_ticker_fill_not_masked_by_another_rejection():
         "Public 1: buy 1 of LCID in xxxx: Rejected (REJECTED)",
     ]
     assert friendly_summary(lines)[0] == "✅"
+
+
+def test_robinhood_same_line_rejection_no_funds_is_not_placed():
+    # RH appends its raw `non_field_errors` on the SAME "buy N of X" line, with
+    # NO failure keyword for the fill regex's negative gate to catch. The
+    # outcome classifier recognizes it (NO_FUNDS), so it must veto the fill and
+    # NOT read as a green ✅ (REG-1 / Finding 2). The ledger already records it
+    # REJECTED; the friendly icon must not disagree.
+    icon, _ = friendly_summary(
+        ["Robinhood 1: buy 1 of LCID in xxxx1234: You do not have enough buying "
+         "power to place this order."],
+    )
+    assert icon != "✅"
+
+
+def test_robinhood_same_line_rejection_unavailable_is_not_placed():
+    icon, _ = friendly_summary(
+        ["Robinhood 1: buy 1 of LCID in xxxx1234: This stock is not available "
+         "for trading."],
+    )
+    assert icon != "✅"
+
+
+def test_robinhood_same_line_rejection_restricted_is_not_placed():
+    icon, _ = friendly_summary(
+        ["Robinhood 1: buy 1 of LCID in xxxx1234 @ 0.57: This account is not "
+         "permitted to trade this security."],
+    )
+    assert icon != "✅"
+
+
+def test_robinhood_same_line_reject_does_not_mask_a_real_fill():
+    # A genuine fill on ticker A still wins over a same-line RH reject on B.
+    lines = [
+        "Robinhood 1: buy 1 of AAPL in xxxx1234: Success",
+        "Robinhood 1: buy 1 of LCID in xxxx1234: You do not have enough buying "
+        "power to place this order.",
+    ]
+    assert friendly_summary(lines)[0] == "✅"

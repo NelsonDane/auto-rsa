@@ -4,6 +4,7 @@
 
 # Import libraries
 import asyncio
+import importlib.util
 import os
 import sys
 import traceback
@@ -29,23 +30,44 @@ warnings.filterwarnings(
     category=SyntaxWarning,
 )
 
-# Alias the vendored robin_stocks so a bare `import robin_stocks` (which the
-# vendored library does internally) resolves to the inner package.
-# IMPORTANT: import the COMPILED package, not a file-path load — the
-# previous spec_from_file_location(vendors/.../__init__.py) needed the .py to
-# exist on disk, which it does NOT in a Nuitka one-click build (the submodule
-# is compiled into the binary, not shipped as source), so the engine died at
-# import on every run. robinhood_api already imports this same package.
-try:
-    import src.vendors.robin_stocks.robin_stocks as _robin_stocks
-
-    sys.modules.setdefault("robin_stocks", _robin_stocks)
-    robin_stocks = _robin_stocks
-except ImportError:
-    # Vendored submodule absent (a dev checkout without submodules). Not
-    # fatal here: robinhood_api imports it directly and fails loudly there
-    # if Robinhood is actually used; every other broker is unaffected.
-    pass
+# Alias the vendored robin_stocks under its own top-level name. The vendored
+# library self-references `import robin_stocks` throughout: its __init__ does
+# `from robin_stocks import gemini, robinhood, tda`, and submodules do
+# `from robin_stocks.tda.helper import ...`. So sys.modules["robin_stocks"]
+# must point at the inner package BEFORE its body executes — a plain
+# `import src.vendors...robin_stocks` runs the body (and its self-reference)
+# FIRST and only aliases AFTER, so the self-reference raises
+# ModuleNotFoundError, gets swallowed, and the alias is never set — which then
+# breaks robinhood_api and takes the whole engine down at import.
+#
+# Resolve it through the import machinery (find_spec/module_from_spec/
+# exec_module), registering the alias before exec — NOT a physical file path:
+# spec_from_file_location needs the .py on disk, which a Nuitka one-click build
+# does not ship (the submodule is compiled into the binary). find_spec works in
+# a source checkout AND a frozen build. Register under both names (same object)
+# so robinhood_api's `from src.vendors.robin_stocks.robin_stocks import
+# robinhood` is served the identical, fully-initialized module.
+_RS_INNER = "src.vendors.robin_stocks.robin_stocks"
+if "robin_stocks" not in sys.modules:
+    try:
+        _rs_spec = importlib.util.find_spec(_RS_INNER)
+        if _rs_spec is None or _rs_spec.loader is None:
+            raise ImportError(_RS_INNER)
+        _rs_mod = importlib.util.module_from_spec(_rs_spec)
+        sys.modules["robin_stocks"] = _rs_mod
+        sys.modules[_RS_INNER] = _rs_mod
+        _rs_spec.loader.exec_module(_rs_mod)
+    except Exception:  # noqa: BLE001
+        # Vendored submodule genuinely unavailable (a dev checkout without the
+        # submodule, or a missing Robinhood dependency). Drop any half-
+        # initialized module so a later import isn't served a poisoned cache.
+        # robinhood_api imports this package UNCONDITIONALLY (below), so a
+        # truly-absent submodule surfaces as a loud engine-import failure
+        # (sys.exit(1), which the health check reports as FAIL) — never a
+        # silent wrong-success.
+        sys.modules.pop("robin_stocks", None)
+        sys.modules.pop(_RS_INNER, None)
+robin_stocks = sys.modules.get("robin_stocks")
 
 # Print Startup Info
 print(f"Python version: {sys.version}")

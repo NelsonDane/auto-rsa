@@ -72,6 +72,28 @@ _PENDING_MARKERS = ("queued", "unconfirmed", "not a confirmed fill", "pending")
 # a real fill (checked only AFTER the failure/pending markers above).
 _POSITIVE_FILL_MARKERS = ("order placed", "verification was successful")
 
+# Reason codes classify_outcome returns for a NON-fill outcome. A line that
+# trips the fill regex but ALSO classifies as one of these is not a genuine
+# fill (see _is_genuine_fill).
+_NONFILL_CODES = frozenset(_MESSAGES)
+
+
+def _is_genuine_fill(line: str) -> bool:
+    """Report whether a fill-looking line is a real fill, not a non-fill.
+
+    ``is_fill_line`` matches "buy N of X", but a broker can print the
+    rejection reason on that SAME line — Robinhood appends its raw
+    ``non_field_errors`` ("You do not have enough buying power", "not
+    available for trading", "not permitted to trade this security"), which
+    carries no failure keyword for the fill regex's negative gate to catch.
+    The outcome classifier DOES recognize those (NO_FUNDS / STOCK_UNAVAILABLE
+    / RESTRICTED / …), so it vetoes the line — the ledger already records it
+    REJECTED, and the friendly icon must not claim ✅.
+    """
+    if not is_fill_line(line):
+        return False
+    return classify_outcome(line, success=False) not in _NONFILL_CODES
+
 
 def friendly_summary(lines: list[str]) -> tuple[str, str]:
     """Return (icon, one-line plain message) for a broker's status lines.
@@ -81,11 +103,13 @@ def friendly_summary(lines: list[str]) -> tuple[str, str]:
     ticker must not hide a genuine fill for another. The rule that matches
     the UI's own contract ("✅ = at least one order placed"):
 
-    1. If any line is a GENUINE fill (is_fill_line, whose negative gate now
-       rejects "Success: False, REJECTED"-style lines) or a broker's
-       explicit placed/verified confirmation, AND no pending signal says an
-       accepted order isn't confirmed → ✅. A fill on ticker A wins over an
-       error/reject on ticker B (both still visible in the details expander).
+    1. If any line is a GENUINE fill (_is_genuine_fill: the fill regex matches
+       AND the line doesn't ALSO classify as a known non-fill like NO_FUNDS /
+       STOCK_UNAVAILABLE / RESTRICTED — Robinhood prints the rejection reason
+       on the same "buy N of X" line) or a broker's explicit placed/verified
+       confirmation, AND no pending signal says an accepted order isn't
+       confirmed → ✅. A fill on ticker A wins over an error/reject on ticker B
+       (both still visible in the details expander).
     2. Else if a queued/pending signal is present (and no genuine fill) → ⏳.
     3. Else classify the failure/benign outcome (session, unavailable,
        rejected, error, …), or "ran clean, nothing placed".
@@ -95,7 +119,7 @@ def friendly_summary(lines: list[str]) -> tuple[str, str]:
     text = "\n".join(lines)
     low = text.lower()
 
-    has_fill = any(is_fill_line(ln) for ln in lines) or any(
+    has_fill = any(_is_genuine_fill(ln) for ln in lines) or any(
         m in low for m in _POSITIVE_FILL_MARKERS
     )
     has_pending = any(m in low for m in _PENDING_MARKERS)

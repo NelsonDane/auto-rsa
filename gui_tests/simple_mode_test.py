@@ -107,3 +107,18 @@ def test_full_mode_trade_tab_has_no_simple_reset(monkeypatch):
     at.run()
     assert not at.exception, at.exception
     assert not any("Reset this stock" in (b.label or "") for b in at.button)
+
+
+def test_simple_mode_trade_tab_hides_reset_while_running(monkeypatch):
+    # REG-2: the reset-by-ticker control deletes ledger rows, so it must be
+    # HIDDEN while a run is in progress (resetting a ticker mid-run would wipe
+    # its in-flight row and re-open a double-buy). Simple Mode + running ->
+    # no reset button (and the "run in progress" notice instead).
+    at = _app(monkeypatch, simple=True)
+    at.session_state["active_section"] = "Trade"
+    runner = at.session_state["runner"]
+    monkeypatch.setattr(runner, "is_running", lambda: True)
+    at.run()
+    assert not at.exception, at.exception
+    assert not any("Reset this stock" in (b.label or "") for b in at.button)
+    assert any("run is still in progress" in (i.value or "") for i in at.info)

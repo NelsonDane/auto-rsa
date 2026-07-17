@@ -14,6 +14,15 @@ from edgar_tests.license_test_helpers import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _no_bypass(monkeypatch):
+    # These tests assert the broker cap with the license gate ACTIVE. Pin the
+    # operator bypass OFF so a module-level RSA_LICENSE_BYPASS=1 leaked by a
+    # gui test collected in the same pytest process can't disable the cap under
+    # test (test-isolation guard).
+    monkeypatch.delenv("RSA_LICENSE_BYPASS", raising=False)
+
+
 def _account_for(broker_key: str) -> dict[str, str]:
     """Build a dict satisfying a broker's FieldSpec schema."""
     meta = get_broker(broker_key)
