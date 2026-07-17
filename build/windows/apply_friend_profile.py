@@ -43,16 +43,39 @@ def apply(keys_path: Path) -> list[str]:
     return changed
 
 
+def _warn_if_unconfigured(text: str) -> None:
+    """Loudly warn if the friend build would ship without a usable license
+    server — REQUIRE_LICENSE_TO_TRADE=True + an empty PUBLIC_KEY_B64/
+    ACTIVATION_URL means EVERY live trade is blocked (INST-7)."""
+    empty_key = re.search(r'PUBLIC_KEY_B64\s*:\s*str\s*=\s*""', text)
+    empty_url = re.search(r'ACTIVATION_URL\s*:\s*str\s*=\s*""', text)
+    if empty_key or empty_url:
+        missing = []
+        if empty_key:
+            missing.append("PUBLIC_KEY_B64")
+        if empty_url:
+            missing.append("ACTIVATION_URL")
+        print(
+            "\n*** WARNING ***\n"
+            f"{' and '.join(missing)} is EMPTY in _keys.py. A friend build "
+            "requires a license to trade, so EVERY live trade will be blocked "
+            "until you fill these in (see server/license-worker/README.md). "
+            "Do NOT ship this build.\n",
+        )
+
+
 def main(argv: list[str]) -> None:
     if not argv:
         raise SystemExit(
             "usage: apply_friend_profile.py <path-to-src/license/_keys.py>",
         )
-    changed = apply(Path(argv[0]))
+    path = Path(argv[0])
+    changed = apply(path)
     print(
         "Friend profile applied. Set to True: "
         + (", ".join(changed) if changed else "(already True)"),
     )
+    _warn_if_unconfigured(path.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
