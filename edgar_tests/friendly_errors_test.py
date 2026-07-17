@@ -85,3 +85,29 @@ def test_schwab_verification_success_is_a_fill():
 def test_real_robinhood_fill_still_reads_placed():
     icon, _ = friendly_summary(["Robinhood: buy 1 of AAPL in xxxx1234: Success"])
     assert icon == "✅"
+
+
+def test_robinhood_market_to_limit_fallback_is_a_fill():
+    # RH prints a benign "Error … trying Limit Order" notice, then the fill.
+    # The fill must win over the notice's "error" word (REG-1).
+    lines = [
+        "Robinhood 1: Error buying 1 of LCID in xxxx1234, trying Limit Order",
+        "Robinhood 1: buy 1 of LCID in xxxx1234 @ 0.56: Success",
+    ]
+    assert friendly_summary(lines)[0] == "✅"
+
+
+def test_multi_ticker_fill_not_masked_by_another_unavailable():
+    lines = [
+        "Webull 1: buy 1 of AAPL in xxxx1234: Success",
+        "Webull 1 xxxx1234: Error placing order: LCID is not available for trading",
+    ]
+    assert friendly_summary(lines)[0] == "✅"  # at least one order placed
+
+
+def test_multi_ticker_fill_not_masked_by_another_rejection():
+    lines = [
+        "Public 1: buy 1 of AAPL in xxxx: Success (FILLED)",
+        "Public 1: buy 1 of LCID in xxxx: Rejected (REJECTED)",
+    ]
+    assert friendly_summary(lines)[0] == "✅"

@@ -76,29 +76,40 @@ _POSITIVE_FILL_MARKERS = ("order placed", "verification was successful")
 def friendly_summary(lines: list[str]) -> tuple[str, str]:
     """Return (icon, one-line plain message) for a broker's status lines.
 
-    Order matters: a real failure/rejection/pending signal must win over a
-    submission line that merely *looks* like a fill — otherwise a rejected
-    or queued order gets shown as "Order placed" (the false-success class
-    this project has repeatedly fought).
+    A broker's grouped lines can span MANY tickers/accounts, so we can't
+    just classify the joined blob — a rejection or "not available" for one
+    ticker must not hide a genuine fill for another. The rule that matches
+    the UI's own contract ("✅ = at least one order placed"):
+
+    1. If any line is a GENUINE fill (is_fill_line, whose negative gate now
+       rejects "Success: False, REJECTED"-style lines) or a broker's
+       explicit placed/verified confirmation, AND no pending signal says an
+       accepted order isn't confirmed → ✅. A fill on ticker A wins over an
+       error/reject on ticker B (both still visible in the details expander).
+    2. Else if a queued/pending signal is present (and no genuine fill) → ⏳.
+    3. Else classify the failure/benign outcome (session, unavailable,
+       rejected, error, …), or "ran clean, nothing placed".
     """
     if not lines:
         return _EMPTY
     text = "\n".join(lines)
     low = text.lower()
-    # 1) A recognized outcome code (session error, stock unavailable,
-    #    market closed, no funds, restricted, filtered, ledger skip).
+
+    has_fill = any(is_fill_line(ln) for ln in lines) or any(
+        m in low for m in _POSITIVE_FILL_MARKERS
+    )
+    has_pending = any(m in low for m in _PENDING_MARKERS)
+
+    # 1) A genuine fill wins — unless a pending marker says it's not confirmed.
+    if has_fill and not has_pending:
+        return _FILLED
+    # 2) Accepted-but-not-yet-filled.
+    if has_pending:
+        return _PENDING
+    # 3) No genuine fill → classify the failure / benign outcome.
     code = classify_outcome(text, success=False)
     if code in _MESSAGES:
         return _MESSAGES[code]
-    # 2) An explicit rejection / failure marker → real failure.
     if any(m in low for m in _REJECT_MARKERS) or any(m in low for m in _ERROR_MARKERS):
         return _ERROR
-    # 3) Accepted-but-not-filled (queued/pending) → not a fill.
-    if any(m in low for m in _PENDING_MARKERS):
-        return _PENDING
-    # 4) A genuine fill — a fill line, or a broker's explicit placed/verified
-    #    confirmation, with NO failure/pending signal (ruled out above).
-    if any(is_fill_line(ln) for ln in lines) or any(m in low for m in _POSITIVE_FILL_MARKERS):
-        return _FILLED
-    # 5) Ran, nothing placed here.
     return _CLEAN

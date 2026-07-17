@@ -1120,12 +1120,16 @@ def _tab_trade() -> None:  # noqa: C901, PLR0914
         st.warning("Unlock the vault in the sidebar first.")
         return
 
+    running = runner.is_running()
+
     # Friend build hides the Ledger tab; give the same reset-by-ticker
-    # recovery here so a blocked stock isn't a dead end.
-    if simple_mode():
+    # recovery here so a blocked stock isn't a dead end. Only when NOT
+    # running — resetting a ticker mid-run would wipe its in-flight ledger
+    # row (the fill outcome would never record, and the guard would re-open
+    # a double-buy).
+    if simple_mode() and not running:
         _render_simple_reset()
 
-    running = runner.is_running()
     if running:
         st.info(
             "A run is still in progress — watch / cancel it in the "
