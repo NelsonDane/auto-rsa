@@ -16,6 +16,7 @@ from __future__ import annotations
 import contextlib
 import datetime
 import json
+import os
 import shutil
 import subprocess  # noqa: S404
 import sys
@@ -173,6 +174,17 @@ def check_engine_importable(timeout: float = 90.0) -> HealthCheck:
     it out-of-process avoids importing heavy broker libs into the GUI
     and mirrors what the engine actually does at startup.
     """
+    # In a packaged (frozen) build sys.executable is AutoRSA.exe, and the
+    # launcher only multiplexes on `--engine` — `AutoRSA.exe -c "…"` would
+    # fall through and boot a SECOND Streamlit server (bogus WARN/FAIL +
+    # a rogue process). The engine is bundled and already imported to
+    # start the app, so report OK without spawning anything.
+    if os.getenv("AUTORSA_FROZEN") == "1" or getattr(sys, "frozen", False):
+        return HealthCheck(
+            "Engine import",
+            OK,
+            "packaged build — engine modules are bundled and import at startup.",
+        )
     try:
         proc = subprocess.run(  # noqa: S603
             [sys.executable, "-c", "import src.auto_rsa"],

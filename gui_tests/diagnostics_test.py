@@ -9,6 +9,22 @@ import time
 from src.gui.core import diagnostics as d
 
 
+def test_engine_import_check_skips_subprocess_when_frozen(monkeypatch):
+    # In a frozen build `sys.executable -c "…"` would boot a second server;
+    # the check must short-circuit to OK without spawning anything.
+    called = {"n": 0}
+
+    def _spy(*_a, **_k):
+        called["n"] += 1
+        raise AssertionError("subprocess must not run in a frozen build")
+
+    monkeypatch.setattr(d.subprocess, "run", _spy)
+    monkeypatch.setenv("AUTORSA_FROZEN", "1")
+    hc = d.check_engine_importable()
+    assert hc.status == d.OK
+    assert called["n"] == 0
+
+
 def test_quick_checks_report_vault_states():
     checks = d.quick_health_checks(vault_initialized=False, vault_unlocked=False)
     names = {c.name: c for c in checks}
