@@ -161,12 +161,12 @@ def fun_run(  # noqa: C901, PLR0912, PLR0915
     blocked, kill_msg = _order_run_blocked(order_obj)
     if blocked:
         print("=" * 60)
-        print("ORDER PLACEMENT IS PAUSED BY THE OPERATOR (remote kill switch).")
-        if kill_msg:
-            print(kill_msg)
-        print("No orders were placed.")
+        print("ORDER PLACEMENT BLOCKED — no orders were placed.")
+        # kill_msg carries the specific reason (kill switch, revoked/expired
+        # license, or no license activated) — don't hardcode "kill switch".
+        print(kill_msg or "Blocked by the operator.")
         print("=" * 60)
-        _emit_progress("KILL", kill_msg or "paused by operator")
+        _emit_progress("KILL", kill_msg or "blocked")
         return
     # Reset the per-broker sub-account counters at the start of each run so
     # a Friend tier's "1 account per broker" cap is measured per run, not

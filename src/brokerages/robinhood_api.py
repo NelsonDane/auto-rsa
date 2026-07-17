@@ -113,7 +113,14 @@ def _record_rh_outcome(  # noqa: PLR0913
     info = _poll_rh_order(order_ref)
     if info is None:
         # Can't verify (no get_stock_order_info, no id, or transient
-        # error) — preserve legacy behavior exactly. No regression.
+        # error) — preserve legacy behavior exactly. No regression. Leave a
+        # breadcrumb so a broker-side API breakage that silently reverts to
+        # "submitted == filled" is visible in the log, not invisible.
+        print_and_discord(
+            f"{key}: {ticker} — could not verify the fill (order status "
+            "unavailable); using the submission result.",
+            loop,
+        )
         complete_or_fail(
             play, order_obj=order_obj,
             success=(message == "Success"), detail=message,

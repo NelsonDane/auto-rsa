@@ -3153,8 +3153,17 @@ def _render_lock_recovery_banner(runner: TradeRunner) -> None:
 
 
 def _should_show_wizard() -> bool:
-    """First-run wizard shows on the friend build until setup is finished."""
-    return simple_mode() and not wizard.setup_complete()
+    """First-run wizard shows on the friend build until setup is finished.
+
+    The session flag is the fallback for when the completion file can't be
+    written (unwritable creds/) — it keeps the friend out of the wizard for
+    the rest of this session instead of looping it every rerun.
+    """
+    return (
+        simple_mode()
+        and not wizard.setup_complete()
+        and not st.session_state.get("wizard_done")
+    )
 
 
 def _wizard_step() -> int:
@@ -3267,8 +3276,18 @@ def _wizard_broker(vault: Vault) -> None:
         )
     c1, c2 = st.columns(2)
     if c1.button("Save & finish", type="primary", key="wiz_broker_save"):
+        # Require the broker's MANDATORY fields (not just "typed anything"),
+        # so a partial credential (e.g. username with no password) isn't
+        # saved as usable and then fails confusingly at login.
+        required = [
+            s for s in meta.fields
+            if not s.optional and s.empty_value is None and not s.omit_if_empty
+        ]
+        missing = [s.label for s in required if not (values.get(s.key) or "").strip()]
         acct = {k: v for k, v in values.items() if (v or "").strip()}
-        if not acct:
+        if missing:
+            st.error("Please fill in: " + ", ".join(missing))
+        elif not acct:
             st.error("Enter your login details first.")
         else:
             try:
@@ -3289,6 +3308,7 @@ def _wizard_finish() -> None:
     )
     if st.button("Finish", type="primary", key="wiz_finish"):
         wizard.mark_setup_complete()
+        st.session_state["wizard_done"] = True  # session fallback
         st.session_state.pop("wizard_step", None)
         st.rerun()
 
@@ -3311,6 +3331,7 @@ def _render_setup_wizard(vault: Vault) -> None:
     st.divider()
     if st.button("Skip setup — I'll finish later", key="wiz_skip_all"):
         wizard.mark_setup_complete()
+        st.session_state["wizard_done"] = True  # session fallback
         st.session_state.pop("wizard_step", None)
         st.rerun()
 

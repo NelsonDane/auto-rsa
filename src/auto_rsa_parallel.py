@@ -275,12 +275,10 @@ def fun_run_parallel(
         blocked, kill_msg = False, ""
     if blocked:
         print("=" * 60)
-        print("ORDER PLACEMENT IS PAUSED BY THE OPERATOR (remote kill switch).")
-        if kill_msg:
-            print(kill_msg)
-        print("No orders were placed.")
+        print("ORDER PLACEMENT BLOCKED — no orders were placed.")
+        print(kill_msg or "Blocked by the operator.")
         print("=" * 60)
-        a._emit_progress("KILL", kill_msg or "paused by operator")
+        a._emit_progress("KILL", kill_msg or "blocked")
         return
     # Fresh per-broker sub-account counters for this run's Friend-tier cap.
     from src.helper_api import reset_subaccount_caps  # noqa: PLC0415

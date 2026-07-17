@@ -68,3 +68,28 @@ def test_skip_marks_complete(monkeypatch, tmp_path):
     at.run()
     assert not at.exception, at.exception
     assert wizard.setup_complete()  # flag written -> wizard won't show again
+
+
+def test_mark_setup_complete_is_best_effort(monkeypatch, tmp_path):
+    # Point the flag at a path whose parent is a FILE, so mkdir raises —
+    # mark_setup_complete must return False, not raise (which would loop
+    # the wizard on a scary traceback).
+    (tmp_path / "blocker").write_text("x", encoding="utf-8")
+    monkeypatch.setattr(wizard, "_FLAG_PATH", tmp_path / "blocker" / "flag")
+    assert wizard.mark_setup_complete() is False
+    assert wizard.setup_complete() is False
+
+
+def test_wizard_broker_step_requires_mandatory_fields(monkeypatch, tmp_path):
+    at = _app(monkeypatch, tmp_path, complete=False, unlocked=True)
+    at.session_state["wizard_step"] = 3  # broker step
+    at.run()
+    save = [b for b in at.button if "Save & finish" in (b.label or "")]
+    assert save, [b.label for b in at.button]
+    save[0].click()  # nothing filled in
+    at.run()
+    assert not at.exception, at.exception
+    assert any(
+        "fill in" in (e.value or "") or "login details" in (e.value or "")
+        for e in at.error
+    ), [e.value for e in at.error]

@@ -169,6 +169,11 @@ SUPPORTED_BROKERS: tuple[BrokerMeta, ...] = (
         key="schwab",
         display_name="Schwab",
         env_var="SCHWAB",
+        # schwab-api drives a headless Playwright/Chromium browser to log
+        # in (needs the browser binary, can hit login/2FA friction), so it
+        # is browser_based like Chase/Fidelity — it belongs behind the
+        # friend build's "Advanced brokers" group, not the API list.
+        browser_based=True,
         fields=(
             _USERNAME,
             _PASSWORD,
