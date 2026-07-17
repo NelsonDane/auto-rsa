@@ -105,6 +105,22 @@ class RunnerSnapshot:
     timings: tuple[tuple[str, str, float], ...] = ()
 
 
+def _engine_command(payload_json: str) -> list[str]:
+    """Command that spawns the engine subprocess.
+
+    * Source/dev: ``python -u -m src.gui.core.engine_proc <payload>``.
+    * Frozen one-click build (Nuitka): ``-m`` module execution isn't
+      available, so re-invoke the app exe, which multiplexes on argv —
+      ``AutoRSA.exe --engine <payload>`` runs the engine (see
+      ``build/windows/launcher.py``). ``AUTORSA_FROZEN`` is set by that
+      launcher; the flag is never present in a source run, so this is a
+      no-op there.
+    """
+    if os.getenv("AUTORSA_FROZEN") == "1" or getattr(sys, "frozen", False):
+        return [sys.executable, "--engine", payload_json]
+    return [sys.executable, "-u", "-m", "src.gui.core.engine_proc", payload_json]
+
+
 class TradeRunner:
     """Owns the engine subprocess, log stream, and prompt bus."""
 
@@ -471,7 +487,7 @@ class TradeRunner:
             child_env["PYTHONIOENCODING"] = "utf-8"
             child_env["PYTHONUTF8"] = "1"
             self._proc = subprocess.Popen(  # noqa: S603
-                [sys.executable, "-u", "-m", "src.gui.core.engine_proc", json.dumps(payload)],
+                _engine_command(json.dumps(payload)),
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
