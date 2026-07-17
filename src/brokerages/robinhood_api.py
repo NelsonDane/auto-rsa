@@ -12,12 +12,28 @@ from dotenv import load_dotenv
 from src.helper_api import Brokerage, StockOrder, complete_or_fail, mask_string, print_all_holdings, print_and_discord, record_fill, reserve_or_skip
 from src.vendors.robin_stocks.robin_stocks import robinhood as rh
 
+def _env_num(name: str, default: float, cast: type) -> float:
+    """Parse a numeric env override, falling back to ``default``.
+
+    A bad operator override (e.g. ``RSA_RH_FILL_POLL_TRIES=5s``) must not
+    raise at import and take down the whole Robinhood broker — it just
+    reverts to the default.
+    """
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        return cast(raw)
+    except (TypeError, ValueError):
+        return default
+
+
 # Bounded fill-verification poll. A just-placed order is usually still
 # "queued" for a beat; poll get_stock_order_info a few times so a market
 # order has a chance to reach "filled" before we record it. Kept small so
 # it never wedges a run; tunable via env for slow accounts.
-_RH_FILL_POLL_TRIES = int(os.getenv("RSA_RH_FILL_POLL_TRIES", "4") or 4)
-_RH_FILL_POLL_SECONDS = float(os.getenv("RSA_RH_FILL_POLL_SECONDS", "1.5") or 1.5)
+_RH_FILL_POLL_TRIES = int(_env_num("RSA_RH_FILL_POLL_TRIES", 4, int))
+_RH_FILL_POLL_SECONDS = _env_num("RSA_RH_FILL_POLL_SECONDS", 1.5, float)
 _RH_TERMINAL_STATES = frozenset(
     {"filled", "rejected", "canceled", "cancelled", "failed", "voided"},
 )
