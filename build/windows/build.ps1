@@ -26,6 +26,30 @@ $OutDir   = Join-Path $RepoRoot "build\out"
 
 Write-Host "== AutoRSA build: profile=$Profile version=$Version ==" -ForegroundColor Cyan
 
+# 0) Ensure the vendored broker submodules are present. robin_stocks and
+#    webull are git submodules; if they're not checked out, their package
+#    dirs are EMPTY and Nuitka happily compiles a binary whose engine then
+#    dies at `import src.auto_rsa` on every run (the package simply isn't
+#    there) — a silent, confusing failure for a friend. Init them (idempotent)
+#    and HARD-verify the entry files exist before we build.
+Write-Host "Checking vendored broker submodules..." -ForegroundColor Cyan
+& git -C $RepoRoot submodule update --init --recursive
+if ($LASTEXITCODE -ne 0) {
+    Write-Warning "git submodule update returned $LASTEXITCODE (offline?); verifying files anyway."
+}
+$VendorEntries = @(
+    "src\vendors\robin_stocks\robin_stocks\__init__.py",
+    "src\vendors\webull\webull\__init__.py"
+)
+foreach ($rel in $VendorEntries) {
+    if (-not (Test-Path (Join-Path $RepoRoot $rel))) {
+        throw "Vendored submodule missing: $rel`n" + `
+              "The compiled engine would die at import. Run:`n" + `
+              "    git submodule update --init --recursive"
+    }
+}
+Write-Host "  vendored submodules present." -ForegroundColor Green
+
 # 1) Stage a clean copy of the source (so we can patch the build profile
 #    WITHOUT touching your working tree, and strip what shouldn't ship).
 if (Test-Path $Stage) { Remove-Item -Recurse -Force $Stage }
@@ -34,6 +58,14 @@ New-Item -ItemType Directory -Force -Path $Stage | Out-Null
 robocopy "$RepoRoot\src" "$Stage\src" /E /NFL /NDL /NJH /NJS `
     /XD __pycache__ .git .venv node_modules | Out-Null
 if ($LASTEXITCODE -ge 8) { throw "robocopy failed ($LASTEXITCODE)" }
+# Assert the vendored packages actually landed in the stage — robocopy's
+# excludes shouldn't touch them, but a dropped package silently yields a
+# broken binary, so fail here instead.
+foreach ($rel in $VendorEntries) {
+    if (-not (Test-Path (Join-Path $Stage $rel))) {
+        throw "Staging dropped a vendored package: $rel (check robocopy /XD filters)."
+    }
+}
 Copy-Item "$PSScriptRoot\launcher.py" "$Stage\launcher.py"
 
 # 2) Apply the build profile. The FRIEND build bakes Simple Mode + the

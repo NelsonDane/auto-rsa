@@ -12,7 +12,26 @@ app.
 > on the Nuitka flags on your first Windows build. The fragile points are
 > called out in §5.
 
-Everything here runs **on Windows**, not in the Linux dev environment.
+Everything in §1–§6 runs **on Windows**, not in the Linux dev environment.
+If you'd rather not install the build toolchain locally, **§0 builds the
+installer in CI** and hands you a downloadable `AutoRSA-Setup.exe`.
+
+## 0. Build in CI (no local toolchain)
+
+`.github/workflows/windows-installer.yml` builds the installer on a
+`windows-latest` runner — checks out the vendored submodules, installs
+Python 3.12 + deps + Nuitka + Inno Setup, runs the same `build.ps1` +
+`iscc` you'd run locally, and uploads `AutoRSA-Setup.exe` as a workflow
+artifact.
+
+- **Manually:** GitHub → **Actions → "Windows Installer" → Run workflow**,
+  pick the profile (`friend`/`pro`) and version. The "Run workflow" button
+  only appears once this workflow file is on the **default branch**.
+- **By tag:** push a tag like `win-v0.1.0` (builds the friend profile at
+  that version). Works from any branch the tag points at.
+
+Download the built installer from the run's **Summary → Artifacts**. This is
+**API-only for v1** — browser-broker engines are not bundled (§5.3).
 
 ## 1. Prerequisites (one time)
 
@@ -21,9 +40,13 @@ Everything here runs **on Windows**, not in the Linux dev environment.
   download a MinGW-w64 toolchain on first run (`--assume-yes-for-downloads`
   accepts it). Or install Visual Studio Build Tools.
 - **Git submodules checked out** (the vendored broker libs):
-  `git submodule update --init --recursive`.
+  `git submodule update --init --recursive`. `build.ps1` also runs this for
+  you and hard-fails if `robin_stocks`/`webull` are still missing (a missing
+  vendored lib compiles a binary whose engine dies at import).
 - **Dependencies installed** into the Python you'll build with:
-  `pip install -r requirements.txt` (or `uv sync`), plus `pip install nuitka`.
+  `uv sync --all-groups` (the project is uv-managed via `pyproject.toml` /
+  `uv.lock`), plus `uv pip install nuitka`. If you activate the uv venv
+  (`.venv\Scripts\Activate.ps1`), `build.ps1`'s bare `python` resolves to it.
 - **Inno Setup 6** (https://jrsoftware.org/isinfo.php) for the installer —
   gives you `iscc.exe`.
 

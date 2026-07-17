@@ -14,7 +14,11 @@
 ;   uninstall so a reinstall/update never wipes a friend's vault/license.
 
 #define AppName "AutoRSA"
-#define AppVersion "0.1.0"
+; Version can be overridden from the command line: iscc /DAppVersion=1.2.3 …
+; (the CI workflow passes the build version through this). Defaults to 0.1.0.
+#ifndef AppVersion
+  #define AppVersion "0.1.0"
+#endif
 #define AppExeName "AutoRSA.exe"
 ; The Nuitka --standalone output folder (from build.ps1).
 #define DistDir "..\out\launcher.dist"

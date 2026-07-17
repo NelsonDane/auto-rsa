@@ -1,0 +1,110 @@
+# Build the one-click Windows installer (AutoRSA-Setup.exe) in CI, so you can
+# download a ready installer without any local Nuitka / Inno Setup tooling.
+#
+# Triggers:
+#   * Manually: Actions -> "Windows Installer" -> Run workflow (pick profile +
+#     version). NOTE: GitHub only shows the "Run workflow" button once this
+#     file is on the DEFAULT branch.
+#   * On a tag `win-v1.2.3`: builds the friend profile at that version. Works
+#     from any branch the tag points at (no default-branch requirement).
+#
+# The built installer is uploaded as a workflow ARTIFACT (download it from the
+# run's summary page). This is API-only for v1 — the browser-broker engines
+# (Chase/Fidelity/SoFi/Wells Fargo) are NOT bundled (see build/windows/BUILD.md
+# §5.3); their Python libs are still included so the engine imports cleanly.
+name: Windows Installer
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "Build profile (friend = Simple Mode + license gate; pro = full app)"
+        type: choice
+        options: [friend, pro]
+        default: friend
+      version:
+        description: "Version, e.g. 0.1.0"
+        type: string
+        default: "0.1.0"
+  push:
+    tags:
+      - "win-v*.*.*"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  build:
+    name: Build Windows installer
+    runs-on: windows-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout (with vendored submodules)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Resolve profile + version
+        id: cfg
+        shell: pwsh
+        run: |
+          $prof = "${{ github.event.inputs.profile }}"
+          if (-not $prof) { $prof = "friend" }
+          $version = "${{ github.event.inputs.version }}"
+          if (-not $version) {
+            if ("${{ github.ref }}" -like "refs/tags/win-v*") {
+              $version = "${{ github.ref_name }}" -replace "^win-v",""
+            } else { $version = "0.1.0" }
+          }
+          "profile=$prof"      | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "version=$version"   | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "profile=$prof version=$version"
+
+      - name: Install uv + Python 3.12
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies (+ Nuitka)
+        run: |
+          uv sync --all-groups
+          uv pip install nuitka
+
+      # Fast fail: run the exact import the engine does at startup BEFORE the
+      # (slow) Nuitka build. This is the check that catches an engine-import
+      # breakage (missing vendored submodule, bad alias, etc.) in seconds.
+      - name: Smoke test — engine imports from source
+        run: uv run python -c "import src.auto_rsa; print('engine import OK')"
+
+      - name: Build standalone (Nuitka)
+        shell: pwsh
+        run: |
+          .venv\Scripts\Activate.ps1
+          .\build\windows\build.ps1 -Profile ${{ steps.cfg.outputs.profile }} -Version ${{ steps.cfg.outputs.version }}
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Build installer (Inno Setup)
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { throw "ISCC.exe not found at $iscc" }
+          & $iscc "/DAppVersion=${{ steps.cfg.outputs.version }}" build\windows\AutoRSA.iss
+
+      - name: Show build output
+        shell: pwsh
+        run: Get-ChildItem build\out | Select-Object Name, Length | Format-Table -AutoSize
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: AutoRSA-Setup-${{ steps.cfg.outputs.profile }}-${{ steps.cfg.outputs.version }}
+          path: build/out/AutoRSA-Setup.exe
+          if-no-files-found: error
