@@ -51,3 +51,24 @@ def test_benign_failure_stays_retryable_failed():
     mark_result(p, success=False, detail="Symbol not found: not available here")
     assert _status(p) == STATUS_FAILED
     assert record_intent(p, 1) is True  # FAILED resets to INTENDED (retry ok)
+
+
+def test_delete_by_ticker_frees_all_accounts():
+    """Reset-by-ticker clears every ledger row for a ticker at once, so a
+    stock can be bought again without resetting each account by hand."""
+    for acct in ("111", "222", "333"):
+        record_intent(
+            Play("MANUAL:TSLL:buy:2026-07-17", "chase", acct, "TSLL", "buy"),
+            1.0,
+        )
+    record_intent(
+        Play("MANUAL:AAPL:buy:2026-07-17", "chase", "111", "AAPL", "buy"),
+        1.0,
+    )
+    assert len(ledger.list_executions()) == 4
+    removed = ledger.delete_by_ticker("tsll")  # case-insensitive
+    assert removed == 3
+    remaining = ledger.list_executions()
+    assert len(remaining) == 1
+    assert str(remaining[0]["ticker"]).upper() == "AAPL"
+    assert ledger.delete_by_ticker("") == 0  # blank is a no-op

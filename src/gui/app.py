@@ -2732,7 +2732,22 @@ def _tab_ledger() -> None:
     # tab body on every interaction, that cost was paid on EVERY click,
     # which froze the whole app (clicks queued behind a multi-second
     # render). A dataframe renders any number of rows in milliseconds.
-    st.markdown(f"**{len(rows)} ledger row(s)** — newest first")
+    # Search / filter (ticker, broker, or key).
+    query = st.text_input(
+        "🔎 Filter (ticker, broker, or key)", key="ledger_search",
+        placeholder="e.g. TSLL",
+    ).strip().upper()
+    shown = [
+        r for r in rows
+        if not query
+        or query in str(r.get("ticker", "")).upper()
+        or query in str(r.get("broker", "")).upper()
+        or query in str(r.get("key", "")).upper()
+    ]
+    st.markdown(
+        f"**{len(shown)} of {len(rows)} ledger row(s)** — newest first"
+        if query else f"**{len(rows)} ledger row(s)** — newest first",
+    )
     st.dataframe(
         [
             {
@@ -2744,28 +2759,50 @@ def _tab_ledger() -> None:
                 "Status": row.get("status"),
                 "Updated": str(row.get("updated_at", ""))[:19],
             }
-            for row in rows
+            for row in shown
         ],
         width="stretch",
         hide_index=True,
     )
-    # Reset ONE play via a single selectbox + button (not a per-row button).
-    st.markdown("**Reset a play** so that exact play can run again")
-    id_by_label = {
-        f"{r.get('ticker')} {r.get('action')} · {r.get('broker')} "
-        f"••••{r.get('sub_account')} · {r.get('key')}  (id {r.get('id')})":
-            int(r["id"])
-        for r in rows
-        if r.get("id") is not None
-    }
-    pick = st.selectbox(
-        "Pick a row to reset", ["(none)", *id_by_label],
-        key="ledger_reset_pick",
+
+    # Reset by TICKER — frees a stock to trade again across ALL accounts in
+    # one action (type to search the ticker). This is the fast path for
+    # "let me buy this again" or a re-split.
+    st.markdown("**Reset by ticker** — free a stock to trade again (all accounts)")
+    tickers = sorted({
+        str(r.get("ticker", "")).upper() for r in rows if r.get("ticker")
+    })
+    col_t, col_b = st.columns([3, 1])
+    tkr = col_t.selectbox(
+        "Ticker to reset (type to search)", ["(pick a ticker)", *tickers],
+        key="ledger_reset_ticker",
     )
-    if pick != "(none)" and st.button("♻ Reset selected row", key="ledger_reset_btn"):
-        ledger.delete_row(id_by_label[pick])
-        st.toast(f"Reset {pick}")
+    if tkr != "(pick a ticker)" and col_b.button(
+        f"♻ Reset all {tkr}", key="ledger_reset_ticker_btn",
+    ):
+        n = ledger.delete_by_ticker(tkr)
+        st.success(f"Reset {n} row(s) for {tkr} — you can trade it again.")
         st.rerun()
+
+    # Reset ONE specific row (precision), kept behind an expander.
+    with st.expander("Reset a single row instead"):
+        id_by_label = {
+            f"{r.get('ticker')} {r.get('action')} · {r.get('broker')} "
+            f"••••{r.get('sub_account')} · {r.get('key')}  (id {r.get('id')})":
+                int(r["id"])
+            for r in rows
+            if r.get("id") is not None
+        }
+        pick = st.selectbox(
+            "Pick a row to reset", ["(none)", *id_by_label],
+            key="ledger_reset_pick",
+        )
+        if pick != "(none)" and st.button(
+            "♻ Reset selected row", key="ledger_reset_btn",
+        ):
+            ledger.delete_row(id_by_label[pick])
+            st.toast(f"Reset {pick}")
+            st.rerun()
 
 
 # --------------------------------------------------------------------------

@@ -367,6 +367,21 @@ def delete_row(row_id: int) -> bool:
         return cur.rowcount > 0
 
 
+def delete_by_ticker(ticker: str) -> int:
+    """Reset EVERY ledger row for one ticker (all accounts/brokers).
+
+    The GUI "reset by ticker" — so a stock you want to buy again (or that
+    reverse-splits a second time) can be freed in one action instead of
+    resetting each account row by hand. Returns the number of rows removed.
+    """
+    t = str(ticker).strip().upper()
+    if not t:
+        return 0
+    with _LOCK, _connect() as conn:
+        cur = conn.execute("DELETE FROM executions WHERE UPPER(ticker)=?", (t,))
+        return cur.rowcount
+
+
 def delete_play(play: Play) -> bool:
     """Reset one play by its identity tuple. Returns True if removed."""
     with _LOCK, _connect() as conn:

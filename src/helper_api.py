@@ -705,9 +705,15 @@ def reserve_or_skip(  # noqa: PLR0913
             loop,
         )
         return None
+    # A MANUAL trade is scoped to the CURRENT DAY so the double-buy guard
+    # only stops an accidental same-day re-run — it does NOT lock a ticker
+    # forever. You can buy the same stock again on another day (or after a
+    # second reverse split) with no reset. A SIGNAL run keeps its own
+    # economic RSA_PLAY_KEY (unchanged) so cross-feed dedupe still holds.
+    manual_day = datetime.datetime.now(get_local_timezone()).date().isoformat()
     play = Play(
         key=os.getenv("RSA_PLAY_KEY")
-        or f"MANUAL:{ticker}:{action.lower()}",
+        or f"MANUAL:{ticker}:{action.lower()}:{manual_day}",
         broker=broker_key,
         account=str(account),
         ticker=ticker,
@@ -718,8 +724,10 @@ def reserve_or_skip(  # noqa: PLR0913
         play, order_obj.get_amount(),
     ):
         print_and_discord(
-            f"{label}: skipped {ticker} "
-            "(ledger: already executed or in-flight — no double-buy)",
+            f"{label}: skipped {ticker} — already recorded as "
+            f"{action.lower()} today (double-buy guard). To {action.lower()} "
+            f"it again, reset {ticker} in the GUI Ledger tab (reset by "
+            f"ticker), then re-run.",
             loop,
         )
         return None
