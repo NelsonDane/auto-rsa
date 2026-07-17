@@ -44,7 +44,28 @@ npm run deploy
 #       _keys.py (public key + URL are NOT secret; the .pem is).
 ```
 
-## Operating it (from the repo root)
+## Generate keys without a terminal — the web console
+
+Open **`https://rsa-license.<subdomain>.workers.dev/admin`** in any browser
+(laptop or phone). Paste your `ADMIN_SECRET` once (it's kept only in your
+browser — tick "Remember on this device" to persist it locally), then:
+
+- **Generate a key**: pick the type from a dropdown (Friend — Main, Friend —
+  Lite, Operator, Advanced, Basic), add an optional note (who it's for) and an
+  optional expiry, and click **Generate**. The key appears with a Copy button —
+  hand it to your friend, who pastes it into the app's **License** section.
+- **Existing licenses**: list them, see which are bound to a machine, and
+  **Revoke** any one.
+- **Kill switch**: turn the emergency stop on/off (optionally only for builds
+  at or below a version).
+
+The page carries no secret and no signing code — every action it fires still
+requires the `ADMIN_SECRET` on the `/admin/*` API — so nothing sensitive is
+exposed by serving it. The dropdown also removes the #1 manual error: a
+mistyped tier string. (You must redeploy the Worker once — `npm run deploy`,
+or via the Cloudflare dashboard — to publish the `/admin` page.)
+
+## Operating it from a terminal (alternative)
 
 ```bash
 export RSA_LICENSE_SERVER_URL="https://rsa-license.<subdomain>.workers.dev"

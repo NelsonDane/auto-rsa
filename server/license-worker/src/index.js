@@ -15,6 +15,7 @@
  *   POST /activate    { license_key, hardware_id, hostname_hash, app_version, platform }
  *   POST /refresh     { token }
  *   GET  /killswitch  [?app_version=]
+ *   GET  /admin          operator web console (no-terminal keygen UI)
  *   POST /admin/issue    (Bearer ADMIN_SECRET)  { tier, notes?, expires_at? }
  *   POST /admin/revoke   (Bearer)  { license_id }
  *   POST /admin/kill     (Bearer)  { active, message?, min_app_version? }
@@ -26,6 +27,7 @@
  */
 
 import { signToken, verifyToken as verifyOwnToken } from "./sign.js";
+import { ADMIN_UI_HTML } from "./admin_ui.js";
 
 // Token lifetime — short, so a revoke/kill bites on the next refresh.
 const TOKEN_TTL_DAYS = 30;
@@ -255,6 +257,14 @@ export default {
       if (method === "POST" && pathname === "/activate") return await handleActivate(request, env);
       if (method === "POST" && pathname === "/refresh") return await handleRefresh(request, env);
       if (method === "GET" && pathname === "/killswitch") return await handleKillswitch(env, url);
+
+      // Operator web console (the page itself carries no secret; every action
+      // it fires still requires the Bearer ADMIN_SECRET on /admin/*).
+      if (method === "GET" && pathname === "/admin") {
+        return new Response(ADMIN_UI_HTML, {
+          headers: { "content-type": "text/html; charset=utf-8" },
+        });
+      }
 
       if (pathname.startsWith("/admin/")) {
         if (!adminOk(request, env)) return json({ error: "unauthorized" }, 401);
