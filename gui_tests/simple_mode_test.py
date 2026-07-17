@@ -89,3 +89,21 @@ def test_credentials_uncurated_in_full_mode(monkeypatch):
     at.run()
     assert not at.exception, at.exception
     assert not any("no official API" in (w.value or "") for w in at.warning)
+
+
+def test_simple_mode_trade_tab_has_stuck_stock_reset(monkeypatch):
+    # The Ledger tab is hidden in Simple Mode; the Trade tab must offer the
+    # reset-by-ticker recovery so a blocked stock isn't a dead end.
+    at = _app(monkeypatch, simple=True)
+    at.session_state["active_section"] = "Trade"
+    at.run()
+    assert not at.exception, at.exception
+    assert any("Reset this stock" in (b.label or "") for b in at.button)
+
+
+def test_full_mode_trade_tab_has_no_simple_reset(monkeypatch):
+    at = _app(monkeypatch, simple=False)
+    at.session_state["active_section"] = "Trade"
+    at.run()
+    assert not at.exception, at.exception
+    assert not any("Reset this stock" in (b.label or "") for b in at.button)

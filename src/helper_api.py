@@ -780,8 +780,8 @@ def reserve_or_skip(  # noqa: PLR0913
         print_and_discord(
             f"{label}: skipped {ticker} — already recorded as "
             f"{action.lower()} today (double-buy guard). To {action.lower()} "
-            f"it again, reset {ticker} in the GUI Ledger tab (reset by "
-            f"ticker), then re-run.",
+            f"it again, reset {ticker} in the app (Trade tab → 'Having "
+            f"trouble re-trading a stock?', or the Ledger tab), then re-run.",
             loop,
         )
         return None

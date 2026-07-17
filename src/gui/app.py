@@ -1086,6 +1086,32 @@ def _account_filter_editor(  # noqa: C901
 # --------------------------------------------------------------------------
 # Trade tab
 # --------------------------------------------------------------------------
+def _render_simple_reset() -> None:
+    """Simple-Mode recovery: free a ticker the double-buy guard blocked.
+
+    In the friend build the Ledger tab (the normal reset-by-ticker home)
+    is hidden, so an order that landed PENDING/NEEDS_REVIEW/EXECUTED would
+    leave the friend unable to re-trade that ticker that day with no
+    in-app recourse. This gives them the same reset, on the Trade tab.
+    """
+    with st.expander("Having trouble re-trading a stock?"):
+        st.caption(
+            "If a stock was skipped as 'already recorded today' (a safety "
+            "check so you don't buy it twice), reset it here to trade it "
+            "again.",
+        )
+        tkr = st.text_input(
+            "Stock symbol", key="simple_reset_ticker", placeholder="e.g. TSLL",
+        ).strip().upper()
+        if st.button("Reset this stock", key="simple_reset_btn", disabled=not tkr):
+            n = ledger.delete_by_ticker(tkr)
+            if n:
+                st.success(f"Reset {tkr} — you can trade it again.")
+            else:
+                st.info(f"Nothing to reset for {tkr}.")
+            st.rerun()
+
+
 def _tab_trade() -> None:  # noqa: C901, PLR0914
     vault = _get_vault()
     runner = _get_runner()
@@ -1093,6 +1119,11 @@ def _tab_trade() -> None:  # noqa: C901, PLR0914
     if not vault.is_unlocked():
         st.warning("Unlock the vault in the sidebar first.")
         return
+
+    # Friend build hides the Ledger tab; give the same reset-by-ticker
+    # recovery here so a blocked stock isn't a dead end.
+    if simple_mode():
+        _render_simple_reset()
 
     running = runner.is_running()
     if running:
