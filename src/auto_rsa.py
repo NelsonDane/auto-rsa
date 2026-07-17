@@ -119,6 +119,28 @@ def _emit_progress(kind: str, value: str) -> None:
         print(f"(progress emit skipped: {exc})")
 
 
+def _order_run_blocked(order_obj: StockOrder) -> tuple[bool, str]:
+    """Whether the remote kill switch forbids this run.
+
+    Only a REAL order run is gated: read-only holdings runs and dry runs
+    are never blocked. Fails OPEN (returns ``(False, "")``) on any error —
+    a network blip, an unconfigured license server (empty ACTIVATION_URL),
+    or a missing license module must never freeze a legitimate run. The
+    operator pairs ``kill`` with ``revoke`` for a hard, grace-proof stop.
+
+    Independent of the license-cap bypass on purpose: the kill switch is a
+    safety halt, so a crucial-bug stop applies even to a bypassed operator.
+    """
+    try:
+        if order_obj.get_holdings() or order_obj.get_dry():
+            return False, ""
+        from src.license.client import order_placement_blocked  # noqa: PLC0415
+
+        return order_placement_blocked()
+    except Exception:
+        return False, ""
+
+
 def fun_run(  # noqa: C901, PLR0912, PLR0915
     order_obj: StockOrder,
     bot_obj: commands.Bot | None = None,
@@ -131,6 +153,19 @@ def fun_run(  # noqa: C901, PLR0912, PLR0915
     Functions are determined as: [broker_name] + <function_name>.
     So for example, fennel init -> fennel_init()
     """
+    # Kill-switch preflight: refuse a real order run when the operator has
+    # flipped the remote stop (crucial-bug halt). Plain ASCII so it prints
+    # safely on any console encoding (no emoji).
+    blocked, kill_msg = _order_run_blocked(order_obj)
+    if blocked:
+        print("=" * 60)
+        print("ORDER PLACEMENT IS PAUSED BY THE OPERATOR (remote kill switch).")
+        if kill_msg:
+            print(kill_msg)
+        print("No orders were placed.")
+        print("=" * 60)
+        _emit_progress("KILL", kill_msg or "paused by operator")
+        return
     total_value = 0
     planned = [
         bi.name.lower()

@@ -199,6 +199,100 @@ def _sidebar_license_bypass_toggle() -> None:
                 st.rerun()
 
 
+def _tab_license() -> None:
+    """License activation + status (the friend-facing paste-a-key screen).
+
+    Defensive: a license/network import error must not crash the tab.
+    Only this tab (not the sidebar) reaches the network — for the
+    kill-switch banner and the activate/refresh buttons.
+    """
+    st.subheader("🔑 License")
+    try:
+        from src.license import status_summary  # noqa: PLC0415
+        from src.license import client as lic  # noqa: PLC0415
+    except Exception as exc:  # noqa: BLE001
+        st.error(f"License module unavailable: {exc}")
+        return
+
+    info = status_summary()
+    bypass = info.get("license_id") == "BYPASS"
+    reason = str(info.get("reason", ""))
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Tier", info["tier_label"] + (" (bypass)" if bypass else ""))
+    c2.metric("Brokers", info["cap_text"])
+    status_word = (
+        "Bypass" if bypass
+        else "Active" if reason in ("valid token", "in grace window")
+        else "Not licensed"
+    )
+    c3.metric("Status", status_word)
+
+    if info.get("expires_at"):
+        st.caption(
+            f"Expires {info['expires_at']}  ·  license {info.get('license_id', '')}",
+        )
+    if info.get("token_error"):
+        st.error(
+            f"License token can't be read: {info['token_error']}. "
+            "Re-activate below or restore from backup.",
+        )
+    elif info.get("in_grace"):
+        st.warning(
+            "License is in its grace window — it refreshes automatically soon.",
+        )
+
+    server = lic.server_url()
+    if not server:
+        st.info(
+            "This build has no license server configured, so activation is "
+            "unavailable. You're running unlicensed (or via the operator "
+            "bypass).",
+        )
+
+    # Kill-switch banner — the operator's remote stop, surfaced honestly.
+    ks = lic.killswitch_status()
+    if ks.get("active"):
+        st.error(
+            "⛔ Trading is PAUSED by the operator: "
+            f"{ks.get('message') or 'no reason given'}. Orders will not be "
+            "placed until this is lifted.",
+        )
+    elif ks.get("reachable"):
+        st.success("License server reachable — trading is not paused.")
+
+    st.divider()
+    st.markdown("**Activate a license key**")
+    st.caption(
+        "Paste the key the operator sent you. Activation binds this app to "
+        "this computer.",
+    )
+    st.text_input(
+        "License key", key="license_activate_key",
+        placeholder="rsa-XXXX-XXXX-XXXX", label_visibility="collapsed",
+    )
+    b1, b2, b3 = st.columns(3)
+    if b1.button("Activate", type="primary", width="stretch", disabled=not server):
+        ok, msg = lic.activate(st.session_state.get("license_activate_key", ""))
+        if ok:
+            st.success(msg)
+            st.rerun()
+        else:
+            st.error(msg)
+    if b2.button("Refresh now", width="stretch", disabled=not server):
+        ok, msg = lic.refresh_now()
+        (st.success if ok else st.error)(msg)
+        if ok:
+            st.rerun()
+    with b3:
+        if st.checkbox("Show hardware ID"):
+            st.code(info.get("hardware_id", ""), language=None)
+            st.caption(
+                "Give this to the operator to move your license to a new "
+                "computer.",
+            )
+
+
 # --------------------------------------------------------------------------
 # Sidebar: vault lock/unlock + settings
 # --------------------------------------------------------------------------
@@ -3041,6 +3135,7 @@ def main() -> None:
         "Performance": _tab_performance,
         "Balances": _tab_holdings,
         "🩺 Diagnostics": _tab_diagnostics,
+        "🔑 License": _tab_license,
     }
     labels = list(tab_funcs)
     if st.session_state.get("active_section") not in labels:

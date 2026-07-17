@@ -140,25 +140,45 @@ def activate(license_key: str) -> tuple[bool, str]:
     return True, "Activated."
 
 
-def refresh_if_stale() -> None:
-    """Silently refresh a stale token on app start. All errors swallowed."""
+def refresh_now() -> tuple[bool, str]:
+    """Force a token refresh regardless of age. Returns (ok, message).
+
+    Used by the GUI's "Refresh" button. Verifies the returned token's
+    signature before saving (trust the signature, not the server).
+    """
     url = server_url()
+    if not url:
+        return False, "No license server is configured in this build."
     token = token_store.load()
-    if not url or not token or not _is_stale(token):
-        return
+    if not token:
+        return False, "No license token to refresh — activate a key first."
     try:
         resp = requests.post(
             f"{url}/refresh",
             json={"token": token, "app_version": _app_version()},
             timeout=_TIMEOUT,
         )
-    except requests.RequestException:
-        return  # offline -> keep the cached token (grace window)
+    except requests.RequestException as exc:
+        return False, f"Could not reach the license server: {exc}"
+    if resp.status_code == 410:
+        return False, "This license has been revoked or has expired."
+    if resp.status_code == 423:
+        return False, _safe_msg(resp) or "Refresh is paused by the operator."
     if resp.status_code != 200:
-        return
+        return False, f"Refresh failed (HTTP {resp.status_code})."
     new = resp.json()
     if verify.verify_token(new, _keys.PUBLIC_KEY_B64) and _hardware_matches(new):
         token_store.save(_strip(new))
+        return True, "License refreshed."
+    return False, "Refresh response failed its signature check."
+
+
+def refresh_if_stale() -> None:
+    """Silently refresh a stale token on app start. All errors swallowed."""
+    token = token_store.load()
+    if token and _is_stale(token):
+        with contextlib.suppress(Exception):
+            refresh_now()
 
 
 def killswitch_status() -> dict[str, Any]:
