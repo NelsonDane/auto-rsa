@@ -663,7 +663,29 @@ async def _sofi_login_and_account(browser: Browser, page: tab.Tab, account: list
                 await asyncio.sleep(1)
 
         current_url = await get_current_url(page, discord_loop)
+        # SoFi can linger on /u/login for several seconds after the Log In
+        # click before redirecting to the 2FA challenge. Branching to
+        # _handle_2fa while still on /u/login fails with "no 2FA input
+        # field" (the login page has no input[id=code]). Poll until the URL
+        # actually leaves the login page.
+        for _ in range(15):
+            if current_url and "/u/login" not in current_url.lower():
+                break
+            await asyncio.sleep(1)
+            current_url = await get_current_url(page, discord_loop)
         _sofi_log("login: post-click url", t0, repr(current_url))
+        if current_url and "/u/login" in current_url.lower():
+            # Never advanced past the login page after polling — the login
+            # itself failed (bad credentials, a CAPTCHA, or SoFi is
+            # rate-limiting). A clear message beats the misleading
+            # "2FA input field not found".
+            msg = (
+                f"SoFi {name}: login did not advance past the login page "
+                f"(still on /u/login after 15s). Check the username / "
+                f"password, or SoFi may be rate-limiting — retry in a few "
+                f"minutes."
+            )
+            raise Exception(msg)
         if current_url is not None and "overview" not in current_url:
             _sofi_log("login: 2FA branch", t0)
             await _handle_2fa(

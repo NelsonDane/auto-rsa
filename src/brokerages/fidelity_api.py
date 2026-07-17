@@ -47,8 +47,18 @@ def _fidelity_diagnostic(fidelity_browser: object, name: str) -> None:
         page = fidelity_browser.page  # type: ignore[attr-defined]
         stamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%dT%H%M%SZ")
         base = f"fidelity-error-{name.replace(' ', '_')}-{stamp}"
-        with contextlib.suppress(Exception):
-            page.screenshot(path=f"{base}.png", full_page=True)
+        # Screenshot only when explicitly opted in. It used to save a
+        # full-page PNG on every Fidelity error (which, since login
+        # succeeds and a later step trips, captured the accounts page) —
+        # the operator asked to stop those pictures now that login is
+        # stable. Set RSA_FIDELITY_DIAGNOSTIC=1 to re-enable it for
+        # debugging. The lightweight text dump (URL + visible text) is
+        # still written and is enough to diagnose most DOM changes.
+        wrote_png = False
+        if os.getenv("RSA_FIDELITY_DIAGNOSTIC") == "1":
+            with contextlib.suppress(Exception):
+                page.screenshot(path=f"{base}.png", full_page=True)
+                wrote_png = True
         body = ""
         with contextlib.suppress(Exception):
             body = page.inner_text("body")
@@ -56,7 +66,8 @@ def _fidelity_diagnostic(fidelity_browser: object, name: str) -> None:
             f"URL: {getattr(page, 'url', '?')}\n\n--- visible text ---\n{body}\n",
             encoding="utf-8",
         )
-        print(f"Saved Fidelity 2FA diagnostic: {base}.png / {base}.txt")
+        png_note = f"{base}.png / " if wrote_png else ""
+        print(f"Saved Fidelity diagnostic: {png_note}{base}.txt")
     except Exception as exc:
         print(f"(Fidelity diagnostic capture failed: {exc})")
 
