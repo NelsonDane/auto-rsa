@@ -209,10 +209,11 @@ def subaccount_cap() -> int | None:
 
     The Friend tiers cap this at 1 (no multi-account fan-out). Reads
     ``current_tier()`` so the operator bypass (→ operator) and every
-    grace/expiry rule apply automatically — an unverified/expired token
-    that falls back to ``unlicensed`` is uncapped here, which is
-    intentional: the *trading* gate (client.pre_trade_block) is what
-    stops an unlicensed Friend build, not this per-account limiter.
+    grace/expiry rule apply automatically. ``unlicensed`` is also capped
+    at 1 (see SUBACCOUNT_CAPS): a lapsed Friend token falls back to
+    ``unlicensed``, and since the trading gate fails open when offline,
+    leaving this uncapped would let a friend with no valid license trade
+    every account. Bypass (→ operator) stays uncapped.
     """
     return SUBACCOUNT_CAPS.get(current_tier())
 

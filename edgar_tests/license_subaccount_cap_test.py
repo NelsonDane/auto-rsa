@@ -72,6 +72,18 @@ def test_no_cap_allows_all(monkeypatch):
         assert _reserve("robinhood", acct, o) is not None
 
 
+def test_tier_subaccount_caps_are_conservative():
+    """unlicensed + friend tiers cap at 1 account/broker; pro tiers are
+    uncapped. Locks the fix for the lapsed-offline-friend hole."""
+    from src.license.tiers import SUBACCOUNT_CAPS
+
+    assert SUBACCOUNT_CAPS["unlicensed"] == 1  # NOT None
+    assert SUBACCOUNT_CAPS["friend_lite"] == 1
+    assert SUBACCOUNT_CAPS["friend_main"] == 1
+    assert SUBACCOUNT_CAPS["operator"] is None
+    assert SUBACCOUNT_CAPS["advanced"] is None
+
+
 def test_dedup_skip_releases_the_slot(monkeypatch):
     """A ledger dedup skip did NOT trade, so it must not consume the cap —
     a different account can still take the one slot."""
