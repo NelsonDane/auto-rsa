@@ -9,8 +9,124 @@ from typing import Any, cast
 
 from dotenv import load_dotenv
 
-from src.helper_api import Brokerage, StockOrder, complete_or_fail, mask_string, print_all_holdings, print_and_discord, reserve_or_skip
+from src.helper_api import Brokerage, StockOrder, complete_or_fail, mask_string, print_all_holdings, print_and_discord, record_fill, reserve_or_skip
 from src.vendors.robin_stocks.robin_stocks import robinhood as rh
+
+# Bounded fill-verification poll. A just-placed order is usually still
+# "queued" for a beat; poll get_stock_order_info a few times so a market
+# order has a chance to reach "filled" before we record it. Kept small so
+# it never wedges a run; tunable via env for slow accounts.
+_RH_FILL_POLL_TRIES = int(os.getenv("RSA_RH_FILL_POLL_TRIES", "4") or 4)
+_RH_FILL_POLL_SECONDS = float(os.getenv("RSA_RH_FILL_POLL_SECONDS", "1.5") or 1.5)
+_RH_TERMINAL_STATES = frozenset(
+    {"filled", "rejected", "canceled", "cancelled", "failed", "voided"},
+)
+
+
+def _poll_rh_order(order_ref: str) -> dict | None:
+    """Poll get_stock_order_info until terminal or the budget is spent.
+
+    Returns the last order-info dict seen, or ``None`` when verification
+    isn't possible (the function is absent, no order id, or every call
+    errored) — the caller then falls back to legacy success/fail so
+    there is never a regression when the API can't answer.
+    """
+    import time  # noqa: PLC0415
+
+    getter = getattr(rh, "get_stock_order_info", None)
+    if not callable(getter) or not order_ref:
+        return None
+    last: dict | None = None
+    tries = max(1, _RH_FILL_POLL_TRIES)
+    for i in range(tries):
+        try:
+            info = getter(order_ref)
+        except Exception:  # noqa: BLE001 -- best-effort; keep the last good read
+            return last
+        if isinstance(info, dict) and info:
+            last = info
+            state = str(info.get("state", "") or "").strip().lower()
+            if state in _RH_TERMINAL_STATES:
+                return info
+        if i < tries - 1:
+            time.sleep(_RH_FILL_POLL_SECONDS)
+    return last
+
+
+def _record_rh_outcome(  # noqa: PLR0913
+    play: object,
+    *,
+    order_obj: StockOrder,
+    order_resp: object,
+    message: str,
+    action: str,
+    ticker: str,
+    account: object,
+    key: str,
+    print_account: str,
+    loop: AbstractEventLoop | None = None,
+) -> None:
+    """Verify a placed Robinhood order and record its true FillState.
+
+    A submitted order is NOT a filled order (the Robinhood analog of the
+    Chase queue-eligible bug). When order-status polling is available we
+    record the real state (filled → EXECUTED, working → PENDING, rejected
+    → FAILED). When it isn't, we fall back to the legacy behavior exactly
+    so nothing regresses.
+    """
+    from src.brokerages._robinhood_fill import (  # noqa: PLC0415
+        classify_robinhood_order,
+        robinhood_filled_qty,
+        robinhood_order_ref,
+    )
+    from src.brokerages.fill_result import FillResult, FillState  # noqa: PLC0415
+
+    order_ref = robinhood_order_ref(order_resp)
+    # A submission that echoed an error is a rejection regardless of poll.
+    if isinstance(order_resp, dict) and order_resp.get("non_field_errors"):
+        record_fill(
+            play, order_obj=order_obj,
+            result=FillResult(
+                FillState.REJECTED, broker="robinhood", account=str(account),
+                ticker=ticker, action=action, order_ref=order_ref,
+                detail=str(message),
+            ),
+        )
+        return
+
+    info = _poll_rh_order(order_ref)
+    if info is None:
+        # Can't verify (no get_stock_order_info, no id, or transient
+        # error) — preserve legacy behavior exactly. No regression.
+        complete_or_fail(
+            play, order_obj=order_obj,
+            success=(message == "Success"), detail=message,
+        )
+        return
+
+    state = classify_robinhood_order(info)
+    qty = robinhood_filled_qty(info)
+    rh_state = str(info.get("state", "?"))
+    detail = (
+        message if state is FillState.FILLED
+        else f"{message} (order state: {rh_state})"
+    )
+    status = record_fill(
+        play, order_obj=order_obj, source="poll",
+        result=FillResult(
+            state, broker="robinhood", account=str(account), ticker=ticker,
+            action=action, qty=qty, order_ref=order_ref or robinhood_order_ref(info),
+            detail=str(detail),
+        ),
+    )
+    if state is not FillState.FILLED:
+        # Surface anything that isn't a clean fill so a "pending" or
+        # rejected order isn't mistaken for a completed buy.
+        print_and_discord(
+            f"{key}: {ticker} in {print_account} — order state "
+            f"'{rh_state}' (recorded {status}, not a confirmed fill)",
+            loop,
+        )
 
 
 def login_with_cache(pickle_path: str, pickle_name: str) -> None:
@@ -188,9 +304,11 @@ def robinhood_transaction(rho: Brokerage, order_obj: StockOrder, loop: AbstractE
                                 f"{key}: {order_obj.get_action()} {order_obj.get_amount()} of {s} in {print_account} @ {price}: {message}",
                                 loop,
                             )
-                            complete_or_fail(
-                                play, order_obj=order_obj,
-                                success=(message == "Success"), detail=message,
+                            _record_rh_outcome(
+                                play, order_obj=order_obj, order_resp=limit_order,
+                                message=message, action=order_obj.get_action(),
+                                ticker=s, account=account, key=key,
+                                print_account=print_account, loop=loop,
                             )
                         else:
                             message = "Success"
@@ -201,9 +319,11 @@ def robinhood_transaction(rho: Brokerage, order_obj: StockOrder, loop: AbstractE
                                 f"{key}: {order_obj.get_action()} {order_obj.get_amount()} of {s} in {print_account}: {message}",
                                 loop,
                             )
-                            complete_or_fail(
-                                play, order_obj=order_obj,
-                                success=(message == "Success"), detail=message,
+                            _record_rh_outcome(
+                                play, order_obj=order_obj, order_resp=market_order,
+                                message=message, action=order_obj.get_action(),
+                                ticker=s, account=account, key=key,
+                                print_account=print_account, loop=loop,
                             )
                     except Exception as e:
                         print_and_discord(f"{key} Error submitting order: {e}", loop)

@@ -171,7 +171,9 @@ def _row_cell(status: str, reason: str) -> str:  # noqa: PLR0911
         return SESSION
     if reason in {MARKET_CLOSED, PRICE_REJECTED, NO_FUNDS}:
         return REJECTED
-    if status == "INTENDED":
+    # A working-but-not-yet-filled order (fill verification) and a
+    # mid-flight INTENDED row both read as PENDING in the matrix.
+    if status in {"INTENDED", "PENDING"}:
         return PENDING
     if reason in {FILTERED, LEDGER_SKIP}:
         return SKIPPED

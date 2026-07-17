@@ -480,36 +480,26 @@ def _order_succeeded(messages: dict, *, dry: bool) -> bool:
     if dry:
         return bool(messages.get("ORDER VALIDATION"))
     confirmation = messages.get("ORDER CONFIRMATION")
-    if not isinstance(confirmation, dict) or not confirmation:
-        return False
-    # If Chase echoed an explicit rejection inside a 2xx body, fail.
-    for reject_key in ("tradeErrorMessages", "errors", "errorMessages"):
-        if confirmation.get(reject_key):
-            return False
-    # FALSE-SUCCESS GUARD (defense-in-depth; also handled in the direct
-    # path). orderQueueAvailabilityIndicator=True is a queue-ELIGIBLE
-    # response for an after-hours order that is NOT actually placed —
-    # confirmed in the field, the returned order IDs never reached the
-    # account. Never record that as a fill.
-    if confirmation.get("orderQueueAvailabilityIndicator"):
-        return False
-    # A recognized order-id key is the strongest signal; log which so
-    # the real response shape becomes known from the trace.
-    for id_key in (
-        "orderIdentifier",
-        "orderId",
-        "financialInformationExchangeSystemOrderIdentifier",
-    ):
-        if confirmation.get(id_key):
-            return True
-    # No recognized id key, but a non-empty 2xx execute body with no
-    # reject marker -> accept (avoids the double-buy false-negative).
-    # Surface the keys so the real id field can be added above.
-    print(
-        "Chase execute 2xx with no recognized order-id key; "
-        f"accepting as filled. confirmation keys: {list(confirmation)[:12]}",
+    # The fill rule (empty body / reject marker / queue-eligible-only ->
+    # not a fill; otherwise fill) lives in one pure, tested place so the
+    # false-success guard can't drift. classify == FILLED is exactly
+    # what the previous inline logic returned.
+    from src.brokerages._chase_fill import (  # noqa: PLC0415
+        classify_chase_execute,
+        has_recognized_id,
     )
-    return True
+    from src.brokerages.fill_result import FillState  # noqa: PLC0415
+
+    filled = classify_chase_execute(confirmation) is FillState.FILLED
+    # No recognized id key on an accepted 2xx body -> still a fill, but
+    # surface the keys so the real id field becomes known from the trace.
+    if filled and not has_recognized_id(confirmation):
+        keys = list(confirmation)[:12] if isinstance(confirmation, dict) else []
+        print(
+            "Chase execute 2xx with no recognized order-id key; "
+            f"accepting as filled. confirmation keys: {keys}",
+        )
+    return filled
 
 
 def _execute_single_order(ch_session: session.ChaseSession, all_accounts: ch_account.AllAccount, order_obj: StockOrder, ticker: str, account: str, price_type: order.PriceType, limit_price: float, key: str, loop: asyncio.AbstractEventLoop | None) -> None:  # noqa: PLR0917

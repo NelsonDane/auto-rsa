@@ -755,6 +755,29 @@ def complete_or_fail(
     mark_result(play, success=success, detail=str(detail or ""))
 
 
+def record_fill(
+    play: "Play",  # noqa: F821  -- Play imported lazily to avoid circular
+    *,
+    order_obj: "StockOrder",
+    result: object,
+    source: str = "inline",
+) -> str:
+    """Record a VERIFIED fill outcome (a FillResult) in the ledger.
+
+    The fill-aware companion to :func:`complete_or_fail`: instead of a
+    coarse success/fail, it records the exact
+    :class:`~src.brokerages.fill_result.FillState`, so an accepted-but-
+    unfilled order lands as PENDING (blocking, not a fill) rather than
+    EXECUTED. No-op for dry runs, matching :func:`complete_or_fail`.
+    Returns the ledger status written (empty string on a dry run).
+    """
+    from src.ledger import mark_fill  # noqa: PLC0415
+
+    if order_obj.get_dry():
+        return ""
+    return mark_fill(play, result, source=source)
+
+
 def print_and_discord(
     message: str | EmbedType,
     loop: asyncio.AbstractEventLoop | None = None,

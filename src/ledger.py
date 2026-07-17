@@ -42,7 +42,19 @@ STATUS_FAILED = "FAILED"
 # broker and reset the row on the Ledger tab. (A missed buy beats a
 # double-buy for real money.)
 STATUS_NEEDS_REVIEW = "NEEDS_REVIEW"
-_BLOCKING = (STATUS_INTENDED, STATUS_EXECUTED, STATUS_NEEDS_REVIEW)
+# Accepted and working at the broker (queued/confirmed) but not yet
+# filled. It MIGHT still fill, so auto-retrying risks a double-buy —
+# blocking like INTENDED/EXECUTED/NEEDS_REVIEW. Distinct from FAILED:
+# a rejected/never-placed order is FAILED (safe to retry), a working
+# order is PENDING (must be verified, not blindly re-fired). See
+# docs/FILL_VERIFICATION_DESIGN.md §5.
+STATUS_PENDING = "PENDING"
+_BLOCKING = (
+    STATUS_INTENDED,
+    STATUS_EXECUTED,
+    STATUS_NEEDS_REVIEW,
+    STATUS_PENDING,
+)
 
 
 class Play(NamedTuple):
@@ -137,6 +149,30 @@ def _connect() -> Iterator[sqlite3.Connection]:
         if "hold_until" not in cols:
             conn.execute(
                 "ALTER TABLE executions ADD COLUMN hold_until TEXT DEFAULT ''",
+            )
+        # Fill-verification columns (docs/FILL_VERIFICATION_DESIGN.md §5):
+        # the broker order id, the last known FillState, the quantity the
+        # broker reported filled, when it was last verified, and how
+        # (inline / poll / reconcile). All nullable so old rows read fine.
+        if "order_ref" not in cols:
+            conn.execute(
+                "ALTER TABLE executions ADD COLUMN order_ref TEXT DEFAULT ''",
+            )
+        if "fill_state" not in cols:
+            conn.execute(
+                "ALTER TABLE executions ADD COLUMN fill_state TEXT DEFAULT ''",
+            )
+        if "filled_qty" not in cols:
+            conn.execute(
+                "ALTER TABLE executions ADD COLUMN filled_qty REAL",
+            )
+        if "verified_at" not in cols:
+            conn.execute(
+                "ALTER TABLE executions ADD COLUMN verified_at TEXT DEFAULT ''",
+            )
+        if "verify_source" not in cols:
+            conn.execute(
+                "ALTER TABLE executions ADD COLUMN verify_source TEXT DEFAULT ''",
             )
         conn.execute(
             "CREATE INDEX IF NOT EXISTS ix_exec_split "
@@ -290,6 +326,74 @@ def mark_result(play: Play, *, success: bool, detail: str = "") -> None:
                 *_norm(play),
             ),
         )
+
+
+def mark_fill(
+    play: Play,
+    result: object,
+    *,
+    source: str = "inline",
+) -> str:
+    """Finalize a reserved play from a verified fill outcome.
+
+    ``result`` is a :class:`src.brokerages.fill_result.FillResult` (duck
+    -typed: any object exposing ``state``/``qty``/``order_ref``/``detail``).
+    The :class:`~src.brokerages.fill_result.FillState` maps to exactly
+    one ledger status here — the single decision site so "pending is not
+    filled" can never be re-decided elsewhere:
+
+    * FILLED   → EXECUTED   (the only path to EXECUTED via a fill)
+    * PENDING  → PENDING    (accepted/working; blocking, not a fill)
+    * REJECTED → FAILED     (never placed / refused; safe to retry)
+    * UNKNOWN  → NEEDS_REVIEW (ambiguous; human verifies)
+
+    Returns the ledger status written. Records the broker order id,
+    the FillState, the reported fill quantity, and the verification
+    source/timestamp alongside the row. ``mark_result`` remains the
+    coarse (success/fail) entry point for brokers not yet fill-aware.
+    """
+    from src.brokerages.fill_result import FillState  # noqa: PLC0415
+    from src.outcomes import OK, classify_outcome  # noqa: PLC0415
+
+    state = getattr(result, "state", None)
+    detail = str(getattr(result, "detail", "") or "")
+    order_ref = str(getattr(result, "order_ref", "") or "")
+    filled_qty = getattr(result, "qty", None)
+
+    status_by_state = {
+        FillState.FILLED: STATUS_EXECUTED,
+        FillState.PENDING: STATUS_PENDING,
+        FillState.REJECTED: STATUS_FAILED,
+        FillState.UNKNOWN: STATUS_NEEDS_REVIEW,
+    }
+    # Unrecognized/missing state is treated as UNKNOWN — the safe,
+    # non-fill default (a missed buy beats a double-buy).
+    status = status_by_state.get(state, STATUS_NEEDS_REVIEW)  # type: ignore[arg-type]
+    # A genuine fill is OK; everything else keeps a classified reason so
+    # the session panel / availability matrix can tell a benign non-fill
+    # (stock unavailable) from real session breakage.
+    reason = OK if status == STATUS_EXECUTED else classify_outcome(detail, success=False)
+
+    with _LOCK, _connect() as conn:
+        conn.execute(
+            "UPDATE executions SET status=?, detail=?, reason=?, updated_at=?, "
+            "order_ref=?, fill_state=?, filled_qty=?, verified_at=?, "
+            "verify_source=? "
+            "WHERE key=? AND broker=? AND sub_account=? AND ticker=? AND action=?",
+            (
+                status,
+                detail[:500],
+                reason,
+                _now(),
+                order_ref,
+                getattr(state, "value", "") if state is not None else "",
+                filled_qty,
+                _now(),
+                str(source or ""),
+                *_norm(play),
+            ),
+        )
+    return status
 
 
 def list_executions(key: str | None = None) -> list[dict[str, object]]:
