@@ -67,6 +67,14 @@ def _bypass_flag_active() -> bool:
 
 
 def _bypass_active() -> bool:
+    # SECURITY: the operator's dev bypass (env var / sentinel file) must be
+    # UNREACHABLE in a friend build. Otherwise a friend could set
+    # RSA_LICENSE_BYPASS=1 or drop creds/license_bypass.flag and lift their
+    # own caps to operator/unlimited. A friend build bakes
+    # REQUIRE_LICENSE_TO_TRADE=True (compiled in), so honor the bypass only
+    # when it's False (the self-hosted operator / pro build).
+    if getattr(_keys, "REQUIRE_LICENSE_TO_TRADE", False):
+        return False
     return _bypass_env_active() or _bypass_flag_active()
 
 

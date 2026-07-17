@@ -137,8 +137,16 @@ def _order_run_blocked(order_obj: StockOrder) -> tuple[bool, str]:
         from src.license import _keys  # noqa: PLC0415
         from src.license.client import pre_trade_block  # noqa: PLC0415
 
+        from src.helper_api import broker_cap_message  # noqa: PLC0415
+
         require = bool(getattr(_keys, "REQUIRE_LICENSE_TO_TRADE", False))
-        return pre_trade_block(require_license=require)
+        blocked, msg = pre_trade_block(require_license=require)
+        if blocked:
+            return True, msg
+        cap_msg = broker_cap_message(order_obj)
+        if cap_msg:
+            return True, cap_msg
+        return False, ""
     except Exception:
         return False, ""
 

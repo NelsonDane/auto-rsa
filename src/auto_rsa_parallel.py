@@ -265,12 +265,17 @@ def fun_run_parallel(
     blocked, kill_msg = False, ""
     try:
         if not (order_obj.get_holdings() or order_obj.get_dry()):  # type: ignore[attr-defined]
+            from src.helper_api import broker_cap_message  # noqa: PLC0415
             from src.license import _keys  # noqa: PLC0415
             from src.license.client import pre_trade_block  # noqa: PLC0415
 
             blocked, kill_msg = pre_trade_block(
                 require_license=bool(getattr(_keys, "REQUIRE_LICENSE_TO_TRADE", False)),
             )
+            if not blocked:
+                cap_msg = broker_cap_message(order_obj)
+                if cap_msg:
+                    blocked, kill_msg = True, cap_msg
     except Exception:  # noqa: BLE001 -- fail open; never block on a gate error
         blocked, kill_msg = False, ""
     if blocked:

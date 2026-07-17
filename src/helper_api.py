@@ -677,6 +677,47 @@ def reset_subaccount_caps() -> None:
         _SUBACCT_USED.clear()
 
 
+def broker_cap_message(order_obj: "StockOrder") -> str:  # noqa: F821
+    """Block message if the run exceeds the license parent-broker cap.
+
+    SECURITY (finding SEC-2): the parent-broker cap was enforced only at the
+    GUI vault-write layer, so a friend could drive the engine directly
+    (``AutoRSA.exe --engine …`` or a ``.env`` + "all") and trade unlimited
+    brokers. Enforce ``account_cap()`` here too, at the trading choke point.
+
+    Friend-build only (``REQUIRE_LICENSE_TO_TRADE``): a self-hosted operator
+    / pro build keeps the vault-only cap unchanged. Holdings runs (read-only)
+    are never capped. Returns "" (fail open) on any error.
+    """
+    try:
+        from src.license import _keys, account_cap  # noqa: PLC0415
+
+        if not getattr(_keys, "REQUIRE_LICENSE_TO_TRADE", False):
+            return ""
+        if order_obj.get_holdings():
+            return ""
+        cap = account_cap()
+        if cap is None:
+            return ""
+        notb = order_obj.get_notbrokers()
+        seen: list[str] = []
+        for bi in order_obj.get_brokers():
+            if bi in notb:
+                continue
+            name = bi.name.lower()
+            if name not in seen:
+                seen.append(name)
+        if len(seen) > cap:
+            return (
+                f"Your license permits {cap} broker(s), but this run targets "
+                f"{len(seen)} ({', '.join(seen)}). Remove some brokers or "
+                "upgrade your license. No orders were placed."
+            )
+    except Exception:  # noqa: BLE001 -- fail open; never block on a gate error
+        return ""
+    return ""
+
+
 def _subaccount_cap_for_run() -> int | None:
     """Accounts-per-broker cap for the active license tier (None = off)."""
     try:

@@ -163,3 +163,25 @@ def test_status_summary_reflects_flag_bypass(_isolated_flag):
     assert info["license_id"] == "BYPASS"
     assert info["tier"] == "operator"
     assert info["cap"] is None
+
+
+# --- SEC-1: the bypass must be UNREACHABLE in a friend build ----------
+
+def test_friend_build_ignores_env_bypass(monkeypatch):
+    """A friend build (REQUIRE_LICENSE_TO_TRADE) must ignore
+    RSA_LICENSE_BYPASS so a friend can't lift their own cap."""
+    from src.license import _keys
+
+    monkeypatch.setenv(_BYPASS_ENV, "1")
+    monkeypatch.setattr(_keys, "REQUIRE_LICENSE_TO_TRADE", True, raising=False)
+    assert current_tier() == "unlicensed"  # NOT operator
+    assert account_cap() == 1               # cap NOT lifted
+
+
+def test_friend_build_ignores_flag_bypass(_isolated_flag, monkeypatch):
+    from src.license import _keys
+
+    set_bypass_flag(enabled=True)
+    monkeypatch.setattr(_keys, "REQUIRE_LICENSE_TO_TRADE", True, raising=False)
+    assert account_cap() == 1               # flag ignored in friend build
+    assert current_tier() == "unlicensed"
