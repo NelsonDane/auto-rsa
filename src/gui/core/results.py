@@ -27,6 +27,16 @@ STATUS_MARKERS = (
     "combined total",
     "dry:",
     "would've been",
+    # Reject/pending wording — so a rejected order or an accepted-but-not-
+    # filled "order state 'queued' (recorded PENDING…)" line survives this
+    # filter and reaches the friendly summary (instead of being dropped and
+    # mislabeled as a clean no-order run).
+    "rejected",
+    "declined",
+    "pending",
+    "queued",
+    "order state",
+    "order placed",
 )
 
 _GENERAL = "General"

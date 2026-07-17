@@ -45,6 +45,11 @@ _MESSAGES: dict[str, tuple[str, str]] = {
 }
 
 _FILLED = ("✅", "Order placed.")
+_PENDING = (
+    "⏳",
+    "Order accepted but not confirmed filled yet — check Balances, or try "
+    "again.",
+)
 _CLEAN = ("🟡", "Ran, but no order went through here.")
 _ERROR = (
     "❌",
@@ -55,20 +60,45 @@ _EMPTY = ("⚪", "No status yet.")
 
 # Markers that mean a genuine failure (vs. a clean run that placed nothing).
 _ERROR_MARKERS = ("error", "fail", "unsuccessful", "unable", "timed out", "exception")
+# Explicit rejection wording a broker may print ON a line that ALSO looks
+# like a fill (e.g. "buy 1 of X: Success: False, Status: REJECTED").
+_REJECT_MARKERS = (
+    "rejected", "declined", "denied", "not placed", "not filled",
+    "success: false",
+)
+# Accepted-but-not-yet-filled: a working/queued order is NOT a fill.
+_PENDING_MARKERS = ("queued", "unconfirmed", "not a confirmed fill", "pending")
+# Broker confirmations that don't match the generic fill regex but DO mean
+# a real fill (checked only AFTER the failure/pending markers above).
+_POSITIVE_FILL_MARKERS = ("order placed", "verification was successful")
 
 
 def friendly_summary(lines: list[str]) -> tuple[str, str]:
-    """Return (icon, one-line plain message) for a broker's status lines."""
+    """Return (icon, one-line plain message) for a broker's status lines.
+
+    Order matters: a real failure/rejection/pending signal must win over a
+    submission line that merely *looks* like a fill — otherwise a rejected
+    or queued order gets shown as "Order placed" (the false-success class
+    this project has repeatedly fought).
+    """
     if not lines:
         return _EMPTY
-    if any(is_fill_line(ln) for ln in lines):
-        return _FILLED
     text = "\n".join(lines)
+    low = text.lower()
+    # 1) A recognized outcome code (session error, stock unavailable,
+    #    market closed, no funds, restricted, filtered, ledger skip).
     code = classify_outcome(text, success=False)
     if code in _MESSAGES:
         return _MESSAGES[code]
-    # Unclassified: tell a real error apart from a clean no-order run.
-    low = text.lower()
-    if any(m in low for m in _ERROR_MARKERS):
+    # 2) An explicit rejection / failure marker → real failure.
+    if any(m in low for m in _REJECT_MARKERS) or any(m in low for m in _ERROR_MARKERS):
         return _ERROR
+    # 3) Accepted-but-not-filled (queued/pending) → not a fill.
+    if any(m in low for m in _PENDING_MARKERS):
+        return _PENDING
+    # 4) A genuine fill — a fill line, or a broker's explicit placed/verified
+    #    confirmation, with NO failure/pending signal (ruled out above).
+    if any(is_fill_line(ln) for ln in lines) or any(m in low for m in _POSITIVE_FILL_MARKERS):
+        return _FILLED
+    # 5) Ran, nothing placed here.
     return _CLEAN

@@ -47,3 +47,41 @@ def test_empty():
 def test_ledger_skip():
     icon, _ = friendly_summary(["Fennel: skipped FOMO — already executed (no double-buy)"])
     assert icon == "⚪"
+
+
+def test_rejected_order_is_not_shown_as_placed():
+    # Fennel-style: the submission line literally says "Success: False, REJECTED".
+    icon, msg = friendly_summary(
+        ["Fennel: buy 1 of AAPL in acct: Success: False, Status: REJECTED, ID: abc"],
+    )
+    assert icon == "❌", (icon, msg)
+
+
+def test_queued_order_is_pending_not_placed():
+    lines = [
+        "Robinhood: buy 1 of AAPL in xxxx1234: Success",
+        "Robinhood: AAPL in xxxx1234 — order state 'queued' "
+        "(recorded PENDING, not a confirmed fill)",
+    ]
+    icon, msg = friendly_summary(lines)
+    assert icon == "⏳", (icon, msg)
+
+
+def test_chase_placed_confirmation_is_a_fill():
+    icon, _ = friendly_summary(["Chase account 1234: ✅ Order placed (Chase order id 55)"])
+    assert icon == "✅"
+
+
+def test_chase_unsuccessful_is_error():
+    icon, _ = friendly_summary(["Chase account 1234: ❌ The order was unsuccessful"])
+    assert icon == "❌"
+
+
+def test_schwab_verification_success_is_a_fill():
+    icon, _ = friendly_summary(["Schwab account xxxx: The order verification was successful"])
+    assert icon == "✅"
+
+
+def test_real_robinhood_fill_still_reads_placed():
+    icon, _ = friendly_summary(["Robinhood: buy 1 of AAPL in xxxx1234: Success"])
+    assert icon == "✅"

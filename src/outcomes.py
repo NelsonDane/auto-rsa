@@ -95,7 +95,12 @@ _FILL_POS_RX = re.compile(
 _FILL_NEG_RX = re.compile(
     r"\bfailed\b|\berror\b|\bskipped\b|\bcancel(?:l?ed)?\b|"
     r"\bunable\b|\bvalidation failed\b|\bnot in account filter\b|"
-    r"\bno double-?buy\b|\balready (?:executed|in-?flight)\b",
+    r"\bno double-?buy\b|\balready (?:executed|in-?flight)\b|"
+    # Rejection / not-a-fill vocabulary — so a submission line that merely
+    # prints "buy 1 of X: Success: False, Status: REJECTED" (Fennel/BBAE
+    # style) is NOT counted as a fill.
+    r"\brejected\b|\bdeclined\b|\bdenied\b|\bunsuccessful\b|"
+    r"\bnot filled\b|\bnot placed\b|not a confirmed fill|success:\s*false",
     re.IGNORECASE,
 )
 

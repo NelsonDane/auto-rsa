@@ -94,6 +94,18 @@ def test_is_fill_line_rejects_failures_and_noise():
         assert not o.is_fill_line(line), line
 
 
+def test_is_fill_line_rejects_rejection_and_pending_lines():
+    # A submission line that ALSO carries a rejection verdict, or a
+    # queued/pending order, must NOT count as a fill.
+    no = [
+        "Fennel 1: buy 1 of LCID in xxxx: Success: False, Status: REJECTED, ID: 5",
+        "Public 1: buy 1 of LCID in xxxx: Rejected (REJECTED)",
+        "BBAE 1: Buy 1 of LCID in xxxx: Order declined",
+    ]
+    for line in no:
+        assert not o.is_fill_line(line), line
+
+
 def test_availability_matrix_precedence():
     rows = [
         # ACME: unavailable at fidelity, but later bought there -> BOUGHT wins
