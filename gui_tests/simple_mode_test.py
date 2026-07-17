@@ -68,3 +68,21 @@ def test_full_mode_shows_bypass_toggle(monkeypatch):
     assert any(
         "Disable license broker cap" in (c.label or "") for c in at.checkbox
     )
+
+
+def test_credentials_curates_browser_brokers_in_simple(monkeypatch):
+    at = _app(monkeypatch, simple=True)
+    at.session_state["active_section"] = "Credentials"
+    at.run()
+    assert not at.exception, at.exception
+    # Browser brokers sit behind the 'Advanced brokers' expander, whose
+    # warning names their lack of an official API.
+    assert any("no official API" in (w.value or "") for w in at.warning)
+
+
+def test_credentials_uncurated_in_full_mode(monkeypatch):
+    at = _app(monkeypatch, simple=False)
+    at.session_state["active_section"] = "Credentials"
+    at.run()
+    assert not at.exception, at.exception
+    assert not any("no official API" in (w.value or "") for w in at.warning)

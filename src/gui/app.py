@@ -29,6 +29,7 @@ from src.gui.core import (
     reconcile,
     watchdog,
 )
+from src.gui.core.friendly_errors import friendly_summary
 from src.gui.core.mode import simple_mode
 from src.gui.core.brokers_meta import SUPPORTED_BROKERS, BrokerMeta, get_broker
 from src.gui.core.results import group_by_broker
@@ -772,8 +773,29 @@ def _tab_credentials() -> None:
                 elif not skipped:
                     st.info("No supported broker variables found in .env.")
 
-    for meta in SUPPORTED_BROKERS:
-        _render_broker_credentials(meta, vault, runner)
+    if simple_mode():
+        # Friend build: lead with the API brokers (low-troubleshooting);
+        # tuck the browser brokers behind a collapsed 'Advanced' expander
+        # with a plain warning, since they have no official API.
+        api_brokers = [m for m in SUPPORTED_BROKERS if not m.browser_based]
+        browser_brokers = [m for m in SUPPORTED_BROKERS if m.browser_based]
+        for meta in api_brokers:
+            _render_broker_credentials(meta, vault, runner)
+        if browser_brokers:
+            with st.expander(
+                "Advanced brokers — no official API (extra setup)", expanded=False,
+            ):
+                st.warning(
+                    "These brokers have no official API, so the app signs in "
+                    "through a browser. They need extra setup and can hit "
+                    "occasional issues (login or verification prompts). If you "
+                    "run into a problem, alert the admin who gave you this app.",
+                )
+                for meta in browser_brokers:
+                    _render_broker_credentials(meta, vault, runner)
+    else:
+        for meta in SUPPORTED_BROKERS:
+            _render_broker_credentials(meta, vault, runner)
 
 
 def _normalize_accounts_totp(accounts: list[dict[str, str]]) -> str | None:
@@ -2107,10 +2129,17 @@ def _activity_fragment_body(runner: TradeRunner) -> None:  # noqa: C901, PLR0912
     log = snap.log
     groups = group_by_broker(log) if log else {}
     if groups:
-        st.markdown("**Status by broker** (verbatim lines — grouped best-effort, not interpreted)")
+        st.markdown("**Status by broker**")
         for broker_name, lines in groups.items():
-            with st.expander(f"{broker_name} ({len(lines)})", expanded=True):
-                st.code("\n".join(lines), language="text")
+            icon, msg = friendly_summary(lines)
+            st.markdown(f"{icon} **{broker_name}** — {msg}")
+            # Full mode keeps the verbatim lines a click away; Simple Mode
+            # (friends) shows only the plain-language gist.
+            if not simple_mode():
+                with st.expander(
+                    f"Details — {broker_name} ({len(lines)} lines)", expanded=False,
+                ):
+                    st.code("\n".join(lines), language="text")
 
     with st.expander(
         f"Activity — {status_label}",
