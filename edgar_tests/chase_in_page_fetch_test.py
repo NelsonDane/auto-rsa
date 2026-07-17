@@ -138,6 +138,23 @@ def test_live_success_requires_order_identifier():
     assert _order_succeeded(msgs, dry=False) is True
 
 
+def test_live_fail_on_queue_eligible_only_false_success():
+    """The field-confirmed false success: Chase's /buy-orders returned a
+    confirmation-shaped body WITH an order id but
+    orderQueueAvailabilityIndicator=true for an after-hours order that was
+    never actually placed (the IDs didn't appear in any account). It must
+    NOT be scored as a fill, even though it carries an order id."""
+    msgs = {
+        "ORDER VALIDATION": {"financialInformationExchangeSystemOrderIdentifier": "EX1"},
+        "ORDER CONFIRMATION": {
+            "orderIdentifier": "DA697607",
+            "orderQueueAvailabilityIndicator": True,
+            "orderDate": "2026-07-17T01:23:26.263Z",
+        },
+    }
+    assert _order_succeeded(msgs, dry=False) is False
+
+
 def test_live_accepts_2xx_body_without_recognized_id_key():
     """A non-empty 2xx execute body with no recognized order-id key
     (and no reject marker) is now ACCEPTED as a fill. Rationale: the

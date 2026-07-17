@@ -497,6 +497,26 @@ def apply() -> None:  # noqa: C901, PLR0915
                     "[chase-direct] line for HTTP status / body)."
                 )
                 return order_messages
+            # FALSE-SUCCESS GUARD. Chase's /buy-orders can return a
+            # confirmation-shaped body (orderIdentifier, orderDate) with
+            # orderQueueAvailabilityIndicator=True for an after-hours order
+            # that is only QUEUE-ELIGIBLE — the order is NOT actually placed
+            # (confirmed in the field: the returned IDs never appeared in any
+            # account). Treat it as a FAILURE so the ledger never records a
+            # fill that didn't happen and the play stays retryable in-hours.
+            if isinstance(exec_data, dict) and exec_data.get(
+                "orderQueueAvailabilityIndicator",
+            ):
+                _log("execute: queue-eligible only -> NOT placed", t0)
+                order_messages["ORDER INVALID"] = (
+                    "Chase did NOT place this order — the response was "
+                    "queue-eligible only (orderQueueAvailabilityIndicator="
+                    "true), which does not reach the account. This affects "
+                    "after-hours orders. Trade during market hours "
+                    "(9:30 AM-4:00 PM ET), where orders execute and confirm. "
+                    "NOT recorded as filled."
+                )
+                return order_messages
             order_messages["ORDER CONFIRMATION"] = exec_data
         except Exception as exc:
             order_messages["ORDER INVALID"] = (

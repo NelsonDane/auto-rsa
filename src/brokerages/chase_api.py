@@ -486,6 +486,13 @@ def _order_succeeded(messages: dict, *, dry: bool) -> bool:
     for reject_key in ("tradeErrorMessages", "errors", "errorMessages"):
         if confirmation.get(reject_key):
             return False
+    # FALSE-SUCCESS GUARD (defense-in-depth; also handled in the direct
+    # path). orderQueueAvailabilityIndicator=True is a queue-ELIGIBLE
+    # response for an after-hours order that is NOT actually placed —
+    # confirmed in the field, the returned order IDs never reached the
+    # account. Never record that as a fill.
+    if confirmation.get("orderQueueAvailabilityIndicator"):
+        return False
     # A recognized order-id key is the strongest signal; log which so
     # the real response shape becomes known from the trace.
     for id_key in (
