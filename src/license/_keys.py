@@ -49,3 +49,11 @@ PUBLIC_KEY_B64: str = "KUrOISB4NH8EBY0wLsWGWlhHlUHpCIXEYrRi1PgU7dE="
 # is deployed (Phase 3 of the build). Currently a placeholder; the
 # client module returns a clear error if used while empty.
 ACTIVATION_URL: str = "https://rsa-license.ralanleder.workers.dev"
+
+# FRIEND-BUILD SWITCH. When True, order placement REQUIRES a currently
+# valid, non-revoked, non-killed license — an unlicensed/revoked friend
+# places no orders (read-only still works). The friend build profile
+# sets this True; the operator/pro build leaves it False, where only the
+# kill switch gates trading and an unlicensed install may still trade
+# one broker (the "try it" behavior). See client.pre_trade_block.
+REQUIRE_LICENSE_TO_TRADE: bool = False

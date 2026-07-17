@@ -28,6 +28,7 @@ from src.license.manager import (
     current_tier,
     set_bypass_flag,
     status_summary,
+    subaccount_cap,
 )
 from src.license.tiers import TIER_CAPS, Tier
 
@@ -40,4 +41,5 @@ __all__ = [
     "current_tier",
     "set_bypass_flag",
     "status_summary",
+    "subaccount_cap",
 ]

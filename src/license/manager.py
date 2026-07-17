@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from src.license import _keys, fingerprint, token_store, verify
-from src.license.tiers import TIER_CAPS, TIER_LABEL, Tier
+from src.license.tiers import SUBACCOUNT_CAPS, TIER_CAPS, TIER_LABEL, Tier
 
 # Tokens past their expires_at are still honored for this many days
 # so a brief outage doesn't degrade the friend's tier. Documented
@@ -202,6 +202,19 @@ def current_tier() -> Tier:
 def account_cap() -> int | None:
     """Return the parent broker cap for the active tier (None = unlimited)."""
     return _evaluate()["cap"]
+
+
+def subaccount_cap() -> int | None:
+    """Accounts-per-broker cap for the active tier (None = unlimited).
+
+    The Friend tiers cap this at 1 (no multi-account fan-out). Reads
+    ``current_tier()`` so the operator bypass (→ operator) and every
+    grace/expiry rule apply automatically — an unverified/expired token
+    that falls back to ``unlicensed`` is uncapped here, which is
+    intentional: the *trading* gate (client.pre_trade_block) is what
+    stops an unlicensed Friend build, not this per-account limiter.
+    """
+    return SUBACCOUNT_CAPS.get(current_tier())
 
 
 def can_add_broker(current_count: int) -> tuple[bool, str | None]:

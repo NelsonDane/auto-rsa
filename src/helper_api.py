@@ -17,7 +17,7 @@ from importlib.metadata import version
 from io import BytesIO
 from pathlib import Path
 from queue import Queue
-from threading import Thread
+from threading import Lock, Thread
 from time import sleep
 from typing import Any, Literal, TypedDict, TypeVar, cast
 
@@ -663,6 +663,30 @@ def account_allowed(broker_key: str, account: object, action: str = "") -> bool:
     return False
 
 
+# Per-broker sub-account usage for the current run, enforcing a Friend
+# tier's "1 account per broker" cap. Reset at the start of every run via
+# reset_subaccount_caps() (fun_run / fun_run_parallel). Guarded because a
+# parallel run reserves across broker threads concurrently.
+_SUBACCT_LOCK = Lock()
+_SUBACCT_USED: dict[str, int] = {}
+
+
+def reset_subaccount_caps() -> None:
+    """Clear the per-broker sub-account counters (call at run start)."""
+    with _SUBACCT_LOCK:
+        _SUBACCT_USED.clear()
+
+
+def _subaccount_cap_for_run() -> int | None:
+    """Accounts-per-broker cap for the active license tier (None = off)."""
+    try:
+        from src.license import subaccount_cap  # noqa: PLC0415
+
+        return subaccount_cap()
+    except Exception:
+        return None
+
+
 def reserve_or_skip(  # noqa: PLR0913
     *,
     broker_key: str,
@@ -705,6 +729,26 @@ def reserve_or_skip(  # noqa: PLR0913
             loop,
         )
         return None
+    # Friend-tier per-broker account cap: only the first N accounts of a
+    # broker may trade per run. Reserve the slot optimistically (so a
+    # parallel run's threads can't both pass), and release it below if the
+    # order turns out to be a ledger dedup skip (it didn't actually trade).
+    bkey = broker_key.lower()
+    subacct_cap = _subaccount_cap_for_run()
+    slot_taken = False
+    if subacct_cap is not None:
+        with _SUBACCT_LOCK:
+            used = _SUBACCT_USED.get(bkey, 0)
+            if used >= subacct_cap:
+                print_and_discord(
+                    f"{label}: skipped {ticker} — this license allows "
+                    f"{subacct_cap} account per broker; not trading additional "
+                    f"{broker_key} accounts this run.",
+                    loop,
+                )
+                return None
+            _SUBACCT_USED[bkey] = used + 1
+            slot_taken = True
     # A MANUAL trade is scoped to the CURRENT DAY so the double-buy guard
     # only stops an accidental same-day re-run — it does NOT lock a ticker
     # forever. You can buy the same stock again on another day (or after a
@@ -723,6 +767,11 @@ def reserve_or_skip(  # noqa: PLR0913
     if not order_obj.get_dry() and not record_intent(
         play, order_obj.get_amount(),
     ):
+        # Dedup skip — this account did NOT place an order, so give its
+        # sub-account slot back (it shouldn't count against the cap).
+        if slot_taken:
+            with _SUBACCT_LOCK:
+                _SUBACCT_USED[bkey] = max(0, _SUBACCT_USED.get(bkey, 1) - 1)
         print_and_discord(
             f"{label}: skipped {ticker} — already recorded as "
             f"{action.lower()} today (double-buy guard). To {action.lower()} "

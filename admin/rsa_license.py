@@ -143,7 +143,10 @@ def build_parser() -> argparse.ArgumentParser:
     sub = p.add_subparsers(dest="cmd", required=True)
 
     pi = sub.add_parser("issue", help="issue a new license key")
-    pi.add_argument("--tier", required=True, choices=["basic", "advanced", "operator"])
+    pi.add_argument(
+        "--tier", required=True,
+        choices=["basic", "advanced", "operator", "friend_lite", "friend_main"],
+    )
     pi.add_argument("--for", dest="for_whom", default="", help="note: who it's for")
     pi.add_argument("--expires", default="", help="ISO expiry (default: 1 year out)")
     pi.set_defaults(func=cmd_issue)

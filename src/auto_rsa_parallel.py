@@ -258,6 +258,35 @@ def fun_run_parallel(
     ]
     a._emit_progress("PLAN", ",".join(_broker_key(bi) for bi in brokers))
 
+    # Kill-switch / license preflight — same gate as the sequential path.
+    # Refuses a real order run when killed / revoked / (Friend build)
+    # unlicensed. Holdings and dry runs pass through. Self-contained (not
+    # routed through the mockable auto module) and fail-open on any error.
+    blocked, kill_msg = False, ""
+    try:
+        if not (order_obj.get_holdings() or order_obj.get_dry()):  # type: ignore[attr-defined]
+            from src.license import _keys  # noqa: PLC0415
+            from src.license.client import pre_trade_block  # noqa: PLC0415
+
+            blocked, kill_msg = pre_trade_block(
+                require_license=bool(getattr(_keys, "REQUIRE_LICENSE_TO_TRADE", False)),
+            )
+    except Exception:  # noqa: BLE001 -- fail open; never block on a gate error
+        blocked, kill_msg = False, ""
+    if blocked:
+        print("=" * 60)
+        print("ORDER PLACEMENT IS PAUSED BY THE OPERATOR (remote kill switch).")
+        if kill_msg:
+            print(kill_msg)
+        print("No orders were placed.")
+        print("=" * 60)
+        a._emit_progress("KILL", kill_msg or "paused by operator")
+        return
+    # Fresh per-broker sub-account counters for this run's Friend-tier cap.
+    from src.helper_api import reset_subaccount_caps  # noqa: PLC0415
+
+    reset_subaccount_caps()
+
     # Validate + clean the order ONCE, before any concurrency, because
     # order_validate mutates shared lists (unsafe to run per-broker in
     # parallel). pre_login=True: nothing is logged in yet.

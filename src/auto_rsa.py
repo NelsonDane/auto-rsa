@@ -120,23 +120,25 @@ def _emit_progress(kind: str, value: str) -> None:
 
 
 def _order_run_blocked(order_obj: StockOrder) -> tuple[bool, str]:
-    """Whether the remote kill switch forbids this run.
+    """Whether a real order run is forbidden (kill switch / revoke / license).
 
     Only a REAL order run is gated: read-only holdings runs and dry runs
-    are never blocked. Fails OPEN (returns ``(False, "")``) on any error —
-    a network blip, an unconfigured license server (empty ACTIVATION_URL),
-    or a missing license module must never freeze a legitimate run. The
-    operator pairs ``kill`` with ``revoke`` for a hard, grace-proof stop.
-
-    Independent of the license-cap bypass on purpose: the kill switch is a
-    safety halt, so a crucial-bug stop applies even to a bypassed operator.
+    are never blocked. Delegates to ``client.pre_trade_block``, which
+    catches the kill switch (423), a revoked/expired license (410), and —
+    in a Friend build (``REQUIRE_LICENSE_TO_TRADE``) — an install that
+    never activated. Fails OPEN on any error so a network blip or an
+    unconfigured server never freezes a legitimate run; revoke is the hard
+    backstop. Independent of the license-cap bypass on purpose: a
+    safety/kill stop applies even to a bypassed operator.
     """
     try:
         if order_obj.get_holdings() or order_obj.get_dry():
             return False, ""
-        from src.license.client import order_placement_blocked  # noqa: PLC0415
+        from src.license import _keys  # noqa: PLC0415
+        from src.license.client import pre_trade_block  # noqa: PLC0415
 
-        return order_placement_blocked()
+        require = bool(getattr(_keys, "REQUIRE_LICENSE_TO_TRADE", False))
+        return pre_trade_block(require_license=require)
     except Exception:
         return False, ""
 
@@ -166,6 +168,12 @@ def fun_run(  # noqa: C901, PLR0912, PLR0915
         print("=" * 60)
         _emit_progress("KILL", kill_msg or "paused by operator")
         return
+    # Reset the per-broker sub-account counters at the start of each run so
+    # a Friend tier's "1 account per broker" cap is measured per run, not
+    # across the life of a long-lived process (Discord bot / scheduler).
+    from src.helper_api import reset_subaccount_caps  # noqa: PLC0415
+
+    reset_subaccount_caps()
     total_value = 0
     planned = [
         bi.name.lower()

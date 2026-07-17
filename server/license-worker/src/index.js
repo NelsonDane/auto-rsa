@@ -29,8 +29,14 @@ import { signToken, verifyToken as verifyOwnToken } from "./sign.js";
 
 // Token lifetime — short, so a revoke/kill bites on the next refresh.
 const TOKEN_TTL_DAYS = 30;
-const VALID_TIERS = new Set(["basic", "advanced", "operator"]);
-const TIER_CAP = { basic: 1, advanced: 5, operator: null };
+const VALID_TIERS = new Set([
+  "basic", "advanced", "operator", "friend_lite", "friend_main",
+]);
+// Parent-broker cap per tier (null = unlimited). Must mirror
+// src/license/tiers.py :: TIER_CAPS.
+const TIER_CAP = {
+  basic: 1, advanced: 5, operator: null, friend_lite: 1, friend_main: null,
+};
 
 // ---- helpers -----------------------------------------------------------
 const now = () => new Date();

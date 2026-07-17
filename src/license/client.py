@@ -224,13 +224,68 @@ def killswitch_status() -> dict[str, Any]:
 
 
 def order_placement_blocked() -> tuple[bool, str]:
-    """Pre-trade gate: (True, message) if the kill switch says stop.
+    """Kill-switch-only gate: (True, message) if the kill switch says stop.
 
-    Wire this into the engine preflight next to the license cap check.
-    Fail-open means a network problem returns (False, "") — trading
-    continues; revoke is the hard backstop.
+    Used by the GUI License banner. The engine uses :func:`pre_trade_block`,
+    which additionally catches revoke and (in a Friend build) an absent
+    license. Fail-open on a network error.
     """
     ks = killswitch_status()
     if ks.get("active"):
         return True, str(ks.get("message") or "Trading is paused by the operator.")
     return False, ""
+
+
+def pre_trade_block(*, require_license: bool) -> tuple[bool, str]:
+    """Authoritative pre-trade gate. Returns (blocked, reason).
+
+    A single live check that catches all three stop conditions:
+
+    * **Killed**  — a live ``/refresh`` returns 423 (the switch is on).
+    * **Revoked / expired** — ``/refresh`` returns 410; the stale token is
+      cleared so the friend is unlicensed from here on.
+    * **No license** — only when ``require_license`` (the Friend build):
+      an install that never activated places no orders.
+
+    FAILS OPEN on a network error or an unconfigured server (returns
+    ``(False, "")``) so a Cloudflare blip never freezes a legitimate run;
+    revoke is the hard backstop and bites the next time the friend is
+    online. A valid ``/refresh`` also silently rotates the token.
+    """
+    url = server_url()
+    if not url:
+        return False, ""  # unconfigured -> can't enforce; fail open
+
+    token = token_store.load()
+    if token:
+        try:
+            resp = requests.post(
+                f"{url}/refresh",
+                json={"token": token, "app_version": _app_version()},
+                timeout=_TIMEOUT,
+            )
+        except requests.RequestException:
+            return False, ""  # offline -> fail open (grace)
+        if resp.status_code == 200:
+            new = resp.json()
+            if verify.verify_token(new, _keys.PUBLIC_KEY_B64) and _hardware_matches(new):
+                token_store.save(_strip(new))
+            return False, ""
+        if resp.status_code == 410:
+            token_store.clear()
+            return True, (
+                "Your license has been revoked or has expired — contact the "
+                "operator. No orders were placed."
+            )
+        if resp.status_code == 423:
+            return True, _safe_msg(resp) or "Trading is paused by the operator."
+        return False, ""  # unexpected status -> fail open
+
+    # No token on disk.
+    if require_license:
+        return True, (
+            "No license is activated — activate your key in the License "
+            "section to place orders."
+        )
+    # Pro build with no token: only the kill switch gates trading.
+    return order_placement_blocked()
