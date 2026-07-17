@@ -51,6 +51,7 @@ def _setup(monkeypatch):
     at.session_state["vault"] = v
     at.session_state["runner"] = r
     at.session_state["signals"] = [sig]
+    at.session_state["active_section"] = "Signals"  # lazy render: pick tab
     return at, calls
 
 

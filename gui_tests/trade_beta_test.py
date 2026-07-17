@@ -60,6 +60,7 @@ def _vault():
 def test_beta_tab_renders():
     at = AppTest.from_file(APP, default_timeout=45)
     at.session_state["vault"] = _vault()
+    at.session_state["active_section"] = "⚡ Trade Beta"
     at.run()
     assert not at.exception, at.exception
     assert any("Parallel (Beta)" in (m.value or "") for m in at.subheader) or any(
@@ -77,6 +78,7 @@ def test_beta_live_unconfirmed_click_is_blocked(monkeypatch):
     r.start_trade = lambda *a, **k: calls.update(args=a, kwargs=k)  # type: ignore[method-assign]
     at.session_state["vault"] = v
     at.session_state["runner"] = r
+    at.session_state["active_section"] = "⚡ Trade Beta"
     at.run()
     at.text_input(key="beta_tickers").set_value("VIVK")
     _btn(at, "🔴 Execute LIVE order (parallel)").click()
@@ -100,6 +102,7 @@ def test_beta_live_confirmed_fires_in_one_submit(monkeypatch):
     r.start_trade = lambda *a, **k: calls.update(args=a, kwargs=k)  # type: ignore[method-assign]
     at.session_state["vault"] = v
     at.session_state["runner"] = r
+    at.session_state["active_section"] = "⚡ Trade Beta"
     at.run()
     # Set everything and click in ONE submit — no intermediate at.run().
     at.text_input(key="beta_tickers").set_value("VIVK")
@@ -124,6 +127,7 @@ def test_trade_tab_live_confirmed_fires_in_one_submit(monkeypatch):
     r.start_trade = lambda *a, **k: calls.update(args=a, kwargs=k)  # type: ignore[method-assign]
     at.session_state["vault"] = v
     at.session_state["runner"] = r
+    at.session_state["active_section"] = "Trade"
     at.run()
     at.text_input(key="trade_tickers").set_value("CIIT")
     at.text_input(key="trade_arm").set_value("EXECUTE")
@@ -174,6 +178,7 @@ def test_trade_fires_with_actionable_signals_loaded(monkeypatch):
     at.session_state["vault"] = v
     at.session_state["runner"] = r
     at.session_state["signals"] = [sig]
+    at.session_state["active_section"] = "Trade"
     at.run()
     assert not at.exception, at.exception  # no duplicate-form crash
 
@@ -193,6 +198,7 @@ def test_clear_brokers_button(monkeypatch):
     be picked."""
     at = AppTest.from_file(APP, default_timeout=45)
     at.session_state["vault"] = _vault()
+    at.session_state["active_section"] = "Trade"
     at.run()
     # Default = all configured selected.
     assert "trade_sel" in at.session_state
@@ -277,10 +283,10 @@ def test_deselected_broker_drops_from_preflight_and_run(monkeypatch):
     v.set_broker("sofi", [{"username": "u", "password": "p"}])
     at = AppTest.from_file(APP, default_timeout=45)
     at.session_state["vault"] = v
+    at.session_state["active_section"] = "Trade"
     at.run()
-    # Both tabs share _broker_picker; deselect sofi on each.
+    # Deselect sofi on the Trade picker.
     at.session_state["trade_sel"] = ["BBAE", "DSPAC"]
-    at.session_state["beta_sel"] = ["BBAE", "DSPAC"]
     received.clear()
     at.run()
     assert not at.exception, at.exception
@@ -302,6 +308,7 @@ def test_in_form_broker_selection_delivered_on_submit(monkeypatch):
     r.start_trade = lambda *a, **k: calls.update(args=a, kwargs=k)  # type: ignore[method-assign]
     at.session_state["vault"] = v
     at.session_state["runner"] = r
+    at.session_state["active_section"] = "Trade"
     at.run()
     at.multiselect(key="trade_sel").set_value(["BBAE"])  # narrow inside form
     at.text_input(key="trade_tickers").set_value("CIIT")
@@ -337,6 +344,7 @@ def test_beta_dry_button_starts_parallel(monkeypatch):
     calls = {}
     r.start_trade = lambda *a, **k: calls.update(args=a, kwargs=k)  # type: ignore[method-assign]
     at.session_state["runner"] = r
+    at.session_state["active_section"] = "⚡ Trade Beta"
     at.run()
     at.text_input(key="beta_tickers").set_value("VIVK")
     _btn(at, "▶ Execute dry run (parallel)").click()

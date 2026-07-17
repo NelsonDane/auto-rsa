@@ -109,6 +109,15 @@ def last_run_completed() -> bool | None:
     return "RUN COMPLETE" in trace
 
 
+def has_real_hang() -> bool:
+    """True only if the hang dump holds an actual stack trace (a genuine
+    over-timeout stall), not just the ``armed`` headers. A render that was
+    merely interrupted (a rerun / a new click mid-render) never triggers a
+    faulthandler dump, so this stays False for normal use."""
+    dump = read_hang_dump()
+    return 'File "' in dump or "Traceback" in dump or "Current thread" in dump
+
+
 def clear_hang_dump() -> None:
     global _hang_file  # noqa: PLW0603
     with contextlib.suppress(Exception):

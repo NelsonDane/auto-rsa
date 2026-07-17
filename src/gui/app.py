@@ -1757,24 +1757,28 @@ def _tab_diagnostics() -> None:  # noqa: C901
         "the render trace names the section that never finished, and the "
         "hang dump names the exact stuck line of code — copy/paste both.",
     )
+    real_hang = watchdog.has_real_hang()
+    if real_hang:
+        st.error(
+            "⏱️ A render actually stalled past "
+            f"{watchdog.HANG_TIMEOUT_S:.0f}s and its thread stacks were "
+            "captured below — the MainThread frame names the exact stuck "
+            "line. Send it and I'll fix that call.",
+            icon="⏱️",
+        )
+    else:
+        st.success("No render has stalled past the timeout. ✅")
     trace = watchdog.read_trace()
     if trace.strip():
-        completed = "RUN COMPLETE" in trace
-        (st.success if completed else st.error)(
-            "Last traced render: "
-            + ("completed normally ✅" if completed else "NEVER FINISHED ⏱️"),
-        )
-        with st.expander("Render trace (this/last run)", expanded=not completed):
+        with st.expander("Render trace (last render, section-by-section)"):
+            st.caption(
+                "A render that ends without 'RUN COMPLETE' was just "
+                "interrupted by your next click — that's normal, not a hang.",
+            )
             st.code(trace, language="text")
     hang = watchdog.read_hang_dump()
     if hang.strip():
-        st.warning(
-            "A hang dump exists — a render exceeded "
-            f"{watchdog.HANG_TIMEOUT_S:.0f}s at some point. The most "
-            "recent stacks are at the bottom; the MainThread frame shows "
-            "the exact call that was stuck.",
-        )
-        with st.expander("Hang dump (thread stacks)", expanded=False):
+        with st.expander("Hang dump (thread stacks)", expanded=real_hang):
             st.code(hang, language="text")
         st.download_button(
             "⬇ Download hang dump", hang,
@@ -1783,8 +1787,6 @@ def _tab_diagnostics() -> None:  # noqa: C901
         if st.button("Clear hang dump", key="diag_hang_clear"):
             watchdog.clear_hang_dump()
             st.rerun()
-    else:
-        st.caption("No hang dump — no render has exceeded the timeout.")
 
     st.divider()
 
@@ -2936,16 +2938,12 @@ def _render_lock_recovery_banner(runner: TradeRunner) -> None:
 def main() -> None:
     """Render the full app."""
     _state()
-    # Field symptom: the "Stop" indicator stays on and everything below
-    # some point renders dim/stale — a script run STARTED but never
-    # FINISHED, so clicks look dead and stale tab content shows (e.g.
-    # Balances stuck on a pre-unlock "locked" warning while the sidebar
-    # says unlocked). Which call blocks is machine-specific, so instrument
-    # instead of guessing: read whether the PREVIOUS run completed, then
-    # trace this run section-by-section and arm a watchdog that dumps all
-    # thread stacks to creds/gui_hang_dump.log if we exceed 20s.
-    prev_completed = watchdog.last_run_completed()
-    prev_trace = watchdog.read_trace() if prev_completed is False else ""
+    # Trace each render section-by-section and arm a watchdog that dumps
+    # every thread's stack to creds/gui_hang_dump.log if a render exceeds
+    # 20s. Kept as a safety net after the Ledger-render freeze was fixed;
+    # a real hang shows up in the Diagnostics tab. (No top-of-page banner:
+    # a normally-interrupted render — a rerun / new click mid-render — also
+    # leaves the trace 'incomplete', so that banner was a false positive.)
     watchdog.begin_run()
     watchdog.arm()
 
@@ -2953,20 +2951,6 @@ def main() -> None:
     _marker = _build_marker()
     if _marker:
         st.caption(f"build {_marker}")
-
-    if prev_completed is False:
-        stuck_at = ""
-        lines = [ln for ln in prev_trace.strip().splitlines() if ln.strip()]
-        if lines:
-            stuck_at = lines[-1].split(" ", 1)[-1]
-        st.error(
-            "⏱️ The previous page render never finished — it stalled at "
-            f"**{stuck_at or 'unknown section'}**. That freeze is why "
-            "clicks seemed to do nothing and parts of the page looked "
-            "faded. Open **🩺 Diagnostics → Render / hang diagnostics** "
-            "and send the hang dump — it names the exact stuck line.",
-            icon="⏱️",
-        )
 
     watchdog.mark("sidebar")
     _sidebar()
@@ -2991,38 +2975,32 @@ def main() -> None:
         _render_submit_debug()
         _maybe_render_retry_banner(runner)
 
-    (tab_status, tab_creds, tab_signals, tab_trade, tab_beta,
-     tab_ledger, tab_perf, tab_hold, tab_diag) = st.tabs(
-        ["Status", "Credentials", "Signals", "Trade", "⚡ Trade Beta",
-         "Ledger", "Performance", "Balances", "🩺 Diagnostics"],
-    )
-    with tab_status:
-        watchdog.mark("Status tab")
-        _tab_status()
-    with tab_creds:
-        watchdog.mark("Credentials tab")
-        _tab_credentials()
-    with tab_signals:
-        watchdog.mark("Signals tab")
-        _tab_signals()
-    with tab_trade:
-        watchdog.mark("Trade tab")
-        _tab_trade()
-    with tab_beta:
-        watchdog.mark("Trade Beta tab")
-        _tab_trade_beta()
-    with tab_ledger:
-        watchdog.mark("Ledger tab")
-        _tab_ledger()
-    with tab_perf:
-        watchdog.mark("Performance tab")
-        _tab_performance()
-    with tab_hold:
-        watchdog.mark("Balances tab")
-        _tab_holdings()
-    with tab_diag:
-        watchdog.mark("Diagnostics tab")
-        _tab_diagnostics()
+    # A PERSISTENT section selector instead of st.tabs. st.tabs forgets the
+    # active tab on every rerun, so unselecting a broker (or any widget
+    # change) bounced you back to Status. A keyed selector keeps your place
+    # AND renders only the active section — so an interaction no longer
+    # pays to render all nine tab bodies (faster, and one slow section can
+    # never freeze the others).
+    tab_funcs = {
+        "Status": _tab_status,
+        "Credentials": _tab_credentials,
+        "Signals": _tab_signals,
+        "Trade": _tab_trade,
+        "⚡ Trade Beta": _tab_trade_beta,
+        "Ledger": _tab_ledger,
+        "Performance": _tab_performance,
+        "Balances": _tab_holdings,
+        "🩺 Diagnostics": _tab_diagnostics,
+    }
+    labels = list(tab_funcs)
+    if st.session_state.get("active_section") not in labels:
+        st.session_state["active_section"] = labels[0]
+    active = st.segmented_control(
+        "Section", labels, key="active_section", label_visibility="collapsed",
+    ) or st.session_state["active_section"]
+    st.divider()
+    watchdog.mark(f"{active} section")
+    tab_funcs.get(active, _tab_status)()
 
     watchdog.end_run()
     watchdog.disarm()
