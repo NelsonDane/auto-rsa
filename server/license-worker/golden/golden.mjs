@@ -42,20 +42,20 @@ function check(name, cond) {
 }
 
 // 1. Re-signing the golden payload reproduces the golden signature byte-for-byte.
-const sig = signToken(golden.payload, pem);
+const sig = await signToken(golden.payload, pem);
 check("signature matches the golden vector", sig === golden.signature);
 
 // 2. The Worker verifies its own token (the /refresh trust path).
 check(
   "verifyToken accepts a freshly signed token",
-  verifyToken({ payload: golden.payload, signature: sig }, pem),
+  await verifyToken({ payload: golden.payload, signature: sig }, pem),
 );
 
 // 3. Tampering is rejected.
 const tampered = { ...golden.payload, tier: "operator" };
 check(
   "verifyToken rejects a tampered payload",
-  !verifyToken({ payload: tampered, signature: sig }, pem),
+  !(await verifyToken({ payload: tampered, signature: sig }, pem)),
 );
 
 // 4. Canonical JSON has no spaces and sorted keys (the compatibility surface).

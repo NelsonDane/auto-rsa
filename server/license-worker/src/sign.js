@@ -1,14 +1,19 @@
 /**
- * Ed25519 signing for license tokens (node:crypto).
+ * Ed25519 signing for license tokens — WebCrypto (crypto.subtle).
+ *
+ * IMPORTANT: use WebCrypto, NOT node:crypto. Cloudflare Workers route
+ * node:crypto through the unenv polyfill, whose `sign` is a stub that
+ * throws "[unenv] crypto.sign is not implemented yet!". crypto.subtle is
+ * native in workerd and supports Ed25519, so it works on the Worker (and
+ * in Node 18+/22, so the golden test still runs locally).
  *
  * The canonical JSON here MUST stay byte-identical to
  * src/license/verify.py :: canonical_bytes (sorted keys, no whitespace,
- * non-ASCII preserved). This is the single most important compatibility
- * surface — server/license-worker/golden/golden.mjs locks it against a
- * checked-in vector, and it is proven equal to Python's signature.
+ * non-ASCII preserved). Ed25519 is deterministic, so the signature over
+ * those bytes is identical to Python `cryptography`'s — the checked-in
+ * golden vector (golden/golden.mjs + edgar_tests/license_golden_test.py)
+ * proves it.
  */
-
-import { createPrivateKey, createPublicKey, sign, verify } from "node:crypto";
 
 export function canonicalize(o) {
   if (o === null || typeof o !== "object") return o;
@@ -19,32 +24,49 @@ export function canonicalize(o) {
 }
 
 export function canonicalJson(payload) {
-  // JSON.stringify with no space arg => separators (",", ":"), matching
-  // Python separators=(",", ":"). Non-ASCII is left unescaped, matching
-  // ensure_ascii=False.
   return JSON.stringify(canonicalize(payload));
 }
 
-export function signToken(payload, pem) {
-  const key = createPrivateKey(pem);
-  // Ed25519 is PureEdDSA: algorithm arg is null, output is the raw 64-byte
-  // signature — the same bytes cryptography's Ed25519PrivateKey.sign yields.
-  const sig = sign(null, Buffer.from(canonicalJson(payload), "utf8"), key);
-  return sig.toString("base64url");
+// PKCS8 PEM ("-----BEGIN PRIVATE KEY-----" ...) -> raw DER bytes.
+function pemToDer(pem) {
+  const body = String(pem)
+    .replace(/-----BEGIN [\s\S]*?-----/, "")
+    .replace(/-----END [\s\S]*?-----/, "")
+    .replace(/[^A-Za-z0-9+/=]/g, "");
+  const bin = atob(body);
+  const der = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) der[i] = bin.charCodeAt(i);
+  return der;
 }
 
-export function verifyToken(token, pem) {
+function b64url(bytes) {
+  let s = "";
+  for (const b of bytes) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+// importKey is async, so signing is async. Callers await it.
+async function importSigningKey(pem) {
+  return crypto.subtle.importKey(
+    "pkcs8", pemToDer(pem), { name: "Ed25519" }, false, ["sign"],
+  );
+}
+
+export async function signToken(payload, pem) {
+  const key = await importSigningKey(pem);
+  const data = new TextEncoder().encode(canonicalJson(payload));
+  const sig = new Uint8Array(await crypto.subtle.sign({ name: "Ed25519" }, key, data));
+  return b64url(sig);
+}
+
+export async function verifyToken(token, pem) {
+  // Ed25519 is deterministic: re-signing the payload and comparing is a
+  // valid verification and needs only the (already-held) private key.
   try {
     if (!token || typeof token !== "object") return false;
     const { payload, signature } = token;
     if (!payload || typeof signature !== "string") return false;
-    const pub = createPublicKey(createPrivateKey(pem));
-    return verify(
-      null,
-      Buffer.from(canonicalJson(payload), "utf8"),
-      pub,
-      Buffer.from(signature, "base64url"),
-    );
+    return (await signToken(payload, pem)) === signature;
   } catch {
     return false;
   }

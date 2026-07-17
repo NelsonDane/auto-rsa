@@ -171,35 +171,37 @@ id = "035a2313cf5c4c3db4ce438656c4dcf9"   # the existing rsa_licenses namespace
 # never written here.
 ```
 
-### 3.3 Signing in the Worker (`src/sign.js`) — node:crypto
+### 3.3 Signing in the Worker (`src/sign.js`) — WebCrypto
 
-**Implemented** in `server/license-worker/src/sign.js`. Workers ship the
-full `node:crypto` API, so the Worker signs with a standard Ed25519 PEM —
-no WebCrypto/PKCS8 hand-assembly. The load-bearing detail is still
-producing the exact canonical bytes `verify.py` expects (sorted keys, no
-whitespace, non-ASCII preserved):
+**Implemented** in `server/license-worker/src/sign.js`, using **WebCrypto
+(`crypto.subtle`)**, which is native in workerd.
+
+> ⚠️ **Hard-won lesson: do NOT use `node:crypto` to sign on a Worker.**
+> Even with `nodejs_compat`, Cloudflare routes `node:crypto` through the
+> `unenv` polyfill, whose `sign()` is a stub — it throws `[unenv]
+> crypto.sign is not implemented yet!` at runtime (a 500). It works in
+> plain Node, so local tests pass and it fails only once deployed.
+> WebCrypto is the native path and Ed25519 is supported.
+
+The load-bearing detail is unchanged — produce the exact canonical bytes
+`verify.py` expects (sorted keys, no whitespace, non-ASCII preserved):
 
 ```js
-import { createPrivateKey, sign } from "node:crypto";
-
-function canonicalize(o) {                       // recursive key-sort
-  if (o === null || typeof o !== "object") return o;
-  if (Array.isArray(o)) return o.map(canonicalize);
-  const out = {};
-  for (const k of Object.keys(o).sort()) out[k] = canonicalize(o[k]);
-  return out;
-}
-
-export function signToken(payload, pem) {
-  const canon = JSON.stringify(canonicalize(payload));   // "," ":" separators, no spaces
-  const key = createPrivateKey(pem);                     // Ed25519 PEM
-  const sig = sign(null, Buffer.from(canon, "utf8"), key); // PureEdDSA: algo=null, raw 64-byte sig
-  return sig.toString("base64url");                      // no padding; verify.py restores it
+// PKCS8 PEM -> DER, import via WebCrypto, sign. importKey is async, so
+// signToken/verifyToken are async (index.js awaits them).
+export async function signToken(payload, pem) {
+  const key = await crypto.subtle.importKey(
+    "pkcs8", pemToDer(pem), { name: "Ed25519" }, false, ["sign"],
+  );
+  const data = new TextEncoder().encode(canonicalJson(payload)); // "," ":" no spaces
+  const sig = new Uint8Array(await crypto.subtle.sign({ name: "Ed25519" }, key, data));
+  return b64url(sig);                                   // raw 64-byte sig, base64url, no padding
 }
 ```
 
-This was verified byte-for-byte against Python `cryptography` and against
-the shipped `verify.py` — the same signature, same canonical bytes.
+Verified byte-for-byte against Python `cryptography` and the shipped
+`verify.py` — WebCrypto, node:crypto (in plain Node), and Python all
+produce the identical Ed25519 signature (it's deterministic).
 
 > **The golden vector is already built and passing** (both sides):
 > `server/license-worker/golden/golden.mjs` (JS: `npm run test:golden`)

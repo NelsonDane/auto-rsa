@@ -6,8 +6,9 @@
  * KILL SWITCH the operator flips when a crucial bug is found.
  *
  * The signature contract is proven cross-language: this Worker's
- * node:crypto Ed25519 signature over the canonical JSON is byte-identical
- * to Python `cryptography`'s, and verifies against the shipped verify.py.
+ * WebCrypto (crypto.subtle) Ed25519 signature over the canonical JSON is
+ * byte-identical to Python `cryptography`'s, and verifies against the
+ * shipped verify.py. (WebCrypto, not node:crypto — see src/sign.js.)
  * See server/license-worker/golden/golden.mjs and docs/CLOUDFLARE_LICENSE_BUILD.md.
  *
  * Endpoints:
@@ -129,7 +130,7 @@ async function handleActivate(req, env) {
   }
 
   const payload = tokenPayload(rec);
-  const signature = signToken(payload, env.SIGNING_KEY_PEM);
+  const signature = await signToken(payload, env.SIGNING_KEY_PEM);
   await audit(env, licenseId, { event: "activate", platform: body.platform, app_version: body.app_version });
   return json({ payload, signature, account_cap: TIER_CAP[rec.tier] ?? null });
 }
@@ -137,7 +138,7 @@ async function handleActivate(req, env) {
 async function handleRefresh(req, env) {
   const body = await req.json().catch(() => null);
   const token = body && body.token;
-  if (!verifyOwnToken(token, env.SIGNING_KEY_PEM)) {
+  if (!(await verifyOwnToken(token, env.SIGNING_KEY_PEM))) {
     return json({ error: "invalid token" }, 401);
   }
   const p = token.payload;
@@ -153,7 +154,7 @@ async function handleRefresh(req, env) {
   }
 
   const payload = tokenPayload(rec);
-  const signature = signToken(payload, env.SIGNING_KEY_PEM);
+  const signature = await signToken(payload, env.SIGNING_KEY_PEM);
   await audit(env, p.license_id, { event: "refresh" });
   return json({ payload, signature, account_cap: TIER_CAP[rec.tier] ?? null });
 }

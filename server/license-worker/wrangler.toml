@@ -10,8 +10,10 @@
 name = "rsa-license"
 main = "src/index.js"
 
-# node:crypto (createPrivateKey / sign / verify) needs the nodejs_compat flag
-# and a recent compatibility_date. Do not lower this date.
+# Signing uses WebCrypto (crypto.subtle Ed25519), which is native in
+# workerd — NOT node:crypto, whose sign() is an unenv stub that throws
+# "[unenv] crypto.sign is not implemented yet!" on the Worker. nodejs_compat
+# is kept (harmless; the code imports no node: modules) so a recent date is fine.
 compatibility_date = "2025-09-01"
 compatibility_flags = ["nodejs_compat"]
 
