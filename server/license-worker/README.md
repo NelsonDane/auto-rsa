@@ -12,34 +12,36 @@ Worker (placeholder) and the `rsa_licenses` KV namespace (id baked into
 
 ## One-time setup
 
+Prereqs: **Node.js** (for wrangler) and **Python with `cryptography`**
+(the app already has it). No OpenSSL needed.
+
 ```bash
 # 0. From this directory
 cd server/license-worker
 npm install                      # installs wrangler locally
 npx wrangler login               # authorize wrangler to your Cloudflare account
 
-# 1. Generate the Ed25519 signing keypair (ON YOUR MACHINE, once)
-openssl genpkey -algorithm ed25519 -out rsa-signing-key.pem
-#    -> back this file up in 1Password. NEVER commit it. It is .gitignored.
+# 1. Generate keys (writes rsa-signing-key.pem, prints PUBLIC_KEY_B64 + ADMIN_SECRET)
+python gen-keys.py
+#    -> copy the PUBLIC_KEY_B64 and ADMIN_SECRET it prints. The .pem stays
+#       here (gitignored) + your password manager. NEVER commit the .pem.
 
-# 2. Put the PRIVATE key + an admin secret on the Worker as secrets
-npx wrangler secret put SIGNING_KEY_PEM     # paste the whole rsa-signing-key.pem
-python -c "import secrets;print('rsa_admin_'+secrets.token_urlsafe(32))"   # make one
-npx wrangler secret put ADMIN_SECRET        # paste that value
+# 2. Put the two secrets on the Worker (paste when prompted)
+npx wrangler secret put SIGNING_KEY_PEM     # paste the FULL contents of rsa-signing-key.pem
+npx wrangler secret put ADMIN_SECRET        # paste the ADMIN_SECRET from step 1
 
-# 3. Extract the PUBLIC key and put it in the app (src/license/_keys.py)
-python -c "from cryptography.hazmat.primitives.serialization import load_pem_public_key,Encoding,PublicFormat;import base64,subprocess;pem=subprocess.run(['openssl','pkey','-in','rsa-signing-key.pem','-pubout'],capture_output=True,check=True).stdout;print(base64.b64encode(load_pem_public_key(pem).public_bytes(Encoding.Raw,PublicFormat.Raw)).decode())"
-#    -> paste the printed string into PUBLIC_KEY_B64 in src/license/_keys.py
+# 3. Put the PUBLIC key + (after deploy) the URL into the app
+#    -> paste PUBLIC_KEY_B64 into src/license/_keys.py
 
-# 4. Prove the crypto BEFORE deploying (JS + Python must both be green)
+# 4. Prove the crypto BEFORE deploying (both must be green)
 npm run test:golden
-( cd ../.. && .venv/bin/python -m pytest edgar_tests/license_golden_test.py -q )
+( cd ../.. && python -m pytest edgar_tests/license_golden_test.py -q )
 
 # 5. Deploy
 npm run deploy
 #    -> note the URL, e.g. https://rsa-license.<subdomain>.workers.dev
-#    -> put that URL in ACTIVATION_URL in src/license/_keys.py, then commit
-#       _keys.py (public key + URL are NOT secret).
+#    -> set ACTIVATION_URL to that URL in src/license/_keys.py, then commit
+#       _keys.py (public key + URL are NOT secret; the .pem is).
 ```
 
 ## Operating it (from the repo root)
