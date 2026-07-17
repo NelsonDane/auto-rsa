@@ -348,16 +348,36 @@ def _process_order_messages(messages: dict, order_obj: StockOrder, key: str, acc
                 loop,
             )
     else:
-        pprint.pprint(messages["ORDER CONFIRMATION"])  # noqa: T203
-
         # Check if ORDER CONFIRMATION is a dict or string
         order_confirmation = messages["ORDER CONFIRMATION"]
         is_successful = bool(order_confirmation.get("orderIdentifier")) if isinstance(order_confirmation, dict) else isinstance(order_confirmation, str) and len(order_confirmation) > 0
-        print_and_discord(
-            (f"{key} account {account}: The order was " + ("successful" if is_successful else "unsuccessful")),
-            loop,
-        )
-
+        if is_successful:
+            oid = (
+                order_confirmation.get("orderIdentifier")
+                if isinstance(order_confirmation, dict) else order_confirmation
+            )
+            queued = (
+                bool(order_confirmation.get("orderQueueAvailabilityIndicator"))
+                if isinstance(order_confirmation, dict) else False
+            )
+            # A queued order is placed but not yet filled — it sits until the
+            # next market session and fills only if the limit is reached. Say
+            # so, so a placed order isn't mistaken for a failed one.
+            note = (
+                " — QUEUED for the next market session (fills when the limit "
+                "is reached; shares appear after it fills)"
+                if queued else ""
+            )
+            print_and_discord(
+                f"{key} account {account}: ✅ Order placed (Chase order id "
+                f"{oid}){note}.",
+                loop,
+            )
+        else:
+            print_and_discord(
+                f"{key} account {account}: ❌ The order was unsuccessful",
+                loop,
+            )
         if messages["ORDER INVALID"]:
             print_and_discord(
                 f"{key} account {account}: The order produced the following messages: {messages['ORDER INVALID']}",
@@ -541,7 +561,6 @@ def _execute_single_order(ch_session: session.ChaseSession, all_accounts: ch_acc
         )
         raise
 
-    print("The order verification produced the following messages: ")
     _process_order_messages(messages, order_obj, key, account, loop)
     # Chase's order_messages dict carries ORDER INVALID (any non-empty
     # value = failure) and either ORDER VALIDATION (dry run) or
