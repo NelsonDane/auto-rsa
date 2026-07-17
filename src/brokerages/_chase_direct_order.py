@@ -422,7 +422,7 @@ def apply() -> None:  # noqa: C901, PLR0915
             last_exc: Exception | None = None
             for attempt in range(1, _QUOTE_RETRIES + 1):
                 _log(
-                    "quote GET →", t0,
+                    "quote GET ->", t0,
                     f"attempt={attempt}/{_QUOTE_RETRIES} "
                     f"timeout={_quote_timeout()}s",
                 )

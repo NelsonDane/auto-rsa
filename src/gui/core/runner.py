@@ -460,6 +460,16 @@ class TradeRunner:
             # are layered last so a signal run is attributed and
             # economically de-duplicated in the ledger. Empty for manual.
             child_env = {**os.environ, **broker_env, **(extra_env or {})}
+            # Force the engine's stdout/stderr to UTF-8. On Windows the
+            # child Python defaults to the console codepage (cp1252), so a
+            # broker that prints a non-latin-1 char (e.g. Chase's "→" trace,
+            # or an emoji) raises UnicodeEncodeError ('charmap' codec can't
+            # encode) — caught as a bogus "quote attempt failed", which then
+            # cascades into "order verification unsuccessful". UTF-8 mode
+            # also stops the "�" mojibake we saw when the parent read utf-8
+            # while the child wrote cp1252.
+            child_env["PYTHONIOENCODING"] = "utf-8"
+            child_env["PYTHONUTF8"] = "1"
             self._proc = subprocess.Popen(  # noqa: S603
                 [sys.executable, "-u", "-m", "src.gui.core.engine_proc", json.dumps(payload)],
                 stdin=subprocess.PIPE,
