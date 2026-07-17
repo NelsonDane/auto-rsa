@@ -57,3 +57,10 @@ ACTIVATION_URL: str = "https://rsa-license.ralanleder.workers.dev"
 # kill switch gates trading and an unlicensed install may still trade
 # one broker (the "try it" behavior). See client.pre_trade_block.
 REQUIRE_LICENSE_TO_TRADE: bool = False
+
+# FRIEND-BUILD UI DEFAULT. When True, the GUI defaults to Simple Mode
+# (advanced tabs/settings hidden). The friend build profile sets this
+# True; the pro build leaves it False. Overridable at runtime by the
+# RSA_SIMPLE_MODE env var or the creds/simple_mode.flag sentinel — see
+# src/gui/core/mode.py.
+SIMPLE_MODE_DEFAULT: bool = False

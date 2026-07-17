@@ -29,6 +29,7 @@ from src.gui.core import (
     reconcile,
     watchdog,
 )
+from src.gui.core.mode import simple_mode
 from src.gui.core.brokers_meta import SUPPORTED_BROKERS, BrokerMeta, get_broker
 from src.gui.core.results import group_by_broker
 from src.gui.core.runner import (
@@ -167,6 +168,11 @@ def _sidebar_license_bypass_toggle() -> None:
     creds/license_bypass.flag — survives across restarts; no env
     editing required.
     """
+    # Never expose the license-cap escape hatch in a friend (Simple Mode)
+    # build — the whole point is that friends can't lift their own cap.
+    if simple_mode():
+        return
+
     from src.license import (  # noqa: PLC0415
         bypass_flag_path,
         set_bypass_flag,
@@ -334,97 +340,101 @@ def _sidebar() -> None:  # noqa: C901, PLR0912, PLR0914, PLR0915
 
     _sidebar_license_banner(vault)
 
-    st.sidebar.divider()
-    st.sidebar.subheader("Run settings")
-    settings = vault.get_settings()
-    headless = st.sidebar.checkbox(
-        "Headless browsers (Chase/Fidelity/Wells Fargo)",
-        value=settings.get("HEADLESS", "true") == "true",
-        help="Keep on. These brokers log in without showing a window; "
-        "2FA codes are requested in the Console tab.",
-    )
-    sort_brokers = st.sidebar.checkbox(
-        "Alphabetize brokers",
-        value=settings.get("SORT_BROKERS", "true") == "true",
-    )
-    chase_direct = st.sidebar.checkbox(
-        "Chase: direct order mode (recommended)",
-        value=settings.get("RSA_CHASE_DIRECT_ORDER", "true") == "true",
-        help="ON by default and recommended. POSTs orders directly to "
-        "JPM's validate/execute endpoints via an in-page fetch, skipping "
-        "the browser page navigation that HANGS Chase orders on "
-        "multi-account logins. Turning this OFF falls back to the "
-        "upstream path, which does not work reliably with multiple "
-        "accounts.",
-    )
-    chase_ah_limit = st.sidebar.checkbox(
-        "Chase: auto-limit after-hours",
-        value=settings.get("RSA_CHASE_AFTERHOURS_LIMIT", "true") == "true",
-        help="ON by default. Outside market hours Chase rejects MARKET "
-        "orders ('only accepting limit orders'). With this on, such an "
-        "order is auto-retried as a marketable LIMIT — the ask for a buy / "
-        "bid for a sell, clamped to ±10% of the last trade. Turn OFF to "
-        "just report the rejection and place nothing.",
-    )
-    # Phase 7: per-signal-type allow-list. Operator opts into each
-    # new event class individually. The Python pipeline already
-    # detects them (Phase 5); these checkboxes control whether
-    # plan_signals will mark them ACTIONABLE for execution.
-    enabled_types_raw = settings.get(
-        "RSA_SIGNAL_TYPES_ENABLED", "ROUND_UP_REVERSE",
-    )
-    enabled_types = {t.strip().upper() for t in enabled_types_raw.split(",") if t.strip()}
-    st.sidebar.caption("**Trade signal types**")
-    enable_round_up = st.sidebar.checkbox(
-        "Round-up reverse splits",
-        value="ROUND_UP_REVERSE" in enabled_types,
-        help="The original strategy; safe default ON. Confidence floor 0.60.",
-    )
-    enable_spin_off = st.sidebar.checkbox(
-        "Spin-offs (experimental)",
-        value="SPIN_OFF" in enabled_types,
-        help="Multi-broker spin-off plays. Buy parent before record date, "
-        "auto-sell ~5 days after record. Confidence floor 0.75.",
-    )
-    enable_special_div = st.sidebar.checkbox(
-        "Special dividends (experimental)",
-        value="SPECIAL_DIV" in enabled_types,
-        help="One-time cash distributions. Buy before record date, "
-        "auto-sell ~1 day after ex-date. Confidence floor 0.75.",
-    )
-    new_enabled: list[str] = []
-    if enable_round_up:
-        new_enabled.append("ROUND_UP_REVERSE")
-    if enable_spin_off:
-        new_enabled.append("SPIN_OFF")
-    if enable_special_div:
-        new_enabled.append("SPECIAL_DIV")
-    new_settings = {
-        "HEADLESS": "true" if headless else "false",
-        "SORT_BROKERS": "true" if sort_brokers else "false",
-        "RSA_CHASE_DIRECT_ORDER": "true" if chase_direct else "false",
-        "RSA_CHASE_AFTERHOURS_LIMIT": "true" if chase_ah_limit else "false",
-        "RSA_SIGNAL_TYPES_ENABLED": ",".join(new_enabled) or "ROUND_UP_REVERSE",
-    }
-    # Merge (not replace) so keys the sidebar doesn't manage — e.g. a saved
-    # sub-account filter — are preserved on save.
-    merged = {**settings, **new_settings}
-    if merged != settings:
-        vault.set_settings(merged)
-
-    st.sidebar.divider()
-    with st.sidebar.expander("Notifications"):
-        notify = vault.get_notify()
-        hook = st.text_input(
-            "Completion webhook URL (Discord-compatible, optional)",
-            value=notify.get("webhook_url", ""),
-            help="Posted when a run finishes — fires even if you close "
-            "the browser tab during a long browser-broker run.",
-            key="notify_hook",
+    # Advanced run settings + notifications — hidden in Simple Mode
+    # (Friends Edition). Friends take the operator's chosen defaults and
+    # never see the strategy/signal toggles or the engine knobs.
+    if not simple_mode():
+        st.sidebar.divider()
+        st.sidebar.subheader("Run settings")
+        settings = vault.get_settings()
+        headless = st.sidebar.checkbox(
+            "Headless browsers (Chase/Fidelity/Wells Fargo)",
+            value=settings.get("HEADLESS", "true") == "true",
+            help="Keep on. These brokers log in without showing a window; "
+            "2FA codes are requested in the Console tab.",
         )
-        if st.button("Save notifications"):
-            vault.set_notify({"webhook_url": hook.strip()})
-            st.success("Notification settings saved.")
+        sort_brokers = st.sidebar.checkbox(
+            "Alphabetize brokers",
+            value=settings.get("SORT_BROKERS", "true") == "true",
+        )
+        chase_direct = st.sidebar.checkbox(
+            "Chase: direct order mode (recommended)",
+            value=settings.get("RSA_CHASE_DIRECT_ORDER", "true") == "true",
+            help="ON by default and recommended. POSTs orders directly to "
+            "JPM's validate/execute endpoints via an in-page fetch, skipping "
+            "the browser page navigation that HANGS Chase orders on "
+            "multi-account logins. Turning this OFF falls back to the "
+            "upstream path, which does not work reliably with multiple "
+            "accounts.",
+        )
+        chase_ah_limit = st.sidebar.checkbox(
+            "Chase: auto-limit after-hours",
+            value=settings.get("RSA_CHASE_AFTERHOURS_LIMIT", "true") == "true",
+            help="ON by default. Outside market hours Chase rejects MARKET "
+            "orders ('only accepting limit orders'). With this on, such an "
+            "order is auto-retried as a marketable LIMIT — the ask for a buy / "
+            "bid for a sell, clamped to ±10% of the last trade. Turn OFF to "
+            "just report the rejection and place nothing.",
+        )
+        # Phase 7: per-signal-type allow-list. Operator opts into each
+        # new event class individually. The Python pipeline already
+        # detects them (Phase 5); these checkboxes control whether
+        # plan_signals will mark them ACTIONABLE for execution.
+        enabled_types_raw = settings.get(
+            "RSA_SIGNAL_TYPES_ENABLED", "ROUND_UP_REVERSE",
+        )
+        enabled_types = {t.strip().upper() for t in enabled_types_raw.split(",") if t.strip()}
+        st.sidebar.caption("**Trade signal types**")
+        enable_round_up = st.sidebar.checkbox(
+            "Round-up reverse splits",
+            value="ROUND_UP_REVERSE" in enabled_types,
+            help="The original strategy; safe default ON. Confidence floor 0.60.",
+        )
+        enable_spin_off = st.sidebar.checkbox(
+            "Spin-offs (experimental)",
+            value="SPIN_OFF" in enabled_types,
+            help="Multi-broker spin-off plays. Buy parent before record date, "
+            "auto-sell ~5 days after record. Confidence floor 0.75.",
+        )
+        enable_special_div = st.sidebar.checkbox(
+            "Special dividends (experimental)",
+            value="SPECIAL_DIV" in enabled_types,
+            help="One-time cash distributions. Buy before record date, "
+            "auto-sell ~1 day after ex-date. Confidence floor 0.75.",
+        )
+        new_enabled: list[str] = []
+        if enable_round_up:
+            new_enabled.append("ROUND_UP_REVERSE")
+        if enable_spin_off:
+            new_enabled.append("SPIN_OFF")
+        if enable_special_div:
+            new_enabled.append("SPECIAL_DIV")
+        new_settings = {
+            "HEADLESS": "true" if headless else "false",
+            "SORT_BROKERS": "true" if sort_brokers else "false",
+            "RSA_CHASE_DIRECT_ORDER": "true" if chase_direct else "false",
+            "RSA_CHASE_AFTERHOURS_LIMIT": "true" if chase_ah_limit else "false",
+            "RSA_SIGNAL_TYPES_ENABLED": ",".join(new_enabled) or "ROUND_UP_REVERSE",
+        }
+        # Merge (not replace) so keys the sidebar doesn't manage — e.g. a
+        # saved sub-account filter — are preserved on save.
+        merged = {**settings, **new_settings}
+        if merged != settings:
+            vault.set_settings(merged)
+
+        st.sidebar.divider()
+        with st.sidebar.expander("Notifications"):
+            notify = vault.get_notify()
+            hook = st.text_input(
+                "Completion webhook URL (Discord-compatible, optional)",
+                value=notify.get("webhook_url", ""),
+                help="Posted when a run finishes — fires even if you close "
+                "the browser tab during a long browser-broker run.",
+                key="notify_hook",
+            )
+            if st.button("Save notifications"):
+                vault.set_notify({"webhook_url": hook.strip()})
+                st.success("Notification settings saved.")
 
     st.sidebar.divider()
     with st.sidebar.expander("Change master password"):
@@ -437,7 +447,9 @@ def _sidebar() -> None:  # noqa: C901, PLR0912, PLR0914, PLR0915
             except VaultError as exc:
                 st.error(str(exc))
 
-    _sidebar_backups(vault)
+    # Backups (config + Drive backup/restore) — advanced; hidden for friends.
+    if not simple_mode():
+        _sidebar_backups(vault)
 
 
 def _sidebar_backups(vault: Vault) -> None:  # noqa: C901, PLR0912, PLR0915
@@ -3137,6 +3149,13 @@ def main() -> None:
         "🩺 Diagnostics": _tab_diagnostics,
         "🔑 License": _tab_license,
     }
+    # Simple Mode (Friends Edition): show only the friend-facing sections.
+    # Hides the strategy/automation surfaces (Signals), the multi-step and
+    # internal tools (Trade Beta, Ledger, Performance, Diagnostics) — a
+    # smaller app, and no engine internals on display (anti-RE at the UI).
+    if simple_mode():
+        _simple = {"Status", "Credentials", "Trade", "Balances", "🔑 License"}
+        tab_funcs = {k: v for k, v in tab_funcs.items() if k in _simple}
     labels = list(tab_funcs)
     if st.session_state.get("active_section") not in labels:
         st.session_state["active_section"] = labels[0]
