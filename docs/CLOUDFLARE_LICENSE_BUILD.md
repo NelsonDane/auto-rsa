@@ -1,12 +1,30 @@
 # Build guide: Cloudflare license server + remote kill switch
 
-Status: **build playbook** (the *design* is settled in
-`docs/LICENSE_TIERS_DESIGN.md`; this is the concrete how-to). Goal:
-give the operator everything needed to (1) create the cryptographic
-keys, (2) stand up the Cloudflare Worker + KV, (3) wire activation
-into the app on top of the **existing** `src/license/` module, and
-(4) have a working **kill switch** so a crucial bug can stop every
-friend on their next check-in — without shipping a new build.
+Status: **BUILT — not yet deployed.** The Worker, client, operator CLI,
+and cross-language golden vectors are implemented and pass end-to-end
+in-sandbox; only the on-your-machine steps remain (keygen, `wrangler
+secret put`, `wrangler deploy`). The authoritative step-by-step runbook
+now lives at **`server/license-worker/README.md`** — this doc is the
+design rationale behind it.
+
+Resolved decisions since the first draft:
+- **Signing model: Worker-signs** (operator's choice). The Ed25519
+  private key is a Worker secret; the Worker signs tokens on
+  activate/refresh. Online activation + revoke-by-refresh + kill switch.
+- **Signing uses `node:crypto`**, not WebCrypto. Cloudflare Workers now
+  ship the full `node:crypto` API (with `nodejs_compat`), so the Worker
+  signs with a standard Ed25519 PEM via `createPrivateKey`/`sign` — far
+  less error-prone than the WebCrypto/PKCS8 dance the first draft showed.
+- **Crypto contract proven in-sandbox**: the Worker's signature is
+  byte-identical to Python `cryptography`'s and verifies against the
+  shipped `verify.py`; the full flow (issue→activate→refresh→kill→revoke)
+  passes against an in-memory KV. Locked by `server/license-worker/golden/
+  golden.mjs` + `edgar_tests/license_golden_test.py`.
+
+Goal (unchanged): (1) create the keys, (2) stand up the Worker + KV,
+(3) wire activation into the **existing** `src/license/` module, and
+(4) a working **kill switch** that stops every friend on their next
+check-in without shipping a new build.
 
 > **Why Cloudflare, restated:** the enforcement lives on the friend's
 > machine, so a determined reverse-engineer can patch it. This layer
@@ -54,46 +72,30 @@ them up is the classic footgun.
 
 ### 1.1 Generate the Ed25519 signing keypair
 
-Do this **once**, offline, on the operator machine. Python (the repo
-already depends on `cryptography`):
+Do this **once**, on your machine. The Worker's `node:crypto` signer
+takes a standard **PEM** private key, so generate with OpenSSL:
 
-```python
-# scripts/gen_license_keys.py  — run once, then store the output safely
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from cryptography.hazmat.primitives import serialization
-import base64
-
-priv = Ed25519PrivateKey.generate()
-
-# Private (raw 32 bytes, base64) — goes to the Worker as a secret + your vault.
-priv_raw = priv.private_bytes(
-    encoding=serialization.Encoding.Raw,
-    format=serialization.PrivateFormat.Raw,
-    encryption_algorithm=serialization.NoEncryption(),
-)
-# Public (raw 32 bytes, base64) — goes into src/license/_keys.py.
-pub_raw = priv.public_key().public_bytes(
-    encoding=serialization.Encoding.Raw,
-    format=serialization.PublicFormat.Raw,
-)
-
-print("PRIVATE_KEY_B64 (SECRET — Worker + 1Password):", base64.b64encode(priv_raw).decode())
-print("PUBLIC_KEY_B64  (embed in _keys.py):          ", base64.b64encode(pub_raw).decode())
+```bash
+openssl genpkey -algorithm ed25519 -out rsa-signing-key.pem   # PRIVATE — never commit
 ```
 
-- The **public** string goes into `src/license/_keys.py` as
-  `PUBLIC_KEY_B64`. This is what `verify.py` already loads. Commit it
-  — it's designed to ship.
-- The **private** string goes into 1Password (backup) and into the
-  Worker as a secret (§3.4). **Never** commit it, never put it in the
-  app, never send it to the activation server as request data.
+- The **private PEM** goes to the Worker (`wrangler secret put
+  SIGNING_KEY_PEM`) and into 1Password. It is `.gitignore`d.
+- Extract the **raw public key (base64)** for `src/license/_keys.py`:
 
-> Matching contract: `verify.py` does
-> `Ed25519PublicKey.from_public_bytes(base64.b64decode(public_key_b64))`
-> and verifies against `canonical_bytes(payload)`. The Worker must
-> sign **exactly** `canonical_bytes(payload)` with the raw private key
-> above. Same bytes in, same bytes out — that's the whole compat
-> requirement.
+```bash
+python -c "from cryptography.hazmat.primitives.serialization import \
+load_pem_public_key,Encoding,PublicFormat;import base64,subprocess;\
+pem=subprocess.run(['openssl','pkey','-in','rsa-signing-key.pem','-pubout'],\
+capture_output=True,check=True).stdout;\
+print(base64.b64encode(load_pem_public_key(pem).public_bytes(Encoding.Raw,PublicFormat.Raw)).decode())"
+```
+
+`verify.py` loads that public key with `from_public_bytes(b64decode(...))`,
+so the raw-32-byte-base64 form is exactly what it expects. Paste it into
+`PUBLIC_KEY_B64` in `src/license/_keys.py` and commit (the public key is
+meant to ship). The private PEM never leaves your machine + the Worker
+secret. (Full command list: `server/license-worker/README.md`.)
 
 ### 1.2 Generate the admin secret
 
@@ -125,14 +127,17 @@ free tier (100K requests/day, 1 GB KV) is ~10,000× friend-scale.
 
 ## 3. The Worker
 
-Layout (matches `docs/LICENSE_TIERS_DESIGN.md` §12):
+As built:
 
 ```
 server/license-worker/
-  src/index.ts        # request router + handlers
-  src/sign.ts         # Ed25519 sign via WebCrypto
-  src/kv.ts           # KV key helpers
-  wrangler.toml
+  src/index.js        # request router + all handlers
+  src/sign.js         # Ed25519 sign/verify via node:crypto
+  wrangler.toml       # KV binding + nodejs_compat (real KV id baked in)
+  package.json        # npm run deploy / test:golden
+  golden/golden.mjs   # golden-vector test (npm run test:golden)
+  golden/golden.json  # the checked-in vector (public key + test seed)
+  README.md           # the deploy runbook
 ```
 
 ### 3.1 KV layout
@@ -148,61 +153,59 @@ audit:<license_id>:<ts> → activation/refresh event   (90-day TTL)
 
 ### 3.2 `wrangler.toml`
 
+The real file is `server/license-worker/wrangler.toml` (KV id already
+baked in). `node:crypto` needs `nodejs_compat` and a recent
+`compatibility_date`:
+
 ```toml
 name = "rsa-license"
-main = "src/index.ts"
-compatibility_date = "2024-01-01"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+compatibility_flags = ["nodejs_compat"]
 
 [[kv_namespaces]]
 binding = "LICENSES"
-id = "<the id from wrangler kv namespace create>"
+id = "035a2313cf5c4c3db4ce438656c4dcf9"   # the existing rsa_licenses namespace
 
-# Secrets (PRIVATE_KEY_B64, ADMIN_SECRET) are set with `wrangler secret put`,
+# Secrets (SIGNING_KEY_PEM, ADMIN_SECRET) set with `wrangler secret put`,
 # never written here.
 ```
 
-### 3.3 Signing in the Worker (`sign.ts`)
+### 3.3 Signing in the Worker (`src/sign.js`) — node:crypto
 
-The Worker signs with WebCrypto. The **critical** detail is producing
-the same canonical bytes the Python `verify.py` expects:
+**Implemented** in `server/license-worker/src/sign.js`. Workers ship the
+full `node:crypto` API, so the Worker signs with a standard Ed25519 PEM —
+no WebCrypto/PKCS8 hand-assembly. The load-bearing detail is still
+producing the exact canonical bytes `verify.py` expects (sorted keys, no
+whitespace, non-ASCII preserved):
 
-```ts
-// Canonical JSON: sorted keys, no spaces, UTF-8. MUST match
-// src/license/verify.py :: canonical_bytes exactly.
-function canonicalBytes(payload: Record<string, unknown>): Uint8Array {
-  const sortObj = (o: any): any =>
-    (o && typeof o === "object" && !Array.isArray(o))
-      ? Object.keys(o).sort().reduce((a, k) => (a[k] = sortObj(o[k]), a), {} as any)
-      : o;
-  const json = JSON.stringify(sortObj(payload)); // JSON.stringify uses "," and ":" — no spaces
-  return new TextEncoder().encode(json);
+```js
+import { createPrivateKey, sign } from "node:crypto";
+
+function canonicalize(o) {                       // recursive key-sort
+  if (o === null || typeof o !== "object") return o;
+  if (Array.isArray(o)) return o.map(canonicalize);
+  const out = {};
+  for (const k of Object.keys(o).sort()) out[k] = canonicalize(o[k]);
+  return out;
 }
 
-async function importPrivateKey(b64: string): Promise<CryptoKey> {
-  // Ed25519 raw 32-byte seed → PKCS8 wrapper for WebCrypto import.
-  const raw = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-  const pkcs8 = new Uint8Array([
-    0x30,0x2e,0x02,0x01,0x00,0x30,0x05,0x06,0x03,0x2b,0x65,0x70,0x04,0x22,0x04,0x20,
-    ...raw,
-  ]);
-  return crypto.subtle.importKey("pkcs8", pkcs8, { name: "Ed25519" }, false, ["sign"]);
-}
-
-async function signToken(payload: object, privB64: string): Promise<string> {
-  const key = await importPrivateKey(privB64);
-  const sig = await crypto.subtle.sign("Ed25519", key, canonicalBytes(payload as any));
-  // base64url, no padding — verify.py restores padding on its side.
-  return btoa(String.fromCharCode(...new Uint8Array(sig)))
-    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+export function signToken(payload, pem) {
+  const canon = JSON.stringify(canonicalize(payload));   // "," ":" separators, no spaces
+  const key = createPrivateKey(pem);                     // Ed25519 PEM
+  const sig = sign(null, Buffer.from(canon, "utf8"), key); // PureEdDSA: algo=null, raw 64-byte sig
+  return sig.toString("base64url");                      // no padding; verify.py restores it
 }
 ```
 
-> **Test this against Python before shipping.** Sign a fixed payload
-> in the Worker, paste the `{payload, signature}` into a Python test
-> that calls `verify.verify_token(token, PUBLIC_KEY_B64)`, and assert
-> `True`. This is the golden-vector test in
-> `LICENSE_TIERS_DESIGN.md` §13 — build it first, because a
-> canonicalization mismatch fails silently as "every token invalid."
+This was verified byte-for-byte against Python `cryptography` and against
+the shipped `verify.py` — the same signature, same canonical bytes.
+
+> **The golden vector is already built and passing** (both sides):
+> `server/license-worker/golden/golden.mjs` (JS: `npm run test:golden`)
+> and `edgar_tests/license_golden_test.py` (Python). Run both before
+> every deploy — a canonicalization drift fails these loudly instead of
+> silently rejecting every friend's token.
 
 ### 3.4 Set the Worker secrets & deploy
 

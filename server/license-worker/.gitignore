@@ -1,0 +1,9 @@
+# wrangler local secrets — NEVER commit (holds the real signing key / admin secret)
+.dev.vars
+.wrangler/
+node_modules/
+
+# The production signing key never lives here. If you generate it in this
+# folder, these patterns keep it out of git.
+*.pem
+rsa-signing-key*

@@ -1,0 +1,13 @@
+{
+  "_comment": "GOLDEN VECTOR \u2014 throwaway TEST seed, NOT a production key. Locks the JS<->Python Ed25519 + canonical-JSON contract. If this breaks, the Worker and verify.py have diverged; do not deploy.",
+  "payload": {
+    "tier": "advanced",
+    "hardware_id": "h_goldentest0001",
+    "license_id": "00000000-0000-4000-8000-000000000000",
+    "issued_at": "2026-07-17T00:00:00Z",
+    "expires_at": "2026-08-16T00:00:00Z"
+  },
+  "signature": "3si-udvHRLduLDmggJZyQVUWN0H3hboQ8cieoI4QRqPfWYUBCexAVJz0l21Uj53NvPxCmiAmjuAJ6YfFZdjvBg",
+  "public_key_b64": "2Lr95PzLKUUPAR++AWqDSMG5gu3r+mlHqkK1NWmZpvE=",
+  "seed_b64": "EkqVGPz2sajSX3aa3llkUkqJZq0LpxAC9HBKoB8wqe0="
+}

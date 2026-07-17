@@ -1,0 +1,16 @@
+{
+  "name": "rsa-license-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test:golden": "node golden/golden.mjs",
+    "secret:key": "wrangler secret put SIGNING_KEY_PEM",
+    "secret:admin": "wrangler secret put ADMIN_SECRET"
+  },
+  "devDependencies": {
+    "wrangler": "^3.90.0"
+  }
+}

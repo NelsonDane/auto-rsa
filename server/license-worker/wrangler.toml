@@ -1,0 +1,20 @@
+# auto-rsa license Worker.
+#
+# Deploy:  cd server/license-worker && npm install && npm run deploy
+# Secrets (NEVER put them here — set them once with wrangler):
+#   wrangler secret put SIGNING_KEY_PEM   # paste the Ed25519 PRIVATE key PEM
+#   wrangler secret put ADMIN_SECRET      # a long random string
+#
+# The KV id below is the real `rsa_licenses` namespace already on the account.
+
+name = "rsa-license"
+main = "src/index.js"
+
+# node:crypto (createPrivateKey / sign / verify) needs the nodejs_compat flag
+# and a recent compatibility_date. Do not lower this date.
+compatibility_date = "2025-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[kv_namespaces]]
+binding = "LICENSES"
+id = "035a2313cf5c4c3db4ce438656c4dcf9"

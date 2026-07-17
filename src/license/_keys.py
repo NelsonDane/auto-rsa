@@ -1,28 +1,38 @@
 """Embedded public key for license-token verification.
 
-The corresponding private key is held by the operator off-machine
-(YubiKey / 1Password / sealed envelope) and signs the activation
-endpoint's responses. The private key never lives in this repo, on
-the Cloudflare Worker, or anywhere reachable from a running install.
+Model: the Cloudflare Worker SIGNS tokens (docs/CLOUDFLARE_LICENSE_BUILD.md).
+The Ed25519 PRIVATE key lives ONLY as a Worker secret (``SIGNING_KEY_PEM``)
+and in the operator's password manager — never in this repo, never in the
+shipped binary. This file holds only the PUBLIC half, which is meant to
+ship: it can verify tokens but cannot mint them.
 
-To replace the placeholder with a real key for a real build:
+To wire a real key for a real build (one time):
 
-1.  Generate the keypair on a trusted machine (one-time, never again):
+1.  Generate the keypair on your machine:
 
-        python -c "from cryptography.hazmat.primitives.asymmetric.ed25519 \
-import Ed25519PrivateKey; \
-import base64; \
-k = Ed25519PrivateKey.generate(); \
-priv = k.private_bytes_raw(); \
-pub = k.public_key().public_bytes_raw(); \
-print('PRIVATE (store offline, NEVER commit):', base64.b64encode(priv).decode()); \
-print('PUBLIC (paste into _keys.py):', base64.b64encode(pub).decode())"
+        openssl genpkey -algorithm ed25519 -out rsa-signing-key.pem
 
-2.  Store the PRIVATE half in a password manager / hardware token.
+2.  Put the PRIVATE key on the Worker + in 1Password (never commit it):
 
-3.  Paste the PUBLIC half (32 bytes base64) into ``PUBLIC_KEY_B64`` below.
+        cd server/license-worker
+        wrangler secret put SIGNING_KEY_PEM   # paste the file's contents
 
-4.  Commit the public-key change. Rebuild and ship.
+3.  Extract the raw PUBLIC key (base64) and paste it into
+    ``PUBLIC_KEY_B64`` below:
+
+        python -c "from cryptography.hazmat.primitives.serialization import \
+load_pem_public_key, Encoding, PublicFormat; import base64, subprocess; \
+pem = subprocess.run(['openssl','pkey','-in','rsa-signing-key.pem','-pubout'], \
+capture_output=True, check=True).stdout; \
+pub = load_pem_public_key(pem); \
+print(base64.b64encode(pub.public_bytes(Encoding.Raw, PublicFormat.Raw)).decode())"
+
+4.  Set ``ACTIVATION_URL`` to your deployed Worker URL. Commit both
+    constants (public key + URL are not secret). Rebuild and ship.
+
+The JS<->Python signature contract is locked by golden vectors on both
+sides (server/license-worker/golden/golden.mjs and
+edgar_tests/license_golden_test.py) — run them before every deploy.
 
 While ``PUBLIC_KEY_B64`` is empty, the verifier rejects every token
 (``current_tier()`` returns ``"unlicensed"``). This is the correct
