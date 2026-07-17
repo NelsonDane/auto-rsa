@@ -552,7 +552,14 @@ class TradeRunner:
             return "dead"
         except (psutil.Error, OSError, ValueError):
             return "unknown"
-        return "engine" if "engine_proc" in cmdline else "other"
+        # Source/dev engine: `python -u -m src.gui.core.engine_proc …`.
+        # Frozen build engine: `AutoRSA.exe --engine …` (see
+        # _engine_command). Recognize BOTH — otherwise a live frozen engine
+        # reads as "other" -> _lock_is_stale() reclaims the lock while it's
+        # running -> a second browser tab launches a concurrent LIVE run.
+        if "engine_proc" in cmdline or "--engine" in cmdline:
+            return "engine"
+        return "other"
 
     @staticmethod
     def _lock_is_stale() -> bool:
