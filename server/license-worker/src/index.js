@@ -15,7 +15,9 @@
  *   POST /activate    { license_key, hardware_id, hostname_hash, app_version, platform }
  *   POST /refresh     { token }
  *   GET  /killswitch  [?app_version=]
+ *   POST /telemetry      { token, event, outcome?, category?, counts?, ... }
  *   GET  /admin          operator web console (no-terminal keygen UI)
+ *   GET  /admin/telemetry (Bearer)  recent diagnostic beacons
  *   POST /admin/issue    (Bearer ADMIN_SECRET)  { tier, notes?, expires_at? }
  *   POST /admin/revoke   (Bearer)  { license_id }
  *   POST /admin/kill     (Bearer)  { active, message?, min_app_version? }
@@ -97,6 +99,44 @@ async function audit(env, licenseId, event) {
   });
 }
 
+// Per-license usage stats — the license-SHARING (churn) signal. Updated only
+// on the endpoints we already handle (activate/rebind), so it needs no client
+// code and carries no account data: distinct machine count, activation /
+// blocked-activation / rebind tallies. (Read-modify-write is not atomic; the
+// signal is approximate, which is fine for churn detection.)
+async function bumpStats(env, licenseId, field, hardwareId) {
+  const key = `stats:${licenseId}`;
+  const s = (await env.LICENSES.get(key, "json")) || {
+    activations: 0, blocked: 0, rebinds: 0, machines: [], first_seen: iso(now()),
+  };
+  if (field) s[field] = (s[field] || 0) + 1;
+  if (hardwareId) {
+    const tag = String(hardwareId).slice(0, 16); // truncated fingerprint
+    if (!s.machines.includes(tag)) {
+      s.machines.push(tag);
+      if (s.machines.length > 10) s.machines = s.machines.slice(-10);
+    }
+  }
+  s.last_seen = iso(now());
+  await env.LICENSES.put(key, JSON.stringify(s));
+}
+
+// Diagnostic beacon storage. Only integer counts for a fixed key set are
+// kept — never free-form data — so nothing sensitive can be smuggled through.
+const TELE_COUNT_FIELDS = ["brokers", "errors", "cap_blocks"];
+function sanitizeCounts(c) {
+  const out = {};
+  if (c && typeof c === "object") {
+    for (const k of TELE_COUNT_FIELDS) {
+      const v = c[k];
+      if (typeof v === "number" && isFinite(v)) {
+        out[k] = Math.max(0, Math.min(99999, Math.floor(v)));
+      }
+    }
+  }
+  return out;
+}
+
 function tokenPayload(rec) {
   const expires = addDays(now(), TOKEN_TTL_DAYS);
   const licExp = rec.expires_at ? new Date(rec.expires_at) : null;
@@ -134,11 +174,14 @@ async function handleActivate(req, env) {
     await env.LICENSES.put(`lic:${licenseId}`, JSON.stringify(rec));
     await env.LICENSES.put(`hw:${body.hardware_id}`, licenseId);
   } else if (rec.hardware_id !== body.hardware_id) {
+    // A second machine trying to use a bound key — a license-sharing signal.
+    await bumpStats(env, licenseId, "blocked", body.hardware_id);
     return json({ error: "license already bound to another machine" }, 409);
   }
 
   const payload = tokenPayload(rec);
   const signature = await signToken(payload, env.SIGNING_KEY_PEM);
+  await bumpStats(env, licenseId, "activations", body.hardware_id);
   await audit(env, licenseId, { event: "activate", platform: body.platform, app_version: body.app_version });
   return json({ payload, signature, account_cap: TIER_CAP[rec.tier] ?? null });
 }
@@ -170,6 +213,33 @@ async function handleRefresh(req, env) {
 async function handleKillswitch(env, url) {
   const kill = await killState(env, url.searchParams.get("app_version"));
   return json(kill);
+}
+
+// Public, but token-authenticated: the client proves a valid license by
+// including its signed token (verified here, not trusted), so this can't be
+// spammed anonymously and every beacon is tied to the right license. Stores
+// ONLY a coarse event + counts — never account, credential, or trade data.
+async function handleTelemetry(req, env) {
+  const body = await req.json().catch(() => null);
+  if (!body || !body.token) return json({ error: "token required" }, 400);
+  if (!(await verifyOwnToken(body.token, env.SIGNING_KEY_PEM))) {
+    return json({ error: "invalid token" }, 401);
+  }
+  const lid = (body.token.payload && body.token.payload.license_id) || "unknown";
+  const ev = {
+    event: String(body.event || "beacon").slice(0, 32),
+    outcome: String(body.outcome || "").slice(0, 16),
+    category: String(body.category || "").slice(0, 48),
+    app_version: String(body.app_version || "").slice(0, 24),
+    platform: String(body.platform || "").slice(0, 32),
+    counts: sanitizeCounts(body.counts),
+    ts: iso(now()),
+  };
+  await env.LICENSES.put(`tele:${lid}:${ev.ts}`, JSON.stringify(ev), {
+    expirationTtl: 60 * 60 * 24 * 60, // 60-day feed entry
+  });
+  await env.LICENSES.put(`telelast:${lid}`, JSON.stringify(ev)); // last-seen, no TTL
+  return json({ ok: true });
 }
 
 // ---- admin endpoints (Bearer ADMIN_SECRET) -----------------------------
@@ -230,6 +300,7 @@ async function handleRebind(req, env) {
   rec.hardware_id = body.hardware_id || null;
   await env.LICENSES.put(`lic:${rec.license_id}`, JSON.stringify(rec));
   if (rec.hardware_id) await env.LICENSES.put(`hw:${rec.hardware_id}`, rec.license_id);
+  await bumpStats(env, rec.license_id, "rebinds", null);
   await audit(env, rec.license_id, { event: "rebind" });
   return json({ ok: true, license_id: rec.license_id, hardware_id: rec.hardware_id });
 }
@@ -241,11 +312,35 @@ async function handleList(env) {
     const page = await env.LICENSES.list({ prefix: "lic:", cursor });
     for (const k of page.keys) {
       const rec = await env.LICENSES.get(k.name, "json");
-      if (rec) out.push(rec);
+      if (!rec) continue;
+      const stats = await env.LICENSES.get(`stats:${rec.license_id}`, "json");
+      const last = await env.LICENSES.get(`telelast:${rec.license_id}`, "json");
+      out.push({
+        ...rec,
+        stats: stats || null,
+        last_seen: last ? last.ts : null,
+        last_event: last ? last.event : null,
+        last_version: last ? last.app_version : null,
+      });
     }
     cursor = page.list_complete ? undefined : page.cursor;
   } while (cursor);
   return json({ licenses: out, count: out.length });
+}
+
+async function handleTelemetryFeed(env) {
+  const out = [];
+  let cursor;
+  do {
+    const page = await env.LICENSES.list({ prefix: "tele:", cursor });
+    for (const k of page.keys) {
+      const ev = await env.LICENSES.get(k.name, "json");
+      if (ev) out.push({ license_id: k.name.split(":")[1], ...ev });
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor && out.length < 500);
+  out.sort((a, b) => (b.ts || "").localeCompare(a.ts || ""));
+  return json({ events: out.slice(0, 100), count: out.length });
 }
 
 export default {
@@ -257,6 +352,7 @@ export default {
       if (method === "POST" && pathname === "/activate") return await handleActivate(request, env);
       if (method === "POST" && pathname === "/refresh") return await handleRefresh(request, env);
       if (method === "GET" && pathname === "/killswitch") return await handleKillswitch(env, url);
+      if (method === "POST" && pathname === "/telemetry") return await handleTelemetry(request, env);
 
       // Operator web console (the page itself carries no secret; every action
       // it fires still requires the Bearer ADMIN_SECRET on /admin/*).
@@ -273,6 +369,7 @@ export default {
         if (method === "POST" && pathname === "/admin/kill") return await handleKill(request, env);
         if (method === "POST" && pathname === "/admin/rebind") return await handleRebind(request, env);
         if (method === "GET" && pathname === "/admin/list") return await handleList(env);
+        if (method === "GET" && pathname === "/admin/telemetry") return await handleTelemetryFeed(env);
       }
       return json({ error: "not found" }, 404);
     } catch (err) {

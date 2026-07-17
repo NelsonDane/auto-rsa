@@ -300,6 +300,29 @@ def _tab_license() -> None:
                 "computer.",
             )
 
+    _render_telemetry_disclosure()
+
+
+def _render_telemetry_disclosure() -> None:
+    """Honest, friend-facing note about what the app reports to the operator.
+
+    Shown only when telemetry is actually active (friend build / the
+    RSA_TELEMETRY override), so a build that sends nothing makes no claim.
+    """
+    telemetry_on = False
+    with contextlib.suppress(Exception):
+        from src.license import telemetry  # noqa: PLC0415
+
+        telemetry_on = telemetry.enabled()
+    if telemetry_on:
+        st.divider()
+        st.caption(
+            "This app sends the operator anonymous diagnostics — app version, "
+            "coarse error categories, and license-usage counts — so they can "
+            "spot bugs and misuse. It never sends your credentials, account "
+            "numbers, holdings, or trades.",
+        )
+
 
 # --------------------------------------------------------------------------
 # Sidebar: vault lock/unlock + settings
@@ -3343,6 +3366,14 @@ def _render_setup_wizard(vault: Vault) -> None:
 def main() -> None:
     """Render the full app."""
     _state()
+    # One privacy-safe "startup" beacon per session (no-op unless telemetry is
+    # enabled; dispatched off-thread so it never delays the render).
+    if not st.session_state.get("_tele_startup"):
+        st.session_state["_tele_startup"] = True
+        with contextlib.suppress(Exception):
+            from src.license import telemetry  # noqa: PLC0415
+
+            telemetry.report("startup", category="startup")
     # Trace each render section-by-section and arm a watchdog that dumps
     # every thread's stack to creds/gui_hang_dump.log if a render exceeds
     # 20s. Kept as a safety net after the Ledger-render freeze was fixed;

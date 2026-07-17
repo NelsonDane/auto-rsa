@@ -96,6 +96,12 @@ export const ADMIN_UI_HTML = `<!doctype html>
   </section>
 
   <section>
+    <h2>Recent activity <button id="refreshTele" class="ghost">Refresh</button></h2>
+    <p class="hint">Anonymous diagnostics friends' apps report — version, coarse error category, and counts. No account or trade data.</p>
+    <div id="teleResult"></div>
+  </section>
+
+  <section>
     <h2>Kill switch</h2>
     <p id="killState" class="hint">—</p>
     <label>Message shown to users when paused
@@ -172,14 +178,20 @@ export const ADMIN_UI_HTML = `<!doctype html>
       $("listResult").dataset.loaded = "1";
       var rows = (j.licenses || []).slice().sort(function(a, b){ return (b.issued_at || "").localeCompare(a.issued_at || ""); });
       if (!rows.length) { $("listResult").innerHTML = '<p class="hint">No licenses yet.</p>'; return; }
-      var h = "<table><thead><tr><th>Key</th><th>Type</th><th>Status</th><th>Bound</th><th>Notes</th><th>Expires</th><th></th></tr></thead><tbody>";
+      var h = "<table><thead><tr><th>Key</th><th>Type</th><th>Status</th><th>Machines</th><th>Seen</th><th>Notes</th><th>Expires</th><th></th></tr></thead><tbody>";
       rows.forEach(function(r){
         var revoked = r.status === "revoked";
+        var s = r.stats;
+        var machines = s && s.machines ? s.machines.length : (r.hardware_id ? 1 : 0);
+        var warn = s && ((s.machines && s.machines.length >= 3) || (s.rebinds || 0) >= 3 || (s.blocked || 0) >= 3);
+        var mtitle = s ? ("activations " + (s.activations || 0) + " · rebinds " + (s.rebinds || 0) + " · blocked (2nd-machine tries) " + (s.blocked || 0)) : "no activity yet";
+        var seen = r.last_seen ? esc(r.last_seen.slice(0, 10)) + (r.last_version ? '<br><span class="hint">v' + esc(r.last_version) + "</span>" : "") : "—";
         h += "<tr>" +
           '<td class="mono">' + esc(r.license_key) + "</td>" +
           "<td>" + esc(r.tier) + "</td>" +
           "<td>" + (revoked ? '<span class="err">revoked</span>' : '<span class="ok-txt">active</span>') + "</td>" +
-          "<td>" + (r.hardware_id ? "yes" : "—") + "</td>" +
+          '<td title="' + esc(mtitle) + '">' + machines + (warn ? ' <span class="err" title="repeated activation churn — possible license sharing">⚠ churn</span>' : "") + "</td>" +
+          '<td class="mono">' + seen + "</td>" +
           "<td>" + esc(r.notes) + "</td>" +
           '<td class="mono">' + esc((r.expires_at || "").slice(0, 10)) + "</td>" +
           "<td>" + (revoked ? "" :
@@ -206,6 +218,28 @@ export const ADMIN_UI_HTML = `<!doctype html>
     }).catch(function(e){ $("listResult").innerHTML = '<p class="err">' + esc(e.message) + "</p>"; });
   }
   $("refresh").addEventListener("click", loadList);
+
+  function loadTele(){
+    $("teleResult").innerHTML = '<p class="hint">Loading…</p>';
+    api("GET", "/admin/telemetry").then(function(j){
+      var evs = j.events || [];
+      if (!evs.length) { $("teleResult").innerHTML = '<p class="hint">No activity yet — beacons appear as friends use the app.</p>'; return; }
+      var h = "<table><thead><tr><th>When (UTC)</th><th>License</th><th>Event</th><th>Detail</th><th>Version</th></tr></thead><tbody>";
+      evs.forEach(function(e){
+        var counts = e.counts ? Object.keys(e.counts).map(function(k){ return k + ":" + e.counts[k]; }).join(" ") : "";
+        var detail = [e.outcome, e.category, counts].filter(Boolean).join(" · ");
+        h += "<tr>" +
+          '<td class="mono">' + esc((e.ts || "").replace("T", " ").slice(0, 16)) + "</td>" +
+          '<td class="mono">' + esc((e.license_id || "").slice(0, 8)) + "</td>" +
+          "<td>" + esc(e.event) + "</td>" +
+          "<td>" + esc(detail) + "</td>" +
+          '<td class="mono">' + esc(e.app_version || "") + "</td></tr>";
+      });
+      h += "</tbody></table>";
+      $("teleResult").innerHTML = h;
+    }).catch(function(e){ $("teleResult").innerHTML = '<p class="err">' + esc(e.message) + "</p>"; });
+  }
+  $("refreshTele").addEventListener("click", loadTele);
 
   function loadKill(){
     fetch("/killswitch").then(function(r){ return r.json(); }).then(function(k){

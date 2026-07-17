@@ -34,6 +34,11 @@ The rare recovery parts (rotating secrets/keys) use the terminal once.
 - **Kill switch:** a global "pause trading" flag you flip if a crucial bug
   ships. It fails *open* on a network blip (a Cloudflare hiccup never freezes a
   friend); revoke is the hard backstop.
+- **Monitoring (friend build):** friends' apps send a small, **disclosed,
+  anonymous** diagnostic beacon (app version, coarse error category, run
+  counts) and the Worker tracks per-license activation/rebind churn to flag
+  license-sharing. It never includes credentials, accounts, holdings, or
+  trades. See §3 "Monitoring" and the in-app disclosure.
 
 Where things live:
 - Worker code + console: `server/license-worker/` (`src/index.js`,
@@ -80,6 +85,26 @@ build the installer in CI (Actions → **Windows Installer** → Run workflow, o
 push a `win-v*` tag), **download the artifact once**, upload that
 `AutoRSA-Setup.exe` to **Google Drive**, and share the Drive link with the
 friend *after* you've provisioned their key.
+
+### Monitoring: activity & license-sharing
+The console surfaces two privacy-safe signals, both in the `/admin` page:
+
+- **Recent activity** — a feed of the anonymous diagnostics friends' apps
+  report: app version, a coarse error category (e.g. `broker_errors`), and run
+  counts (brokers / errors). Use it to spot a broken build or a friend stuck on
+  an old version. It contains **no** account, credential, holding, ticker, or
+  dollar data.
+- **License-sharing (churn)** — the **Machines** column shows how many distinct
+  computers have activated a key, with a **⚠ churn** flag when a key shows
+  repeated churn (≥3 machines, ≥3 rebinds, or ≥3 blocked second-machine
+  attempts). Hover the cell for the exact activation / rebind / blocked counts.
+  A friend moving computers once is normal; *repeated* churn is a sharing
+  signal — follow up, or **Revoke** and reissue.
+
+What friends see: a one-line disclosure in the app's **License** section.
+Diagnostics are on by default in a friend build; disable with
+`RSA_TELEMETRY=0` (an operator/testing lever — the server-side churn signal
+needs no client and can't be turned off from the app).
 
 ---
 
@@ -191,3 +216,8 @@ curl https://rsa-license.ralanleder.workers.dev/killswitch
   Worker secrets and `.gitignore`d).
 - Friend builds contain **no** admin/signing code — all of that lives only on
   the Worker.
+- Diagnostics are **anonymous and disclosed** — app version, coarse error
+  category, and integer counts only. The app never transmits credentials,
+  account numbers, holdings, tickers, amounts, or the vault, and the beacon is
+  token-authenticated so it can't be spoofed. Keep it that way: never add
+  account or trade detail to a beacon (the Worker also drops unknown fields).

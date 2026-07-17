@@ -676,6 +676,29 @@ class TradeRunner:
         threading.Thread(
             target=self._notify, args=(status,), daemon=True,
         ).start()
+        self._report_telemetry(status)
+
+    def _report_telemetry(self, status: RunStatus) -> None:
+        """Fire a privacy-safe run beacon to the operator (best-effort).
+
+        Sends only the outcome and broker/error COUNTS — never broker
+        identities, tickers, or amounts. telemetry.report is itself a no-op
+        when disabled and never blocks (it dispatches on a daemon thread).
+        """
+        with contextlib.suppress(Exception):
+            from src.license import telemetry  # noqa: PLC0415
+
+            with self._lock:
+                states = list(self._progress.values())
+            errors = sum(1 for s in states if s == "failed")
+            telemetry.report(
+                "run_error" if status == RunStatus.ERROR else "run_finished",
+                outcome={
+                    "finished": "ok", "error": "failed", "cancelled": "cancelled",
+                }.get(status.value, "ok"),
+                category="broker_errors" if errors else "",
+                counts={"brokers": len(states), "errors": errors},
+            )
 
     def _terminal_status(self, code: int | None, *, cancelled: bool) -> RunStatus:
         """Map an exit code + per-broker progress to a terminal status.
