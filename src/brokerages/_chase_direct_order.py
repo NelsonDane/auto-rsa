@@ -86,6 +86,17 @@ def _quote_timeout() -> int:
     return _envint("RSA_CHASE_DIRECT_QUOTE_TIMEOUT", _QUOTE_TIMEOUT)
 
 
+def _needs_limit_order(errs: object) -> bool:
+    """Whether Chase rejected the order because it wants a LIMIT price.
+
+    Chase returns "We are only accepting orders with a limit price at this
+    time (R02105A)" for MARKET orders outside regular market hours.
+    """
+    items = errs if isinstance(errs, (list, tuple)) else [errs]
+    text = " ".join(str(e) for e in items).lower()
+    return "r02105" in text or "limit price at this time" in text
+
+
 def _classify_chase_exc(exc: BaseException) -> str:
     """Map a Chase POST exception to one of the project's reason codes.
 
@@ -347,6 +358,19 @@ def apply() -> None:  # noqa: C901, PLR0915
                 return order_messages
             errs = val_data.get("tradeErrorMessages", []) if isinstance(val_data, dict) else []
             if errs:
+                if price_type == "MARKET" and _needs_limit_order(errs):
+                    # Chase only accepts LIMIT orders outside regular market
+                    # hours. Make the fix actionable instead of an opaque
+                    # broker code — the operator can re-run as a limit order
+                    # or wait for the open.
+                    _log("market rejected: Chase wants LIMIT (after-hours)", t0)
+                    errs = [
+                        *(errs if isinstance(errs, list) else [errs]),
+                        "AUTO-RSA: Chase only accepts LIMIT orders outside "
+                        "market hours (9:30 AM-4:00 PM ET). On the Trade tab "
+                        "set Order type = Limit with a limit price, or run "
+                        "during market hours.",
+                    ]
                 order_messages["ORDER INVALID"] = errs
                 return order_messages
             order_messages["ORDER VALIDATION"] = val_data
