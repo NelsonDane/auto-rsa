@@ -24,14 +24,14 @@ def _load_fidelity_skip_accounts() -> set[str]:
     return {item.strip().lower() for item in raw.split(",") if item.strip()}
 
 
-def _account_is_skipped(account_number: str, nickname: str | None, skip_accounts: set[str]) -> bool:
+def _account_is_skipped(account_number: str, skip_accounts: set[str]) -> bool:
     """Return True when the account number matches an exclusion entry."""
     if not skip_accounts:
         return False
     return account_number.lower() in skip_accounts
 
 
-def _fidelity_login(browser: fidelity.FidelityAutomation, username: str, password: str, totp_secret: str) -> tuple[bool, bool]:
+def _fidelity_login(browser: fidelity.FidelityAutomation, username: str, password: str, totp_secret: str | None) -> tuple[bool, bool]:
     """Repo-owned Fidelity login flow that is more tolerant of Fidelity's current 2FA pages."""
     page = browser.page
     try:
@@ -50,7 +50,7 @@ def _fidelity_login(browser: fidelity.FidelityAutomation, username: str, passwor
         if "summary" in page.url:
             return True, True
 
-        totp_secret = None if totp_secret == "NA" else totp_secret
+        totp_secret = None if totp_secret == "NA" else totp_secret  # noqa: S105
         code_field = page.get_by_placeholder("XXXXXX")
         if code_field.count() and code_field.first.is_visible():
             return True, False
@@ -71,10 +71,13 @@ def _fidelity_login(browser: fidelity.FidelityAutomation, username: str, passwor
             return True, False
 
         if "signin/retail" in page.url or "login" in page.url:
-            raise Exception(f"Login page did not resolve to a recognizable 2FA state. Current URL: {page.url}")
-
-        raise Exception(f"Cannot get to login page. Current URL: {page.url}")
-    except Exception:
+            msg = f"Login page did not resolve to a recognizable 2FA state. Current URL: {page.url}"
+            raise Exception(msg)
+        msg = f"Cannot determine login state. Current URL: {page.url}"
+        raise Exception(msg)
+    except Exception as e:
+        print(f"Error during Fidelity login flow: {e}")
+        print(traceback.format_exc())
         raise
 
 
@@ -120,7 +123,7 @@ def fidelity_run(
     return
 
 
-def fidelity_init(
+def fidelity_init(  # noqa: C901, PLR0912, PLR0915
     account: str,
     name: str,
     *,
@@ -184,9 +187,7 @@ def fidelity_init(
                 try:
                     fidelity_browser.page.get_by_placeholder("XXXXXX").wait_for(state="visible", timeout=60000)
                     fidelity_browser.page.get_by_placeholder("XXXXXX").fill(code)
-                    remember_device = fidelity_browser.page.locator("label").filter(
-                        has_text="Don't ask me again on this"
-                    )
+                    remember_device = fidelity_browser.page.locator("label").filter(has_text="Don't ask me again on this")
                     if remember_device.count() and remember_device.first.is_visible():
                         remember_device.first.check()
                     submit_button = fidelity_browser.page.get_by_role("button", name="Submit")
@@ -219,7 +220,7 @@ def fidelity_init(
             raise Exception(msg, loop)
         # Set info into fidelity brokerage object
         for acct in account_dict:
-            if _account_is_skipped(acct, account_dict[acct].get("nickname"), skip_accounts or set()):
+            if _account_is_skipped(acct, skip_accounts or set()):
                 print(f"{name}: skipping excluded account {acct} ({account_dict[acct].get('nickname')})")
                 continue
             fidelity_obj.set_account_number(name, acct)
@@ -245,7 +246,7 @@ def fidelity_holdings(fidelity_o: Brokerage, name: str, loop: asyncio.AbstractEv
     account_dict = fidelity_browser.account_dict
     skip_accounts = _load_fidelity_skip_accounts()
     for account_number in account_dict:
-        if _account_is_skipped(account_number, account_dict[account_number].get("nickname"), skip_accounts):
+        if _account_is_skipped(account_number, skip_accounts):
             continue
         for d in account_dict[account_number]["stocks"]:
             # Append the ticker to the appropriate account
@@ -264,7 +265,7 @@ def fidelity_holdings(fidelity_o: Brokerage, name: str, loop: asyncio.AbstractEv
     fidelity_browser.close_browser()
 
 
-def fidelity_transaction(
+def fidelity_transaction(  # noqa: C901
     fidelity_o: Brokerage,
     name: str,
     order_obj: StockOrder,
@@ -286,11 +287,7 @@ def fidelity_transaction(
         # Reload the page incase we were trading before
         fidelity_browser.page.reload()
         for account_number in fidelity_browser.account_dict:
-            if _account_is_skipped(
-                account_number,
-                fidelity_browser.account_dict[account_number].get("nickname"),
-                skip_accounts,
-            ):
+            if _account_is_skipped(account_number, skip_accounts):
                 print(f"{name}: skipping excluded account {mask_string(account_number)}")
                 continue
             # If we are selling, check to see if the account has the stock to sell
@@ -318,16 +315,12 @@ def fidelity_transaction(
                         for candidate in ("009972", "restricted", "account specified in this order is restricted"):
                             if candidate.lower() in page_text.lower():
                                 error_message = next(
-                                    (
-                                        line.strip()
-                                        for line in page_text.splitlines()
-                                        if candidate.lower() in line.lower()
-                                    ),
+                                    (line.strip() for line in page_text.splitlines() if candidate.lower() in line.lower()),
                                     page_text.strip(),
                                 )
                                 break
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        print(f"{name} account {print_account}: Error retrieving error message from page: {e}")
                 print_and_discord(
                     f"{name} account {print_account}: Error: {error_message}",
                     loop,
