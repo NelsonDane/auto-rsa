@@ -16,7 +16,7 @@ permissions: {}
 jobs:
   update-dockerhub-description:
     name: Update Docker Hub Description
-    uses: NelsonDane/Custom-GitHub-Actions/.github/workflows/dockerhub-description.yml@7e095d077342808e4f52deb091fcba86f688fe6b
+    uses: NelsonDane/Custom-GitHub-Actions/.github/workflows/dockerhub-description.yml@4c21b5fee1cd3bcf84e2c99748dfcfbbee975d9a
     with:
       dockerhub_repo_name: auto-rsa
     secrets:
