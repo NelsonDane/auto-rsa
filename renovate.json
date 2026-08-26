@@ -1,5 +1,9 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 4am on friday"]
+  },
   "packageRules": [
     {
       "description": "Don't update docker-compose.yml since it's just an example",
