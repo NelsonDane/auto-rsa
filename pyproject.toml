@@ -12,7 +12,7 @@ dependencies = [
     "dspac-invest-api==0.1.4",
     "email-validator>=2.3.0",
     "fennel-invest-api==2.0.1",
-    "fidelity-api==0.0.16",
+    "fidelity-api==0.0.17",
     "firstrade==0.0.38",
     "nodriver==0.47.0",
     "paho-mqtt>=2.1.0",
@@ -38,12 +38,13 @@ dev = [
 
 [project.scripts]
 auto_rsa_bot = "src.cli:app"
+auto-rsa-bot = "src.cli:app"
 
 [tool.uv]
 package = true
 
 [build-system]
-requires = ["uv_build>=0.11.7,<0.12.0"]
+requires = ["uv_build>=0.12.6,<0.13.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
