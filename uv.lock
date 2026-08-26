@@ -256,7 +256,7 @@ requires-dist = [
     { name = "dspac-invest-api", specifier = "==0.1.4" },
     { name = "email-validator", specifier = ">=2.3.0" },
     { name = "fennel-invest-api", specifier = "==2.0.1" },
-    { name = "fidelity-api", specifier = "==0.0.16" },
+    { name = "fidelity-api", specifier = "==0.0.17" },
     { name = "firstrade", specifier = "==0.0.38" },
     { name = "nodriver", specifier = "==0.47.0" },
     { name = "paho-mqtt", specifier = ">=2.1.0" },
@@ -643,16 +643,16 @@ wheels = [
 
 [[package]]
 name = "fidelity-api"
-version = "0.0.16"
+version = "0.0.17"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "playwright" },
     { name = "playwright-sm" },
     { name = "pyotp" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/46/0c/26d1ffde31374166e90f06236ddef23820d26d79ca0c4ec0502bde97dd20/fidelity_api-0.0.16.tar.gz", hash = "sha256:d578816cde99097647b1e8285b02f86cb8e766a4b9247da5e78e77b0a9c22689", size = 30340, upload-time = "2025-11-06T04:52:54.385Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c3/64/a30072c54e9876636acfd0e3e157a256274f3d2d0179bb5909145da21523/fidelity_api-0.0.17.tar.gz", hash = "sha256:f242ec04ed2b71d12bbc41199156bfb6cc595a1ff71f8317c0c3a90025e93fdf", size = 31685, upload-time = "2026-06-13T07:20:49.684Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/de/e5/c89e7edb6e99506e3b7aa2bc485b8745b8f19cc972ddc022c16c7604f169/fidelity_api-0.0.16-py3-none-any.whl", hash = "sha256:abed289a2f01c8f0cea91a79cfed528215a4a2e8df6945bfdfae8b0cb7b46921", size = 29664, upload-time = "2025-11-06T04:52:53.294Z" },
+    { url = "https://files.pythonhosted.org/packages/0d/b4/26c9af19e1850af9d8ea0bb013ed80f8ea616e822d262caeec94e128ad0b/fidelity_api-0.0.17-py3-none-any.whl", hash = "sha256:4d6e3cb4ab905e2ab966b7e8f139c5557bc09dbb4e68b7384e27369c2dc3f27f", size = 31018, upload-time = "2026-06-13T07:20:48.393Z" },
 ]
 
 [[package]]
