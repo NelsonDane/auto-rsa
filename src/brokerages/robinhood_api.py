@@ -8,9 +8,9 @@ from asyncio import AbstractEventLoop
 from typing import Any, cast
 
 from dotenv import load_dotenv
+from robin_stocks import robinhood as rh
 
 from src.helper_api import Brokerage, StockOrder, mask_string, print_all_holdings, print_and_discord
-from src.vendors.robin_stocks.robin_stocks import robinhood as rh
 
 
 def login_with_cache(pickle_path: str, pickle_name: str) -> None:

@@ -8,9 +8,9 @@ from time import sleep
 from typing import cast
 
 from dotenv import load_dotenv
+from webull import webull
 
 from src.helper_api import Brokerage, StockOrder, mask_string, print_all_holdings, print_and_discord
-from src.vendors.webull.webull import webull
 
 MAX_WB_RETRIES = 3  # Number of times to retry logging in if not successful
 MAX_WB_ACCOUNTS = 11  # Different account types
