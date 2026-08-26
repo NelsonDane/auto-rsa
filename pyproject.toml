@@ -22,7 +22,7 @@ dependencies = [
     "schwab-api2==0.3.0",
     "selenium>=4.38.0",
     "selenium-stealth>=1.0.6",
-    "tastytrade==12.4.3",
+    "tastytrade==13.2.3",
     "typer>=0.20.0",
     "vanguard-api==0.3.3",
     "webull@git+https://github.com/NelsonDane/webull@ef14ae63f9e1436fbea77fe864df54847cf2f730",
