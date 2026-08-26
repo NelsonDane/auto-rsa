@@ -12,11 +12,11 @@ dependencies = [
     "dspac-invest-api==0.1.4",
     "email-validator>=2.3.0",
     "fennel-invest-api==2.0.1",
-    "fidelity-api==0.0.16",
+    "fidelity-api==0.0.17",
     "firstrade==0.0.38",
     "nodriver==0.47.0",
     "paho-mqtt>=2.1.0",
-    "publicdotcom-py==0.1.18",
+    "publicdotcom-py==0.1.21",
     "pyotp==2.10.0",
     "python-dotenv==1.2.2",
     "pytz>=2025.2",
@@ -24,7 +24,7 @@ dependencies = [
     "schwab-api2>=0.3.0",
     "selenium-stealth==1.0.6",
     "setuptools<84",
-    "tastytrade==12.4.1",
+    "tastytrade==12.4.3",
     "typer>=0.20.0",
     "vanguard-api==0.3.3",
 ]
@@ -38,12 +38,13 @@ dev = [
 
 [project.scripts]
 auto_rsa_bot = "src.cli:app"
+auto-rsa-bot = "src.cli:app"
 
 [tool.uv]
 package = true
 
 [build-system]
-requires = ["uv_build>=0.11.7,<0.12.0"]
+requires = ["uv_build>=0.12.6,<0.13.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
