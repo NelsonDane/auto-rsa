@@ -38,6 +38,7 @@ dev = [
 
 [project.scripts]
 auto_rsa_bot = "src.cli:app"
+auto-rsa-bot = "src.cli:app"
 
 [tool.uv]
 package = true
