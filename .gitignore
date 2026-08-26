@@ -7,7 +7,11 @@ did.bin
 *.pkl
 *.png
 __pycache__/
+.coverage
+.pytest_cache/
 test*
+!tests/
+!tests/*.py
 *venv/
 *workspace
 *.zip

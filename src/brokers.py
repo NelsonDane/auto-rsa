@@ -1,6 +1,6 @@
 """Contains Info For All Brokerages."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import StrEnum
 
 
@@ -27,7 +27,7 @@ class BrokerName(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class BrokerInfo:
-    """Base Class for Broker Information."""
+    """Information about a single supported brokerage."""
 
     name: BrokerName
     nicknames: tuple[str, ...]
@@ -35,164 +35,25 @@ class BrokerInfo:
     fast: bool
 
 
-@dataclass(frozen=True, slots=True)
-class BbaeInfo(BrokerInfo):
-    """Broker Information for BBAE."""
-
-    name: BrokerName = BrokerName.BBAE
-    nicknames: tuple[str, ...] = field(default_factory=lambda: ("bb",))
-    day1: bool = True
-    fast: bool = True
-
-
-@dataclass(frozen=True, slots=True)
-class ChaseInfo(BrokerInfo):
-    """Broker Information for CHASE."""
-
-    name: BrokerName = BrokerName.CHASE
-    nicknames: tuple[str, ...] = field(default_factory=tuple[str, ...])
-    day1: bool = True
-    fast: bool = False
-
-
-@dataclass(frozen=True, slots=True)
-class DspacInfo(BrokerInfo):
-    """Broker Information for DSPAC."""
-
-    name: BrokerName = BrokerName.DSPAC
-    nicknames: tuple[str, ...] = field(default_factory=lambda: ("ds",))
-    day1: bool = True
-    fast: bool = True
-
-
-@dataclass(frozen=True, slots=True)
-class FennelInfo(BrokerInfo):
-    """Broker Information for FENNEL."""
-
-    name: BrokerName = BrokerName.FENNEL
-    nicknames: tuple[str, ...] = field(default_factory=tuple[str, ...])
-    day1: bool = True
-    fast: bool = False
-
-
-@dataclass(frozen=True, slots=True)
-class FidelityInfo(BrokerInfo):
-    """Broker Information for FIDELITY."""
-
-    name: BrokerName = BrokerName.FIDELITY
-    nicknames: tuple[str, ...] = field(default_factory=lambda: ("fid", "fido"))
-    day1: bool = False
-    fast: bool = False
-
-
-@dataclass(frozen=True, slots=True)
-class FirstradeInfo(BrokerInfo):
-    """Broker Information for FIRSTRADE."""
-
-    name: BrokerName = BrokerName.FIRSTRADE
-    nicknames: tuple[str, ...] = field(default_factory=lambda: ("ft",))
-    day1: bool = True
-    fast: bool = True
-
-
-@dataclass(frozen=True, slots=True)
-class PublicInfo(BrokerInfo):
-    """Broker Information for PUBLIC."""
-
-    name: BrokerName = BrokerName.PUBLIC
-    nicknames: tuple[str, ...] = field(default_factory=tuple[str, ...])
-    day1: bool = True
-    fast: bool = True
-
-
-@dataclass(frozen=True, slots=True)
-class RobinhoodInfo(BrokerInfo):
-    """Broker Information for ROBINHOOD."""
-
-    name: BrokerName = BrokerName.ROBINHOOD
-    nicknames: tuple[str, ...] = field(default_factory=lambda: ("rh",))
-    day1: bool = False
-    fast: bool = True
-
-
-@dataclass(frozen=True, slots=True)
-class SchwabInfo(BrokerInfo):
-    """Broker Information for SCHWAB."""
-
-    name: BrokerName = BrokerName.SCHWAB
-    nicknames: tuple[str, ...] = field(default_factory=tuple[str, ...])
-    day1: bool = True
-    fast: bool = True
-
-
-@dataclass(frozen=True, slots=True)
-class SofiInfo(BrokerInfo):
-    """Broker Information for SOFI."""
-
-    name: BrokerName = BrokerName.SOFI
-    nicknames: tuple[str, ...] = field(default_factory=tuple[str, ...])
-    day1: bool = True
-    fast: bool = False
-
-
-@dataclass(frozen=True, slots=True)
-class TastytradeInfo(BrokerInfo):
-    """Broker Information for TASTYTRADE."""
-
-    name: BrokerName = BrokerName.TASTYTRADE
-    nicknames: tuple[str, ...] = field(default_factory=lambda: ("tt", "tasty"))
-    day1: bool = True
-    fast: bool = True
-
-
-@dataclass(frozen=True, slots=True)
-class TornadoInfo(BrokerInfo):
-    """Broker Information for TORNADO."""
-
-    name: BrokerName = BrokerName.TORNADO
-    nicknames: tuple[str, ...] = field(default_factory=tuple[str, ...])
-    day1: bool = False
-    fast: bool = True
-
-
-@dataclass(frozen=True, slots=True)
-class TradierInfo(BrokerInfo):
-    """Broker Information for TRADIER."""
-
-    name: BrokerName = BrokerName.TRADIER
-    nicknames: tuple[str, ...] = field(default_factory=tuple[str, ...])
-    day1: bool = True
-    fast: bool = True
-
-
-@dataclass(frozen=True, slots=True)
-class VanguardInfo(BrokerInfo):
-    """Broker Information for VANGUARD."""
-
-    name: BrokerName = BrokerName.VANGUARD
-    nicknames: tuple[str, ...] = field(default_factory=lambda: ("vg",))
-    day1: bool = False
-    fast: bool = False
-
-
-@dataclass(frozen=True, slots=True)
-class WebullInfo(BrokerInfo):
-    """Broker Information for WEBULL."""
-
-    name: BrokerName = BrokerName.WEBULL
-    nicknames: tuple[str, ...] = field(default_factory=lambda: ("wb",))
-    day1: bool = True
-    fast: bool = True
-
-
-@dataclass(frozen=True, slots=True)
-class WellsFargoInfo(BrokerInfo):
-    """Broker Information for WELLS FARGO."""
-
-    name: BrokerName = BrokerName.WELLS_FARGO
-    nicknames: tuple[str, ...] = field(default_factory=lambda: ("wf",))
-    day1: bool = False
-    fast: bool = False
+# Data table of all supported brokers. Add a new broker by adding a row here.
+ALL_BROKERS: tuple[BrokerInfo, ...] = (
+    BrokerInfo(name=BrokerName.BBAE, nicknames=("bb",), day1=True, fast=True),
+    BrokerInfo(name=BrokerName.CHASE, nicknames=(), day1=True, fast=False),
+    BrokerInfo(name=BrokerName.DSPAC, nicknames=("ds",), day1=True, fast=True),
+    BrokerInfo(name=BrokerName.FENNEL, nicknames=(), day1=True, fast=False),
+    BrokerInfo(name=BrokerName.FIDELITY, nicknames=("fid", "fido"), day1=False, fast=False),
+    BrokerInfo(name=BrokerName.FIRSTRADE, nicknames=("ft",), day1=True, fast=True),
+    BrokerInfo(name=BrokerName.PUBLIC, nicknames=(), day1=True, fast=True),
+    BrokerInfo(name=BrokerName.ROBINHOOD, nicknames=("rh",), day1=False, fast=True),
+    BrokerInfo(name=BrokerName.SCHWAB, nicknames=(), day1=True, fast=True),
+    BrokerInfo(name=BrokerName.SOFI, nicknames=(), day1=True, fast=False),
+    BrokerInfo(name=BrokerName.TASTYTRADE, nicknames=("tt", "tasty"), day1=True, fast=True),
+    BrokerInfo(name=BrokerName.TORNADO, nicknames=(), day1=False, fast=True),
+    BrokerInfo(name=BrokerName.TRADIER, nicknames=(), day1=True, fast=True),
+    BrokerInfo(name=BrokerName.VANGUARD, nicknames=("vg",), day1=False, fast=False),
+    BrokerInfo(name=BrokerName.WEBULL, nicknames=("wb",), day1=True, fast=True),
+    BrokerInfo(name=BrokerName.WELLS_FARGO, nicknames=("wf",), day1=False, fast=False),
+)
 
 
 class AllBrokersInfo:
@@ -200,24 +61,7 @@ class AllBrokersInfo:
 
     def __init__(self) -> None:
         """Initialize All Brokers Information."""
-        self.brokers: list[BrokerInfo] = [
-            BbaeInfo(),
-            ChaseInfo(),
-            DspacInfo(),
-            FennelInfo(),
-            FidelityInfo(),
-            FirstradeInfo(),
-            PublicInfo(),
-            RobinhoodInfo(),
-            SchwabInfo(),
-            SofiInfo(),
-            TastytradeInfo(),
-            TornadoInfo(),
-            TradierInfo(),
-            VanguardInfo(),
-            WebullInfo(),
-            WellsFargoInfo(),
-        ]
+        self.brokers: list[BrokerInfo] = list(ALL_BROKERS)
 
     def parse_input(self, user_input: str) -> BrokerInfo | None:
         """Parse user input and return the corresponding BrokerInfo object."""
