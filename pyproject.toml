@@ -34,6 +34,7 @@ dev = [
     "ruff>=0.13.3",
     "ty>=0.0.11",
     "types-requests>=2.32.4.20250913",
+    "vulture>=2.16",
 ]
 
 [project.scripts]
@@ -77,4 +78,16 @@ root = ["src"]
 python-version = "3.12"
 
 [tool.ty.src]
-exclude = ["docs/*"]
+exclude = ["docs/*", "vulture_whitelist.py"]
+
+[tool.deptry]
+exclude = [
+    "docs",
+    ".venv",
+    "tests",
+    "vulture_whitelist.py"
+]
+
+[tool.vulture]
+min_confidence = 60
+paths = ["src", "vulture_whitelist.py"]

@@ -14,7 +14,7 @@ from io import BytesIO
 from queue import Queue
 from threading import Thread
 from time import sleep
-from typing import Any, Literal, TypedDict, TypeVar, cast
+from typing import Any, Literal, TypedDict, cast
 
 import requests
 from discord.ext import commands
@@ -91,10 +91,6 @@ class StockOrder:  # noqa: PLR0904
     def set_stock(self, stock: str) -> None:
         """Set the stock ticker to buy/sell."""
         self.__stock.append(stock.upper())
-
-    def set_time(self, time: Literal["day", "gtc"]) -> None:
-        """Set the time in force for the order."""
-        self.__time = time
 
     def set_price(self, price: Literal["market", "limit"] | float) -> None:
         """Set the price for the order."""
@@ -224,9 +220,6 @@ class StockOrder:  # noqa: PLR0904
                 Logged In: {self.__logged_in}"
 
 
-T = TypeVar("T")
-
-
 class Brokerage:
     """Object representing all logins and accounts at a brokerage."""
 
@@ -244,10 +237,6 @@ class Brokerage:
         self.__holdings: dict = {}  # Dictionary of holdings under parent
         self.__account_totals: dict = {}  # Dictionary of account totals
         self.__account_types: dict = {}  # Dictionary of account types
-
-    def set_name(self, name: str) -> None:
-        """Set the name of the brokerage."""
-        self.__name = name
 
     def set_account_number(self, parent_name: str, account_number: str) -> None:
         """Set the account number for a specific parent."""
