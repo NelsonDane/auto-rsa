@@ -1,6 +1,6 @@
 # AutoRSA
-## Discord Bot and CLI Tool
-A CLI tool and Discord bot to buy, sell, and monitor holdings across multiple brokerage accounts!
+## Discord Bot, CLI, and AI Agent MCP Tool
+An MCP, CLI, and Discord bot to buy, sell, and monitor holdings across multiple brokerage accounts!
 
 <p>
 <img src="https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54"/>
@@ -25,6 +25,9 @@ However, if you fix the issue yourself and would like to share, please submit a 
 
 ## Contributing
 Want to contribute? That's awesome! Check out the [Contributing Guide](docs/CONTRIBUTING.md) for more information.
+
+## Use with AI Agents/MCP Server
+This project can act as an [MCP](https://modelcontextprotocol.io) server to be used with AI Agents. See the [MCP Guide](docs/MCP.md) for more information.
 
 ## Installation
 See the [Installation Guide](docs/INSTALLATION.md) for detailed installation instructions.
