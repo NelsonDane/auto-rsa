@@ -10,9 +10,7 @@ def main(ctx: typer.Context) -> None:
     """Entry point for the CLI."""
     if ctx.args and ctx.args[0].lower() == "mcp":
         # Lazy load since auto_rsa prints to stdout on import, which breaks MCP stdio
-        from src.mcp_server import (
-            run as run_mcp_server,  # ruff: ignore[import-outside-top-level]
-        )
+        from src.mcp_server import run as run_mcp_server  # ruff: ignore[import-outside-top-level]
 
         run_mcp_server()
         return
