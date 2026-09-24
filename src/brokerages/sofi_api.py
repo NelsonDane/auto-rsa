@@ -152,7 +152,7 @@ def sofi_run(order_obj: StockOrder, command: tuple[str, str], bot_obj: Bot | Non
     return
 
 
-def sofi_init(  # noqa: PLR0917
+def sofi_init(  # ruff: ignore[too-many-positional-arguments]
     sofi_account: str,
     name: str,
     cookie_filename: str,
@@ -219,7 +219,7 @@ def sofi_init(  # noqa: PLR0917
     return sofi_obj
 
 
-async def _sofi_login_and_account(browser: Browser, page: tab.Tab, account: list[str], name: str, bot_obj: Bot | None = None, discord_loop: asyncio.AbstractEventLoop | None = None) -> None:  # noqa: PLR0917
+async def _sofi_login_and_account(browser: Browser, page: tab.Tab, account: list[str], name: str, bot_obj: Bot | None = None, discord_loop: asyncio.AbstractEventLoop | None = None) -> None:  # ruff: ignore[too-many-positional-arguments]
     try:
         await asyncio.sleep(5)
         page = await browser.get("https://www.sofi.com")
@@ -267,7 +267,7 @@ async def _sofi_account_info(browser: Browser, discord_loop: asyncio.AbstractEve
         await browser.sleep(5)
 
         cookies = await browser.cookies.get_all()
-        cookies_dict = {cookie.name: cookie.value for cookie in cookies}
+        cookies_dict = {cookie.name: cookie.value for cookie in cookies if cookie.value is not None}
         response = requests.get(
             "https://www.sofi.com/wealth/backend/v1/json/accounts",
             impersonate="chrome",
@@ -316,7 +316,7 @@ def sofi_holdings(browser: Browser, name: str, sofi_obj: Brokerage, discord_loop
         sofi_obj.set_account_totals(name, real_account_number, account_info["balance"])
 
         account_id = str(account_info.get("id"))
-        cookies = {cookie.name: cookie.value for cookie in sofi_loop.run_until_complete(browser.cookies.get_all())}
+        cookies = {cookie.name: cookie.value for cookie in sofi_loop.run_until_complete(browser.cookies.get_all()) if cookie.value is not None}
 
         try:
             holdings = _get_holdings_formatted(account_id, cookies)
@@ -387,11 +387,11 @@ def _get_2fa_code(secret: str) -> str:
     return totp.now()
 
 
-async def _handle_2fa(page: tab.Tab, account: list[str], name: str, bot_obj: Bot | None, discord_loop: asyncio.AbstractEventLoop | None) -> None:  # noqa: C901, PLR0912, PLR0915
+async def _handle_2fa(page: tab.Tab, account: list[str], name: str, bot_obj: Bot | None, discord_loop: asyncio.AbstractEventLoop | None) -> None:  # ruff: ignore[complex-structure, too-many-branches, too-many-statements]
     """Handle both authenticator app 2FA and SMS-based 2FA."""
     try:
         # Authenticator app 2FA handling (if secret exists)
-        secret = account[2] if len(account) > 2 else None  # noqa: PLR2004
+        secret = account[2] if len(account) > 2 else None  # ruff: ignore[magic-value-comparison]
         # Checks for people that don't read the README
         if isinstance(secret, str) and (secret.lower() == "none" or secret.lower() == "false"):
             secret = None
@@ -460,7 +460,7 @@ async def _handle_2fa(page: tab.Tab, account: list[str], name: str, bot_obj: Bot
                         msg = f"Sofi {name} SMS code not received in time..."
                         raise Exception(msg)
                 else:
-                    sms_code = input("Enter code: ")  # noqa: ASYNC250
+                    sms_code = input("Enter code: ")  # ruff: ignore[blocking-input-in-async-function]
 
                 await sms2fa_input.send_keys(sms_code)
                 verify_button = await page.find("Verify Code")
@@ -490,7 +490,7 @@ def sofi_transaction(browser: Browser, order_boj: StockOrder, discord_loop: asyn
             print(f"Unknown action: {order_boj.get_action()}")
 
 
-async def _sofi_buy(browser: Browser, symbol: str, quantity: float, discord_loop: asyncio.AbstractEventLoop | None = None, *, dry_mode: bool = False) -> None:  # noqa: C901
+async def _sofi_buy(browser: Browser, symbol: str, quantity: float, discord_loop: asyncio.AbstractEventLoop | None = None, *, dry_mode: bool = False) -> None:  # ruff: ignore[complex-structure]
     page = None
     try:
         # Step 1: Navigate to stock page and get valid cookies
@@ -498,7 +498,7 @@ async def _sofi_buy(browser: Browser, symbol: str, quantity: float, discord_loop
         page = await browser.get(stock_url)
         await page.select("body")
 
-        cookies = {cookie.name: cookie.value for cookie in await browser.cookies.get_all()}
+        cookies = {cookie.name: cookie.value for cookie in await browser.cookies.get_all() if cookie.value is not None}
         if not cookies:
             msg = "Failed to retrieve valid cookies for the session."
             raise Exception(msg)
@@ -577,10 +577,10 @@ async def _sofi_buy(browser: Browser, symbol: str, quantity: float, discord_loop
         )
 
 
-async def _sofi_sell(browser: Browser, symbol: str, quantity: float, discord_loop: asyncio.AbstractEventLoop | None = None, *, dry_mode: bool = False) -> None:  # noqa: C901, PLR0912
+async def _sofi_sell(browser: Browser, symbol: str, quantity: float, discord_loop: asyncio.AbstractEventLoop | None = None, *, dry_mode: bool = False) -> None:  # ruff: ignore[complex-structure, too-many-branches]
     try:
         # Step 1: Fetch holdings for the stock symbol
-        cookies = {cookie.name: cookie.value for cookie in await browser.cookies.get_all()}
+        cookies = {cookie.name: cookie.value for cookie in await browser.cookies.get_all() if cookie.value is not None}
         if not cookies:
             msg = "Failed to retrieve valid cookies for the session."
             raise Exception(msg)
@@ -713,7 +713,7 @@ async def _fetch_stock_price(symbol: str) -> float | None:
     return None
 
 
-async def _place_order(  # noqa: PLR0917
+async def _place_order(  # ruff: ignore[too-many-positional-arguments]
     symbol: str,
     quantity: float,
     limit_price: float,
@@ -762,7 +762,7 @@ async def _place_order(  # noqa: PLR0917
     return None
 
 
-async def _place_fractional_order(  # noqa: PLR0917
+async def _place_fractional_order(  # ruff: ignore[too-many-positional-arguments]
     symbol: str,
     quantity: float,
     account_id: str,

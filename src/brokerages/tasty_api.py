@@ -97,7 +97,7 @@ async def _tastytrade_async_holdings(tt_o: Brokerage, loop: asyncio.AbstractEven
     print_all_holdings(tt_o, loop=loop)
 
 
-async def _tastytrade_async_execute(tt_o: Brokerage, order_obj: StockOrder, loop: asyncio.AbstractEventLoop | None = None) -> None:  # noqa: C901, PLR0912, PLR0915
+async def _tastytrade_async_execute(tt_o: Brokerage, order_obj: StockOrder, loop: asyncio.AbstractEventLoop | None = None) -> None:  # ruff: ignore[complex-structure, too-many-branches, too-many-statements]
     print()
     print("==============================")
     print("Tastytrade")

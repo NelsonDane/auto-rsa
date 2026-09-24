@@ -1,6 +1,7 @@
 # Nelson Dane
 # Webull API
 
+import math
 import os
 import traceback
 from asyncio import AbstractEventLoop
@@ -48,7 +49,7 @@ def webull_init() -> Brokerage | None:
         print("Logging in to Webull...")
         name = f"Webull {index + 1}"
         account = wb_account.split(":")
-        if len(account) != 4:  # noqa: PLR2004
+        if len(account) != 4:  # ruff: ignore[magic-value-comparison]
             print(f"Invalid number of parameters for {name}, got {len(account)}, expected 4")
             return None
         try:
@@ -110,12 +111,12 @@ def webull_holdings(wbo: Brokerage, loop: AbstractEventLoop | None = None) -> No
                 if positions is not None and positions != []:
                     for item in positions:
                         if item.get("items") is not None:
-                            item = item["items"][0]  # noqa: PLW2901
+                            item = item["items"][0]  # ruff: ignore[redefined-loop-name]
                         sym = item["ticker"]["symbol"]
                         if not sym:
                             sym = "Unknown"
                         qty = item["quantity"] if item.get("quantity") is not None else item["position"]
-                        if float(qty) == 0:
+                        if math.isclose(float(qty), 0):
                             continue
                         mv = round(float(item["marketValue"]) / float(qty), 2)
                         wbo.set_holdings(key, account, sym, qty, mv)
@@ -126,7 +127,7 @@ def webull_holdings(wbo: Brokerage, loop: AbstractEventLoop | None = None) -> No
     print_all_holdings(wbo, loop=loop)
 
 
-def webull_transaction(wbo: Brokerage, order_obj: StockOrder, loop: AbstractEventLoop | None = None) -> None:  # noqa: C901, PLR0912, PLR0914, PLR0915
+def webull_transaction(wbo: Brokerage, order_obj: StockOrder, loop: AbstractEventLoop | None = None) -> None:  # ruff: ignore[complex-structure, too-many-branches, too-many-locals, too-many-statements]
     """Handle Webull stock transactions."""
     print()
     print("==============================")
@@ -165,7 +166,7 @@ def webull_transaction(wbo: Brokerage, order_obj: StockOrder, loop: AbstractEven
                         # amount < 1000 and price < $0.10
                         dime_amount = 0.10
                         dime_dance_amount = 1000
-                        if ((ask_price < 1 or bid_price < 1) and order_obj.get_amount() < dollar_dance_amount) or ((ask_price < dime_amount or bid_price < dime_amount) and order_obj.get_amount() < dime_dance_amount):  # noqa: PLR0916
+                        if ((ask_price < 1 or bid_price < 1) and order_obj.get_amount() < dollar_dance_amount) or ((ask_price < dime_amount or bid_price < dime_amount) and order_obj.get_amount() < dime_dance_amount):  # ruff: ignore[too-many-boolean-expressions]
                             should_dance = True
                         if should_dance and order_obj.get_action() == "buy":
                             # 100 shares if < $1, 1000 shares if < $0.10

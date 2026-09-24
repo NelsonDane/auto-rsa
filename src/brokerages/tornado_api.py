@@ -205,7 +205,7 @@ def tornado_holdings(tornado_obj: Brokerage, loop: AbstractEventLoop | None = No
     kill_all_selenium_drivers(tornado_obj)  # Close the browser after processing
 
 
-def tornado_transaction(tornado_obj: Brokerage, order_obj: StockOrder, loop: AbstractEventLoop | None = None) -> None:  # noqa: C901, PLR0912, PLR0915
+def tornado_transaction(tornado_obj: Brokerage, order_obj: StockOrder, loop: AbstractEventLoop | None = None) -> None:  # ruff: ignore[complex-structure, too-many-branches, too-many-statements]
     """Handle Tornado API transactions."""
     print("\n==============================")
     print("Tornado")
@@ -314,7 +314,7 @@ def tornado_transaction(tornado_obj: Brokerage, order_obj: StockOrder, loop: Abs
     kill_all_selenium_drivers(tornado_obj)
 
 
-def handle_buy(driver: Chrome, stock: str, order_obj: StockOrder, loop: AbstractEventLoop | None) -> None:  # noqa: C901, PLR0911, PLR0914, PLR0915
+def handle_buy(driver: Chrome, stock: str, order_obj: StockOrder, loop: AbstractEventLoop | None) -> None:  # ruff: ignore[complex-structure, too-many-return-statements, too-many-locals, too-many-statements]
     """Handle the buy action for a stock order."""
     dry_mode = order_obj.get_dry()
     quantity = order_obj.get_amount()

@@ -1,4 +1,5 @@
 import asyncio
+import math
 import os
 import traceback
 from io import BytesIO
@@ -55,7 +56,7 @@ def bbae_init(bot_obj: Bot | None = None, loop: asyncio.AbstractEventLoop | None
     return bbae_obj
 
 
-def login(bb: BBAEAPI, bot_obj: Bot | None, name: str, loop: asyncio.AbstractEventLoop | None, *, use_email: bool) -> bool:  # noqa: C901
+def login(bb: BBAEAPI, bot_obj: Bot | None, name: str, loop: asyncio.AbstractEventLoop | None, *, use_email: bool) -> bool:  # ruff: ignore[complex-structure]
     """Login to BBAE API."""
     try:
         # API call to generate the login ticket
@@ -72,7 +73,7 @@ def login(bb: BBAEAPI, bot_obj: Bot | None, name: str, loop: asyncio.AbstractEve
                 msg = f"{name}: Error solving SMS or Captcha"
                 raise Exception(msg)
             # Get the OTP code from the user
-            if bot_obj is not None and loop is not None:  # noqa: SIM108
+            if bot_obj is not None and loop is not None:  # ruff: ignore[if-else-block-instead-of-if-exp]
                 otp_code = asyncio.run_coroutine_threadsafe(
                     get_otp_from_discord(bot_obj, name, timeout=300, loop=loop),
                     loop,
@@ -198,7 +199,7 @@ def bbae_holdings(bbo: Brokerage, loop: asyncio.AbstractEventLoop | None = None)
                 if positions.get("Data") is not None:
                     for holding in positions["Data"]:
                         qty = holding["CurrentAmount"]
-                        if float(qty) == 0:
+                        if math.isclose(float(qty), 0):
                             continue
                         sym = holding["displaySymbol"]
                         cp = holding["Last"]
@@ -210,7 +211,7 @@ def bbae_holdings(bbo: Brokerage, loop: asyncio.AbstractEventLoop | None = None)
     print_all_holdings(bbo, loop, mask_account_number=False)
 
 
-def bbae_transaction(bbo: Brokerage, order_obj: StockOrder, loop: asyncio.AbstractEventLoop | None = None) -> None:  # noqa: C901, PLR0912
+def bbae_transaction(bbo: Brokerage, order_obj: StockOrder, loop: asyncio.AbstractEventLoop | None = None) -> None:  # ruff: ignore[complex-structure, too-many-branches]
     """Handle BBAE API transactions."""
     print()
     print("==============================")

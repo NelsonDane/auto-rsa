@@ -82,7 +82,7 @@ def fidelity_init(account: str, name: str, *, headless: bool = True, bot_obj: Bo
         step_1, step_2 = fidelity_browser.login(
             account_creds[0],
             account_creds[1],
-            account_creds[2] if len(account_creds) > 2 else "NA",  # noqa: PLR2004
+            account_creds[2] if len(account_creds) > 2 else "NA",  # ruff: ignore[magic-value-comparison]
         )
         # If 2FA is present, ask for code
         if step_1 and not step_2:

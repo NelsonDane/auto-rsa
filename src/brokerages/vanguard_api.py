@@ -2,6 +2,7 @@
 # Vanguard API
 
 import asyncio
+import math
 import os
 import pprint
 import traceback
@@ -53,7 +54,7 @@ def vanguard_init(van_account: str, index: int, *, headless: bool = True, bot_ob
     name = f"Vanguard {index}"
     try:
         account = van_account.split(":")
-        debug = bool(account[3]) if len(account) == 4 else False  # noqa: PLR2004
+        debug = bool(account[3]) if len(account) == 4 else False  # ruff: ignore[magic-value-comparison]
         vg_session = session.VanguardSession(
             title=f"Vanguard_{index}",
             headless=headless,
@@ -113,7 +114,7 @@ def vanguard_holdings(vanguard_o: Brokerage, loop: asyncio.AbstractEventLoop | N
                 for account in all_accounts.accounts_positions:
                     for account_type in all_accounts.accounts_positions[account]:
                         for stock in all_accounts.accounts_positions[account][account_type]:
-                            if float(stock["quantity"]) != 0 and stock["symbol"] != "—":
+                            if not math.isclose(float(stock["quantity"]), 0) and stock["symbol"] != "—":
                                 vanguard_o.set_holdings(
                                     key,
                                     account,
@@ -133,7 +134,7 @@ def vanguard_holdings(vanguard_o: Brokerage, loop: asyncio.AbstractEventLoop | N
     obj.close_browser()
 
 
-def vanguard_transaction(vanguard_o: Brokerage, order_obj: StockOrder, loop: asyncio.AbstractEventLoop | None = None) -> None:  # noqa: C901, PLR0912, PLR0915
+def vanguard_transaction(vanguard_o: Brokerage, order_obj: StockOrder, loop: asyncio.AbstractEventLoop | None = None) -> None:  # ruff: ignore[complex-structure, too-many-branches, too-many-statements]
     """Handle Vanguard API transactions."""
     print()
     print("==============================")
@@ -169,7 +170,7 @@ def vanguard_transaction(vanguard_o: Brokerage, order_obj: StockOrder, loop: asy
                     # Check if dance is needed
                     transaction_length = 2 if int(order_obj.get_amount()) == 1 and order_obj.get_action() == "buy" else 1
                     for i in range(transaction_length):
-                        if i == 0 and transaction_length == 2:  # noqa: PLR2004
+                        if i == 0 and transaction_length == 2:  # ruff: ignore[magic-value-comparison]
                             print_and_discord(
                                 f"{key} account {print_account}: Buying 26 then selling 25 of {s}",
                                 loop,
@@ -216,7 +217,7 @@ def vanguard_transaction(vanguard_o: Brokerage, order_obj: StockOrder, loop: asy
                             )
                         if order_obj.get_dry():
                             if messages["ORDER PREVIEW"]:
-                                pprint.pprint(messages["ORDER PREVIEW"])  # noqa: T203
+                                pprint.pprint(messages["ORDER PREVIEW"])  # ruff: ignore[p-print]
                             print_and_discord(
                                 (f"{key} account {print_account}: The order verification was " + ("successful" if messages["ORDER PREVIEW"] not in {"", "No order preview page found."} else "unsuccessful")),
                                 loop,
@@ -228,7 +229,7 @@ def vanguard_transaction(vanguard_o: Brokerage, order_obj: StockOrder, loop: asy
                                 )
                         else:
                             if messages["ORDER CONFIRMATION"]:
-                                pprint.pprint(messages["ORDER CONFIRMATION"])  # noqa: T203
+                                pprint.pprint(messages["ORDER CONFIRMATION"])  # ruff: ignore[p-print]
                             print_and_discord(
                                 (f"{key} account {print_account}: The order verification was " + ("successful" if messages["ORDER CONFIRMATION"] not in {"", "No order confirmation page found. Order Failed."} else "unsuccessful")),
                                 loop,

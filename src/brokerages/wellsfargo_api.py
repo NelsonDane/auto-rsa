@@ -28,7 +28,7 @@ def _wellsfargo_error(driver: Chrome, error: str) -> None:
     print(traceback.format_exc())
 
 
-def wellsfargo_init(bot_obj: Bot | None, *, docker_mode: bool = False, loop: asyncio.AbstractEventLoop | None = None) -> Brokerage | None:  # noqa: C901, PLR0912, PLR0914, PLR0915
+def wellsfargo_init(bot_obj: Bot | None, *, docker_mode: bool = False, loop: asyncio.AbstractEventLoop | None = None) -> Brokerage | None:  # ruff: ignore[complex-structure, too-many-branches, too-many-locals, too-many-statements]
     """Initialize the Wells Fargo API."""
     load_dotenv()
 
@@ -89,7 +89,7 @@ def wellsfargo_init(bot_obj: Bot | None, *, docker_mode: bool = False, loop: asy
                         break
                 print("Clicked on phone number")
                 # Get the OTP code from the user
-                if bot_obj is not None and loop is not None:  # noqa: SIM108
+                if bot_obj is not None and loop is not None:  # ruff: ignore[if-else-block-instead-of-if-exp]
                     code = asyncio.run_coroutine_threadsafe(
                         get_otp_from_discord(bot_obj, name, timeout=300, loop=loop),
                         loop,
@@ -111,7 +111,7 @@ def wellsfargo_init(bot_obj: Bot | None, *, docker_mode: bool = False, loop: asy
                 ec.presence_of_element_located((By.LINK_TEXT, "Locations")),
             )
 
-            # TODO: This will not show accounts that do not have settled cash funds  # noqa: FIX002, TD002, TD003
+            # TODO: This will not show accounts that do not have settled cash funds  # ruff: ignore[line-contains-todo, missing-todo-author, missing-todo-link]
             account_blocks = driver.find_elements(
                 By.CSS_SELECTOR,
                 'li[data-testid^="WELLSTRADE"]',
@@ -138,7 +138,7 @@ def wellsfargo_init(bot_obj: Bot | None, *, docker_mode: bool = False, loop: asy
     return wf_obj
 
 
-def wellsfargo_holdings(wf_obj: Brokerage, loop: asyncio.AbstractEventLoop | None = None) -> None:  # noqa: C901, PLR0912, PLR0914, PLR0915
+def wellsfargo_holdings(wf_obj: Brokerage, loop: asyncio.AbstractEventLoop | None = None) -> None:  # ruff: ignore[complex-structure, too-many-branches, too-many-locals, too-many-statements]
     """Retrieve and display all Wells Fargo account holdings."""
     for key in wf_obj.get_account_numbers():
         driver = cast("Chrome", wf_obj.get_logged_in_objects(key))
@@ -227,7 +227,7 @@ def wellsfargo_holdings(wf_obj: Brokerage, loop: asyncio.AbstractEventLoop | Non
 
                     for row in rows:
                         cells = row.find_elements(By.CSS_SELECTOR, "td")
-                        if len(cells) >= 9:  # noqa: PLR2004
+                        if len(cells) >= 9:  # ruff: ignore[magic-value-comparison]
                             name_match = re.search(r"^[^\n]*", cells[1].text)
                             amount_match = re.search(
                                 r"-?\d+(\.\d+)?",
@@ -256,7 +256,7 @@ def wellsfargo_holdings(wf_obj: Brokerage, loop: asyncio.AbstractEventLoop | Non
 
                 for row in rows:
                     cells = row.find_elements(By.CSS_SELECTOR, "td")
-                    if len(cells) >= 9:  # noqa: PLR2004
+                    if len(cells) >= 9:  # ruff: ignore[magic-value-comparison]
                         name_match = re.search(r"^[^\n]*", cells[1].text)
                         amount_match = re.search(
                             r"-?\d+(\.\d+)?",
@@ -287,7 +287,7 @@ def wellsfargo_holdings(wf_obj: Brokerage, loop: asyncio.AbstractEventLoop | Non
         kill_all_selenium_drivers(wf_obj)
 
 
-def wellsfargo_transaction(wf_obj: Brokerage, order_obj: StockOrder, loop: asyncio.AbstractEventLoop | None = None) -> None:  # noqa: C901, PLR0912, PLR0914, PLR0915
+def wellsfargo_transaction(wf_obj: Brokerage, order_obj: StockOrder, loop: asyncio.AbstractEventLoop | None = None) -> None:  # ruff: ignore[complex-structure, too-many-branches, too-many-locals, too-many-statements]
     """Handle Wells Fargo stock transactions."""
     print()
     print("==============================")

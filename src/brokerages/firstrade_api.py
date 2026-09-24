@@ -36,10 +36,10 @@ def firstrade_init(bot_obj: Bot | None = None, loop: asyncio.AbstractEventLoop |
             firstrade = ft_account.FTSession(
                 username=account_creds[0],
                 password=account_creds[1],
-                pin=(account_creds[2] if len(account_creds[2]) == 4 and account_creds[2].isdigit() else ""),  # noqa: PLR2004
-                phone=(account_creds[2][-4:] if len(account_creds[2]) == 10 and account_creds[2].isdigit() else ""),  # noqa: PLR2004
+                pin=(account_creds[2] if len(account_creds[2]) == 4 and account_creds[2].isdigit() else ""),  # ruff: ignore[magic-value-comparison]
+                phone=(account_creds[2][-4:] if len(account_creds[2]) == 10 and account_creds[2].isdigit() else ""),  # ruff: ignore[magic-value-comparison]
                 email=account_creds[2] if "@" in account_creds[2] else "",
-                mfa_secret=(account_creds[2] if len(account_creds[2]) > 14 and "@" not in account_creds[2] else ""),  # noqa: PLR2004
+                mfa_secret=(account_creds[2] if len(account_creds[2]) > 14 and "@" not in account_creds[2] else ""),  # ruff: ignore[magic-value-comparison]
                 profile_path="./creds/",
             )
             need_code = firstrade.login()
@@ -93,7 +93,7 @@ def firstrade_holdings(firstrade_o: Brokerage, loop: asyncio.AbstractEventLoop |
     print_all_holdings(firstrade_o, loop)
 
 
-def firstrade_transaction(firstrade_o: Brokerage, order_obj: StockOrder, loop: asyncio.AbstractEventLoop | None = None) -> None:  # noqa: C901, PLR0912, PLR0914, PLR0915
+def firstrade_transaction(firstrade_o: Brokerage, order_obj: StockOrder, loop: asyncio.AbstractEventLoop | None = None) -> None:  # ruff: ignore[complex-structure, too-many-branches, too-many-locals, too-many-statements]
     """Handle Firstrade API transactions."""
     print()
     print("==============================")
@@ -155,7 +155,7 @@ def firstrade_transaction(firstrade_o: Brokerage, order_obj: StockOrder, loop: a
                         print(
                             "The buy order verification produced the following messages: ",
                         )
-                        pprint.pprint(order_conf)  # noqa: T203
+                        pprint.pprint(order_conf)  # ruff: ignore[p-print]
                         buy_success = not order_conf["error"]
                         print_and_discord(
                             (f"{key} account {print_account}: The buy order verification was successful" if buy_success else f"{key} account {print_account}: The sell order verification was unsuccessful"),
@@ -187,7 +187,7 @@ def firstrade_transaction(firstrade_o: Brokerage, order_obj: StockOrder, loop: a
                         print(
                             "The sell order verification produced the following messages: ",
                         )
-                        pprint.pprint(order_conf)  # noqa: T203
+                        pprint.pprint(order_conf)  # ruff: ignore[p-print]
                         sell_success = not order_conf["error"]
                         print_and_discord(
                             (f"{key} account {print_account}: The sell order verification was successful" if sell_success else f"{key} account {print_account}: The sell order verification was unsuccessful"),
@@ -216,7 +216,7 @@ def firstrade_transaction(firstrade_o: Brokerage, order_obj: StockOrder, loop: a
                         print(
                             "The order verification produced the following messages: ",
                         )
-                        pprint.pprint(order_conf)  # noqa: T203
+                        pprint.pprint(order_conf)  # ruff: ignore[p-print]
                         order_success = not order_conf["error"]
                         print_and_discord(
                             (f"{key} account {print_account}: The order verification was successful" if order_success else f"{key} account {print_account}: The sell order verification was unsuccessful"),
