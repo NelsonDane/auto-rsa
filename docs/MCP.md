@@ -5,18 +5,34 @@ This project can also run as an [MCP](https://modelcontextprotocol.io) server, e
 
 ## Generic Setup
 
-**Option A: `.env` file + `cwd`**
-Either:
-- Create a `.env` file somewhere on your computer ([example](.env.example)) and fill in your brokerage credentials
-- Set the same `environment` variables in your mcp server config
+Credentials are supplied as environment variables to the MCP server process. Pick one option, or combine both:
+
+**Option 1: `.env` file**
+Create a `.env` file somewhere on your computer ([example](../.env.example)), fill in your brokerage credentials, then pass its **absolute** path to `uvx` with `--env-file` (`~` is not expanded):
+
+```json
+"args": ["--env-file", "/absolute/path/to/.env", "auto_rsa_bot", "mcp"]
+```
+
+**Option 2: Environment variables in your MCP config**
+Set the same variables directly in your MCP client's environment block (`env` or `environment` depending on the client).
+
+**NOTE: If both are used, variables set in the MCP config take priority over those in the `.env` file.**
+
+By default, `buy`/`sell` tools run in dry-run mode unless the agent explicitly requests a real order, matching the CLI's default behavior.
+
+## Client-specific setup
+
+### OpenCode
+
+Add under `mcp` in `opencode.json`/`opencode.jsonc`. OpenCode also supports `{env:VAR}` to reference variables from your shell:
 
 ```jsonc
 {
   "mcp": {
     "auto-rsa": {
       "type": "local",
-      "command": ["uvx", "auto_rsa_bot", "mcp"],
-      "cwd": "~/.config/auto-rsa", // directory containing your `.env` file
+      "command": ["uvx", "--env-file", "/absolute/path/to/.env", "auto_rsa_bot", "mcp"],
       "environment": {
         "SCHWAB_USERNAME": "{env:SCHWAB_USERNAME}",
         "SCHWAB_PASSWORD": "{env:SCHWAB_PASSWORD}"
@@ -27,16 +43,6 @@ Either:
 }
 ```
 
-Both options can be combined: any variable already set in `environment` takes priority, and anything missing falls back to the `.env` file found via `cwd`.
-
-By default, `buy`/`sell` tools run in dry-run mode unless the agent explicitly requests a real order, matching the CLI's default behavior.
-
-## Client-specific setup
-
-### OpenCode
-
-Same config as [Generic Setup](#generic-setup) above — add it under `mcp` in `opencode.json`/`opencode.jsonc`.
-
 ### Claude Desktop
 
 Edit `claude_desktop_config.json` (macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`, Windows: `%APPDATA%\Claude\claude_desktop_config.json`), then fully restart the app:
@@ -46,8 +52,7 @@ Edit `claude_desktop_config.json` (macOS: `~/Library/Application Support/Claude/
   "mcpServers": {
     "auto-rsa": {
       "command": "uvx",
-      "args": ["auto_rsa_bot", "mcp"],
-      "cwd": "~/.config/auto-rsa",
+      "args": ["--env-file", "/absolute/path/to/.env", "auto_rsa_bot", "mcp"],
       "env": {
         "SCHWAB_USERNAME": "...",
         "SCHWAB_PASSWORD": "..."
@@ -59,15 +64,14 @@ Edit `claude_desktop_config.json` (macOS: `~/Library/Application Support/Claude/
 
 ### Claude Code
 
-Add the same entry to `.mcp.json` (project scope, shared via version control) or `~/.claude.json` (user scope, private to you):
+Add the entry to `.mcp.json` (project scope, shared via version control) or under the top-level `mcpServers` in `~/.claude.json` (user scope, private to you):
 
 ```jsonc
 {
   "mcpServers": {
     "auto-rsa": {
       "command": "uvx",
-      "args": ["auto_rsa_bot", "mcp"],
-      "cwd": "~/.config/auto-rsa",
+      "args": ["--env-file", "/absolute/path/to/.env", "auto_rsa_bot", "mcp"],
       "env": {
         "SCHWAB_USERNAME": "...",
         "SCHWAB_PASSWORD": "..."

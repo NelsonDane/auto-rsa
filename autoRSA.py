@@ -3,7 +3,7 @@
 import sys
 from time import sleep
 
-from src.cli import rsa_main
+from src.auto_rsa import main as rsa_main
 
 if __name__ == "__main__":
     # Print warning

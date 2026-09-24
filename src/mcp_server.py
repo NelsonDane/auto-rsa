@@ -19,8 +19,8 @@ environment variables to this MCP server process (NOT arguments to the tools).
 
 If a tool's output says a broker was "not found" or "skipped", that broker's
 required environment variables are missing. Ask the user to set them either:
-  1. In a `.env` file in the directory configured as this server's `cwd`, or
-  2. Directly in this MCP server's `environment` config block.
+  1. In a `.env` file passed to uvx via `--env-file /absolute/path/to/.env`, or
+  2. Directly in this MCP server's environment variables config block.
 
 The full list of required environment variables per brokerage is documented at:
 https://github.com/NelsonDane/auto-rsa/blob/main/docs/BROKERAGES.md
@@ -57,13 +57,13 @@ def _resolve_brokers(all_brokers: AllBrokersInfo, selector: str) -> list[BrokerI
 
 def _run_captured(order_obj: "StockOrder") -> str:
     """Run fun_run() while capturing its stdout output, returning it as a string."""
-    # Imported lazily so importing this module doesn't trigger auto_rsa's
-    # heavy broker imports / startup prints unless a tool is actually invoked.
-    from src.auto_rsa import fun_run  # ruff: ignore[import-outside-top-level]
-
     buffer = io.StringIO()
     try:
         with contextlib.redirect_stdout(buffer):
+            # Imported lazily inside the redirect so auto_rsa's heavy broker
+            # imports / startup prints don't run or leak into the MCP stdio stream.
+            from src.auto_rsa import fun_run  # ruff: ignore[import-outside-top-level]
+
             fun_run(order_obj)
     except Exception:
         buffer.write("\n")
