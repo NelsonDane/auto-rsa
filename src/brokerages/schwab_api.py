@@ -90,7 +90,7 @@ def schwab_holdings(schwab_o: Brokerage, loop: AbstractEventLoop | None = None) 
     print_all_holdings(schwab_o, loop)
 
 
-def schwab_transaction(schwab_o: Brokerage, order_obj: StockOrder, loop: AbstractEventLoop | None = None) -> None:  # noqa: C901
+def schwab_transaction(schwab_o: Brokerage, order_obj: StockOrder, loop: AbstractEventLoop | None = None) -> None:  # ruff: ignore[complex-structure]
     """Handle Schwab API transactions."""
     print()
     print("==============================")

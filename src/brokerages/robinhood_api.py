@@ -101,7 +101,7 @@ def robinhood_holdings(rho: Brokerage, loop: AbstractEventLoop | None = None) ->
     print_all_holdings(rho, loop)
 
 
-def robinhood_transaction(rho: Brokerage, order_obj: StockOrder, loop: AbstractEventLoop | None = None) -> None:  # noqa: C901, PLR0912
+def robinhood_transaction(rho: Brokerage, order_obj: StockOrder, loop: AbstractEventLoop | None = None) -> None:  # ruff: ignore[complex-structure, too-many-branches]
     """Handle Robinhood API transactions."""
     print()
     print("==============================")

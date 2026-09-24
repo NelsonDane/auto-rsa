@@ -76,7 +76,7 @@ def chase_init(account: str, index: int, *, headless: bool = True, bot_obj: Bot 
         # Split the login into into seperate items
         user_pass = account.split(":")
         # If the debug flag is present, use it, else set it to false
-        debug = bool(user_pass[3]) if len(user_pass) == 4 else False  # noqa: PLR2004
+        debug = bool(user_pass[3]) if len(user_pass) == 4 else False  # ruff: ignore[magic-value-comparison]
         # Create a ChaseSession class object which automatically configures and opens a browser
         ch_session = session.ChaseSession(
             title=f"chase_{index}",
@@ -198,7 +198,7 @@ def _calculate_limit_price(symbol_quote: symbols.SymbolQuote, action: str) -> tu
 def _process_order_messages(messages: dict, order_obj: StockOrder, key: str, account: str, loop: asyncio.AbstractEventLoop | None) -> None:
     """Process and print order messages."""
     if order_obj.get_dry():
-        pprint.pprint(messages["ORDER VALIDATION"])  # noqa: T203
+        pprint.pprint(messages["ORDER VALIDATION"])  # ruff: ignore[p-print]
         print_and_discord(
             (f"{key} account {account}: The order verification was " + ("successful" if messages["ORDER VALIDATION"] else "unsuccessful")),
             loop,
@@ -209,7 +209,7 @@ def _process_order_messages(messages: dict, order_obj: StockOrder, key: str, acc
                 loop,
             )
     else:
-        pprint.pprint(messages["ORDER CONFIRMATION"])  # noqa: T203
+        pprint.pprint(messages["ORDER CONFIRMATION"])  # ruff: ignore[p-print]
 
         # Check if ORDER CONFIRMATION is a dict or string
         order_confirmation = messages["ORDER CONFIRMATION"]
@@ -226,7 +226,7 @@ def _process_order_messages(messages: dict, order_obj: StockOrder, key: str, acc
             )
 
 
-def _execute_single_order(ch_session: session.ChaseSession, all_accounts: ch_account.AllAccount, order_obj: StockOrder, ticker: str, account: str, price_type: order.PriceType, limit_price: float, key: str, loop: asyncio.AbstractEventLoop | None) -> None:  # noqa: PLR0917
+def _execute_single_order(ch_session: session.ChaseSession, all_accounts: ch_account.AllAccount, order_obj: StockOrder, ticker: str, account: str, price_type: order.PriceType, limit_price: float, key: str, loop: asyncio.AbstractEventLoop | None) -> None:  # ruff: ignore[too-many-positional-arguments]
     """Execute a single order for one account."""
     target_account_id = get_account_id(all_accounts.account_connectors, account)
     if not target_account_id:

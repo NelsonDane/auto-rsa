@@ -114,7 +114,7 @@ def tradier_init() -> Brokerage | None:
     return tradier_obj
 
 
-def tradier_holdings(tradier_o: Brokerage, loop: AbstractEventLoop | None = None) -> None:  # noqa: C901
+def tradier_holdings(tradier_o: Brokerage, loop: AbstractEventLoop | None = None) -> None:  # ruff: ignore[complex-structure]
     """Retrieve and display all Tradier account holdings."""
     # Loop through accounts
     for key in tradier_o.get_account_numbers():

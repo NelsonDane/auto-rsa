@@ -74,7 +74,7 @@ load_dotenv()
 DANGER_MODE = os.getenv("DANGER_MODE", "").lower() == "true"
 
 
-def fun_run(  # noqa: C901, PLR0912, PLR0915
+def fun_run(  # ruff: ignore[complex-structure, too-many-branches, too-many-statements]
     order_obj: StockOrder,
     bot_obj: commands.Bot | None = None,
     loop: asyncio.AbstractEventLoop | None = None,
@@ -247,7 +247,7 @@ def fun_run(  # noqa: C901, PLR0912, PLR0915
     print_and_discord("All commands complete in all brokers", loop)
 
 
-def arg_parser(args: list[str]) -> StockOrder:  # noqa: C901, PLR0912
+def arg_parser(args: list[str]) -> StockOrder:  # ruff: ignore[complex-structure, too-many-branches]
     """Parse input arguments to create a StockOrder object."""
     args = [x.lower() for x in args]
     # Initialize objects
@@ -271,7 +271,7 @@ def arg_parser(args: list[str]) -> StockOrder:  # noqa: C901, PLR0912
                 if broker_enum:
                     stock_order.set_brokers(broker_enum)
         # If next argument is not, set not broker
-        if len(args) > 3 and args[2] == "not":  # noqa: PLR2004
+        if len(args) > 3 and args[2] == "not":  # ruff: ignore[magic-value-comparison]
             for broker in args[3].split(","):
                 broker_enum = all_brokers.parse_input(broker)
                 if broker_enum:
@@ -301,7 +301,7 @@ def arg_parser(args: list[str]) -> StockOrder:  # noqa: C901, PLR0912
             if broker_enum:
                 stock_order.set_brokers(broker_enum)
     # If next argument is not, set not broker
-    if len(args) > 4 and args[4] == "not":  # noqa: PLR2004
+    if len(args) > 4 and args[4] == "not":  # ruff: ignore[magic-value-comparison]
         for broker in args[5].split(","):
             broker_enum = all_brokers.parse_input(broker)
             if broker_enum:
@@ -314,7 +314,7 @@ def arg_parser(args: list[str]) -> StockOrder:  # noqa: C901, PLR0912
     return stock_order
 
 
-def main(args: list[str]) -> None:  # noqa: C901, PLR0912, PLR0915
+def main(args: list[str]) -> None:  # ruff: ignore[complex-structure, too-many-branches, too-many-statements]
     """Entrypoint for the CLI."""
     # Determine if ran from command line
     docker_mode = discord_bot = False
@@ -418,7 +418,7 @@ def main(args: list[str]) -> None:  # noqa: C901, PLR0912, PLR0915
             await ctx.send("pong")
 
         @bot.command()
-        async def help(ctx: commands.Context[Any]) -> None:  # noqa: A001
+        async def help(ctx: commands.Context[Any]) -> None:  # ruff: ignore[builtin-variable-shadowing]
             """Return a list of available commands."""
             await ctx.send(
                 "Available RSA commands:\n!ping\n!help\n!rsa holdings [all|<broker1>,<broker2>,...] [not broker1,broker2,...]\n!rsa [buy|sell] [amount] [stock1|stock1,stock2] [all|<broker1>,<broker2>,...] [not broker1,broker2,...] [DRY: true|false]\n!restart",
@@ -478,7 +478,7 @@ def main(args: list[str]) -> None:  # noqa: C901, PLR0912, PLR0915
             if docker_mode:
                 os._exit(0)  # Special exit code to restart docker container
             else:
-                os.execv(sys.executable, [sys.executable, *sys.argv])  # noqa: S606
+                os.execv(sys.executable, [sys.executable, *sys.argv])  # ruff: ignore[start-process-with-no-shell]
 
         @bot.event
         async def on_command_error(
