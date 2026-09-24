@@ -1,10 +1,14 @@
 """Tests for src/mcp_server.py MCP tool wrappers."""
 
+import sys
+import threading
+import time
 from unittest.mock import patch
 
 import pytest
 
 from src.brokers import BrokerName
+from src.helper_api import StockOrder
 from src.mcp_server import _resolve_brokers, buy, get_holdings, sell
 from src.brokers import AllBrokersInfo
 
@@ -71,6 +75,31 @@ def test_sell_builds_order_correctly() -> None:
 def test_buy_missing_broker_raises_validation_error() -> None:
     with pytest.raises(ValueError, match="Broker"):
         buy(amount=1.0, stock="AAPL", brokers="not_a_real_broker")
+
+
+def test_concurrent_calls_do_not_mix_captured_output() -> None:
+    real_stdout = sys.stdout
+
+    def fake_fun_run(order_obj: StockOrder) -> None:
+        tag = order_obj.get_stocks()[0]
+        print(f"start-{tag}")
+        time.sleep(0.2)
+        print(f"end-{tag}")
+
+    results: dict[str, str] = {}
+
+    def call(ticker: str) -> None:
+        results[ticker] = buy(amount=1.0, stock=ticker, brokers="schwab")
+
+    with patch("src.auto_rsa.fun_run", side_effect=fake_fun_run):
+        threads = [threading.Thread(target=call, args=(t,)) for t in ("AAA", "BBB")]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+    assert results["AAA"].split() == ["start-AAA", "end-AAA"]
+    assert results["BBB"].split() == ["start-BBB", "end-BBB"]
+    assert sys.stdout is real_stdout
 
 
 def test_get_holdings_captures_fun_run_exception_as_text() -> None:

@@ -2,6 +2,7 @@
 
 import contextlib
 import io
+import threading
 import traceback
 from typing import TYPE_CHECKING, Literal
 
@@ -55,19 +56,24 @@ def _resolve_brokers(all_brokers: AllBrokersInfo, selector: str) -> list[BrokerI
     return resolved
 
 
+# redirect_stdout swaps the process-wide sys.stdout, so concurrent tool calls must not overlap
+_CAPTURE_LOCK = threading.Lock()
+
+
 def _run_captured(order_obj: "StockOrder") -> str:
     """Run fun_run() while capturing its stdout output, returning it as a string."""
     buffer = io.StringIO()
-    try:
-        with contextlib.redirect_stdout(buffer):
-            # Imported lazily inside the redirect so auto_rsa's heavy broker
-            # imports / startup prints don't run or leak into the MCP stdio stream.
-            from src.auto_rsa import fun_run  # ruff: ignore[import-outside-top-level]
+    with _CAPTURE_LOCK:
+        try:
+            with contextlib.redirect_stdout(buffer):
+                # Imported lazily inside the redirect so auto_rsa's heavy broker
+                # imports / startup prints don't run or leak into the MCP stdio stream.
+                from src.auto_rsa import fun_run  # ruff: ignore[import-outside-top-level]
 
-            fun_run(order_obj)
-    except Exception:
-        buffer.write("\n")
-        buffer.write(traceback.format_exc())
+                fun_run(order_obj)
+        except Exception:
+            buffer.write("\n")
+            buffer.write(traceback.format_exc())
     return buffer.getvalue()
 
 
