@@ -3,7 +3,9 @@
 
 import asyncio
 import os
+import threading
 import traceback
+from collections.abc import Awaitable
 from datetime import datetime
 from decimal import Decimal
 from typing import cast
@@ -20,12 +22,17 @@ from tastytrade.utils import TastytradeError, now_in_new_york
 from src.helper_api import Brokerage, StockOrder, mask_string, print_all_holdings, print_and_discord
 
 
+def _to_decimal(amount: float) -> Decimal:
+    """Convert a float to Decimal via string to avoid float-precision noise."""
+    return Decimal(str(amount))
+
+
 async def _order_setup(tt: Session, order_type: list[str], stock_price: Decimal, stock: str, amount: float) -> NewOrder:
     symbol = await Equity.get(tt, stock)
     if order_type[2] == "Buy to Open":
-        leg = symbol.build_leg(Decimal(amount), OrderAction.BUY_TO_OPEN)
+        leg = symbol.build_leg(_to_decimal(amount), OrderAction.BUY_TO_OPEN)
     elif order_type[2] == "Sell to Close":
-        leg = symbol.build_leg(Decimal(amount), OrderAction.SELL_TO_CLOSE)
+        leg = symbol.build_leg(_to_decimal(amount), OrderAction.SELL_TO_CLOSE)
     else:
         msg = f"Invalid order type: {order_type[2]}"
         raise ValueError(msg)
@@ -199,18 +206,25 @@ async def _tastytrade_async_execute(tt_o: Brokerage, order_obj: StockOrder, loop
 
 
 _tasty_loop = asyncio.new_event_loop()
+_tasty_loop_lock = threading.Lock()
+
+
+def _run_on_tasty_loop[T](coro: Awaitable[T]) -> T:
+    """Run a coroutine on the shared tasty loop, serializing concurrent callers."""
+    with _tasty_loop_lock:
+        return _tasty_loop.run_until_complete(coro)
 
 
 def tastytrade_init() -> Brokerage | None:
     """Initialize the Tastytrade API."""
-    return _tasty_loop.run_until_complete(_tastytrade_async_init())
+    return _run_on_tasty_loop(_tastytrade_async_init())
 
 
 def tastytrade_holdings(tt_o: Brokerage, loop: asyncio.AbstractEventLoop | None = None) -> None:
     """Retrieve and display all Tastytrade account holdings."""
-    _tasty_loop.run_until_complete(_tastytrade_async_holdings(tt_o=tt_o, loop=loop))
+    _run_on_tasty_loop(_tastytrade_async_holdings(tt_o=tt_o, loop=loop))
 
 
 def tastytrade_transaction(tt: Brokerage, order_obj: StockOrder, loop: asyncio.AbstractEventLoop | None = None) -> None:
     """Execute a Tastytrade transaction."""
-    _tasty_loop.run_until_complete(_tastytrade_async_execute(tt_o=tt, order_obj=order_obj, loop=loop))
+    _run_on_tasty_loop(_tastytrade_async_execute(tt_o=tt, order_obj=order_obj, loop=loop))
