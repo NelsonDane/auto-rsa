@@ -11,13 +11,15 @@ Credentials are supplied as environment variables to the MCP server process. Pic
 Create a `.env` file somewhere on your computer ([example](../.env.example)), fill in your brokerage credentials, then pass its **absolute** path to `uvx` with `--env-file` (`~` is not expanded):
 
 ```json
-"args": ["--env-file", "/absolute/path/to/.env", "auto_rsa_bot", "mcp"]
+"args": ["--env-file", "/absolute/path/to/.env", "auto_rsa_bot@latest", "mcp"]
 ```
 
 **Option 2: Environment variables in your MCP config**
 Set the same variables directly in your MCP client's environment block (`env` or `environment` depending on the client).
 
 **NOTE: If both are used, variables set in the MCP config take priority over those in the `.env` file.**
+
+`@latest` makes uvx check for a new release each time the server starts, so restart your MCP client (or reconnect the server) to pick up a new version. To pin a version and update on your own schedule, replace it with a specific version (e.g. `auto_rsa_bot@2.3.0`).
 
 By default, `buy`/`sell` tools run in dry-run mode unless the agent explicitly requests a real order, matching the CLI's default behavior.
 
@@ -32,7 +34,7 @@ Add under `mcp` in `opencode.json`/`opencode.jsonc`. OpenCode also supports `{en
   "mcp": {
     "auto-rsa": {
       "type": "local",
-      "command": ["uvx", "--env-file", "/absolute/path/to/.env", "auto_rsa_bot", "mcp"],
+      "command": ["uvx", "--env-file", "/absolute/path/to/.env", "auto_rsa_bot@latest", "mcp"],
       "environment": {
         "SCHWAB_USERNAME": "{env:SCHWAB_USERNAME}",
         "SCHWAB_PASSWORD": "{env:SCHWAB_PASSWORD}"
@@ -52,7 +54,7 @@ Edit `claude_desktop_config.json` (macOS: `~/Library/Application Support/Claude/
   "mcpServers": {
     "auto-rsa": {
       "command": "uvx",
-      "args": ["--env-file", "/absolute/path/to/.env", "auto_rsa_bot", "mcp"],
+      "args": ["--env-file", "/absolute/path/to/.env", "auto_rsa_bot@latest", "mcp"],
       "env": {
         "SCHWAB_USERNAME": "...",
         "SCHWAB_PASSWORD": "..."
@@ -71,7 +73,7 @@ Add the entry to `.mcp.json` (project scope, shared via version control) or unde
   "mcpServers": {
     "auto-rsa": {
       "command": "uvx",
-      "args": ["--env-file", "/absolute/path/to/.env", "auto_rsa_bot", "mcp"],
+      "args": ["--env-file", "/absolute/path/to/.env", "auto_rsa_bot@latest", "mcp"],
       "env": {
         "SCHWAB_USERNAME": "...",
         "SCHWAB_PASSWORD": "..."
