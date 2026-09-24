@@ -13,7 +13,7 @@ dependencies = [
     "fennel-invest-api==2.0.1",
     "fidelity-api==0.0.17",
     "firstrade==0.0.39",
-    "nodriver>=0.47.0",
+    "nodriver==0.47.0", # pinned until https://github.com/ultrafunkamsterdam/nodriver/pull/36 gets merged
     "publicdotcom-py==0.1.22",
     "pyotp>=2.10.0",
     "python-dotenv>=1.2.3",
