@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'win32'",
@@ -290,7 +290,7 @@ requires-dist = [
     { name = "fidelity-api", specifier = "==0.0.17" },
     { name = "firstrade", specifier = "==0.0.39" },
     { name = "nodriver", specifier = "==0.47.0" },
-    { name = "publicdotcom-py", specifier = "==0.1.22" },
+    { name = "publicdotcom-py", specifier = "==0.1.26" },
     { name = "pyotp", specifier = ">=2.10.0" },
     { name = "python-dotenv", specifier = ">=1.2.3" },
     { name = "requests", specifier = ">=2.34.2" },
@@ -1620,7 +1620,7 @@ wheels = [
 
 [[package]]
 name = "publicdotcom-py"
-version = "0.1.22"
+version = "0.1.26"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
@@ -1629,9 +1629,9 @@ dependencies = [
     { name = "requests" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/9d/54/9396e7b21477eab541294fe3a9d4ebe420826fae9f83b6599c3fb9e65b6b/publicdotcom_py-0.1.22.tar.gz", hash = "sha256:b1d85b39c462b487f351325ea547fc57f8a2e69cc4b891c5c408ce98a00be036", size = 201188, upload-time = "2026-08-11T19:39:51.359Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/65/aa/b4ef1e118958fcc2183e5b5f7dbe8deddccccdb6851673af4c6bcf84468e/publicdotcom_py-0.1.26.tar.gz", hash = "sha256:8c20b8d2b8869691a841aa5060ffaf50da3f0fb27b903ebab9d816b2d66d9491", size = 236517, upload-time = "2026-10-09T14:42:56.22Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/06/40/4e72718796ce611c2d721623837bbb78a673b6faaa30f5b30e73d3a199f9/publicdotcom_py-0.1.22-py3-none-any.whl", hash = "sha256:303f5dfe8fd7638f54fe81e758b858073e284112ddfd219bab3a06b65f4d1642", size = 118666, upload-time = "2026-08-11T19:39:49.916Z" },
+    { url = "https://files.pythonhosted.org/packages/bb/a6/70b536b1e189fd544a108f0fec7da00d0e45c2366b50117cbafb57395057/publicdotcom_py-0.1.26-py3-none-any.whl", hash = "sha256:3f8dd5451a9dda73abc4755b1a97633ef627bbfc80f8ce0ab3c0c7a5c8e4d6f6", size = 134205, upload-time = "2026-10-09T14:42:54.546Z" },
 ]
 
 [[package]]
