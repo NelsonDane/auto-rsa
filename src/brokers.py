@@ -7,6 +7,7 @@ from enum import StrEnum
 class BrokerName(StrEnum):
     """Enumeration of Broker Names."""
 
+    ARIES = "aries"
     BBAE = "bbae"
     CHASE = "chase"
     DSPAC = "dspac"
@@ -37,6 +38,7 @@ class BrokerInfo:
 
 # Data table of all supported brokers. Add a new broker by adding a row here.
 ALL_BROKERS: tuple[BrokerInfo, ...] = (
+    BrokerInfo(name=BrokerName.ARIES, nicknames=(), day1=False, fast=True),
     BrokerInfo(name=BrokerName.BBAE, nicknames=("bb",), day1=True, fast=True),
     BrokerInfo(name=BrokerName.CHASE, nicknames=(), day1=True, fast=False),
     BrokerInfo(name=BrokerName.DSPAC, nicknames=("ds",), day1=True, fast=True),

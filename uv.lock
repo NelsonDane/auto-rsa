@@ -253,6 +253,7 @@ dependencies = [
     { name = "email-validator" },
     { name = "fennel-invest-api" },
     { name = "fidelity-api" },
+    { name = "finance-dev" },
     { name = "firstrade" },
     { name = "nodriver" },
     { name = "publicdotcom-py" },
@@ -288,6 +289,7 @@ requires-dist = [
     { name = "email-validator", specifier = ">=2.3.0" },
     { name = "fennel-invest-api", specifier = "==2.0.1" },
     { name = "fidelity-api", specifier = "==0.0.17" },
+    { name = "finance-dev", specifier = ">=0.9.0" },
     { name = "firstrade", specifier = "==0.0.39" },
     { name = "nodriver", specifier = "==0.47.0" },
     { name = "publicdotcom-py", specifier = "==0.1.22" },
@@ -849,6 +851,22 @@ wheels = [
 ]
 
 [[package]]
+name = "finance-dev"
+version = "0.9.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpcore" },
+    { name = "httpx" },
+    { name = "jsonpath-python" },
+    { name = "pydantic" },
+    { name = "websockets" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/17/7e/26a40c6cd96e9934d48fb4b79ec4dd1ee23c4431dcb22eb277e25bd514de/finance_dev-0.9.0.tar.gz", hash = "sha256:9803944bbad4cd378f6cdf7927893b635ebd2584e817c100e19881355cc101e4", size = 417327, upload-time = "2026-10-16T18:58:31.599Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/38/60/dc5500678c82e354991f0704705a88358302cad4ae5ca65ff7805651cd19/finance_dev-0.9.0-py3-none-any.whl", hash = "sha256:d46d4a115237ba6e9acb245529e70597bb0a2a9271bbbb55f64d815d20a0082a", size = 707275, upload-time = "2026-10-16T18:58:30.206Z" },
+]
+
+[[package]]
 name = "firstrade"
 version = "0.0.39"
 source = { registry = "https://pypi.org/simple" }
@@ -1082,6 +1100,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/5f/f7/abb373e5757eaec4b922b92f97ec8d6d7e057cf06778247604fbc4e7c3f3/idna-3.19.tar.gz", hash = "sha256:5e0811a4383b21dc5838069f801c4fb62113b7447663d2530d2bd6e77b49bf15", size = 215237, upload-time = "2026-08-18T05:14:24.27Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/57/b0/0e52c878c53f245edd3a11020f20979b3f490f245af532c7cae3027754b5/idna-3.19-py3-none-any.whl", hash = "sha256:815e7be7a7806d54abb586dc943addc79e8b2ee16915059658cbeff4b1b43bf4", size = 68550, upload-time = "2026-08-18T05:14:22.343Z" },
+]
+
+[[package]]
+name = "jsonpath-python"
+version = "1.1.6"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/98/18/4ca8742534a5993ff383f7602e325ce2d5d7cc93d72ac5e1cdedbea8a458/jsonpath_python-1.1.6.tar.gz", hash = "sha256:dded9932b4ec41fb8726e09c83afa4e6be618f938c2db287cc2a81723c639671", size = 88178, upload-time = "2026-05-07T01:26:34.482Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/55/8a/1270a6803bd821cbfcdda387eaa13cb41a7b1f7b9bd145979b3bfb9d6cb7/jsonpath_python-1.1.6-py3-none-any.whl", hash = "sha256:a1c50afd8d3fbbaf47a4873bc890dcb3c15da96f5c020327977d844d8731a2d4", size = 14453, upload-time = "2026-05-07T01:26:33.306Z" },
 ]
 
 [[package]]

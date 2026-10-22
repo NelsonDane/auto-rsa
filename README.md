@@ -37,6 +37,7 @@ While the project was created by me, lots of work has been put in by the communi
 
 | Brokerage | Created by | Source Repo | API Type | Fast | Day 1 |
 | --- | --- | --- | --- | --- | --- |
+| [Aries](https://app.aries.com/) | [@NelsonDane](https://github.com/NelsonDane) | [finance-dev-python](https://github.com/aries-financial-inc/finance-dev-python) | Official SDK | ✅ | ❌ |
 | [BBAE](https://www.bbae.com/) | [@ImNotOssy](https://github.com/ImNotOssy) | [BBAE_investing_API](https://github.com/ImNotOssy/BBAE_investing_API) | Unofficial Requests | ✅ | ✅ |
 | [Chase](https://www.chase.com/) | [@MaxxRK](https://github.com/MaxxRK/) | [chaseinvest-api](https://github.com/MaxxRK/chaseinvest-api) | Unofficial Requests | ✅ | ✅ |
 | [DSPAC](https://www.dspac.com/) | [@ImNotOssy](https://github.com/ImNotOssy) | [dSPAC_investing_API](https://github.com/ImNotOssy/dSPAC_investing_API) | Unofficial Requests | ✅ | ✅ |
