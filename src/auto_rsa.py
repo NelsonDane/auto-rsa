@@ -46,6 +46,7 @@ try:
     from dotenv import load_dotenv
 
     # Custom API libraries (These are inferred from the namespace in fun_run, so the import is needed)
+    from src.brokerages.aries_api import aries_holdings, aries_init, aries_transaction
     from src.brokerages.bbae_api import bbae_holdings, bbae_init, bbae_transaction
     from src.brokerages.chase_api import chase_run
     from src.brokerages.dspac_api import dspac_holdings, dspac_init, dspac_transaction
@@ -96,6 +97,8 @@ def fun_run(  # ruff: ignore[complex-structure, too-many-branches, too-many-stat
             th: ThreadHandler | None = None
             # Initialize broker
             match broker_info.name:
+                case BrokerName.ARIES:
+                    success = aries_init()
                 case BrokerName.BBAE:
                     success = bbae_init(bot_obj=bot_obj, loop=loop)
                 case BrokerName.CHASE:
@@ -175,6 +178,8 @@ def fun_run(  # ruff: ignore[complex-structure, too-many-branches, too-many-stat
                 continue
             if order_obj.get_holdings():
                 match broker_info.name:
+                    case BrokerName.ARIES:
+                        aries_holdings(logged_in_broker, loop)
                     case BrokerName.BBAE:
                         bbae_holdings(logged_in_broker, loop)
                     case BrokerName.DSPAC:
@@ -207,6 +212,8 @@ def fun_run(  # ruff: ignore[complex-structure, too-many-branches, too-many-stat
             else:
                 # Run transaction
                 match broker_info.name:
+                    case BrokerName.ARIES:
+                        aries_transaction(logged_in_broker, order_obj, loop)
                     case BrokerName.BBAE:
                         bbae_transaction(logged_in_broker, order_obj, loop)
                     case BrokerName.DSPAC:

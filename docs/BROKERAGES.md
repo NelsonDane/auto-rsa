@@ -4,6 +4,18 @@ All brokers: separate account credentials with a colon (":"). For example, `SCHW
 
 Some brokerages require `Playwright` to run. On Windows, the `playwright install` command might not be recognized. If this is the case, run `python -m playwright install` instead.
 
+### Aries
+Made by yours truly using the official [Aries finance-dev SDK](https://github.com/aries-financial-inc/finance-dev-python). Consider giving me a ⭐
+
+Required `.env` variables:
+- `ARIES_CLIENT_ID`
+- `ARIES_CLIENT_SECRET`
+
+`.env` file format:
+- `ARIES=ARIES_CLIENT_ID:ARIES_CLIENT_SECRET`
+
+To get your client ID and secret, go to the Aries platform's Client Center / Manage Account at [https://app.aries.com](https://app.aries.com).
+
 #### BBAE
 Made by [ImNotOssy](https://github.com/ImNotOssy) using the [BBAE_investing_API](https://github.com/ImNotOssy/BBAE_investing_API). Go give them a ⭐ 
 - `BBAE_USERNAME`
