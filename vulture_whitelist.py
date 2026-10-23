@@ -12,3 +12,7 @@ on_command_error
 inline
 color
 NonEmbedType
+
+# MCP server
+buy
+sell
