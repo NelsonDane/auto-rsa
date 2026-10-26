@@ -289,7 +289,7 @@ requires-dist = [
     { name = "fennel-invest-api", specifier = "==2.0.1" },
     { name = "fidelity-api", specifier = "==0.0.17" },
     { name = "firstrade", specifier = "==0.0.39" },
-    { name = "nodriver", specifier = "==0.47.0" },
+    { name = "nodriver", specifier = "==0.50.99" },
     { name = "publicdotcom-py", specifier = "==0.1.27" },
     { name = "pyotp", specifier = ">=2.10.0" },
     { name = "python-dotenv", specifier = ">=1.2.3" },
@@ -1224,16 +1224,16 @@ wheels = [
 
 [[package]]
 name = "nodriver"
-version = "0.47.0"
+version = "0.50.99"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "deprecated" },
     { name = "mss" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3a/ef/487e208aa5a69d1782ed02865dcbc03e398e9737f731083506dd2043543e/nodriver-0.47.0.tar.gz", hash = "sha256:5fc31182a4db725ea56fc042269a29a13e55a2baf83dfdd730aa851dd5269608", size = 335122, upload-time = "2025-07-06T00:09:02.691Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d0/2c/8b4c186ee0648cf8dbbbedef19fd0dcde3ecb9bacc53fc7ea8dfeedf326e/nodriver-0.50.99.tar.gz", hash = "sha256:baf8de532bf1e78c9298ab7ea56ea6a586a904290ce6b9ee7dd9ba6f40373211", size = 356536, upload-time = "2026-10-26T13:47:51.462Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/67/51/ea097dc232338a6ac0a2faa1495cb7da39d47b2408d3d21de770d8f2c8ba/nodriver-0.47.0-py3-none-any.whl", hash = "sha256:2bdf69eac8fa33de09249fd513d6a70da95fc80809f9f99c4901cb3ae2e06219", size = 357421, upload-time = "2025-07-06T00:09:01.377Z" },
+    { url = "https://files.pythonhosted.org/packages/96/98/abbed74c4cb62858d7b37a26b4fe2b3ec3fafbc515e50afcd6d3197f23e8/nodriver-0.50.99-py3-none-any.whl", hash = "sha256:8d5dd09e2ecb73829c970989db110dbae5b48937bad86745fb3175969a03d93d", size = 381859, upload-time = "2026-10-26T13:47:46.455Z" },
 ]
 
 [[package]]
