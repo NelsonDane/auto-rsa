@@ -33,7 +33,7 @@ COPY . /app
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-editable
 
-FROM alpine:3.24@sha256:71e9b7bae160ba167fa17414401b94cbcdaf3c32feeab9298bd794a2a0614c35 AS unixifier
+FROM alpine:3.24@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a AS unixifier
 
 # Make entrypoint executable
 WORKDIR /app
@@ -42,7 +42,7 @@ RUN apk add --no-cache dos2unix
 COPY entrypoint.sh .
 RUN dos2unix entrypoint.sh && chmod +x entrypoint.sh
 
-FROM debian:bookworm-slim@sha256:7ff6ba31527b9e336162fa061746c366c4b2032f4d2cff2078bea43f78efe3f8 AS final
+FROM debian:bookworm-slim@sha256:99c0b25c46d0214d5a2091092e7908907dcaecd6a962cde0ac700acee222b6f3 AS final
 
 # Set ENV variables
 ENV TZ=America/New_York \
