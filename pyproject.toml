@@ -14,7 +14,7 @@ dependencies = [
     "fidelity-api==0.0.17",
     "firstrade==0.0.39",
     "nodriver==0.47.0", # pinned until https://github.com/ultrafunkamsterdam/nodriver/pull/36 gets merged
-    "publicdotcom-py==0.1.27",
+    "publicdotcom-py==0.1.28",
     "pyotp>=2.10.0",
     "python-dotenv>=1.2.3",
     "requests>=2.34.2",
