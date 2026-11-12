@@ -290,7 +290,7 @@ requires-dist = [
     { name = "fidelity-api", specifier = "==0.0.17" },
     { name = "firstrade", specifier = "==0.0.39" },
     { name = "nodriver", specifier = "==0.47.0" },
-    { name = "publicdotcom-py", specifier = "==0.1.27" },
+    { name = "publicdotcom-py", specifier = "==0.2.0" },
     { name = "pyotp", specifier = ">=2.10.0" },
     { name = "python-dotenv", specifier = ">=1.2.3" },
     { name = "requests", specifier = ">=2.34.2" },
@@ -1620,7 +1620,7 @@ wheels = [
 
 [[package]]
 name = "publicdotcom-py"
-version = "0.1.27"
+version = "0.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
@@ -1628,10 +1628,11 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "requests" },
     { name = "typing-extensions" },
+    { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1e/62/255624ed4528736057346cfa924ee8bfb54261892fd9f624dc09996657cd/publicdotcom_py-0.1.27.tar.gz", hash = "sha256:ea687f399f4632cdabd925487cc2a608de2157139c82addbeed2b9dcb9a0961c", size = 253366, upload-time = "2026-10-20T17:52:49.554Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9e/b0/e415e940c24b8dce87dd9b38d4ad3e9544239ed7a39cd532f07ab1a3c840/publicdotcom_py-0.2.0.tar.gz", hash = "sha256:257e0d00fb3e072b44f5667180474e22bcea24315c693a5c74b5f635ecd23a38", size = 295649, upload-time = "2026-11-12T15:53:20.57Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e0/f0/f4d2c6fc4f484a8feadb64cbe1941615f0073ac001d9d531085e8ff97f8a/publicdotcom_py-0.1.27-py3-none-any.whl", hash = "sha256:446e7e54c2f04727417b015b0ea1703f581ae6108f8b5901bf4ac05d91d0808d", size = 143557, upload-time = "2026-10-20T17:52:47.93Z" },
+    { url = "https://files.pythonhosted.org/packages/b3/7b/77e0e07d6105d5ed3a24090782592620240be419fb6dc490110b35a647fd/publicdotcom_py-0.2.0-py3-none-any.whl", hash = "sha256:68c7e3440a6b2b9b87efc5c09293551a9f557fdcbfc144382edc850b73e76be8", size = 168456, upload-time = "2026-11-12T15:53:18.165Z" },
 ]
 
 [[package]]
