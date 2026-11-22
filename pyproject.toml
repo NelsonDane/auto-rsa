@@ -12,7 +12,7 @@ dependencies = [
     "email-validator>=2.3.0",
     "fennel-invest-api==2.0.1",
     "fidelity-api==0.0.17",
-    "firstrade==0.0.39",
+    "firstrade==0.0.41",
     "nodriver==0.47.0", # pinned until https://github.com/ultrafunkamsterdam/nodriver/pull/36 gets merged
     "publicdotcom-py==0.1.27",
     "pyotp>=2.10.0",
