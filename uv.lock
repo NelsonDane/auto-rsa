@@ -288,7 +288,7 @@ requires-dist = [
     { name = "email-validator", specifier = ">=2.3.0" },
     { name = "fennel-invest-api", specifier = "==2.0.1" },
     { name = "fidelity-api", specifier = "==0.0.17" },
-    { name = "firstrade", specifier = "==0.0.39" },
+    { name = "firstrade", specifier = "==0.0.41" },
     { name = "nodriver", specifier = "==0.47.0" },
     { name = "publicdotcom-py", specifier = "==0.1.27" },
     { name = "pyotp", specifier = ">=2.10.0" },
@@ -850,15 +850,15 @@ wheels = [
 
 [[package]]
 name = "firstrade"
-version = "0.0.39"
+version = "0.0.41"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pyotp" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b6/57/7f0074b79eca8d2e7f9881b6274c3318166bf8be2bb219c43019b96b30c7/firstrade-0.0.39.tar.gz", hash = "sha256:1d5dced6d48392d601a4dd5623757b98be5f03736491192cd920c55958f74f2e", size = 16339, upload-time = "2026-05-30T00:59:49.791Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/61/16/ca00b74c3c81e35b8da771fec69f674d5d6a2b2bc9a757fb3a055cece466/firstrade-0.0.41.tar.gz", hash = "sha256:bd9f6eac13033856b5bdbcb14cf011dac1abe5bfd5f1d5e6747e714893de4d47", size = 33874, upload-time = "2026-11-22T20:10:14.265Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ad/ce/f8e8964cf5af61cc99784025c4c6aa8b49ee78d5dcc6a60b823ded603810/firstrade-0.0.39-py3-none-any.whl", hash = "sha256:89fe64b82514bcc965daa584d0f4e45cb65106cfea6e3515bcdb7f6005f39257", size = 16714, upload-time = "2026-05-30T00:59:48.943Z" },
+    { url = "https://files.pythonhosted.org/packages/38/d6/009260ce391caa68380c239cac87b5b88269fed6f578c7f92176c74fa052/firstrade-0.0.41-py3-none-any.whl", hash = "sha256:2eacfcfe7c6bbcc1e2316ca8b4ca4000961054a98681e01a52f2db61d31761b7", size = 25768, upload-time = "2026-11-22T20:10:13.513Z" },
 ]
 
 [[package]]
